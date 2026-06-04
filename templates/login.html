@@ -1,14 +1,34 @@
 {% extends "layout.html" %}
 {% block title %}Login{% endblock %}
 {% block public_content %}
-<div class="login-wrap">
-  <form method="post" class="login-card simple-login-card">
-    <div class="bubble-logo big"></div>
-    <h1>{{ biz.business_name }}</h1>
-    <p>Sign in to manage customers, jobs, invoices, and reviews.</p>
-    <input name="username" placeholder="Username" required>
-    <input name="password" type="password" placeholder="Password" required>
-    <button class="btn primary big-action">Login</button>
-  </form>
+<div class="login-wrap website-login-wrap">
+  <section class="login-hero-panel">
+    <div class="login-copy">
+      <div class="bubble-logo big"></div>
+      <span class="section-kicker">The Carpet Cleaning Company</span>
+      <h1>A simple place to run today’s customers.</h1>
+      <p>Open enquiries, quotes, booked jobs, invoices and follow-ups without the clutter.</p>
+      <div class="login-feature-row">
+        <span>Customers</span>
+        <span>Quotes</span>
+        <span>Jobs</span>
+        <span>Invoices</span>
+      </div>
+    </div>
+    <form method="post" class="login-card simple-login-card">
+      <span class="section-kicker">Sign in</span>
+      <h2>Welcome back</h2>
+      <p>Use your CRM login to continue.</p>
+      <label>
+        <span>Username</span>
+        <input name="username" placeholder="Username" required>
+      </label>
+      <label>
+        <span>Password</span>
+        <input name="password" type="password" placeholder="Password" required>
+      </label>
+      <button class="btn primary big-action">Login</button>
+    </form>
+  </section>
 </div>
 {% endblock %}

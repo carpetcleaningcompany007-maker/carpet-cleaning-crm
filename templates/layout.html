@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>{% block title %}CRM{% endblock %}</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=website-polish-20260604">
+  <title>{% block title %}The Carpet Cleaning Company{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=website-app-20260604-2">
   <style>:root{--accent: {{ biz.accent or '#56718f' }}; --sidebar-color: {{ biz.sidebar_color or '#1f2933' }};}</style>
 </head>
 <body>
@@ -28,7 +28,7 @@
       {% endif %}
       <div>
         <h1>{{ biz.business_name }}</h1>
-        <p>Customer workflow studio</p>
+        <p>Customers, quotes and jobs</p>
       </div>
     </div>
 
@@ -47,15 +47,15 @@
     </nav>
 
     <div class="side-note side-note-tabler">
-      <strong>Simple route through the CRM</strong>
-      <span>Enquiry, customer, quote, job, invoice, payment, review, then rebook.</span>
+      <strong>Today’s work, clearly laid out</strong>
+      <span>Enquiries, quotes, jobs, invoices and reviews in one calm place.</span>
     </div>
   </aside>
 
   <main class="main">
     <header class="topbar topbar-tabler">
       <div class="topbar-left-wrap">
-        <div class="eyebrow">The Carpet Cleaning Company</div>
+        <div class="eyebrow">The Carpet Cleaning Company workspace</div>
         <h2 class="page-title">{% block page_title %}Dashboard{% endblock %}</h2>
       </div>
       <div class="topbar-right-wrap">
