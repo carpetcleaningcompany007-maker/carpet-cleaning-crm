@@ -5683,8 +5683,10 @@ def xero_create_contact(lead_id):
         flash(str(exc))
     return redirect(url_for("intake_form_view", lead_id=lead_id))
 
+init_db()
+
+
 if __name__ == "__main__":
-    init_db()
     port = int(os.environ.get("PORT", "5000"))
     debug = os.environ.get("FLASK_DEBUG", "").lower() in {"1", "true", "yes", "on"}
     app.run(host="0.0.0.0", port=port, debug=debug)
