@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: carpet-cleaning-crm
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT
+    disk:
+      name: crm-data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: CRM_DB_PATH
+        value: /data/crm.db
+      - key: CRM_BACKUP_DIR
+        value: /data/backups
+      - key: CRM_UPLOAD_FOLDER
+        value: /data/uploads

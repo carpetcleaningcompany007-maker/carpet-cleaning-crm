@@ -23,15 +23,15 @@ import urllib.error
 import uuid
 import calendar as pycalendar
 
-from flask import Flask, render_template, request, redirect, url_for, flash, session, g, Response, send_file
+from flask import Flask, render_template, request, redirect, url_for, flash, session, g, Response, send_file, send_from_directory
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("CRM_SECRET_KEY", "change-this-secret")
-app.config["UPLOAD_FOLDER"] = os.path.join("static", "uploads")
-DB_PATH = "crm.db"
-BACKUP_DIR = "backups"
+app.config["UPLOAD_FOLDER"] = os.environ.get("CRM_UPLOAD_FOLDER", os.path.join("static", "uploads"))
+DB_PATH = os.environ.get("CRM_DB_PATH", "crm.db")
+BACKUP_DIR = os.environ.get("CRM_BACKUP_DIR", "backups")
 XERO_SCOPES = "offline_access accounting.contacts accounting.contacts.read accounting.transactions accounting.transactions.read accounting.settings.read"
 XERO_AUTHORIZE_URL = "https://login.xero.com/identity/connect/authorize"
 XERO_TOKEN_URL = "https://identity.xero.com/connect/token"
@@ -1277,6 +1277,12 @@ def login_required(fn):
         return fn(*args, **kwargs)
     wrapper.__name__ = fn.__name__
     return wrapper
+
+
+@app.route("/uploads/<path:filename>")
+@login_required
+def uploaded_file(filename):
+    return send_from_directory(app.config["UPLOAD_FOLDER"], filename)
 
 
 @app.context_processor
@@ -5679,4 +5685,6 @@ def xero_create_contact(lead_id):
 
 if __name__ == "__main__":
     init_db()
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", "5000"))
+    debug = os.environ.get("FLASK_DEBUG", "").lower() in {"1", "true", "yes", "on"}
+    app.run(host="0.0.0.0", port=port, debug=debug)

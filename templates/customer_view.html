@@ -232,7 +232,7 @@ document.addEventListener('click', function(e){
           <strong>{{ n.created_at }}</strong>
           <p>{{ n.note_text or '' }}</p>
           {% if n.photo_filename %}
-          <img src="{{ url_for('static', filename='uploads/' ~ n.photo_filename) }}" class="timeline-photo">
+          <img src="{{ url_for('uploaded_file', filename=n.photo_filename) }}" class="timeline-photo">
           {% endif %}
         </div>
         {% else %}

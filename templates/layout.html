@@ -22,7 +22,7 @@
   <aside class="sidebar" id="mainSidebar">
     <div class="brand brand-tabler">
       {% if biz.logo_filename %}
-        <img class="brand-logo" src="{{ url_for('static', filename='uploads/' ~ biz.logo_filename) }}" alt="{{ biz.business_name }}">
+        <img class="brand-logo" src="{{ url_for('uploaded_file', filename=biz.logo_filename) }}" alt="{{ biz.business_name }}">
       {% else %}
         <div class="bubble-logo"></div>
       {% endif %}

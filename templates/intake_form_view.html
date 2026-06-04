@@ -21,7 +21,7 @@
     <div class="span-2"><strong>Rooms or areas</strong><span>{{ lead.rooms_areas }}</span></div>
     <div class="span-2"><strong>Job notes</strong><span>{{ lead.job_notes }}</span></div>
     {% if lead.photo_filename %}
-      <div class="span-2"><strong>Photo</strong><span><a href="{{ url_for('static', filename='uploads/' ~ lead.photo_filename) }}" target="_blank">{{ lead.photo_filename }}</a></span></div>
+      <div class="span-2"><strong>Photo</strong><span><a href="{{ url_for('uploaded_file', filename=lead.photo_filename) }}" target="_blank">{{ lead.photo_filename }}</a></span></div>
     {% endif %}
     {% if lead.xero_contact_id %}
       <div><strong>Xero ContactID</strong><span>{{ lead.xero_contact_id }}</span></div>
