@@ -1,0 +1,226 @@
+{% extends "layout.html" %}
+{% block page_title %}Communication Hub{% endblock %}
+{% block body_content %}
+<link href="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.snow.css" rel="stylesheet">
+
+<div class="page-intro-grid">
+  <section class="page-intro-card">
+    <div class="section-kicker">Communications</div>
+    <h3>Communication Hub</h3>
+    <p>Use this page for one off messages only. Templates, campaigns, SMS inbox, and history are split out so this page stays simple and easier to train people on.</p>
+  </section>
+  <section class="page-stats-grid">
+    <div class="page-stat"><span>Recent communications</span><strong>{{ rows|length }}</strong></div>
+    <div class="page-stat"><span>Customers</span><strong>{{ customers|length }}</strong></div>
+    <div class="page-stat"><span>Templates</span><strong>{{ templates|length }}</strong></div>
+  </section>
+</div>
+<section class="panel library-shell">
+  <div class="library-header">
+    <div>
+      <div class="section-kicker">Shortcuts</div>
+      <h3>Keep one off sending here</h3>
+      <p>Templates, inbox, history, and campaigns each have their own page so this hub stays easier to understand.</p>
+    </div>
+    <div class="library-actions">
+      <a class="btn secondary" href="{{ url_for('email_designer') }}">Email Templates</a>
+      <a class="btn secondary" href="{{ url_for('sms_threads') }}">SMS Inbox</a>
+      <a class="btn secondary" href="{{ url_for('campaign_history') }}">Campaigns</a>
+    </div>
+  </div>
+  <details class="info-drop"><summary>What does this page do?</summary><div class="info-drop-body"><p>This is your quick send area. Use it to send a one off email or SMS to a customer. Use the other communications pages for templates, campaigns, inbox review, and message history.</p></div></details>
+  <div class="hub-shortcuts-grid">
+    <a class="hub-shortcut-card" href="{{ url_for('email_designer') }}"><strong>Email Templates</strong><span>Build and save branded email layouts.</span></a>
+    <a class="hub-shortcut-card" href="{{ url_for('sms_templates_page') }}"><strong>SMS Templates</strong><span>Keep your text templates ready to reuse.</span></a>
+    <a class="hub-shortcut-card" href="{{ url_for('sms_threads') }}"><strong>SMS Inbox</strong><span>View ongoing SMS conversations and replies.</span></a>
+    <a class="hub-shortcut-card" href="{{ url_for('sms_history') }}"><strong>SMS History</strong><span>Review sent, delivered, failed, and inbound SMS events.</span></a>
+    <a class="hub-shortcut-card" href="{{ url_for('campaign_history') }}"><strong>Campaigns</strong><span>Review campaign sends and follow up activity.</span></a>
+    <a class="hub-shortcut-card" href="{{ url_for('segments_page') }}"><strong>Segments</strong><span>Group customers for reactivation and follow ups.</span></a>
+  </div>
+</section>
+<div class="workspace-grid">
+  <section class="panel workspace-banner">
+    <div class="panel-head panel-head-stack">
+      <div>
+        <h3>Quick Send</h3>
+        <p>Choose a customer, choose a channel, write your message, and send it. This page stays focused on one off sending only.</p>
+      </div>
+    </div>
+    <form method="post" action="{{ url_for('communications_send_customer') }}" class="form readable-form" id="commsForm">
+      <div class="cols">
+        <div><label>Customer</label><select name="customer_id" id="commsCustomer"><option value="">Select customer</option>{% for c in customers %}<option value="{{ c.id }}" data-phone="{{ c.phone or '' }}" data-email="{{ c.email or '' }}" data-name="{{ c.name }}" {% if prefill.customer_id and prefill.customer_id|string == c.id|string %}selected{% endif %}>{{ c.name }}</option>{% endfor %}</select></div>
+        <div><label>Saved template</label><select id="commsTemplate"><option value="">Choose template</option>{% for t in templates %}<option value="{{ t.id }}" data-channel='{{ t.channel|tojson }}' data-subject='{{ t.subject|tojson }}' data-body='{{ t.body|tojson }}'>{{ t.name }} · {{ t.channel }}</option>{% endfor %}</select></div>
+      </div>
+      <div class="cols">
+        <div><label>Channel</label><select name="channel" id="commsChannel"><option {% if (prefill.channel or 'Email') == 'Email' %}selected{% endif %}>Email</option><option {% if prefill.channel == 'SMS' %}selected{% endif %}>SMS</option><option {% if prefill.channel == 'Phone' %}selected{% endif %}>Phone</option></select></div>
+        <div><label>Subject</label><input name="subject" id="commsSubject" placeholder="Subject" value="{{ prefill.subject or '' }}"></div>
+      </div>
+      <div>
+        <label>Message body</label>
+        <div class="editor-toolbar-row"><button class="btn secondary" type="button" id="insertImageBtn">Insert image URL</button><button class="btn secondary" type="button" id="insertButtonBtn">Insert button</button><a class="btn secondary" href="{{ url_for('email_designer') }}">Open Email Studio</a></div>
+        <div id="commsEditor" class="crm-editor"></div>
+        <textarea name="body" id="commsBody" style="display:none;"></textarea>
+        <p class="form-help">Placeholders you can use safely: [[first_name]], [[name]], [[business_name]], [[phone]], [[review_link]], [[website]]</p>
+      </div>
+      <div class="row-actions action-bar-separated"><button class="btn primary" type="submit">Send to Customer</button><button class="btn secondary" type="button" id="openEmailBtn">Open Email App</button><button class="btn secondary" type="button" id="openSmsBtn">Open SMS App</button><button class="btn secondary" type="button" id="saveDraftLogBtn">Save Communication Only</button></div>
+      <p class="form-help">SMS sends use the gateway saved in Settings. Email still uses your Gmail setup.</p>
+    </form>
+  </section>
+  <aside class="workspace-rail sticky-rail library-help-stack">
+    <section class="panel compact-card helper-card"><div class="panel-head compact-head"><h3>Quick help</h3></div><ol class="simple-list compact-list"><li>Pick the customer first so the placeholders fill correctly.</li><li>Use a saved template if you send this type of message often.</li><li>Use Email Studio for branded emails rather than building them here from scratch.</li></ol></section>
+    <section class="panel compact-card helper-card"><div class="panel-head compact-head"><h3>Send yourself a test</h3></div><form method="post" action="{{ url_for('communications_send_test') }}" class="form clean-subform" id="testEmailForm"><div><label>Test email address</label><input name="test_email" value="{{ app_settings.test_email or app_settings.gmail_address or '' }}" placeholder="yourgmail@gmail.com"></div><input type="hidden" name="subject" id="testEmailSubjectMirror"><textarea name="body" id="testEmailBodyMirror" style="display:none;"></textarea><button class="btn primary" type="submit">Send Test Email</button></form><form method="post" action="{{ url_for('communications_send_test_sms') }}" class="form clean-subform" id="testSmsForm" style="margin-top:12px;"><div><label>Test phone number</label><input name="test_phone" value="{{ app_settings.sms_test_number or '' }}" placeholder="Your own mobile number"></div><textarea name="body" id="testSmsBodyMirror" style="display:none;"></textarea><button class="btn secondary" type="submit">Send Test SMS</button></form></section>
+    <section class="panel compact-card helper-card"><div class="panel-head compact-head"><h3>Recent communications</h3></div><div class="timeline compact-timeline">{% for r in rows[:5] %}<div class="timeline-item"><strong>{{ r.channel }} · {{ r.customer_name or 'No customer' }}</strong><p>{{ r.subject or 'No subject' }}</p><small>{{ r.created_at }}</small></div>{% else %}<div class="timeline-item"><strong>No communication history yet</strong><p>Your sent and saved items will show here.</p></div>{% endfor %}</div></section>
+  </aside>
+</div>
+<form method="post" action="{{ url_for('communications_new') }}" id="hiddenCommsSaveForm" style="display:none;">
+  <input type="hidden" name="customer_id" id="hiddenSaveCustomerId">
+  <input type="hidden" name="channel" id="hiddenSaveChannel">
+  <input type="hidden" name="subject" id="hiddenSaveSubject">
+  <textarea name="body" id="hiddenSaveBody"></textarea>
+</form>
+
+<script src="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.min.js"></script>
+<script>
+(function(){
+  const settings = {
+    business_name: {{ (app_settings.business_name or '')|tojson }},
+    phone: {{ (app_settings.phone or '')|tojson }},
+    review_link: {{ (app_settings.review_link or '')|tojson }},
+    website: {{ (app_settings.website or '')|tojson }}
+  };
+  const prefill = {
+    customer_id: {{ (prefill.customer_id or '')|tojson }},
+    channel: {{ (prefill.channel or 'Email')|tojson }},
+    subject: {{ (prefill.subject or '')|tojson }},
+    body: {{ (prefill.body or '')|tojson }}
+  };
+
+  const customerSel = document.getElementById('commsCustomer');
+  const templateSel = document.getElementById('commsTemplate');
+  const channelSel = document.getElementById('commsChannel');
+  const subjectEl = document.getElementById('commsSubject');
+  const bodyEl = document.getElementById('commsBody');
+  const templateBody = document.getElementById('hiddenSaveBody');
+  const testEmailBodyMirror = document.getElementById('testEmailBodyMirror');
+  const testSmsBodyMirror = document.getElementById('testSmsBodyMirror');
+  const testEmailSubjectMirror = document.getElementById('testEmailSubjectMirror');
+
+  const editorOptions = {
+    theme: 'snow',
+    modules: {
+      toolbar: [
+        [{ header: [1, 2, 3, false] }],
+        ['bold', 'italic', 'underline'],
+        [{ list: 'ordered' }, { list: 'bullet' }],
+        [{ align: [] }],
+        ['link', 'image'],
+        ['clean']
+      ]
+    }
+  };
+
+  const commsEditor = new Quill('#commsEditor', editorOptions);
+
+  function selectedCustomer(){
+    return customerSel.options[customerSel.selectedIndex] || null;
+  }
+
+  function replaceVars(text){
+    const opt = selectedCustomer();
+    const fullName = opt ? (opt.dataset.name || '') : '';
+    const firstName = fullName.split(' ')[0] || '';
+    const email = opt ? (opt.dataset.email || '') : '';
+    const phone = opt ? (opt.dataset.phone || '') : '';
+
+    return String(text || '')
+      .replaceAll('[[name]]', fullName)
+      .replaceAll('[[first_name]]', firstName)
+      .replaceAll('[[business_name]]', settings.business_name || '')
+      .replaceAll('[[phone]]', settings.phone || '')
+      .replaceAll('[[review_link]]', settings.review_link || '')
+      .replaceAll('[[website]]', settings.website || '')
+      .replaceAll('[[email]]', email)
+      .replaceAll('[[customer_email]]', email)
+      .replaceAll('[[customer_phone]]', phone);
+  }
+
+  function syncBodies(){
+    bodyEl.value = commsEditor.root.innerHTML;
+    document.getElementById('hiddenSaveBody').value = commsEditor.root.innerHTML;
+    testEmailBodyMirror.value = commsEditor.root.innerHTML;
+    testSmsBodyMirror.value = commsEditor.getText().trim() || commsEditor.root.innerText || '';
+    testEmailSubjectMirror.value = subjectEl.value || '';
+  }
+
+  templateSel && templateSel.addEventListener('change', function(){
+    const opt = templateSel.options[templateSel.selectedIndex];
+    if(!opt || !opt.value) return;
+    const channel = JSON.parse(opt.dataset.channel || '"Email"');
+    const subject = JSON.parse(opt.dataset.subject || '""');
+    const body = JSON.parse(opt.dataset.body || '""');
+    channelSel.value = channel || 'Email';
+    subjectEl.value = replaceVars(subject || '');
+    commsEditor.root.innerHTML = replaceVars(body || '<p></p>');
+    syncBodies();
+  });
+
+  customerSel && customerSel.addEventListener('change', function(){
+    subjectEl.value = replaceVars(subjectEl.value);
+    commsEditor.root.innerHTML = replaceVars(commsEditor.root.innerHTML);
+    syncBodies();
+  });
+
+  subjectEl && subjectEl.addEventListener('input', syncBodies);
+  commsEditor.on('text-change', syncBodies);
+
+  document.getElementById('insertImageBtn')?.addEventListener('click', function(){
+    const url = prompt('Paste image URL');
+    if(!url) return;
+    const range = commsEditor.getSelection(true);
+    commsEditor.insertEmbed(range ? range.index : 0, 'image', url, 'user');
+    syncBodies();
+  });
+
+  document.getElementById('insertButtonBtn')?.addEventListener('click', function(){
+    const label = prompt('Button text', 'Book Now');
+    const url = prompt('Button link', settings.website || 'https://');
+    if(!label || !url) return;
+    const html = '<p><a href="' + url + '" style="display:inline-block;padding:12px 18px;border-radius:8px;background:#5c6f82;color:#ffffff;text-decoration:none;font-weight:700;">' + label + '</a></p>';
+    const range = commsEditor.getSelection(true);
+    commsEditor.clipboard.dangerouslyPasteHTML(range ? range.index : commsEditor.getLength(), html, 'user');
+    syncBodies();
+  });
+
+  document.getElementById('openEmailBtn')?.addEventListener('click', function(){
+    syncBodies();
+    const opt = selectedCustomer();
+    const email = opt ? (opt.dataset.email || '') : '';
+    const subject = encodeURIComponent(subjectEl.value || '');
+    const body = encodeURIComponent((commsEditor.getText() || '').trim());
+    if(email){ window.open('mailto:' + email + '?subject=' + subject + '&body=' + body, '_blank'); }
+  });
+
+  document.getElementById('openSmsBtn')?.addEventListener('click', function(){
+    syncBodies();
+    const opt = selectedCustomer();
+    const phone = opt ? (opt.dataset.phone || '') : '';
+    const body = encodeURIComponent((commsEditor.getText() || '').trim());
+    if(phone){ window.open('sms:' + phone + '?body=' + body, '_blank'); }
+  });
+
+  document.getElementById('saveDraftLogBtn')?.addEventListener('click', function(){
+    syncBodies();
+    document.getElementById('hiddenSaveCustomerId').value = customerSel.value || '';
+    document.getElementById('hiddenSaveChannel').value = channelSel.value || 'Email';
+    document.getElementById('hiddenSaveSubject').value = subjectEl.value || '';
+    document.getElementById('hiddenCommsSaveForm').submit();
+  });
+
+  if(prefill.customer_id){ customerSel.value = String(prefill.customer_id); }
+  if(prefill.channel){ channelSel.value = prefill.channel; }
+  if(prefill.subject){ subjectEl.value = replaceVars(prefill.subject); }
+  commsEditor.root.innerHTML = replaceVars(prefill.body || '<p></p>');
+  syncBodies();
+})();
+</script>
+{% endblock %}

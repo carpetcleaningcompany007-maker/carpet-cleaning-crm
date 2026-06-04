@@ -1,0 +1,32 @@
+{% extends "layout.html" %}
+{% block title %}Feedback{% endblock %}
+{% block page_title %}Feedback{% endblock %}
+{% block body_content %}
+<section class="panel">
+  <div class="panel-head">
+    <div>
+      <h3>Customer feedback</h3>
+      <p>Review job feedback and Google review request history.</p>
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Date</th><th>Customer</th><th>Job</th><th>Rating</th><th>Review</th><th>Feedback</th></tr></thead>
+      <tbody>
+      {% for row in feedback_rows %}
+        <tr>
+          <td>{{ row.created_at }}</td>
+          <td>{% if row.customer_id %}<a href="{{ url_for('customer_view', customer_id=row.customer_id) }}">{{ row.customer_name or 'Customer' }}</a>{% endif %}</td>
+          <td>{{ row.job_title or '' }}</td>
+          <td>{{ row.rating or 0 }} stars</td>
+          <td>{% if row.review_requested %}Requested{% else %}Not requested{% endif %}</td>
+          <td>{{ row.feedback_text or '' }}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="6">No feedback recorded yet.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

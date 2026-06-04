@@ -1,0 +1,16 @@
+{% extends "layout.html" %}
+{% block title %}Thanks{% endblock %}
+{% block public_content %}
+<section class="public-page">
+  <div class="public-card">
+    <h1>{{ title or "Thanks, we have your details" }}</h1>
+    <p>{{ message or "Your request has been saved in the CRM for review." }}</p>
+    {% if formspree_message %}
+      <p>{{ formspree_message }}</p>
+    {% endif %}
+    {% if sms_message %}
+      <p>{{ sms_message }}</p>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

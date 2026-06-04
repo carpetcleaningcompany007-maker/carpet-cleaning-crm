@@ -1,0 +1,64 @@
+{% extends "layout.html" %}
+{% block page_title %}Calculator Manager{% endblock %}
+{% block body_content %}
+<section class="hero small-hero">
+  <div>
+    <div class="hero-tag">Calculator controls</div>
+    <h3>Edit prices and add new items</h3>
+    <p>Use this area to manage the calculator without changing code. You can change room prices, add new services, and update hotel room rates.</p>
+  </div>
+</section>
+
+<div class="grid-2">
+  <section class="panel">
+    <div class="panel-head"><h3>Add Calculator Item</h3></div>
+    <form method="post" class="form">
+      <input type="hidden" name="action" value="add_domestic">
+      <div class="cols"><input name="item_id" placeholder="Item id, example protection"><input name="name" placeholder="Name, example Protection Treatment"></div>
+      <input name="desc" placeholder="Description">
+      <div class="cols"><input name="group" placeholder="Group, example Extras"><input name="price" type="number" step="0.01" placeholder="Price"></div>
+      <button class="btn primary">Add Item</button>
+    </form>
+  </section>
+  <section class="panel">
+    <div class="panel-head"><h3>Hotel Room Rates</h3></div>
+    <form method="post" class="form">
+      <input type="hidden" name="action" value="update_hotels">
+      <div class="cols"><input name="hotel_rotary" type="number" step="0.01" value="{{ pricing.hotelRooms.rotary }}"><input name="hotel_hybrid" type="number" step="0.01" value="{{ pricing.hotelRooms.hybrid }}"></div>
+      <input name="hotel_hwe" type="number" step="0.01" value="{{ pricing.hotelRooms.hwe }}">
+      <button class="btn primary">Save Hotel Rates</button>
+    </form>
+  </section>
+</div>
+
+<section class="panel">
+  <div class="panel-head"><h3>Existing Calculator Items</h3></div>
+  <form method="post" class="form">
+    <input type="hidden" name="action" value="update_domestic">
+    {% for item in pricing.domestic %}
+    <div class="form" style="margin-bottom:14px;">
+      <div class="cols">
+        <input name="name_{{ loop.index0 }}" value="{{ item.name }}">
+        <input name="desc_{{ loop.index0 }}" value="{{ item.desc }}">
+      </div>
+      <div class="cols">
+        <input name="group_{{ loop.index0 }}" value="{{ item.group }}">
+        <input name="price_{{ loop.index0 }}" type="number" step="0.01" value="{{ item.price }}">
+      </div>
+    </div>
+    {% endfor %}
+    <button class="btn primary">Save All Items</button>
+  </form>
+  <div class="timeline" style="margin-top:14px;">
+    {% for item in pricing.domestic %}
+    <form method="post" class="timeline-item">
+      <input type="hidden" name="action" value="delete_domestic">
+      <input type="hidden" name="index" value="{{ loop.index0 }}">
+      <strong>{{ item.name }}</strong>
+      <p>{{ item.group }} · £{{ '%.2f'|format(item.price or 0) }}</p>
+      <button class="btn secondary">Delete This Item</button>
+    </form>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,77 @@
+
+{% extends "layout.html" %}
+{% block page_title %}Batch SMS Prep<script>
+(function(){
+  const picker = document.getElementById('smsTemplatePicker');
+  const body = document.getElementById('segmentSmsBody');
+  if (picker && body) {
+    picker.addEventListener('change', function(){
+      const opt = picker.options[picker.selectedIndex];
+      const raw = opt ? opt.getAttribute('data-body') : '';
+      if (raw) body.value = raw;
+    });
+  }
+})();
+</script>
+{% endblock %}
+{% block body_content %}
+<section class="hero small-hero">
+  <div>
+    <div class="hero-tag">SMS prep</div>
+    <h3>Prepare a batch SMS list</h3>
+    <p>This saves a text campaign inside the CRM and logs it to customer communications. It does not send real text messages automatically.</p>
+  </div>
+</section>
+
+<section class="panel">
+  <form method="post" action="{{ url_for('segments_batch_sms_log') }}">
+    <input type="hidden" name="segment" value="{{ segment }}">
+    {% for customer_id in selected_ids %}<input type="hidden" name="customer_ids" value="{{ customer_id }}">{% endfor %}
+    <div class="panel-head"><h3>{{ segment_label }}</h3></div>
+    <label>SMS campaign template</label>
+    <select id="smsTemplatePicker">
+      <option value="">Choose SMS template</option>
+      {% for t in sms_templates %}
+      <option value="{{ t.id }}" data-body="{{ t.body|e }}">{{ t.name }}{% if t.category %} · {{ t.category }}{% endif %}</option>
+      {% endfor %}
+    </select>
+    <label>SMS message</label>
+    <textarea name="body" rows="10" id="segmentSmsBody">{{ default_body }}</textarea>
+    <div class="inline-note">You can use placeholders like {{ '{{first_name}}' }}, {{ '{{business_name}}' }}, {{ '{{phone}}' }}, and {{ '{{website}}' }}.</div>
+    <div class="quick-actions" style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
+      <button class="btn primary" type="submit">Save SMS Prep Campaign</button>
+      <a class="btn secondary" href="{{ url_for('segments_page', segment=segment) }}">Back to Segments</a>
+    </div>
+  </form>
+</section>
+
+<section class="panel">
+  <div class="panel-head"><h3>Recipients</h3></div>
+  <table class="table">
+    <tr><th>Customer</th><th>Phone</th><th>Email</th><th>Town</th></tr>
+    {% for row in rows %}
+    <tr>
+      <td>{{ row.first_name }} {{ row.last_name }}</td>
+      <td>{{ row.phone }}</td>
+      <td>{{ row.email or '' }}</td>
+      <td>{{ row.town or '' }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="4" class="empty-cell">No SMS recipients found.</td></tr>
+    {% endfor %}
+  </table>
+</section>
+<script>
+(function(){
+  const picker = document.getElementById('smsTemplatePicker');
+  const body = document.getElementById('segmentSmsBody');
+  if (picker && body) {
+    picker.addEventListener('change', function(){
+      const opt = picker.options[picker.selectedIndex];
+      const raw = opt ? opt.getAttribute('data-body') : '';
+      if (raw) body.value = raw;
+    });
+  }
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,167 @@
+{% extends "layout.html" %}
+{% block page_title %}Calendar{% endblock %}
+{% block body_content %}
+<div class="calendar-shell">
+  <section class="report-hero">
+    <div class="page-intro" style="margin-bottom:0;">
+      <div class="page-intro-copy">
+        <div class="section-kicker">Operations calendar</div>
+        <h3>Full size planning calendar</h3>
+        <p>Use month view for planning, week view for workload, and day view for a tighter running order. Jobs and unpaid invoice due dates are shown together so the diary and money side stay linked.</p>
+      </div>
+      <div class="page-intro-actions">
+        <a class="btn secondary" href="{{ url_for('scheduler') }}">Open Scheduler</a>
+        <a class="btn primary" href="{{ url_for('jobs') }}">Open Job Library</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="workspace-banner">
+    <div class="calendar-toolbar">
+      <div>
+        <div class="section-kicker">Calendar controls</div>
+        <h3 style="margin:0;">{{ month_name }}</h3>
+        <div class="calendar-legend">
+          <span class="legend-chip"><span class="legend-dot job"></span>Job booked</span>
+          <span class="legend-chip"><span class="legend-dot invoice"></span>Invoice due</span>
+        </div>
+      </div>
+      <div class="row-actions">
+        <a class="btn secondary" href="{{ url_for('full_calendar', view=view_mode, year=prev_year, month=prev_month, day=selected_day if view_mode != 'month' else None) }}">Previous</a>
+        <a class="btn secondary" href="{{ url_for('full_calendar', view=view_mode) }}">Today</a>
+        <a class="btn secondary" href="{{ url_for('full_calendar', view=view_mode, year=next_year, month=next_month, day=selected_day if view_mode != 'month' else None) }}">Next</a>
+      </div>
+    </div>
+    <div class="row-actions">
+      <a class="scope-tab {{ 'active' if view_mode == 'month' else '' }}" href="{{ url_for('full_calendar', view='month', year=year, month=month) }}">Month</a>
+      <a class="scope-tab {{ 'active' if view_mode == 'week' else '' }}" href="{{ url_for('full_calendar', view='week', day=selected_day) }}">Week</a>
+      <a class="scope-tab {{ 'active' if view_mode == 'day' else '' }}" href="{{ url_for('full_calendar', view='day', day=selected_day) }}">Day</a>
+      <span class="pill">{{ month_job_count }} jobs this month</span>
+      <span class="pill">{{ month_invoice_alert_count }} unpaid invoice alerts</span>
+    </div>
+  </section>
+
+  <div class="calendar-layout">
+    <section class="panel">
+      {% if view_mode == 'month' %}
+        <div class="calendar-month-grid calendar-weekdays">
+          {% for label in ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'] %}
+            <div class="calendar-weekday">{{ label }}</div>
+          {% endfor %}
+        </div>
+        <div class="calendar-month-grid">
+          {% for week in weeks %}
+            {% for d in week %}
+              <div class="calendar-day-card {{ 'is-outside' if not d.is_current_month else '' }} {{ 'is-today' if d.is_today else '' }}">
+                <div class="calendar-day-top">
+                  <a class="calendar-day-number" href="{{ url_for('full_calendar', view='day', day=d.date) }}">{{ d.day_num }}</a>
+                  <a class="mini-link" href="{{ url_for('scheduler') }}?date={{ d.date }}">Open day</a>
+                </div>
+                <div class="calendar-day-items">
+                  {% for job in d.jobs %}
+                    <a class="calendar-item job" href="{{ url_for('job_view', job_id=job.id) }}">
+                      <strong>{{ job.title }}</strong>
+                      <span>{{ job.customer_name or 'No customer' }}</span>
+                    </a>
+                  {% endfor %}
+                  {% if d.jobs_more %}<div class="calendar-more">{{ d.jobs_more }} more jobs</div>{% endif %}
+                  {% for inv in d.invoice_alerts %}
+                    <a class="calendar-item invoice" href="{{ url_for('invoice_view', invoice_id=inv.id) }}">
+                      <strong>{{ inv.invoice_number or ('Invoice #' ~ inv.id) }}</strong>
+                      <span>Due {{ inv.due_date }}</span>
+                    </a>
+                  {% endfor %}
+                  {% if d.invoice_more %}<div class="calendar-more">{{ d.invoice_more }} more invoice alerts</div>{% endif %}
+                </div>
+              </div>
+            {% endfor %}
+          {% endfor %}
+        </div>
+      {% elif view_mode == 'week' %}
+        <div class="calendar-week-stack">
+          {% for d in week_days %}
+            <div class="calendar-list-day {{ 'is-today' if d.is_today else '' }}">
+              <div class="calendar-list-head">
+                <h4>{{ d.label }}</h4>
+                <a class="mini-link" href="{{ url_for('full_calendar', view='day', day=d.date) }}">Day view</a>
+              </div>
+              {% if d.jobs or d.invoice_alerts %}
+                <div class="calendar-list-items">
+                  {% for job in d.jobs %}
+                    <a class="calendar-item job" href="{{ url_for('job_view', job_id=job.id) }}">
+                      <strong>{{ job.title }}</strong>
+                      <span>{{ job.customer_name or 'No customer' }} · {{ job.status or 'Booked' }}</span>
+                    </a>
+                  {% endfor %}
+                  {% for inv in d.invoice_alerts %}
+                    <a class="calendar-item invoice" href="{{ url_for('invoice_view', invoice_id=inv.id) }}">
+                      <strong>{{ inv.invoice_number or ('Invoice #' ~ inv.id) }}</strong>
+                      <span>{{ inv.customer_name or 'No customer' }} · due {{ inv.due_date }}</span>
+                    </a>
+                  {% endfor %}
+                </div>
+              {% else %}
+                <div class="empty-state">No jobs or invoice alerts on this day.</div>
+              {% endif %}
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="calendar-list-day is-today">
+          <div class="calendar-list-head">
+            <h4>{{ day_view.label }}</h4>
+            <div class="row-actions">
+              <a class="scope-tab" href="{{ url_for('full_calendar', view='week', day=day_view.date) }}">Week view</a>
+              <a class="scope-tab" href="{{ url_for('full_calendar', view='month', year=year, month=month) }}">Month view</a>
+            </div>
+          </div>
+          {% if day_view.jobs or day_view.invoice_alerts %}
+            <div class="calendar-list-items">
+              {% for job in day_view.jobs %}
+                <a class="calendar-item job" href="{{ url_for('job_view', job_id=job.id) }}">
+                  <strong>{{ job.title }}</strong>
+                  <span>{{ job.customer_name or 'No customer' }} · {{ job.service_type or 'Service' }}</span>
+                </a>
+              {% endfor %}
+              {% for inv in day_view.invoice_alerts %}
+                <a class="calendar-item invoice" href="{{ url_for('invoice_view', invoice_id=inv.id) }}">
+                  <strong>{{ inv.invoice_number or ('Invoice #' ~ inv.id) }}</strong>
+                  <span>{{ inv.customer_name or 'No customer' }} · unpaid</span>
+                </a>
+              {% endfor %}
+            </div>
+          {% else %}
+            <div class="empty-state">No jobs or invoice alerts on this day.</div>
+          {% endif %}
+        </div>
+      {% endif %}
+    </section>
+
+    <aside class="calendar-side-stack">
+      <section class="utility-card">
+        <h4>Upcoming jobs</h4>
+        <div class="timeline">
+          {% for job in upcoming_jobs %}
+            <div class="timeline-item">
+              <strong>{{ job.job_date }}</strong>
+              <p>{{ job.title }}{% if job.customer_name %} · {{ job.customer_name }}{% endif %}</p>
+              <a class="mini-link" href="{{ url_for('job_view', job_id=job.id) }}">Open job</a>
+            </div>
+          {% else %}
+            <div class="empty-state">No future jobs saved yet.</div>
+          {% endfor %}
+        </div>
+      </section>
+      <section class="utility-card">
+        <h4>Using the calendar</h4>
+        <ul class="simple-list">
+          <li>Use Month to plan capacity and spot quiet days.</li>
+          <li>Use Week when organising runs and job flow.</li>
+          <li>Use Day to focus on the jobs and unpaid invoice pressure for that date.</li>
+          <li>The Scheduler page still handles drag and drop job moving.</li>
+        </ul>
+      </section>
+    </aside>
+  </div>
+</div>
+{% endblock %}

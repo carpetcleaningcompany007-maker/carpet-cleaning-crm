@@ -1,0 +1,82 @@
+{% extends "layout.html" %}
+{% block title %}Xero Sync{% endblock %}
+{% block page_title %}Xero Sync{% endblock %}
+{% block body_content %}
+<section class="page-intro-card">
+  <div class="section-kicker">Accounting integration</div>
+  <h3>Xero sync centre</h3>
+  <p>Connect Xero, send CRM invoices into Xero, and read Xero payment status back into the CRM.</p>
+</section>
+
+<div class="kpi-band">
+  <div class="kpi-card"><span>Linked customers</span><strong>{{ counts.customers_linked }}</strong></div>
+  <div class="kpi-card"><span>Synced invoices</span><strong>{{ counts.invoices_linked }}</strong></div>
+  <div class="kpi-card"><span>Waiting to sync</span><strong>{{ counts.invoices_unlinked }}</strong></div>
+  <div class="kpi-card"><span>Paid / Xero paid</span><strong>{{ counts.xero_paid }}</strong></div>
+</div>
+
+<div class="grid-2">
+  <section class="panel">
+    <div class="panel-head"><h3>Connection</h3></div>
+    {% if not configured %}
+      <div class="notice danger-notice">Xero credentials are not configured yet. Set XERO_CLIENT_ID, XERO_CLIENT_SECRET and XERO_REDIRECT_URI before connecting.</div>
+    {% elif connected %}
+      <div class="notice">Xero is connected. Tenant ID: {{ token.tenant_id or 'not selected yet' }}</div>
+    {% else %}
+      <div class="notice">Xero credentials are configured, but the CRM has not been authorised yet.</div>
+    {% endif %}
+    <div class="row-actions">
+      <a class="btn primary" href="{{ url_for('xero_connect') }}">Connect Xero</a>
+      <a class="btn secondary" href="{{ url_for('xero_test') }}">Test Connection</a>
+      <form method="post" action="{{ url_for('xero_refresh_open_invoices') }}"><button class="btn secondary">Refresh Open Invoice Statuses</button></form>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head"><h3>Setup values</h3></div>
+    <div class="report-summary-list">
+      <div><strong>Scopes</strong><span>{{ scopes }}</span></div>
+      <div><strong>Sales account code</strong><span>{{ sales_account_code }}</span></div>
+      <div><strong>Tax type</strong><span>{{ tax_type }}</span></div>
+      <div><strong>Invoice push status</strong><span>{{ push_status }}</span></div>
+    </div>
+    <p class="muted inline-note">These are read from environment variables where possible. Nothing sensitive is stored in templates.</p>
+  </section>
+</div>
+
+<section class="panel">
+  <div class="panel-head"><h3>Recent invoices</h3></div>
+  <div class="table-wrap">
+    <table class="table table-readable compact-table">
+      <tr><th>Invoice</th><th>Customer</th><th>CRM</th><th>Xero</th><th>Paid</th><th>Due</th><th></th></tr>
+      {% for row in recent_invoices %}
+      <tr>
+        <td><strong>{{ row.invoice_number }}</strong></td>
+        <td>{{ row.customer_name or 'No customer' }}</td>
+        <td>{{ row.status or 'Draft' }}</td>
+        <td>{% if row.xero_invoice_id %}{{ row.xero_status or 'Synced' }}{% else %}Not synced{% endif %}</td>
+        <td>£{{ '%.2f'|format(row.xero_amount_paid or 0) }}</td>
+        <td>£{{ '%.2f'|format(row.xero_amount_due or 0) }}</td>
+        <td><a class="mini-link" href="{{ url_for('invoice_view', invoice_id=row.id) }}">Open</a></td>
+      </tr>
+      {% else %}
+      <tr><td colspan="7" class="empty-cell">No invoices found.</td></tr>
+      {% endfor %}
+    </table>
+  </div>
+</section>
+
+<section class="panel">
+  <div class="panel-head"><h3>Recent Xero log</h3></div>
+  <div class="timeline">
+    {% for log in recent_logs %}
+      <div class="timeline-item">
+        <strong>{{ log.created_at }} · {{ log.action }} · {{ log.status }}</strong>
+        <p>{{ log.local_type }} #{{ log.local_id }}{% if log.message %}: {{ log.message }}{% endif %}</p>
+      </div>
+    {% else %}
+      <div class="empty-state">No Xero sync activity yet.</div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

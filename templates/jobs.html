@@ -1,0 +1,78 @@
+{% extends "layout.html" %}
+{% block page_title %}Job Library{% endblock %}
+{% block body_content %}
+<section class="panel page-shell">
+  <div class="panel-head panel-head-stack">
+    <div>
+      <h3>Job Library</h3>
+      <p>Use this page to browse, search, and open jobs. Create a manual job from the pop out if you are not creating it from a quote or customer record.</p>
+    </div>
+    <div class="stack-inline">
+      <button class="btn primary" type="button" data-open-modal="jobModal">Add New Job</button>
+      <a class="btn secondary" href="{{ url_for('full_calendar') }}">Open Calendar</a>
+    </div>
+  </div>
+
+  <details class="info-drop">
+    <summary>What does this page do?</summary>
+    <div class="info-drop-body">
+      <p>This is your job library. Use it to find work already in the system. For day to day planning, use the Calendar or Scheduler. For job history, open the customer record.</p>
+    </div>
+  </details>
+
+  <form method="get" class="library-toolbar">
+    <div class="library-search-group">
+      <input name="q" value="{{ search }}" placeholder="Search jobs, customers, or assigned staff">
+      <select name="status"><option value="">All statuses</option>{% for s in ['Lead','Quoted','Booked','In Progress','Completed','Invoiced','Paid','Archived'] %}<option value="{{ s }}" {% if status_filter==s %}selected{% endif %}>{{ s }}</option>{% endfor %}</select>
+      <select name="scope">
+        <option value="active" {% if scope=='active' %}selected{% endif %}>Active</option>
+        <option value="archived" {% if scope=='archived' %}selected{% endif %}>Archived</option>
+        <option value="all" {% if scope=='all' %}selected{% endif %}>All</option>
+      </select>
+      <button class="btn secondary">Filter</button>
+    </div>
+  </form>
+
+  <div class="scope-tabs">
+    <a class="scope-tab {% if scope=='active' %}active{% endif %}" href="{{ url_for('jobs', q=search, status=status_filter, scope='active') }}">Active</a>
+    <a class="scope-tab {% if scope=='archived' %}active{% endif %}" href="{{ url_for('jobs', q=search, status=status_filter, scope='archived') }}">Archived</a>
+    <a class="scope-tab {% if scope=='all' %}active{% endif %}" href="{{ url_for('jobs', q=search, status=status_filter, scope='all') }}">All</a>
+  </div>
+
+  <table class="table table-readable">
+    <tr><th>Date</th><th>Customer</th><th>Title</th><th>Status</th><th></th></tr>
+    {% for r in jobs %}
+    <tr>
+      <td>{{ r.job_date or '' }}</td>
+      <td>{{ r.customer_name or 'No customer' }}</td>
+      <td><strong>{{ r.title }}</strong>{% if r.assigned_to %}<div class="subtle-row">Assigned to {{ r.assigned_to }}</div>{% endif %}</td>
+      <td><span class="status-pill {{ (r.status or 'booked')|lower|replace(' ','-') }}">{{ r.status }}</span></td>
+      <td><a class="mini-link" href="{{ url_for('job_view', job_id=r.id) }}">Open Record</a></td>
+    </tr>
+    {% else %}
+    <tr><td colspan="5" class="empty-cell">No jobs found for this view.</td></tr>
+    {% endfor %}
+  </table>
+</section>
+
+<div class="modal-shell" id="jobModal" aria-hidden="true">
+  <div class="modal-backdrop" data-close-modal="jobModal"></div>
+  <div class="modal-panel modal-panel-large">
+    <div class="modal-head">
+      <div>
+        <h3>Add New Job</h3>
+        <p>Use this when the job is not already being created from a quote or a customer record.</p>
+      </div>
+      <button class="btn secondary" type="button" data-close-modal="jobModal">Close</button>
+    </div>
+    <form method="post" action="{{ url_for('jobs_new') }}" class="form modal-form">
+      <input name="title" placeholder="Job title" required>
+      <div class="cols"><input name="service_type" placeholder="Service type"><input type="date" name="job_date"></div>
+      <div class="cols"><input name="amount" type="number" step="0.01" placeholder="Amount"><input name="assigned_to" placeholder="Assigned to"></div>
+      <select name="status">{% for s in ['Lead','Quoted','Booked','In Progress','Completed','Invoiced','Paid'] %}<option>{{ s }}</option>{% endfor %}</select>
+      <textarea name="notes" placeholder="Notes"></textarea>
+      <div class="modal-actions"><button class="btn primary">Create Job</button></div>
+    </form>
+  </div>
+</div>
+{% endblock %}

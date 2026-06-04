@@ -1,0 +1,111 @@
+
+{% extends "layout.html" %}
+{% block page_title %}Campaign History{% endblock %}
+{% block body_content %}
+<section class="hero small-hero">
+  <div>
+    <div class="hero-tag">Campaign tracking</div>
+    <h3>Campaign history and follow up activity</h3>
+    <p>This shows sent email campaigns and prepared SMS lists. Activity since sent is based on newer CRM activity for that customer.</p>
+  </div>
+</section>
+
+<div class="stats-grid">
+  <div class="stat"><span>Last {{ follow_up_summary.days }} Days</span><strong>{{ follow_up_summary.total }}</strong></div>
+  <div class="stat"><span>Email Sent</span><strong>{{ follow_up_summary.email_sent }}</strong></div>
+  <div class="stat"><span>SMS Logged</span><strong>{{ follow_up_summary.sms_logged }}</strong></div>
+  <div class="stat"><span>Activity Since Sent</span><strong>{{ follow_up_summary.activity_count }}</strong></div>
+  <div class="stat"><span>No Activity Yet</span><strong>{{ follow_up_summary.waiting_count }}</strong></div>
+</div>
+
+<section class="panel">
+  <div class="panel-head"><h3>Filters</h3></div>
+  <form method="get" class="form">
+    <div class="cols">
+      <div>
+        <label>Channel</label>
+        <select name="channel">
+          <option value="" {% if not filters.channel %}selected{% endif %}>All</option>
+          <option value="Email" {% if filters.channel=='Email' %}selected{% endif %}>Email</option>
+          <option value="SMS" {% if filters.channel=='SMS' %}selected{% endif %}>SMS</option>
+        </select>
+      </div>
+      <div>
+        <label>Status</label>
+        <select name="status">
+          <option value="" {% if not filters.status %}selected{% endif %}>All</option>
+          <option value="Sent" {% if filters.status=='Sent' %}selected{% endif %}>Sent</option>
+          <option value="Prepared" {% if filters.status=='Prepared' %}selected{% endif %}>Prepared</option>
+          <option value="Started" {% if filters.status=='Started' %}selected{% endif %}>Started</option>
+          <option value="Failed" {% if filters.status=='Failed' %}selected{% endif %}>Failed</option>
+        </select>
+      </div>
+    </div>
+    <div class="cols">
+      <div><label>From date</label><input type="date" name="date_from" value="{{ filters.date_from }}"></div>
+      <div><label>To date</label><input type="date" name="date_to" value="{{ filters.date_to }}"></div>
+    </div>
+    <div class="quick-actions" style="display:flex; gap:10px; flex-wrap:wrap;">
+      <button class="btn primary">Apply Filters</button>
+      <a class="btn secondary" href="{{ url_for('campaign_history') }}">Clear</a>
+    </div>
+  </form>
+</section>
+
+<div class="grid-2">
+  <section class="panel">
+    <div class="panel-head"><h3>Campaign Batches</h3></div>
+    <table class="table">
+      <tr><th>When</th><th>Channel</th><th>Segment</th><th>Mode</th><th>Counts</th><th>Status</th></tr>
+      {% for b in batches %}
+      <tr>
+        <td>{{ b.created_at }}</td>
+        <td>{{ b.channel }}</td>
+        <td>{{ b.segment or '—' }}</td>
+        <td>{{ b.mode or '—' }}</td>
+        <td>{{ b.sent_count or 0 }}/{{ b.recipient_count or b.item_count or 0 }}</td>
+        <td>{{ b.status }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" class="empty-cell">No campaign batches logged yet.</td></tr>
+      {% endfor %}
+    </table>
+  </section>
+  <section class="panel">
+    <div class="panel-head"><h3>Recent Activity Since Sent</h3></div>
+    <table class="table">
+      <tr><th>Customer</th><th>Channel</th><th>Sent</th><th>Activity</th><th></th></tr>
+      {% for r in follow_up_summary.recent_activity %}
+      <tr>
+        <td>{{ r.customer_name }}</td>
+        <td>{{ r.channel }}</td>
+        <td>{{ r.sent_at }}</td>
+        <td>{{ r.activity_at }}</td>
+        <td><a class="mini-link" href="{{ url_for('customer_view', customer_id=r.customer_id) }}">Open</a></td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5" class="empty-cell">No newer activity found yet.</td></tr>
+      {% endfor %}
+    </table>
+  </section>
+</div>
+
+<section class="panel">
+  <div class="panel-head"><h3>Campaign Items</h3></div>
+  <table class="table">
+    <tr><th>Customer</th><th>Channel</th><th>Sent</th><th>Contact</th><th>Status</th><th></th></tr>
+    {% for r in item_rows %}
+    <tr>
+      <td>{{ r.customer_name }}<br><small>{{ r.town or '' }}</small></td>
+      <td>{{ r.channel }}</td>
+      <td>{{ r.sent_at }}</td>
+      <td>{% if r.channel == 'SMS' %}{{ r.phone or r.customer_phone or 'No phone' }}{% else %}{{ r.recipient or r.email or 'No email' }}{% endif %}</td>
+      <td>{{ r.reply_state }}</td>
+      <td><a class="mini-link" href="{{ url_for('customer_view', customer_id=r.customer_id) }}">Open</a></td>
+    </tr>
+    {% else %}
+    <tr><td colspan="6" class="empty-cell">No campaign items logged yet.</td></tr>
+    {% endfor %}
+  </table>
+</section>
+{% endblock %}

@@ -1,0 +1,85 @@
+{% extends "layout.html" %}
+{% block title %}SMS Templates{% endblock %}
+{% block page_title %}SMS Templates{% endblock %}
+{% block body_content %}
+<section class="card">
+  <div class="card-head" style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;">
+    <div>
+      <h3>SMS templates and categories</h3>
+      <p class="muted">Create reusable replies, reviews, reminders, and reactivation messages. Marketing style templates can automatically add your STOP notice.</p>
+    </div>
+    <form method="get" class="form-inline" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <select name="category">
+        <option value="">All categories</option>
+        {% for cat in categories %}
+          <option value="{{ cat.category }}" {% if category_filter == cat.category %}selected{% endif %}>{{ cat.category or 'Uncategorised' }}</option>
+        {% endfor %}
+      </select>
+      <button class="btn secondary" type="submit">Filter</button>
+      {% if category_filter %}<a class="btn secondary" href="{{ url_for('sms_templates_page') }}">Clear</a>{% endif %}
+    </form>
+  </div>
+</section>
+<div class="grid-2">
+  <section class="card">
+    <div class="card-head"><h3>{% if edit_row %}Edit SMS Template{% else %}New SMS Template{% endif %}</h3></div>
+    <form method="post" class="form">
+      {% if edit_row %}<input type="hidden" name="template_id" value="{{ edit_row.id }}">{% endif %}
+      <div class="cols">
+        <div><label>Name</label><input name="name" value="{{ edit_row.name if edit_row else '' }}" placeholder="Review request"></div>
+        <div><label>Category</label><input name="category" value="{{ edit_row.category if edit_row else '' }}" placeholder="Reviews, Reactivation, Reminder"></div>
+      </div>
+      <div class="cols">
+        <div>
+          <label>Usage type</label>
+          <select name="usage_type">
+            {% set current_usage = edit_row.usage_type if edit_row else 'General' %}
+            {% for item in ['General','Service','Reminder','Review','Reactivation','Marketing'] %}
+              <option value="{{ item }}" {% if current_usage == item %}selected{% endif %}>{{ item }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div style="display:flex;align-items:end;">
+          <label style="display:flex;gap:8px;align-items:center;margin:0;">
+            <input type="checkbox" name="auto_append_opt_out" value="1" {% if edit_row and edit_row.auto_append_opt_out %}checked{% endif %}>
+            Auto add STOP notice
+          </label>
+        </div>
+      </div>
+      <div>
+        <label>Message body</label>
+        <textarea name="body" rows="8" placeholder="Hi {{ '{{first_name}}' }}, thanks again for choosing {{ '{{business_name}}' }}. We'd really appreciate a review: {{ '{{review_link}}' }}">{{ edit_row.body if edit_row else '' }}</textarea>
+        <div class="form-help">You can use placeholders like {{ '{{first_name}}' }}, {{ '{{name}}' }}, {{ '{{business_name}}' }}, {{ '{{phone}}' }}, {{ '{{review_link}}' }}, and {{ '{{website}}' }}.</div>
+      </div>
+      <div class="row-actions">
+        <button class="btn primary" type="submit">{% if edit_row %}Save Changes{% else %}Save SMS Template{% endif %}</button>
+        {% if edit_row %}<a class="btn secondary" href="{{ url_for('sms_templates_page') }}">Cancel</a>{% endif %}
+      </div>
+    </form>
+  </section>
+  <section class="card">
+    <div class="card-head"><h3>Existing SMS Templates</h3></div>
+    <div class="timeline">
+      {% for row in rows %}
+      <div class="timeline-item">
+        <strong>{{ row.name }}</strong>
+        <p>
+          {% if row.category %}<span class="pill">{{ row.category }}</span>{% endif %}
+          {% if row.usage_type %}<span class="pill">{{ row.usage_type }}</span>{% endif %}
+          {% if row.auto_append_opt_out %}<span class="pill warning">STOP Notice</span>{% endif %}
+          <span class="pill {% if row.is_active %}sent{% else %}draft{% endif %}">{% if row.is_active %}Active{% else %}Paused{% endif %}</span>
+        </p>
+        <p style="white-space:pre-wrap;">{{ row.body }}</p>
+        <div class="row-actions">
+          <a class="btn secondary btn-small" href="{{ url_for('sms_template_edit', template_id=row.id) }}">Edit</a>
+          <form method="post" action="{{ url_for('sms_template_toggle', template_id=row.id) }}"><button class="btn secondary btn-small" type="submit">{% if row.is_active %}Pause{% else %}Activate{% endif %}</button></form>
+          <form method="post" action="{{ url_for('sms_template_delete', template_id=row.id) }}" onsubmit="return confirm('Delete this SMS template?')"><button class="btn danger btn-small" type="submit">Delete</button></form>
+        </div>
+      </div>
+      {% else %}
+      <div class="timeline-item"><strong>No SMS templates yet</strong><p>Create your first one on the left.</p></div>
+      {% endfor %}
+    </div>
+  </section>
+</div>
+{% endblock %}

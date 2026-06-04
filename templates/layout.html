@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{% block title %}CRM{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=website-polish-20260604">
+  <style>:root{--accent: {{ biz.accent or '#56718f' }}; --sidebar-color: {{ biz.sidebar_color or '#1f2933' }};}</style>
+</head>
+<body>
+{% if session.get('logged_in') and not public_mode %}
+{% set ep = request.endpoint or '' %}
+<div class="mobile-appbar">
+  <button class="icon-btn mobile-menu-toggle" type="button" aria-label="Open navigation" aria-expanded="false" data-sidebar-toggle>
+    <span></span><span></span><span></span>
+  </button>
+  <div class="mobile-appbar-title">{{ biz.business_name }}</div>
+  <a class="icon-btn" href="{{ url_for('dashboard') }}" aria-label="Overview">⌂</a>
+</div>
+<div class="sidebar-backdrop" data-sidebar-close></div>
+<div class="shell shell-tabler">
+  <aside class="sidebar" id="mainSidebar">
+    <div class="brand brand-tabler">
+      {% if biz.logo_filename %}
+        <img class="brand-logo" src="{{ url_for('static', filename='uploads/' ~ biz.logo_filename) }}" alt="{{ biz.business_name }}">
+      {% else %}
+        <div class="bubble-logo"></div>
+      {% endif %}
+      <div>
+        <h1>{{ biz.business_name }}</h1>
+        <p>Customer workflow studio</p>
+      </div>
+    </div>
+
+    <nav class="nav nav-tabler redesigned-nav simple-main-nav">
+      <a class="nav-link {% if ep=='dashboard' %}active{% endif %}" href="{{ url_for('dashboard') }}"><span class="nav-icon"></span><span>Today</span></a>
+      <a class="nav-link {% if ep=='workflow' %}active{% endif %}" href="{{ url_for('workflow') }}"><span class="nav-icon"></span><span>Do Next</span></a>
+      <a class="nav-link {% if ep in ['customers','customer_view','customer_edit'] %}active{% endif %}" href="{{ url_for('customers') }}"><span class="nav-icon"></span><span>Customers</span></a>
+      <a class="nav-link {% if ep in ['intake_forms','intake_form_view'] %}active{% endif %}" href="{{ url_for('intake_forms') }}"><span class="nav-icon"></span><span>Form Replies</span></a>
+      <a class="nav-link {% if ep in ['jobs','job_view','jobs_new'] %}active{% endif %}" href="{{ url_for('jobs') }}"><span class="nav-icon"></span><span>Jobs</span></a>
+      <a class="nav-link {% if ep in ['quotes','quote_view','calculator'] %}active{% endif %}" href="{{ url_for('calculator') }}"><span class="nav-icon"></span><span>Quotes</span></a>
+      <a class="nav-link {% if ep in ['invoices','invoice_view'] %}active{% endif %}" href="{{ url_for('invoices') }}"><span class="nav-icon"></span><span>Invoices</span></a>
+      <a class="nav-link {% if ep=='full_calendar' or ep=='scheduler' %}active{% endif %}" href="{{ url_for('full_calendar') }}"><span class="nav-icon"></span><span>Calendar</span></a>
+      <a class="nav-link public-booking-link" href="{{ url_for('booking_form') }}" target="_blank"><span class="nav-icon"></span><span>Booking Form</span></a>
+      <a class="nav-link {% if ep=='settings_page' %}active{% endif %}" href="{{ url_for('settings_page') }}"><span class="nav-icon"></span><span>Settings</span></a>
+      <a class="nav-link" href="{{ url_for('logout') }}"><span class="nav-icon"></span><span>Logout</span></a>
+    </nav>
+
+    <div class="side-note side-note-tabler">
+      <strong>Simple route through the CRM</strong>
+      <span>Enquiry, customer, quote, job, invoice, payment, review, then rebook.</span>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar topbar-tabler">
+      <div class="topbar-left-wrap">
+        <div class="eyebrow">The Carpet Cleaning Company</div>
+        <h2 class="page-title">{% block page_title %}Dashboard{% endblock %}</h2>
+      </div>
+      <div class="topbar-right-wrap">
+        <form class="top-search" method="get" action="{{ url_for('customers') }}">
+          <input type="text" name="q" placeholder="Quick find a customer">
+        </form>
+        <div class="top-actions">
+          <a class="pill action-pill" href="{{ url_for('booking_form') }}" target="_blank">Booking Form</a>
+          <a class="pill action-pill" href="{{ url_for('workflow') }}">Workflow</a>
+          <a class="pill action-pill" href="{{ url_for('xero_dashboard') }}">Xero</a>
+        </div>
+      </div>
+    </header>
+
+    <nav class="quick-dock website-quick-dock" aria-label="Quick actions">
+      <a href="{{ url_for('intake_forms') }}"><span>New enquiry</span><strong>Intake</strong></a>
+      <a href="{{ url_for('customers') }}"><span>Find or add</span><strong>Customer</strong></a>
+      <a href="{{ url_for('calculator') }}"><span>Price up</span><strong>Quote</strong></a>
+      <a href="{{ url_for('full_calendar') }}"><span>Plan diary</span><strong>Calendar</strong></a>
+      <a href="{{ url_for('invoices') }}"><span>Money in</span><strong>Invoices</strong></a>
+    </nav>
+
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        <div class="flash-wrap">
+          {% for m in messages %}
+            <div class="flash">{{ m }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <div class="mobile-quick-nav">
+      <a href="{{ url_for('dashboard') }}">Overview</a>
+      <a href="{{ url_for('customers') }}">Customers</a>
+      <a href="{{ url_for('quotes') }}">Quotes</a>
+      <a href="{{ url_for('jobs') }}">Jobs</a>
+      <a href="{{ url_for('invoices') }}">Invoices</a>
+      <a href="{{ url_for('workflow') }}">Workflow</a>
+      <a href="{{ url_for('full_calendar') }}">Calendar</a>
+    </div>
+
+    {% block body_content %}{% endblock %}
+  </main>
+</div>
+{% else %}
+  {% with messages = get_flashed_messages() %}
+    {% if messages %}
+      <div class="flash-wrap" style="max-width:700px;margin:20px auto 0;">
+        {% for m in messages %}
+          <div class="flash">{{ m }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+  {% block public_content %}{% endblock %}
+{% endif %}
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+<script>
+(function(){
+  function setModal(id, open){
+    var el=document.getElementById(id); if(!el) return;
+    el.classList.toggle('is-open', !!open);
+    el.setAttribute('aria-hidden', open ? 'false' : 'true');
+    document.body.classList.toggle('modal-open', !!open);
+  }
+  document.addEventListener('click', function(e){
+    var openBtn=e.target.closest('[data-open-modal]');
+    if(openBtn){ setModal(openBtn.getAttribute('data-open-modal'), true); return; }
+    var closeBtn=e.target.closest('[data-close-modal]');
+    if(closeBtn){ setModal(closeBtn.getAttribute('data-close-modal'), false); return; }
+  });
+  document.addEventListener('keydown', function(e){ if(e.key==='Escape'){ document.querySelectorAll('.modal-shell.is-open').forEach(function(el){ setModal(el.id, false); }); } });
+})();
+</script>
+</body>
+</html>

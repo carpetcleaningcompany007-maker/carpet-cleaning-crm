@@ -1,0 +1,14 @@
+{% extends "layout.html" %}
+{% block title %}Login{% endblock %}
+{% block public_content %}
+<div class="login-wrap">
+  <form method="post" class="login-card simple-login-card">
+    <div class="bubble-logo big"></div>
+    <h1>{{ biz.business_name }}</h1>
+    <p>Sign in to manage customers, jobs, invoices, and reviews.</p>
+    <input name="username" placeholder="Username" required>
+    <input name="password" type="password" placeholder="Password" required>
+    <button class="btn primary big-action">Login</button>
+  </form>
+</div>
+{% endblock %}

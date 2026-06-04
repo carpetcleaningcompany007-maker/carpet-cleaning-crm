@@ -1,0 +1,89 @@
+{% extends "layout.html" %}
+{% block title %}SMS History{% endblock %}
+{% block page_title %}SMS History{% endblock %}
+{% block body_content %}
+<section class="card">
+  <div class="card-head" style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;">
+    <div>
+      <h3>Sent, delivered, failed and inbound SMS</h3>
+      <p class="muted">This page reads from the CRM SMS event log.</p>
+    </div>
+    <form method="get" class="inline-form" style="display:flex;gap:8px;flex-wrap:wrap;align-items:end;">
+      <div><label>Direction</label><br><select name="direction"><option value="">All</option><option value="outbound" {% if filters.direction=='outbound' %}selected{% endif %}>Outbound</option><option value="inbound" {% if filters.direction=='inbound' %}selected{% endif %}>Inbound</option></select></div>
+      <div><label>Status</label><br><input type="text" name="status" value="{{ filters.status }}" placeholder="Sent or Failed"></div>
+      <div><label>Provider</label><br><input type="text" name="provider" value="{{ filters.provider }}" placeholder="Twilio"></div>
+      <div><button class="btn" type="submit">Filter</button></div>
+    </form>
+  </div>
+</section>
+<section class="card">
+  <div class="stats-grid" style="margin-bottom:12px;">
+    <div class="stat"><span>Total</span><strong>{{ summary.total_count or 0 }}</strong></div>
+    <div class="stat"><span>Outbound</span><strong>{{ summary.outbound_count or 0 }}</strong></div>
+    <div class="stat"><span>Inbound</span><strong>{{ summary.inbound_count or 0 }}</strong></div>
+    <div class="stat"><span>Good Status</span><strong>{{ summary.ok_count or 0 }}</strong></div>
+    <div class="stat"><span>Failed</span><strong>{{ summary.failed_count or 0 }}</strong></div>
+  </div>
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>When</th>
+          <th>Customer</th>
+          <th>Direction</th>
+          <th>Status</th>
+          <th>Provider</th>
+          <th>To or From</th>
+          <th>Message</th>
+          <th>Failure Reason</th>
+          <th>Thread</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        {% set status_text = (row.status or 'Logged') %}
+        {% set status_lower = status_text|lower %}
+        <tr>
+          <td>{{ row.created_at }}</td>
+          <td>
+            {% if row.customer_id %}
+            <a href="{{ url_for('customer_view', customer_id=row.customer_id) }}">{{ row.customer_name or ('Customer ' ~ row.customer_id) }}</a>
+            {% else %}
+            {{ row.customer_name or 'Unknown' }}
+            {% endif %}
+          </td>
+          <td><span class="pill">{{ row.direction or 'outbound' }}</span></td>
+          <td>
+            <span class="pill {% if status_lower in ['delivered','sent','queued','accepted'] %}sent{% elif status_lower in ['failed','undelivered'] or row.error_text %}danger{% else %}draft{% endif %}">{{ status_text }}</span>
+            {% if row.external_id %}<div class="muted" style="font-size:12px;">{{ row.external_id }}</div>{% endif %}
+          </td>
+          <td>{{ row.provider or '' }}</td>
+          <td>{{ row.to_phone or row.from_phone or '' }}</td>
+          <td style="max-width:360px;white-space:normal;">{{ row.body or '' }}</td>
+          <td style="max-width:260px;white-space:normal;">{{ row.error_text or '—' }}</td>
+          <td>
+            {% if row.customer_id %}
+            <a class="btn btn-small secondary" href="{{ url_for('sms_thread_view', customer_id=row.customer_id) }}">Open Thread</a>
+            {% else %}
+            <span class="muted">No customer</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if (row.direction or '').lower() == 'outbound' %}
+            <form method="post" action="{{ url_for('sms_history_retry', event_id=row.id) }}">
+              <button class="btn btn-small" type="submit">Retry</button>
+            </form>
+            {% else %}
+            <span class="muted">Inbound</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="10">No SMS events found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

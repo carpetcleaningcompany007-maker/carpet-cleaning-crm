@@ -1,0 +1,69 @@
+{% extends "layout.html" %}
+{% block page_title %}Settings{% endblock %}
+{% block body_content %}
+<div class="page-intro">
+  <div class="page-intro-copy">
+    <div class="section-kicker">System setup</div>
+    <h3>Business and CRM settings</h3>
+    <p>Set the business details, branding, email and SMS delivery, and login security here. This page is the control room for how the CRM presents itself and how messages are sent.</p>
+  </div>
+</div>
+<div class="workspace-grid">
+  <section class="panel">
+    <form method="post" class="form">
+      <div class="settings-sections">
+        <div class="settings-card">
+          <h4>Business profile</h4>
+          <p>This appears around the CRM and on outgoing communication templates.</p>
+          <div class="cols"><div><label>Business name</label><input name="business_name" value="{{ app_settings.business_name or '' }}"></div><div><label>Phone</label><input name="phone" value="{{ app_settings.phone or '' }}"></div></div>
+          <div class="cols"><div><label>Website</label><input name="website" value="{{ app_settings.website or '' }}"></div><div><label>Address</label><input name="address" value="{{ app_settings.address or '' }}"></div></div>
+          <div class="cols"><div><label>Default email footer</label><textarea name="email_footer">{{ app_settings.email_footer or '' }}</textarea></div><div><label>Opt out reply text</label><textarea name="sms_opt_out_reply">{{ app_settings.sms_opt_out_reply or '' }}</textarea></div></div>
+        </div>
+        <div class="settings-card">
+          <h4>Appearance</h4>
+          <p>Choose the colours used by the interface and the sidebar.</p>
+          <div class="cols"><div><label>Accent colour</label><input type="color" name="accent" value="{{ app_settings.accent or '#56718f' }}"></div><div><label>Sidebar colour</label><input type="color" name="sidebar_color" value="{{ app_settings.sidebar_color or '#1f2933' }}"></div></div>
+        </div>
+        <div class="settings-card">
+          <h4>Gmail sending</h4>
+          <p>Use an app password from your Gmail account so Communications can send messages safely.</p>
+          <div class="cols"><div><label>Gmail address</label><input name="gmail_email" value="{{ app_settings.gmail_email or '' }}"></div><div><label>Gmail app password</label><input type="password" name="gmail_app_password" value="{{ app_settings.gmail_app_password or '' }}"></div></div>
+        </div>
+        <div class="settings-card">
+          <h4>Text alerts</h4>
+          <p>Use Zapier/Webhook for simple form alerts. Paste your Zapier Catch Hook URL into the URL box, then website forms can text you when they arrive.</p>
+          <div class="cols">
+            <div>
+              <label>Text alert provider</label>
+              <select name="sms_gateway_name">
+                <option value="" {% if not app_settings.sms_gateway_name %}selected{% endif %}>Not set</option>
+                <option value="Webhook" {% if app_settings.sms_gateway_name=='Webhook' %}selected{% endif %}>Zapier / Webhook</option>
+                <option value="Demo" {% if app_settings.sms_gateway_name=='Demo' %}selected{% endif %}>Demo only</option>
+                <option value="Textlocal" {% if app_settings.sms_gateway_name=='Textlocal' %}selected{% endif %}>Textlocal</option>
+                <option value="Twilio" {% if app_settings.sms_gateway_name=='Twilio' %}selected{% endif %}>Twilio</option>
+                <option value="ClickSend" {% if app_settings.sms_gateway_name=='ClickSend' %}selected{% endif %}>ClickSend</option>
+              </select>
+            </div>
+            <div><label>Sender ID or from number</label><input name="sms_sender_id" value="{{ app_settings.sms_sender_id or '' }}" placeholder="CRM or your sender name"></div>
+          </div>
+          <div class="cols"><div><label>Optional API key</label><input type="password" name="sms_api_key" value="{{ app_settings.sms_api_key or '' }}"></div><div><label>Zapier Catch Hook URL</label><input name="sms_gateway_url" value="{{ app_settings.sms_gateway_url or '' }}" placeholder="https://hooks.zapier.com/hooks/catch/..."></div></div>
+          <div class="cols"><div><label>Account ID or username</label><input name="sms_account_id" value="{{ app_settings.sms_account_id or '' }}"></div><div><label>API secret or auth token</label><input type="password" name="sms_api_secret" value="{{ app_settings.sms_api_secret or '' }}"></div></div>
+          <div class="cols"><div><label>Test phone number</label><input name="sms_test_number" value="{{ app_settings.sms_test_number or '' }}"></div><div><label>Marketing STOP notice</label><input name="sms_marketing_stop_text" value="{{ app_settings.sms_marketing_stop_text or '' }}"></div></div>
+        </div>
+        <div class="settings-card">
+          <h4>Login security</h4>
+          <p>Saving this section updates the real CRM login details straight away.</p>
+          <div class="cols"><div><label>Admin username</label><input name="username" value="{{ app_settings.username }}"></div><div><label>New password</label><input type="password" name="password" value="" placeholder="Leave blank to keep current password"></div></div>
+          <div class="cols"><div><label>Confirm new password</label><input type="password" name="confirm_password" value="" placeholder="Re enter the new password"></div><div></div></div>
+        </div>
+      </div>
+      <button class="btn primary" id="saveSettingsBtn">Save Settings</button>
+    </form>
+  </section>
+  <aside class="utility-rail">
+    <div class="utility-card"><h4>What this page controls</h4><p>Business identity, colours, email sending, SMS sending, and login security all live here. Change settings carefully and test Communications after saving.</p></div>
+    <div class="utility-card"><h4>Recommended setup order</h4><div class="report-summary-list"><div><strong>1. Business profile</strong><span>Name, phone, website</span></div><div><strong>2. Gmail sending</strong><span>Address and app password</span></div><div><strong>3. SMS gateway</strong><span>Choose provider and test number</span></div><div><strong>4. Security</strong><span>Update the admin login</span></div></div></div>
+    <div class="utility-card"><h4>Gmail setup</h4><p>Turn on 2 Step Verification in your Gmail account, create an App Password in Google security, then paste the Gmail address and App Password here. After that, go to Communications to send a test email.</p></div>
+  </aside>
+</div>
+{% endblock %}

@@ -1,0 +1,55 @@
+{% extends "layout.html" %}
+{% block title %}Intake Form{% endblock %}
+{% block page_title %}Intake Form{% endblock %}
+{% block body_content %}
+<section class="panel">
+  <div class="panel-head">
+    <div>
+      <h3>{{ lead.name }}</h3>
+      <p>{{ lead.phone }}{% if lead.email %} · {{ lead.email }}{% endif %}</p>
+    </div>
+    <a class="btn" href="{{ url_for('intake_forms') }}">Back to intake forms</a>
+  </div>
+
+  <div class="detail-grid">
+    <div><strong>Address</strong><span>{{ lead.full_address }}</span></div>
+    <div><strong>Postcode</strong><span>{{ lead.postcode }}</span></div>
+    <div><strong>Google Maps</strong><span>{% if lead.google_maps_link %}<a href="{{ lead.google_maps_link }}" target="_blank">Open map</a>{% endif %}</span></div>
+    <div><strong>What3Words</strong><span>{{ lead.what3words }}</span></div>
+    <div><strong>Preferred</strong><span>{{ lead.preferred_date }} {{ lead.preferred_time }}</span></div>
+    <div><strong>Status</strong><span>{{ lead.status }}</span></div>
+    <div class="span-2"><strong>Rooms or areas</strong><span>{{ lead.rooms_areas }}</span></div>
+    <div class="span-2"><strong>Job notes</strong><span>{{ lead.job_notes }}</span></div>
+    {% if lead.photo_filename %}
+      <div class="span-2"><strong>Photo</strong><span><a href="{{ url_for('static', filename='uploads/' ~ lead.photo_filename) }}" target="_blank">{{ lead.photo_filename }}</a></span></div>
+    {% endif %}
+    {% if lead.xero_contact_id %}
+      <div><strong>Xero ContactID</strong><span>{{ lead.xero_contact_id }}</span></div>
+      <div><strong>Sent to Xero</strong><span>{{ lead.xero_sent_at }}</span></div>
+    {% endif %}
+    {% if lead.xero_error %}
+      <div class="span-2"><strong>Xero error</strong><span>{{ lead.xero_error }}</span></div>
+    {% endif %}
+  </div>
+
+  <form method="post" action="{{ url_for('intake_form_review', lead_id=lead.id) }}" class="form-grid">
+    <label>Status
+      <select name="status">
+        {% for status in ['New','Reviewed','Booked','Sent to Xero','Closed'] %}
+          <option value="{{ status }}" {% if lead.status == status %}selected{% endif %}>{{ status }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="span-2">Review notes<textarea name="review_notes" rows="4">{{ lead.review_notes }}</textarea></label>
+    <div class="span-2 actions">
+      <button class="btn" type="submit">Save review</button>
+    </div>
+  </form>
+
+  <div class="actions action-row">
+    <form method="post" action="{{ url_for('intake_create_customer', lead_id=lead.id) }}"><button class="btn" type="submit">Create customer</button></form>
+    <form method="post" action="{{ url_for('intake_create_job', lead_id=lead.id) }}"><button class="btn" type="submit">Create job</button></form>
+    <form method="post" action="{{ url_for('xero_create_contact', lead_id=lead.id) }}"><button class="btn primary" type="submit">Send to Xero</button></form>
+  </div>
+</section>
+{% endblock %}

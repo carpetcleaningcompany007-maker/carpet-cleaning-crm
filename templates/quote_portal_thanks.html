@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Thanks</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <style>body{padding:32px}.wrap{max-width:820px;margin:0 auto}</style>
+</head>
+<body>
+<div class="wrap">
+  <section class="hero">
+    <div class="hero-tag">Request sent</div>
+    <h3>Thanks, your quote request has been sent</h3>
+    <p>We have received your details and estimate request. We will review it in the CRM and come back to you.</p>
+    <div class="row-actions" style="margin-top:14px;">
+      <a class="btn primary" href="{{ url_for('public_quote_portal') }}">Send another request</a>
+    </div>
+  </section>
+</div>
+</body>
+</html>

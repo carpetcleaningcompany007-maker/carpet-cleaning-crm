@@ -1,0 +1,18 @@
+V87 patch
+
+Added:
+- SMS History page
+- Retry action for outbound SMS events
+- Basic SMS event table init
+- Delivery status update helper
+- Inbound SMS customer matching by phone
+- Compatibility helper functions that were missing from the prior file
+- Layout globals injection for templates
+
+Important:
+- This patch is a best effort continuation based on the supplied v86 build.
+- It assumes an existing CRM database and existing core tables are already present.
+
+
+V88 patch
+Added SMS delivery summary cards, failure reason display, and resend buttons from the customer screen.

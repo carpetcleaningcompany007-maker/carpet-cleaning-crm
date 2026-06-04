@@ -1,0 +1,83 @@
+{% extends "layout.html" %}
+{% block page_title %}Batch Follow Up{% endblock %}
+{% block body_content %}
+<section class="hero small-hero">
+  <div>
+    <div class="hero-tag">Batch follow up</div>
+    <h3>{{ segment_label }}</h3>
+    <p>Review the selected customers, tweak the subject and message, then send the follow up in one go.</p>
+  </div>
+</section>
+
+<div class="stats-grid">
+  <div class="stat"><span>Selected customers</span><strong>{{ rows|length }}</strong></div>
+  <div class="stat"><span>Segment</span><strong>{{ segment_label }}</strong></div>
+  <div class="stat"><span>Send style</span><strong>Individual or group</strong></div>
+</div>
+
+<section class="panel">
+  <form method="post" action="{{ url_for('segments_batch_send') }}">
+    <input type="hidden" name="segment" value="{{ segment }}">
+    {% for customer_id in selected_ids %}
+      <input type="hidden" name="customer_ids" value="{{ customer_id }}">
+    {% endfor %}
+
+    <div class="panel-head">
+      <h3>Email builder</h3>
+      <div class="quick-actions" style="display:flex; gap:10px; flex-wrap:wrap;">
+        <a class="btn secondary" href="{{ url_for('segments_page', segment=segment) }}">Back to Segments</a>
+      </div>
+    </div>
+
+    <div class="form-grid two" style="margin-bottom:14px;">
+      <label>
+        <span>Send mode</span>
+        <select name="mode">
+          <option value="individual" selected>Individual personalised emails</option>
+          <option value="group">One group email to all selected recipients</option>
+        </select>
+      </label>
+      <label>
+        <span>Subject</span>
+        <input type="text" name="subject" value="{{ default_subject }}">
+      </label>
+    </div>
+
+    <label>
+      <span>Message body</span>
+      <textarea name="body" rows="12">{{ default_body }}</textarea>
+    </label>
+
+    <p class="muted" style="margin-top:10px;">Use placeholders like {{ '{{first_name}}' }}, {{ '{{name}}' }}, {{ '{{business_name}}' }}, {{ '{{phone}}' }}, {{ '{{website}}' }} and {{ '{{review_link}}' }}.</p>
+
+    <div class="quick-actions" style="display:flex; gap:10px; flex-wrap:wrap; margin-top:14px;">
+      <button class="btn primary" type="submit">Send Batch Email</button>
+      <a class="btn secondary" href="{{ url_for('communications') }}">Open Communications</a>
+    </div>
+  </form>
+</section>
+
+<section class="panel">
+  <div class="panel-head">
+    <h3>Recipients</h3>
+  </div>
+  <table class="table">
+    <tr>
+      <th>Customer</th>
+      <th>Email</th>
+      <th>Town</th>
+      <th>Invoices</th>
+      <th>Lifetime Paid</th>
+    </tr>
+    {% for row in rows %}
+    <tr>
+      <td><strong><a href="{{ url_for('customer_view', customer_id=row.customer_id) }}">{{ row.name }}</a></strong></td>
+      <td>{{ row.email }}</td>
+      <td>{{ row.town or '' }}</td>
+      <td>{{ row.invoice_count }}</td>
+      <td>£{{ '%.2f'|format(row.paid_total or 0) }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+</section>
+{% endblock %}

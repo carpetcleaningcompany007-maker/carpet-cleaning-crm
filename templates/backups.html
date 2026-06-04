@@ -1,0 +1,31 @@
+{% extends "layout.html" %}
+{% block page_title %}Backup Centre{% endblock %}
+{% block body_content %}
+<section class="panel">
+  <div class="panel-head"><h3>Backup Centre</h3></div>
+  <p style="margin-top:0; color:var(--muted);">Create a dated backup snapshot you can keep, then download any saved backup from the list below.</p>
+  <div class="quick-actions" style="display:flex; gap:10px; flex-wrap:wrap;">
+    <a class="btn primary" href="{{ url_for('create_backup_snapshot_route') }}">Create New Backup Snapshot</a>
+    <a class="btn secondary" href="{{ url_for('download_backup') }}">Download Live Backup Now</a>
+  </div>
+</section>
+
+<section class="panel">
+  <div class="panel-head"><h3>Saved Backup History</h3></div>
+  {% if backups %}
+  <table class="table">
+    <tr><th>File</th><th>Created</th><th>Size</th><th></th></tr>
+    {% for backup in backups %}
+    <tr>
+      <td>{{ backup.name }}</td>
+      <td>{{ backup.created_at }}</td>
+      <td>{{ backup.size_mb }} MB</td>
+      <td><a class="mini-link" href="{{ url_for('download_saved_backup', filename=backup.name) }}">Download</a></td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}
+  <div class="empty-state">No saved backups yet. Create your first snapshot to start a proper history.</div>
+  {% endif %}
+</section>
+{% endblock %}

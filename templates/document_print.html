@@ -1,0 +1,65 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>{{ 'Quote' if mode=='quote' else 'Invoice' }}</title>
+<style>
+*{box-sizing:border-box} body{font-family:Arial,Helvetica,sans-serif;margin:0;padding:18px;background:#ececec}
+.sheet{max-width:920px;margin:0 auto;background:#fff;padding:32px 24px 40px;box-shadow:0 6px 24px rgba(0,0,0,.08)}
+.top{display:grid;grid-template-columns:1.3fr .7fr .7fr;gap:24px}
+.doc-title{font-size:34px;font-weight:300;margin:0 0 8px}
+.block p{margin:2px 0;line-height:1.45}
+.label{font-weight:700}
+.meta-line{margin-bottom:10px}
+table{width:100%;border-collapse:collapse;margin-top:20px}
+thead th{text-align:left;font-size:14px;padding:10px 6px 8px;border-bottom:1px solid #222}
+tbody td{font-size:15px;padding:10px 6px;border-bottom:1px solid #ddd;vertical-align:top}
+.num{text-align:right;white-space:nowrap}
+.totals{width:320px;margin-left:auto;margin-top:10px}
+.totals td{padding:6px 0}
+.totals .grand td{font-weight:700;font-size:16px;padding-top:8px;border-top:1px solid #222}
+.section{margin-top:28px;padding-top:16px;border-top:1px solid #d7d7d7}
+@media print{body{background:#fff;padding:0}.sheet{box-shadow:none;max-width:none}}
+</style>
+</head>
+<body>
+<div class="sheet">
+  <div class="top">
+    <div class="block">
+      <h1 class="doc-title">{{ 'QUOTE' if mode=='quote' else 'INVOICE' }}</h1>
+      <p>{{ row.first_name or '' }} {{ row.last_name or '' }}</p>
+      <p>{{ row.address or '' }}</p>
+      <p>{{ row.town or '' }} {{ row.postcode or '' }}</p>
+    </div>
+    <div class="block">
+      <div class="meta-line"><div class="label">{{ 'Quote Date' if mode=='quote' else 'Invoice Date' }}</div><div>{{ row.quote_date if mode=='quote' else row.invoice_date }}</div></div>
+      <div class="meta-line"><div class="label">{{ 'Quote Number' if mode=='quote' else 'Invoice Number' }}</div><div>{{ row.quote_number if mode=='quote' else row.invoice_number }}</div></div>
+      {% if mode=='invoice' %}<div class="meta-line"><div class="label">Due Date</div><div>{{ row.due_date }}</div></div>{% endif %}
+    </div>
+    <div class="block">
+      <p>{{ biz.business_name }}</p>
+      <p>{{ biz.address }}</p>
+      <p>{{ biz.phone }}</p>
+      <p>{{ biz.email }}</p>
+      <p>{{ biz.website }}</p>
+    </div>
+  </div>
+  <table>
+    <thead><tr><th>Description</th><th>Method</th><th class="num">Quantity</th><th class="num">Unit Price</th><th class="num">Total</th></tr></thead>
+    <tbody>
+      {% for line in calc.lines %}
+      <tr><td>{{ line.item_name }}</td><td>{{ line.method }}</td><td class="num">{{ '%.2f'|format(line.quantity or 0) }}</td><td class="num">{{ '%.2f'|format(line.unit_price or 0) }}</td><td class="num">{{ '%.2f'|format(line.line_total or 0) }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <table class="totals">
+    <tr><td>Subtotal</td><td class="num">{{ '%.2f'|format(calc.subtotal or 0) }}</td></tr>
+    <tr><td>VAT</td><td class="num">{{ '%.2f'|format(calc.vat or 0) }}</td></tr>
+    <tr class="grand"><td>TOTAL PAYABLE GBP</td><td class="num">{{ '%.2f'|format(calc.total or 0) }}</td></tr>
+  </table>
+  {% if mode=='quote' %}
+  <div class="section"><h3>Important note</h3><div>{% if calc.raw_total < calc.minimum %}Selected items total is £{{ '%.2f'|format(calc.raw_total) }}. A minimum charge of £{{ '%.2f'|format(calc.minimum) }} applies.{% else %}Your selected items are above the minimum charge.{% endif %}</div></div>
+  {% endif %}
+</div>
+</body>
+</html>

@@ -1,0 +1,103 @@
+{% extends "layout.html" %}
+{% block page_title %}Today{% endblock %}
+{% block body_content %}
+{% set alert_rows = (invoice_alerts.overdue if invoice_alerts.overdue is defined else []) + (invoice_alerts.due_soon if invoice_alerts.due_soon is defined else []) + (invoice_alerts.no_due_date if invoice_alerts.no_due_date is defined else []) %}
+
+<section class="simple-home-hero">
+  <div>
+    <span class="section-kicker">Simple workflow</span>
+    <h3>What needs doing today?</h3>
+    <p>Start here. Open the biggest action, deal with the customer, then come back for the next one.</p>
+  </div>
+  <a class="btn primary big-action" href="{{ url_for('workflow') }}">Open Workflow Board</a>
+</section>
+
+<section class="simple-action-grid">
+  <a class="simple-action-card urgent" href="{{ url_for('intake_forms') }}">
+    <span>1</span>
+    <div>
+      <strong>Review new enquiries</strong>
+      <p>{{ intake_new }} waiting</p>
+    </div>
+  </a>
+  <a class="simple-action-card" href="{{ url_for('workflow') }}">
+    <span>2</span>
+    <div>
+      <strong>See customer stages</strong>
+      <p>Who needs a form, quote, booking, invoice, payment, or review</p>
+    </div>
+  </a>
+  <a class="simple-action-card" href="{{ url_for('jobs') }}">
+    <span>3</span>
+    <div>
+      <strong>Check booked jobs</strong>
+      <p>{{ stats.jobs }} active jobs</p>
+    </div>
+  </a>
+  <a class="simple-action-card" href="{{ url_for('invoices') }}">
+    <span>4</span>
+    <div>
+      <strong>Sort invoices</strong>
+      <p>{{ alert_rows|length }} invoice alerts</p>
+    </div>
+  </a>
+</section>
+
+<section class="simple-panel">
+  <div class="simple-panel-head">
+    <div>
+      <span class="section-kicker">Quick links</span>
+      <h3>Common jobs</h3>
+    </div>
+  </div>
+  <div class="simple-link-row">
+    <a class="btn secondary" href="{{ url_for('booking_form') }}" target="_blank">Public Booking Form</a>
+    <a class="btn secondary" href="{{ url_for('customers') }}">Find Customer</a>
+    <a class="btn secondary" href="{{ url_for('calculator') }}">Create Quote</a>
+    <a class="btn secondary" href="{{ url_for('full_calendar') }}">Calendar</a>
+    <a class="btn secondary" href="{{ url_for('xero_dashboard') }}">Xero</a>
+  </div>
+</section>
+
+<section class="simple-two-col">
+  <div class="simple-panel">
+    <div class="simple-panel-head">
+      <div>
+        <span class="section-kicker">Upcoming</span>
+        <h3>Jobs</h3>
+      </div>
+      <a class="mini-link" href="{{ url_for('jobs') }}">See all</a>
+    </div>
+    <div class="simple-list-cards">
+      {% for row in recent_jobs[:5] %}
+      <a href="{{ url_for('job_view', job_id=row.id) }}">
+        <strong>{{ row.title }}</strong>
+        <span>{{ row.job_date or 'No date' }}{% if row.customer_name %} · {{ row.customer_name }}{% endif %}</span>
+      </a>
+      {% else %}
+      <div class="empty-state">No jobs found.</div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="simple-panel">
+    <div class="simple-panel-head">
+      <div>
+        <span class="section-kicker">Money</span>
+        <h3>Invoice alerts</h3>
+      </div>
+      <a class="mini-link" href="{{ url_for('invoices') }}">See all</a>
+    </div>
+    <div class="simple-list-cards">
+      {% for row in alert_rows[:5] %}
+      <a href="{{ url_for('invoice_view', invoice_id=row.id) }}">
+        <strong>{{ row.invoice_number or ('Invoice ' ~ row.id) }}</strong>
+        <span>{{ row.status or 'Draft' }}{% if row.customer_name %} · {{ row.customer_name }}{% endif %}</span>
+      </a>
+      {% else %}
+      <div class="empty-state">No invoice alerts right now.</div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,27 @@
+{% extends "layout.html" %}
+{% block page_title %}Scheduler{% endblock %}
+{% block body_content %}
+<section class="panel">
+  <div class="panel-head"><h3>Drag Jobs Into Days</h3></div>
+  <div class="schedule-grid">
+    <div class="day-col">
+      <div class="day-head">Unscheduled</div>
+      <div class="dropzone" data-date="">
+        {% for job in unscheduled %}
+          <div class="job-card" draggable="true" data-job-id="{{ job.id }}">{{ job.title }}<small>{{ job.customer_name or '' }}</small></div>
+        {% endfor %}
+      </div>
+    </div>
+    {% for d in days %}
+    <div class="day-col">
+      <div class="day-head">{{ d.label }}</div>
+      <div class="dropzone" data-date="{{ d.date }}">
+        {% for job in d.jobs %}
+          <div class="job-card" draggable="true" data-job-id="{{ job.id }}">{{ job.title }}<small>{{ job.customer_name or '' }}</small></div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

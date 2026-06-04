@@ -1,0 +1,46 @@
+{% extends "layout.html" %}
+{% block page_title %}Invoice Reminders{% endblock %}
+{% block body_content %}
+<div class="stats-grid">
+  <div class="stat"><span>Overdue</span><strong>{{ alerts.overdue_count }}</strong></div>
+  <div class="stat"><span>Due Soon</span><strong>{{ alerts.due_soon_count }}</strong></div>
+  <div class="stat"><span>No Due Date</span><strong>{{ alerts.no_due_date_count }}</strong></div>
+  <div class="stat"><span>Outstanding</span><strong>£{{ '%.2f'|format(alerts.outstanding_total) }}</strong></div>
+</div>
+
+<section class="panel">
+  <div class="panel-head"><h3>Overdue Invoices</h3></div>
+  <table class="table">
+    <tr><th>Invoice</th><th>Customer</th><th>Due</th><th>Stage</th><th>Total</th><th></th></tr>
+    {% for r in alerts.overdue %}
+    <tr>
+      <td>{{ r.invoice_number }}</td><td>{{ r.customer_name or 'No customer' }}</td><td>{{ r.due_date or '' }}</td><td>{{ r.reminder_subject.split(' for invoice')[0] }}</td><td>£{{ '%.2f'|format(r.total or 0) }}</td>
+      <td>
+        <form method="post" action="{{ url_for('send_invoice_reminder', invoice_id=r.id) }}" style="display:flex; gap:8px; flex-wrap:wrap;">
+          <input type="hidden" name="next_url" value="{{ request.path }}">
+          <button class="btn secondary">Send Reminder</button>
+          <a class="mini-link" href="{{ url_for('invoice_view', invoice_id=r.id) }}">Open</a>
+        </form>
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="6" class="empty-cell">No overdue invoices right now.</td></tr>
+    {% endfor %}
+  </table>
+</section>
+
+<section class="panel">
+  <div class="panel-head"><h3>Due Soon</h3></div>
+  <table class="table">
+    <tr><th>Invoice</th><th>Customer</th><th>Due</th><th>Stage</th><th>Total</th><th></th></tr>
+    {% for r in alerts.due_soon %}
+    <tr>
+      <td>{{ r.invoice_number }}</td><td>{{ r.customer_name or 'No customer' }}</td><td>{{ r.due_date or '' }}</td><td>{{ r.reminder_subject.split(' for invoice')[0] }}</td><td>£{{ '%.2f'|format(r.total or 0) }}</td>
+      <td><a class="mini-link" href="{{ url_for('invoice_view', invoice_id=r.id) }}">Open</a></td>
+    </tr>
+    {% else %}
+    <tr><td colspan="6" class="empty-cell">Nothing due in the next 7 days.</td></tr>
+    {% endfor %}
+  </table>
+</section>
+{% endblock %}

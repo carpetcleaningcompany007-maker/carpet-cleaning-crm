@@ -1,0 +1,39 @@
+{% extends "layout.html" %}
+{% block page_title %}Incoming Request{% endblock %}
+{% block body_content %}
+<section class="doc-hero">
+  <div>
+    <div class="hero-tag">Request</div>
+    <h3>{{ row.customer_name }}</h3>
+    <p>{{ row.phone }} · {{ row.email }}</p>
+    <p>{{ row.address }} {{ row.town }} {{ row.postcode }}</p>
+  </div>
+  <div class="row-actions">
+    <form method="post" action="{{ url_for('quote_request_approve', request_id=row.id) }}"><button class="btn primary">Approve Into CRM</button></form>
+    <form method="post" action="{{ url_for('quote_request_archive', request_id=row.id) }}"><button class="btn secondary">Archive</button></form>
+  </div>
+</section>
+<div class="grid-2">
+  <section class="panel">
+    <div class="panel-head"><h3>Customer Notes</h3></div>
+    <div class="timeline-item">{{ row.notes or 'No notes' }}</div>
+  </section>
+  <section class="panel">
+    <div class="panel-head"><h3>Estimate</h3></div>
+    <div class="calc-total">
+      <div><span>Subtotal</span><strong>£{{ '%.2f'|format(calc.subtotal or 0) }}</strong></div>
+      <div><span>VAT</span><strong>£{{ '%.2f'|format(calc.vat or 0) }}</strong></div>
+      <div><span>Total</span><strong>£{{ '%.2f'|format(calc.total or 0) }}</strong></div>
+    </div>
+  </section>
+</div>
+<section class="panel">
+  <div class="panel-head"><h3>Requested Items</h3></div>
+  <table class="table">
+    <tr><th>Description</th><th>Method</th><th>Qty</th><th>Unit</th><th>Total</th></tr>
+    {% for l in calc.lines %}
+    <tr><td>{{ l.item_name }}</td><td>{{ l.method }}</td><td>{{ l.quantity }}</td><td>£{{ '%.2f'|format(l.unit_price or 0) }}</td><td>£{{ '%.2f'|format(l.line_total or 0) }}</td></tr>
+    {% endfor %}
+  </table>
+</section>
+{% endblock %}

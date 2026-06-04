@@ -1,0 +1,47 @@
+{% extends "layout.html" %}
+{% block title %}Intake Forms{% endblock %}
+{% block page_title %}Intake Forms{% endblock %}
+{% block body_content %}
+<section class="panel">
+  <div class="panel-head">
+    <div>
+      <h3>Customer intake leads</h3>
+      <p>Review new public form submissions and move them into customers, jobs, and Xero.</p>
+    </div>
+    <div class="actions">
+      <a class="btn" href="{{ url_for('booking_form') }}" target="_blank">Open public booking form</a>
+      <a class="btn" href="{{ url_for('xero_connect') }}">Connect Xero</a>
+      <a class="btn" href="{{ url_for('xero_test') }}">Test Xero</a>
+    </div>
+  </div>
+  {% if not xero_configured %}
+    <div class="notice">Set XERO_CLIENT_ID and XERO_CLIENT_SECRET in the environment before connecting Xero.</div>
+  {% elif not xero_connected %}
+    <div class="notice">Xero is configured but not connected yet.</div>
+  {% endif %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Received</th><th>Name</th><th>Contact</th><th>Preferred</th><th>Status</th><th>Xero</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for lead in leads %}
+          <tr>
+            <td>{{ lead.created_at }}</td>
+            <td>{{ lead.name }}</td>
+            <td>{{ lead.phone }}<br>{{ lead.email }}</td>
+            <td>{{ lead.preferred_date }} {{ lead.preferred_time }}</td>
+            <td>{{ lead.status }}</td>
+            <td>{% if lead.xero_contact_id %}Sent{% elif lead.xero_error %}Error{% else %}Pending{% endif %}</td>
+            <td><a class="btn small" href="{{ url_for('intake_form_view', lead_id=lead.id) }}">View</a></td>
+          </tr>
+        {% else %}
+          <tr><td colspan="7">No intake forms yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

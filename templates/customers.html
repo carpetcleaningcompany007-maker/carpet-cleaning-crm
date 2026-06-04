@@ -1,0 +1,90 @@
+{% extends "layout.html" %}
+{% block page_title %}Customer Library{% endblock %}
+{% block body_content %}
+<section class="panel page-shell">
+  <div class="panel-head panel-head-stack">
+    <div>
+      <h3>Customer Library</h3>
+      <p>Keep this page as your clean customer list. Add a customer in the pop out, then open the record to manage quotes, jobs, invoices, messages, and history.</p>
+    </div>
+    <div class="stack-inline">
+      <button class="btn primary" type="button" data-open-modal="customerModal">Add New Customer</button>
+      <a class="btn secondary" href="{{ url_for('help_page') }}">How this works</a>
+    </div>
+  </div>
+
+  <details class="info-drop" open>
+    <summary>What does this page do?</summary>
+    <div class="info-drop-body">
+      <p>Use the library to find customers fast. Use the A to Z bar when you want a diary style browse, or use search if you already know the name, town, phone number, or tag.</p>
+    </div>
+  </details>
+
+  <form method="get" class="library-toolbar">
+    <div class="library-search-group">
+      <input name="q" value="{{ search }}" placeholder="Search name, phone, email, town, or tags">
+      <select name="scope">
+        <option value="active" {% if scope=='active' %}selected{% endif %}>Active</option>
+        <option value="archived" {% if scope=='archived' %}selected{% endif %}>Archived</option>
+        <option value="all" {% if scope=='all' %}selected{% endif %}>All</option>
+      </select>
+      <input type="hidden" name="starts" value="{{ starts }}">
+      <button class="btn secondary">Filter</button>
+    </div>
+  </form>
+
+  <div class="alpha-bar">
+    <a class="alpha-pill {% if not starts %}active{% endif %}" href="{{ url_for('customers', q=search, scope=scope) }}">All</a>
+    {% for letter in letters %}
+    <a class="alpha-pill {% if starts==letter %}active{% endif %}" href="{{ url_for('customers', q=search, scope=scope, starts=letter) }}">{{ letter }}</a>
+    {% endfor %}
+  </div>
+
+  <div class="scope-tabs">
+    <a class="scope-tab {% if scope=='active' %}active{% endif %}" href="{{ url_for('customers', q=search, scope='active', starts=starts) }}">Active</a>
+    <a class="scope-tab {% if scope=='archived' %}active{% endif %}" href="{{ url_for('customers', q=search, scope='archived', starts=starts) }}">Archived</a>
+    <a class="scope-tab {% if scope=='all' %}active{% endif %}" href="{{ url_for('customers', q=search, scope='all', starts=starts) }}">All</a>
+  </div>
+
+  <table class="table table-readable">
+    <tr><th>Name</th><th>Town</th><th>Phone</th><th>Last Contact</th><th>Status</th><th></th></tr>
+    {% for c in customers %}
+    <tr>
+      <td>
+        <strong>{{ c.first_name }} {{ c.last_name }}</strong>
+        {% if c.email %}<div class="subtle-row">{{ c.email }}</div>{% endif %}
+      </td>
+      <td>{{ c.town or '' }}</td>
+      <td>{{ c.phone or "" }}</td>
+      <td><span class="status-pill {% if c.last_contacted_at %}sent{% else %}draft{% endif %}">{{ c.last_contacted_label }}</span></td>
+      <td>{% if c.archived_at %}<span class="status-pill archived">Archived</span>{% else %}<span class="status-pill active">Active</span>{% endif %}</td>
+      <td><a class="mini-link" href="{{ url_for('customer_view', customer_id=c.id) }}">Open Record</a></td>
+    </tr>
+    {% else %}
+    <tr><td colspan="6" class="empty-cell">No customers found for this view.</td></tr>
+    {% endfor %}
+  </table>
+</section>
+
+<div class="modal-shell" id="customerModal" aria-hidden="true">
+  <div class="modal-backdrop" data-close-modal="customerModal"></div>
+  <div class="modal-panel modal-panel-large">
+    <div class="modal-head">
+      <div>
+        <h3>Add New Customer</h3>
+        <p>Enter the basics here. After saving, the full customer record opens so you can continue the workflow there.</p>
+      </div>
+      <button class="btn secondary" type="button" data-close-modal="customerModal">Close</button>
+    </div>
+    <form method="post" action="{{ url_for('customers_new') }}" class="form modal-form">
+      <div class="cols"><input name="first_name" placeholder="First name" required><input name="last_name" placeholder="Last name" required></div>
+      <div class="cols"><input name="phone" placeholder="Phone"><input name="email" placeholder="Email"></div>
+      <input name="address" placeholder="Address">
+      <div class="cols"><input name="town" placeholder="Town"><input name="postcode" placeholder="Postcode"></div>
+      <div class="cols"><input name="source" placeholder="Lead source"><input name="tags" placeholder="Tags"></div>
+      <textarea name="notes" placeholder="Notes"></textarea>
+      <div class="modal-actions"><button class="btn primary">Save Customer</button></div>
+    </form>
+  </div>
+</div>
+{% endblock %}

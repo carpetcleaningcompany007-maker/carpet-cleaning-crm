@@ -1,0 +1,28 @@
+{% extends "layout.html" %}
+{% block page_title %}Invoice Library{% endblock %}
+{% block body_content %}
+<div class="page-intro-grid">
+  <section class="page-intro-card">
+    <div class="section-kicker">Finance</div>
+    <h3>Invoice Library</h3>
+    <p>Search, review, and open invoice records quickly. Use the invoice itself for payments, reminders, notes, and communication history.</p>
+  </section>
+  <section class="page-stats-grid">
+    <div class="page-stat"><span>Visible invoices</span><strong>{{ invoices|length }}</strong></div>
+    <div class="page-stat"><span>View</span><strong>{{ scope|title }}</strong></div>
+    <div class="page-stat"><span>Search</span><strong>{{ search or 'All' }}</strong></div>
+  </section>
+</div>
+<section class="library-shell">
+  <div class="library-header"><div></div><div class="library-actions"><a class="btn primary" href="{{ url_for('invoice_reminders') }}">Open Invoice Reminders</a><a class="btn secondary" href="{{ url_for('xero_dashboard') }}">Xero Sync</a><a class="btn secondary" href="{{ url_for('reports') }}">Open Reports</a></div></div>
+  <details class="info-drop"><summary>What does this page do?</summary><div class="info-drop-body"><p>This is your invoice diary. Search and filter here, then open the invoice record itself for payments, reminders, or finance notes.</p></div></details>
+  <div class="library-toolbar">
+    <form method="get" class="stack-inline library-search-form"><input name="q" value="{{ search }}" placeholder="Search by invoice number, customer, or due date"><select name="scope"><option value="active" {% if scope=='active' %}selected{% endif %}>Active</option><option value="archived" {% if scope=='archived' %}selected{% endif %}>Archived</option><option value="all" {% if scope=='all' %}selected{% endif %}>All</option></select><button class="btn secondary">Filter</button></form>
+    <div class="scope-tabs"><a class="scope-tab {% if scope=='active' %}active{% endif %}" href="{{ url_for('invoices', q=search, scope='active') }}">Active</a><a class="scope-tab {% if scope=='archived' %}active{% endif %}" href="{{ url_for('invoices', q=search, scope='archived') }}">Archived</a><a class="scope-tab {% if scope=='all' %}active{% endif %}" href="{{ url_for('invoices', q=search, scope='all') }}">All</a></div>
+  </div>
+  <div class="workspace-grid">
+    <section class="panel"><div class="panel-head compact-head"><h3>Invoices</h3></div><div class="table-wrap"><table class="table table-readable compact-table"><tr><th>No.</th><th>Customer</th><th>Status</th><th>Xero</th><th>Due</th><th>Total</th><th></th></tr>{% for r in invoices %}<tr><td><strong>{{ r.invoice_number }}</strong></td><td>{{ r.customer_name or 'No customer' }}</td><td>{% if r.is_overdue %}<span class="status-pill overdue">Overdue</span>{% elif r.is_due_soon %}<span class="status-pill due-soon">Due Soon</span>{% else %}<span class="status-pill {{ (r.status or 'draft')|lower|replace(' ','-') }}">{{ r.status }}</span>{% endif %}</td><td>{% if r.xero_invoice_id %}<span class="status-pill sent">{{ r.xero_status or 'Synced' }}</span>{% else %}<span class="status-pill draft">Not synced</span>{% endif %}</td><td>{{ r.due_date or '' }}</td><td>£{{ '%.2f'|format(r.total or 0) }}</td><td><a class="mini-link" href="{{ url_for('invoice_view', invoice_id=r.id) }}">Open</a></td></tr>{% else %}<tr><td colspan="7" class="empty-cell">No invoices found for this view.</td></tr>{% endfor %}</table></div></section>
+    <aside class="workspace-rail sticky-rail"><section class="panel helper-card compact-card"><div class="panel-head compact-head"><h3>How to use this page</h3></div><ol class="simple-list compact-list"><li>Search for the customer or invoice number.</li><li>Open the invoice record to mark paid or send reminders.</li><li>Use Reminders for chasing workflow and Reports for summary numbers.</li></ol></section><section class="panel helper-card compact-card"><div class="panel-head compact-head"><h3>Keep finance tidy</h3></div><p class="readable-copy">This page is for finding invoice records fast. Reports, reminders, and expenses stay in the wider Finance section so the library remains uncluttered.</p></section></aside>
+  </div>
+</section>
+{% endblock %}

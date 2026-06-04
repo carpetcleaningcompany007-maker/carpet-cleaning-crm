@@ -1,0 +1,83 @@
+{% extends "layout.html" %}
+{% block page_title %}Job{% endblock %}
+{% block body_content %}
+{% if is_archived %}
+<section class="archive-banner panel compact-panel">
+  <strong>This job is archived.</strong>
+  <p>Restore it first if you want to create or manage a live invoice from it.</p>
+</section>
+{% endif %}
+
+<section class="doc-hero">
+  <div>
+    <div class="hero-tag">Job</div>
+    <h3>{{ job.title }}</h3>
+    <p>{{ job.first_name or '' }} {{ job.last_name or '' }}</p>
+  </div>
+  <div class="row-actions">
+    <a class="btn secondary" href="{{ url_for('customer_view', customer_id=job.customer_id) }}">Customer Record</a>
+    <a class="btn secondary" href="{{ url_for('full_calendar') }}">Calendar</a>
+  </div>
+</section>
+
+<div class="grid-2">
+  <section class="panel">
+    <div class="panel-head"><h3>Edit Job</h3></div>
+    <form method="post" action="{{ url_for('job_edit', job_id=job.id) }}" class="form">
+      <input name="title" value="{{ job.title }}">
+      <div class="cols"><input name="service_type" value="{{ job.service_type or '' }}" placeholder="Service type"><input type="date" name="job_date" value="{{ job.job_date or '' }}"></div>
+      <div class="cols"><input name="amount" type="number" step="0.01" value="{{ job.amount or 0 }}"><input name="assigned_to" value="{{ job.assigned_to or '' }}" placeholder="Assigned to"></div>
+      <select name="status">{% for s in ['Lead','Quoted','Booked','Reminder Sent','In Progress','Completed','Invoiced','Paid'] %}<option {% if job.status==s %}selected{% endif %}>{{ s }}</option>{% endfor %}</select>
+      <textarea name="notes" placeholder="Arrival notes, access, stains, rooms, parking">{{ job.notes or '' }}</textarea>
+      <button class="btn primary">Save Job</button>
+    </form>
+    <p class="muted inline-note">Use the archive button below rather than setting archive as a normal status.</p>
+    {% if is_archived %}
+    <form method="post" action="{{ url_for('job_restore', job_id=job.id) }}"><button class="btn secondary">Restore Job</button></form>
+    {% else %}
+    <form method="post" action="{{ url_for('job_delete', job_id=job.id) }}" onsubmit="return confirm('Archive this job?')"><button class="btn danger">Archive Job</button></form>
+    {% endif %}
+  </section>
+
+  <section class="panel">
+    <div class="panel-head"><h3>Complete and invoice</h3></div>
+    {% if existing_invoice_id %}
+    <p>This job already has a live invoice.</p>
+    <a class="btn secondary" href="{{ url_for('invoice_view', invoice_id=existing_invoice_id) }}">Open Existing Invoice</a>
+    {% else %}
+    <form method="post" action="{{ url_for('job_to_invoice', job_id=job.id) }}" class="form">
+      <div class="cols"><input type="date" name="invoice_date"><input type="date" name="due_date"></div>
+      <button class="btn primary" {% if is_archived %}disabled{% endif %}>Convert Job to Invoice</button>
+    </form>
+    {% endif %}
+    <div class="workflow-steps compact-workflow" style="margin-top:14px;">
+      <span>Booked</span><span>Reminder</span><span>Completed</span><span>Invoice</span><span>Feedback</span>
+    </div>
+  </section>
+</div>
+
+<section class="panel">
+  <div class="panel-head"><h3>Contact Timeline</h3></div>
+  <div class="stats-grid" style="margin-bottom:12px;">
+    <div class="stat"><span>Last Contact</span><strong>{{ contact_summary.last_contacted_at or 'Not yet' }}</strong></div>
+    <div class="stat"><span>Last 30 Days</span><strong>{{ contact_summary.count_recent }}</strong></div>
+    <div class="stat"><span>Email</span><strong>{{ contact_summary.email_recent }}</strong></div>
+    <div class="stat"><span>SMS</span><strong>{{ contact_summary.sms_recent }}</strong></div>
+  </div>
+  <div class="row-actions" style="margin-bottom:12px;">
+    <a class="btn secondary" href="{{ url_for('communications', customer_id=job.customer_id) }}">Open Communications</a>
+    <a class="btn secondary" href="{{ url_for('communications', customer_id=job.customer_id, channel='Email') }}">New Email Draft</a>
+  </div>
+  <div class="timeline">
+    {% for c in recent_contacts %}
+    <div class="timeline-item">
+      <strong>{{ c.created_at }} · {{ c.channel or 'Note' }}</strong>
+      <p><strong>{{ c.subject or 'No subject' }}</strong></p>
+      <p>{{ (c.body or '')[:220] }}{% if c.body and c.body|length > 220 %}...{% endif %}</p>
+    </div>
+    {% else %}
+    <div class="empty-state">No communications logged yet for this customer.</div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

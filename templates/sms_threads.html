@@ -1,0 +1,46 @@
+{% extends "layout.html" %}
+{% block title %}SMS Inbox{% endblock %}
+{% block page_title %}SMS Inbox{% endblock %}
+{% block body_content %}
+<section class="card">
+  <div class="card-head" style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;">
+    <div>
+      <h3>Two way SMS inbox</h3>
+      <p class="muted">Open a thread to see inbound and outbound messages together, send a reply, and keep internal notes. STOP and START replies automatically update SMS opt in status.</p>
+    </div>
+    <form method="get" class="form-inline" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <input name="q" value="{{ search_text or '' }}" placeholder="Search name, phone, or SMS text">
+      <select name="view">
+        <option value="" {% if not unread_only %}selected{% endif %}>All threads</option>
+        <option value="unread" {% if unread_only %}selected{% endif %}>Unread only</option>
+      </select>
+      <button class="btn secondary" type="submit">Apply</button>
+    </form>
+  </div>
+</section>
+<section class="card">
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr><th>Customer</th><th>Phone</th><th>Unread</th><th>Last Message</th><th>Direction</th><th>Preview</th><th>SMS Status</th><th>Open</th></tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td><a href="{{ url_for('customer_view', customer_id=row.customer_id) }}">{{ row.customer_name or ('Customer ' ~ row.customer_id) }}</a></td>
+          <td>{{ row.phone or '' }}</td>
+          <td>{% if row.unread_count %}<span class="pill warning">{{ row.unread_count }}</span>{% else %}<span class="muted">0</span>{% endif %}</td>
+          <td>{{ row.last_message_at or '' }}</td>
+          <td><span class="pill {% if (row.last_direction or '').lower() == 'inbound' %}warning{% else %}sent{% endif %}">{{ row.last_direction or '' }}</span></td>
+          <td style="max-width:280px;white-space:normal;">{{ (row.last_body or '')[:120] }}{% if row.last_body and row.last_body|length > 120 %}…{% endif %}</td>
+          <td>{% if row.sms_opt_out %}<span class="pill danger">Opted Out</span>{% else %}<span class="pill sent">Opted In</span>{% endif %}</td>
+          <td><a class="btn btn-small secondary" href="{{ url_for('sms_thread_view', customer_id=row.customer_id) }}">Open Thread</a></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8">No SMS threads found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

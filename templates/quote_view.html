@@ -1,0 +1,85 @@
+{% extends "layout.html" %}
+{% block page_title %}Quote{% endblock %}
+{% block body_content %}
+{% if is_archived %}
+<section class="archive-banner panel compact-panel">
+  <strong>This quote is archived.</strong>
+  <p>Restore it first if you want to convert it into a job.</p>
+</section>
+{% endif %}
+<section class="doc-hero">
+  <div><div class="hero-tag">Quote</div><h3>{{ quote.quote_number }}</h3><p>{{ quote.first_name or '' }} {{ quote.last_name or '' }}</p></div>
+  <div class="row-actions"><a class="btn secondary" href="{{ url_for('quote_print', quote_id=quote.id) }}" target="_blank">Print Quote</a></div>
+</section>
+
+<div class="grid-2">
+  <section class="panel">
+    <div class="panel-head"><h3>Edit Quote</h3></div>
+    <form method="post" action="{{ url_for('quote_edit', quote_id=quote.id) }}" class="form">
+      <input name="title" value="{{ quote.title or '' }}">
+      <div class="cols"><input type="date" name="quote_date" value="{{ quote.quote_date or '' }}"><input type="date" name="valid_until" value="{{ quote.valid_until or '' }}"></div>
+      <select name="status">{% for s in ['Draft','Sent','Accepted','Declined','Converted'] %}<option {% if quote.status==s %}selected{% endif %}>{{ s }}</option>{% endfor %}</select>
+      <textarea name="notes">{{ quote.notes or '' }}</textarea>
+      <button class="btn primary">Save Quote</button>
+    </form>
+    <p class="muted inline-note">Use the archive button below rather than setting archive as a normal status.</p>
+    {% if is_archived %}
+    <form method="post" action="{{ url_for('quote_restore', quote_id=quote.id) }}"><button class="btn secondary">Restore Quote</button></form>
+    {% else %}
+    <form method="post" action="{{ url_for('quote_delete', quote_id=quote.id) }}" onsubmit="return confirm('Archive this quote?')"><button class="btn danger">Archive Quote</button></form>
+    {% endif %}
+  </section>
+  <section class="panel">
+    <div class="panel-head"><h3>Convert to Job</h3></div>
+    {% if existing_job_id %}
+    <p>This quote already has a live job.</p>
+    <a class="btn secondary" href="{{ url_for('job_view', job_id=existing_job_id) }}">Open Existing Job</a>
+    {% else %}
+    <form method="post" action="{{ url_for('quote_to_job', quote_id=quote.id) }}" class="form">
+      <input name="title" value="{{ quote.title or 'Job from Quote' }}">
+      <div class="cols"><input type="date" name="job_date"><input name="assigned_to" placeholder="Assigned to"></div>
+      <button class="btn primary" {% if is_archived %}disabled{% endif %}>Convert Quote to Job</button>
+    </form>
+    {% endif %}
+  </section>
+</div>
+
+
+<section class="panel">
+  <div class="panel-head"><h3>Contact Timeline</h3></div>
+  <div class="stats-grid" style="margin-bottom:12px;">
+    <div class="stat"><span>Last Contact</span><strong>{{ contact_summary.last_contacted_at or 'Not yet' }}</strong></div>
+    <div class="stat"><span>Last 30 Days</span><strong>{{ contact_summary.count_recent }}</strong></div>
+    <div class="stat"><span>Email</span><strong>{{ contact_summary.email_recent }}</strong></div>
+    <div class="stat"><span>SMS</span><strong>{{ contact_summary.sms_recent }}</strong></div>
+  </div>
+  <div class="row-actions" style="margin-bottom:12px;">
+    <a class="btn secondary" href="{{ url_for('communications', customer_id=quote.customer_id if quote is defined else job.customer_id if job is defined else invoice.customer_id if invoice is defined else customer.id) }}">Open Communications</a>
+    <a class="btn secondary" href="{{ url_for('communications', customer_id=quote.customer_id if quote is defined else job.customer_id if job is defined else invoice.customer_id if invoice is defined else customer.id, channel='Email') }}">New Email Draft</a>
+  </div>
+  <div class="timeline">
+    {% for c in recent_contacts %}
+    <div class="timeline-item">
+      <strong>{{ c.created_at }} · {{ c.channel or 'Note' }}</strong>
+      <p><strong>{{ c.subject or 'No subject' }}</strong></p>
+      <p>{{ (c.body or '')[:220] }}{% if c.body and c.body|length > 220 %}...{% endif %}</p>
+    </div>
+    {% else %}
+    <div class="empty-state">No communications logged yet for this customer.</div>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="panel">
+  <div class="panel-head"><h3>Quote Lines</h3></div>
+  <table class="table">
+    <tr><th>Description</th><th>Method</th><th>Qty</th><th>Unit</th><th>Total</th></tr>
+    {% for l in lines %}
+    <tr><td>{{ l.item_name }}</td><td>{{ l.method }}</td><td>{{ l.quantity }}</td><td>£{{ '%.2f'|format(l.unit_price or 0) }}</td><td>£{{ '%.2f'|format(l.line_total or 0) }}</td></tr>
+    {% else %}
+    <tr><td colspan="5" class="empty-cell">No quote lines were saved on this record.</td></tr>
+    {% endfor %}
+    <tr><td colspan="4"><strong>Total</strong></td><td><strong>£{{ '%.2f'|format(quote.total or 0) }}</strong></td></tr>
+  </table>
+</section>
+{% endblock %}

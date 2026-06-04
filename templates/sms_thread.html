@@ -1,0 +1,78 @@
+{% extends "layout.html" %}
+{% block title %}SMS Thread{% endblock %}
+{% block page_title %}SMS Thread{% endblock %}
+{% block body_content %}
+<section class="card">
+  <div class="card-head" style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;">
+    <div>
+      <h3>{{ customer.first_name }} {{ customer.last_name }}</h3>
+      <p class="muted">{{ customer.phone or 'No phone saved' }} · {% if customer.sms_opt_out %}SMS opted out{% else %}SMS opted in{% endif %}</p>
+    </div>
+    <div class="row-actions">
+      <a class="btn secondary" href="{{ url_for('sms_inbox') }}">Back to Inbox</a>
+      <a class="btn secondary" href="{{ url_for('communications', customer_id=customer.id, channel='SMS') }}">New SMS Draft</a>
+      <a class="btn secondary" href="{{ url_for('customer_view', customer_id=customer.id) }}">Open Customer</a>
+    </div>
+  </div>
+</section>
+<div class="grid-2">
+  <section class="card">
+    <div class="card-head"><h3>Conversation</h3></div>
+    <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:18px;">
+      {% for row in thread %}
+      <div style="max-width:78%;padding:12px 14px;border-radius:16px;align-self:{% if (row.direction or '').lower() == 'outbound' %}flex-end{% else %}flex-start{% endif %};background:{% if (row.direction or '').lower() == 'outbound' %}#dbeafe{% else %}#f1f5f9{% endif %};border:1px solid #dbe6f2;">
+        <div style="font-size:12px;color:#475569;margin-bottom:6px;">{{ (row.direction or 'outbound')|title }} · {{ row.created_at }}{% if row.status %} · {{ row.status }}{% endif %}</div>
+        <div style="white-space:pre-wrap;">{{ row.body or '' }}</div>
+        {% if row.error_text %}<div style="font-size:12px;color:#b91c1c;margin-top:6px;">{{ row.error_text }}</div>{% endif %}
+      </div>
+      {% else %}
+      <div class="empty-state">No SMS messages logged for this customer yet.</div>
+      {% endfor %}
+    </div>
+
+    <div style="border-top:1px solid #e2e8f0;padding-top:16px;">
+      <h4 style="margin:0 0 12px;">Reply</h4>
+      <form method="post" action="{{ url_for('sms_thread_reply', customer_id=customer.id) }}" class="form">
+        <div class="cols">
+          <div>
+            <label>Template</label>
+            <select name="template_id" onchange="if(this.dataset.bodies){ try{ const map = JSON.parse(this.dataset.bodies); const row = map[this.value]; if(row){ const area = document.getElementById('replyBody'); area.value = row.body || ''; document.getElementById('messageCategory').value = row.category || ''; } }catch(e){} }" data-bodies='{
+              {% for t in templates %}
+                "{{ t.id }}": {{ {"body": t.body, "category": t.category}|tojson }}{% if not loop.last %},{% endif %}
+              {% endfor %}
+            }'>
+              <option value="">Choose a template</option>
+              {% for t in templates %}
+                <option value="{{ t.id }}">{{ t.name }}{% if t.category %} · {{ t.category }}{% endif %}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label>Message category</label>
+            <input id="messageCategory" name="message_category" placeholder="General, Reminder, Marketing">
+          </div>
+        </div>
+        <div>
+          <label>Reply text</label>
+          <textarea id="replyBody" name="body" rows="6" placeholder="Type your reply here"></textarea>
+        </div>
+        <button class="btn primary" type="submit">Send SMS Reply</button>
+      </form>
+    </div>
+  </section>
+  <section class="card">
+    <div class="card-head"><h3>Thread Notes</h3></div>
+    <form method="post" action="{{ url_for('sms_thread_note', customer_id=customer.id) }}" class="form" style="margin-bottom:16px;">
+      <textarea name="note_text" rows="4" placeholder="Add an internal note about this SMS conversation"></textarea>
+      <button class="btn primary" type="submit">Save Note</button>
+    </form>
+    <div class="timeline">
+      {% for row in notes %}
+      <div class="timeline-item"><strong>{{ row.created_at }}</strong><p>{{ row.note_text }}</p></div>
+      {% else %}
+      <div class="timeline-item"><strong>No internal notes yet</strong><p>Notes here stay inside the CRM and are not sent to the customer.</p></div>
+      {% endfor %}
+    </div>
+  </section>
+</div>
+{% endblock %}

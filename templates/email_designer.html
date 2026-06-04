@@ -1,0 +1,368 @@
+{% extends "layout.html" %}
+{% block page_title %}Email Studio{% endblock %}
+{% block body_content %}
+<section class="hero small-hero">
+  <div>
+    <div class="hero-tag">Dedicated email design page</div>
+    <h3>Build polished branded emails with multiple images, text sections, buttons, spacers, and saved templates.</h3>
+    <p>Use blocks to stack content in any order. This page is built for real email layouts, so you can mix image, text, button, quote, divider, and spacer sections.</p>
+  </div>
+</section>
+
+<div class="studio-shell">
+  <section class="panel studio-sidebar">
+    <div class="panel-head"><h3>Design Controls</h3></div>
+    <div class="studio-actions">
+      <button class="btn primary" type="button" data-add="hero">Add hero</button>
+      <button class="btn secondary" type="button" data-add="text">Add text</button>
+      <button class="btn secondary" type="button" data-add="image">Add image</button>
+      <button class="btn secondary" type="button" data-add="button">Add button</button>
+      <button class="btn secondary" type="button" data-add="quote">Add quote block</button>
+      <button class="btn secondary" type="button" data-add="divider">Add divider</button>
+      <button class="btn secondary" type="button" data-add="spacer">Add spacer</button>
+    </div>
+
+    <div class="studio-section-block">
+      <label>Customer for preview and sending</label>
+      <select id="studioCustomer">
+        <option value="">Select customer</option>
+        {% for c in customers %}
+        <option value="{{ c.id }}" data-email="{{ c.email or '' }}" data-name="{{ c.name }}">{{ c.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="studio-section-block">
+      <label>Saved templates</label>
+      <select id="studioTemplatePick">
+        <option value="">Load saved template</option>
+        {% for t in templates %}
+        <option value="{{ t.id }}" data-subject='{{ t.subject|tojson }}' data-body='{{ t.body|tojson }}'>{{ t.name }}</option>
+        {% endfor %}
+      </select>
+      <p class="form-help">Saved templates load into the main canvas so you can edit and resend them.</p>
+    </div>
+
+    <div class="studio-section-block">
+      <label>Subject line</label>
+      <input type="text" id="studioSubject" placeholder="Write your email subject">
+    </div>
+
+    <div class="studio-section-block">
+      <label>Font family</label>
+      <select id="studioFont">
+        <option value="Arial, Helvetica, sans-serif">Clean Sans</option>
+        <option value="'Trebuchet MS', Arial, sans-serif">Trebuchet</option>
+        <option value="Georgia, 'Times New Roman', serif">Elegant Serif</option>
+        <option value="Verdana, Geneva, sans-serif">Verdana</option>
+      </select>
+    </div>
+
+    <div class="studio-section-block">
+      <label>Canvas width</label>
+      <select id="studioWidth">
+        <option value="680">680px</option>
+        <option value="720">720px</option>
+        <option value="600">600px</option>
+      </select>
+    </div>
+
+    <div class="studio-section-block">
+      <label>Quick tips</label>
+      <p class="form-help">Images need public URLs for outgoing email. For best delivery, keep fonts email safe and use one main call to action per message.</p>
+    </div>
+  </section>
+
+  <section class="panel studio-builder">
+    <div class="panel-head"><h3>Email Canvas</h3></div>
+
+    <div class="studio-top-actions">
+      <button class="btn primary" type="button" id="studioAddStarter">Load starter layout</button>
+      <button class="btn secondary" type="button" id="studioClearAll">Clear layout</button>
+      <button class="btn secondary" type="button" id="studioPreviewToggle">Refresh preview</button>
+    </div>
+
+    <div id="studioBlocks"></div>
+
+    <div class="panel soft-panel" style="margin-top:16px;">
+      <div class="panel-head"><h3>Save or Send</h3></div>
+      <div class="grid-2 studio-send-grid">
+        <form method="post" action="{{ url_for('communications_template_new') }}" class="form" id="studioSaveTemplateForm">
+          <div>
+            <label>Template name</label>
+            <input type="text" name="name" id="studioTemplateName" placeholder="Deluxe deep clean follow up">
+          </div>
+          <input type="hidden" name="channel" value="Email">
+          <input type="hidden" name="subject" id="studioSaveSubject">
+          <textarea name="body" id="studioSaveBody" style="display:none;"></textarea>
+          <button class="btn primary" type="submit">Save Template</button>
+        </form>
+
+        <form method="post" action="{{ url_for('communications_send_test') }}" class="form" id="studioSendTestForm">
+          <div>
+            <label>Send test email</label>
+            <input type="email" name="test_email" value="{{ app_settings.test_email or app_settings.gmail_address or '' }}" placeholder="yourgmail@gmail.com">
+          </div>
+          <input type="hidden" name="subject" id="studioTestSubject">
+          <textarea name="body" id="studioTestBody" style="display:none;"></textarea>
+          <button class="btn secondary" type="submit">Send Test</button>
+        </form>
+      </div>
+
+      <form method="post" action="{{ url_for('communications_send_customer') }}" class="form" id="studioSendCustomerForm" style="margin-top:10px;">
+        <input type="hidden" name="customer_id" id="studioCustomerMirror">
+        <input type="hidden" name="channel" value="Email">
+        <input type="hidden" name="subject" id="studioCustomerSubject">
+        <textarea name="body" id="studioCustomerBody" style="display:none;"></textarea>
+        <button class="btn primary" type="submit">Send to Selected Customer</button>
+      </form>
+    </div>
+  </section>
+
+  <section class="panel studio-preview-panel">
+    <div class="panel-head"><h3>Live Preview</h3></div>
+    <div class="email-preview-shell">
+      <div class="email-preview-head">
+        <strong id="studioPreviewSubject">Your subject will appear here</strong>
+        <span id="studioPreviewCustomer">Preview not linked to a customer yet</span>
+      </div>
+      <div class="studio-preview-wrap">
+        <div id="studioPreviewBody"></div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+  const blocksWrap = document.getElementById('studioBlocks');
+  const previewBody = document.getElementById('studioPreviewBody');
+  const previewSubject = document.getElementById('studioPreviewSubject');
+  const previewCustomer = document.getElementById('studioPreviewCustomer');
+  const subjectInput = document.getElementById('studioSubject');
+  const customerSelect = document.getElementById('studioCustomer');
+  const templatePick = document.getElementById('studioTemplatePick');
+  const fontSelect = document.getElementById('studioFont');
+  const widthSelect = document.getElementById('studioWidth');
+  const saveSubject = document.getElementById('studioSaveSubject');
+  const saveBody = document.getElementById('studioSaveBody');
+  const testSubject = document.getElementById('studioTestSubject');
+  const testBody = document.getElementById('studioTestBody');
+  const customerSubject = document.getElementById('studioCustomerSubject');
+  const customerBody = document.getElementById('studioCustomerBody');
+  const customerMirror = document.getElementById('studioCustomerMirror');
+
+  let blocks = [];
+
+  function uid(){ return 'b' + Math.random().toString(36).slice(2, 10); }
+
+  function starterBlocks(){
+    return [
+      {id: uid(), type:'hero', heading:'A cleaner, fresher home starts here', text:'Deep carpet cleaning, upholstery refresh, and professional stain removal with a polished local service.', bg:'#1f5fbf', color:'#ffffff', align:'left'},
+      {id: uid(), type:'image', url:'https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&w=1200&q=80', alt:'Fresh cleaned room', radius:'18'},
+      {id: uid(), type:'text', heading:'What is included', text:'• Pre inspection\n• Fibre safe treatment\n• Deep cleaning\n• Fresh smelling finish\n\nReply to this email if you would like a quote or to confirm a booking.', align:'left'},
+      {id: uid(), type:'button', label:'Book Your Clean', url:'https://www.thecarpetcleaningcrew.co.uk', bg:'#1f5fbf', color:'#ffffff', align:'left'},
+      {id: uid(), type:'quote', quote:'The carpets came up brilliantly and the whole service felt very professional.', source:'Happy customer'},
+    ];
+  }
+
+  function makeBlock(type){
+    const base = {id: uid(), type:type};
+    if(type === 'hero') return Object.assign(base, {heading:'Headline here', text:'Add a strong opening message here.', bg:'#1f5fbf', color:'#ffffff', align:'left'});
+    if(type === 'text') return Object.assign(base, {heading:'Section heading', text:'Add your text here', align:'left'});
+    if(type === 'image') return Object.assign(base, {url:'https://', alt:'Image description', caption:'', radius:'16'});
+    if(type === 'button') return Object.assign(base, {label:'View Quote', url:'https://', bg:'#1f5fbf', color:'#ffffff', align:'left'});
+    if(type === 'quote') return Object.assign(base, {quote:'Add testimonial or highlighted text here.', source:'Your source'});
+    if(type === 'divider') return Object.assign(base, {style:'solid'});
+    if(type === 'spacer') return Object.assign(base, {height:'28'});
+    return base;
+  }
+
+  function renderBuilder(){
+    blocksWrap.innerHTML = '';
+    blocks.forEach((block, index) => {
+      const card = document.createElement('div');
+      card.className = 'studio-block-card';
+      let fields = '';
+      if(block.type === 'hero'){
+        fields = `
+          <div class="cols"><div><label>Headline</label><input data-field="heading" value="${escapeHtml(block.heading)}"></div><div><label>Background</label><input data-field="bg" value="${escapeHtml(block.bg)}"></div></div>
+          <div><label>Text</label><textarea data-field="text">${escapeHtml(block.text)}</textarea></div>
+          <div class="cols"><div><label>Text colour</label><input data-field="color" value="${escapeHtml(block.color)}"></div><div><label>Align</label><select data-field="align"><option ${block.align==='left'?'selected':''}>left</option><option ${block.align==='center'?'selected':''}>center</option></select></div></div>`;
+      }
+      if(block.type === 'text'){
+        fields = `
+          <div><label>Section heading</label><input data-field="heading" value="${escapeHtml(block.heading)}"></div>
+          <div><label>Body text</label><textarea data-field="text">${escapeHtml(block.text)}</textarea></div>
+          <div><label>Align</label><select data-field="align"><option ${block.align==='left'?'selected':''}>left</option><option ${block.align==='center'?'selected':''}>center</option></select></div>`;
+      }
+      if(block.type === 'image'){
+        fields = `
+          <div><label>Image URL</label><input data-field="url" value="${escapeHtml(block.url)}"></div>
+          <div class="cols"><div><label>Alt text</label><input data-field="alt" value="${escapeHtml(block.alt)}"></div><div><label>Rounded corners</label><input data-field="radius" value="${escapeHtml(block.radius)}"></div></div>
+          <div><label>Caption</label><input data-field="caption" value="${escapeHtml(block.caption || '')}"></div>`;
+      }
+      if(block.type === 'button'){
+        fields = `
+          <div class="cols"><div><label>Button text</label><input data-field="label" value="${escapeHtml(block.label)}"></div><div><label>Link</label><input data-field="url" value="${escapeHtml(block.url)}"></div></div>
+          <div class="cols"><div><label>Button colour</label><input data-field="bg" value="${escapeHtml(block.bg)}"></div><div><label>Text colour</label><input data-field="color" value="${escapeHtml(block.color)}"></div></div>
+          <div><label>Align</label><select data-field="align"><option ${block.align==='left'?'selected':''}>left</option><option ${block.align==='center'?'selected':''}>center</option></select></div>`;
+      }
+      if(block.type === 'quote'){
+        fields = `
+          <div><label>Quote</label><textarea data-field="quote">${escapeHtml(block.quote)}</textarea></div>
+          <div><label>Source</label><input data-field="source" value="${escapeHtml(block.source)}"></div>`;
+      }
+      if(block.type === 'divider'){
+        fields = `
+          <div><label>Style</label><select data-field="style"><option ${block.style==='solid'?'selected':''}>solid</option><option ${block.style==='dashed'?'selected':''}>dashed</option></select></div>`;
+      }
+      if(block.type === 'spacer'){
+        fields = `<div><label>Height</label><input data-field="height" value="${escapeHtml(block.height)}"></div>`;
+      }
+      card.innerHTML = `
+        <div class="studio-block-top">
+          <strong>${block.type.charAt(0).toUpperCase()+block.type.slice(1)} block</strong>
+          <div class="studio-mini-actions">
+            <button type="button" class="btn secondary" data-move="up">↑</button>
+            <button type="button" class="btn secondary" data-move="down">↓</button>
+            <button type="button" class="btn secondary" data-remove="1">Remove</button>
+          </div>
+        </div>
+        ${fields}
+      `;
+      card.querySelectorAll('[data-field]').forEach(el => {
+        el.addEventListener('input', function(){
+          block[this.dataset.field] = this.value;
+          refreshPreview();
+        });
+        el.addEventListener('change', function(){
+          block[this.dataset.field] = this.value;
+          refreshPreview();
+        });
+      });
+      card.querySelector('[data-remove]')?.addEventListener('click', () => {
+        blocks.splice(index, 1);
+        renderBuilder();
+      });
+      card.querySelector('[data-move="up"]')?.addEventListener('click', () => {
+        if(index === 0) return;
+        [blocks[index-1], blocks[index]] = [blocks[index], blocks[index-1]];
+        renderBuilder();
+      });
+      card.querySelector('[data-move="down"]')?.addEventListener('click', () => {
+        if(index === blocks.length - 1) return;
+        [blocks[index+1], blocks[index]] = [blocks[index], blocks[index+1]];
+        renderBuilder();
+      });
+      blocksWrap.appendChild(card);
+    });
+    refreshPreview();
+  }
+
+  function escapeHtml(v){
+    return String(v || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function formatText(txt){
+    return escapeHtml(txt).replace(/\n/g, '<br>');
+  }
+
+  function renderHtml(){
+    const font = fontSelect.value || 'Arial, Helvetica, sans-serif';
+    const width = widthSelect.value || '680';
+    let html = `<div style="background:#eef4fb;padding:26px 12px;"><div style="max-width:${width}px;margin:0 auto;background:#ffffff;border-radius:22px;overflow:hidden;box-shadow:0 18px 40px rgba(16,39,68,.10);font-family:${font};color:#163454;">`;
+    blocks.forEach(block => {
+      if(block.type === 'hero'){
+        html += `<div style="padding:34px 34px 28px;background:${block.bg};color:${block.color};text-align:${block.align};"><h1 style="margin:0 0 12px;font-size:32px;line-height:1.15;color:${block.color};">${escapeHtml(block.heading)}</h1><div style="font-size:16px;line-height:1.7;color:${block.color};opacity:.96;">${formatText(block.text)}</div></div>`;
+      }
+      if(block.type === 'text'){
+        html += `<div style="padding:28px 34px;text-align:${block.align};"><h2 style="margin:0 0 10px;font-size:24px;color:#163454;">${escapeHtml(block.heading)}</h2><div style="font-size:16px;line-height:1.75;color:#44607d;">${formatText(block.text)}</div></div>`;
+      }
+      if(block.type === 'image'){
+        html += `<div style="padding:12px 34px 20px;"><img src="${escapeHtml(block.url)}" alt="${escapeHtml(block.alt)}" style="display:block;width:100%;height:auto;border-radius:${escapeHtml(block.radius)}px;">${block.caption ? `<div style="padding-top:8px;font-size:13px;color:#6d839a;">${escapeHtml(block.caption)}</div>` : ''}</div>`;
+      }
+      if(block.type === 'button'){
+        html += `<div style="padding:8px 34px 24px;text-align:${block.align};"><a href="${escapeHtml(block.url)}" style="display:inline-block;background:${block.bg};color:${block.color};text-decoration:none;padding:14px 24px;border-radius:999px;font-weight:700;box-shadow:0 10px 24px rgba(31,95,191,.18);">${escapeHtml(block.label)}</a></div>`;
+      }
+      if(block.type === 'quote'){
+        html += `<div style="padding:12px 34px 28px;"><div style="background:#f4f8fc;border:1px solid #d9e6f3;border-radius:18px;padding:22px;"><div style="font-size:18px;line-height:1.7;color:#163454;font-style:italic;">“${formatText(block.quote)}”</div><div style="padding-top:10px;font-size:13px;font-weight:700;color:#5c7590;">${escapeHtml(block.source)}</div></div></div>`;
+      }
+      if(block.type === 'divider'){
+        html += `<div style="padding:12px 34px;"><hr style="border:none;border-top:2px ${block.style} #d9e6f3;"></div>`;
+      }
+      if(block.type === 'spacer'){
+        html += `<div style="height:${escapeHtml(block.height)}px;"></div>`;
+      }
+    });
+    html += `</div></div>`;
+    return html;
+  }
+
+  function refreshPreview(){
+    const html = renderHtml();
+    previewBody.innerHTML = html;
+    previewSubject.textContent = subjectInput.value || 'Your subject will appear here';
+    const customerOpt = customerSelect.options[customerSelect.selectedIndex];
+    previewCustomer.textContent = customerOpt && customerOpt.value ? `Preview linked to ${customerOpt.text}` : 'Preview not linked to a customer yet';
+    saveSubject.value = subjectInput.value || '';
+    saveBody.value = html;
+    testSubject.value = subjectInput.value || 'CRM test email';
+    testBody.value = html;
+    customerSubject.value = subjectInput.value || '';
+    customerBody.value = html;
+    customerMirror.value = customerSelect.value || '';
+  }
+
+  document.querySelectorAll('[data-add]').forEach(btn => {
+    btn.addEventListener('click', function(){
+      blocks.push(makeBlock(this.dataset.add));
+      renderBuilder();
+    });
+  });
+
+  document.getElementById('studioAddStarter').addEventListener('click', function(){
+    blocks = starterBlocks();
+    renderBuilder();
+  });
+
+  document.getElementById('studioClearAll').addEventListener('click', function(){
+    blocks = [];
+    renderBuilder();
+  });
+
+  document.getElementById('studioPreviewToggle').addEventListener('click', refreshPreview);
+  subjectInput.addEventListener('input', refreshPreview);
+  customerSelect.addEventListener('change', refreshPreview);
+  fontSelect.addEventListener('change', refreshPreview);
+  widthSelect.addEventListener('change', refreshPreview);
+
+  templatePick.addEventListener('change', function(){
+    const opt = this.options[this.selectedIndex];
+    if(!opt || !opt.value) return;
+    subjectInput.value = opt.dataset.subject ? JSON.parse(opt.dataset.subject) : '';
+    const body = opt.dataset.body ? JSON.parse(opt.dataset.body) : '';
+    previewBody.innerHTML = body;
+    saveSubject.value = subjectInput.value || '';
+    saveBody.value = body;
+    testSubject.value = subjectInput.value || 'CRM test email';
+    testBody.value = body;
+    customerSubject.value = subjectInput.value || '';
+    customerBody.value = body;
+    previewSubject.textContent = subjectInput.value || 'Your subject will appear here';
+    blocks = [];
+    blocksWrap.innerHTML = '<div class="form-help" style="padding:14px 0;">Loaded saved HTML template for preview and sending. To redesign it block by block, start with a new layout or rebuild with the block tools.</div>';
+  });
+
+  document.getElementById('studioSendCustomerForm').addEventListener('submit', function(e){
+    if(!customerSelect.value){
+      e.preventDefault();
+      alert('Select a customer first.');
+    }
+  });
+
+  blocks = starterBlocks();
+  renderBuilder();
+});
+</script>
+{% endblock %}

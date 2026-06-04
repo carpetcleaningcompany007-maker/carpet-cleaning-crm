@@ -1,0 +1,108 @@
+{% extends "layout.html" %}
+{% block page_title %}Invoice{% endblock %}
+{% block body_content %}
+{% if is_archived %}
+<section class="archive-banner panel compact-panel">
+  <strong>This invoice is archived.</strong>
+  <p>Restore it if you want it back in the live workflow.</p>
+</section>
+{% endif %}
+{% if is_overdue %}
+<section class="archive-banner panel compact-panel"><strong>This invoice is overdue.</strong><p>It is past the due date and still not marked as paid.</p></section>
+{% elif is_due_soon %}
+<section class="archive-banner panel compact-panel"><strong>This invoice is due soon.</strong><p>It is due within the next 7 days.</p></section>
+{% endif %}
+
+<section class="doc-hero">
+  <div>
+    <div class="hero-tag">Invoice</div>
+    <h3>{{ invoice.invoice_number }}</h3>
+    <p>{{ invoice.first_name or '' }} {{ invoice.last_name or '' }}</p>
+  </div>
+  <div class="row-actions">
+    <a class="btn secondary" href="{{ url_for('customer_view', customer_id=invoice.customer_id) }}">Customer Record</a>
+    <a class="btn secondary" href="{{ url_for('invoice_print', invoice_id=invoice.id) }}" target="_blank">Print Invoice</a>
+  </div>
+</section>
+
+<div class="grid-2">
+  <section class="panel">
+    <div class="panel-head"><h3>Edit Invoice</h3></div>
+    <form method="post" action="{{ url_for('invoice_edit', invoice_id=invoice.id) }}" class="form">
+      <div class="cols"><input type="date" name="invoice_date" value="{{ invoice.invoice_date or '' }}"><input type="date" name="due_date" value="{{ invoice.due_date or '' }}"></div>
+      <select name="status">{% for s in ['Draft','Sent','Overdue','Paid'] %}<option {% if invoice.status==s %}selected{% endif %}>{{ s }}</option>{% endfor %}</select>
+      <textarea name="notes">{{ invoice.notes or '' }}</textarea>
+      <button class="btn primary">Save Invoice</button>
+    </form>
+    <p class="muted inline-note">Use the archive button below rather than setting archive as a normal status.</p>
+    {% if is_archived %}
+    <form method="post" action="{{ url_for('invoice_restore', invoice_id=invoice.id) }}"><button class="btn secondary">Restore Invoice</button></form>
+    {% else %}
+    <form method="post" action="{{ url_for('invoice_delete', invoice_id=invoice.id) }}" onsubmit="return confirm('Archive this invoice?')"><button class="btn danger">Archive Invoice</button></form>
+    {% endif %}
+  </section>
+
+  <section class="panel">
+    <div class="panel-head"><h3>Xero sync and payment status</h3></div>
+    <div class="xero-status-grid">
+      <div><span>Xero invoice</span><strong>{{ invoice.xero_invoice_number or invoice.xero_invoice_id or 'Not synced' }}</strong></div>
+      <div><span>Xero status</span><strong>{{ invoice.xero_status or 'Not synced' }}</strong></div>
+      <div><span>Paid in Xero</span><strong>£{{ '%.2f'|format(invoice.xero_amount_paid or 0) }}</strong></div>
+      <div><span>Due in Xero</span><strong>£{{ '%.2f'|format(invoice.xero_amount_due or 0) }}</strong></div>
+    </div>
+    {% if invoice.xero_error %}<div class="notice danger-notice">{{ invoice.xero_error }}</div>{% endif %}
+    <div class="row-actions" style="margin:14px 0;">
+      {% if invoice.xero_invoice_id %}
+      <form method="post" action="{{ url_for('xero_sync_invoice_status', invoice_id=invoice.id) }}"><button class="btn secondary">Refresh Xero Status</button></form>
+      <form method="post" action="{{ url_for('xero_email_invoice', invoice_id=invoice.id) }}"><button class="btn secondary">Email from Xero</button></form>
+      {% else %}
+      <form method="post" action="{{ url_for('xero_sync_invoice', invoice_id=invoice.id) }}"><button class="btn primary">Sync Invoice to Xero</button></form>
+      {% endif %}
+      <a class="btn secondary" href="{{ url_for('xero_dashboard') }}">Xero Dashboard</a>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head"><h3>Payment reminder</h3></div>
+    <div class="inline-note">Current reminder stage: <strong>{{ reminder_stage }}</strong>{% if invoice.reminder_count %} · Sent {{ invoice.reminder_count }} time{{ '' if invoice.reminder_count == 1 else 's' }}{% endif %}</div>
+    {% if not is_archived and (invoice.status or '') != 'Paid' %}
+    <form method="post" action="{{ url_for('send_invoice_reminder', invoice_id=invoice.id) }}" class="form" style="margin-bottom:14px;">
+      <input type="hidden" name="next_url" value="{{ request.path }}">
+      <input name="subject" value="{{ reminder_subject }}" placeholder="Reminder subject">
+      <textarea name="body" rows="7">{{ reminder_body }}</textarea>
+      <button class="btn secondary">Send Payment Reminder</button>
+    </form>
+    {% endif %}
+    <div class="calc-total">
+      <div><span>Subtotal</span><strong>£{{ '%.2f'|format(invoice.subtotal or 0) }}</strong></div>
+      <div><span>VAT</span><strong>£{{ '%.2f'|format(invoice.vat or 0) }}</strong></div>
+      <div><span>Total</span><strong>£{{ '%.2f'|format(invoice.total or 0) }}</strong></div>
+    </div>
+  </section>
+</div>
+
+<section class="panel">
+  <div class="panel-head"><h3>Contact Timeline</h3></div>
+  <div class="stats-grid" style="margin-bottom:12px;">
+    <div class="stat"><span>Last Contact</span><strong>{{ contact_summary.last_contacted_at or 'Not yet' }}</strong></div>
+    <div class="stat"><span>Last 30 Days</span><strong>{{ contact_summary.count_recent }}</strong></div>
+    <div class="stat"><span>Email</span><strong>{{ contact_summary.email_recent }}</strong></div>
+    <div class="stat"><span>SMS</span><strong>{{ contact_summary.sms_recent }}</strong></div>
+  </div>
+  <div class="row-actions" style="margin-bottom:12px;">
+    <a class="btn secondary" href="{{ url_for('communications', customer_id=invoice.customer_id) }}">Open Communications</a>
+    <a class="btn secondary" href="{{ url_for('communications', customer_id=invoice.customer_id, channel='Email') }}">New Email Draft</a>
+  </div>
+  <div class="timeline">
+    {% for c in recent_contacts %}
+    <div class="timeline-item">
+      <strong>{{ c.created_at }} · {{ c.channel or 'Note' }}</strong>
+      <p><strong>{{ c.subject or 'No subject' }}</strong></p>
+      <p>{{ (c.body or '')[:220] }}{% if c.body and c.body|length > 220 %}...{% endif %}</p>
+    </div>
+    {% else %}
+    <div class="empty-state">No communications logged yet for this customer.</div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

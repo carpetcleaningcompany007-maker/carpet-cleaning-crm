@@ -1,0 +1,28 @@
+{% extends "layout.html" %}
+{% block page_title %}Quote Library{% endblock %}
+{% block body_content %}
+<div class="page-intro-grid">
+  <section class="page-intro-card">
+    <div class="section-kicker">Sales</div>
+    <h3>Quote Library</h3>
+    <p>Find, open, and review quote records from one place. Creating quotes stays separate so this library stays clean and easy to scan.</p>
+  </section>
+  <section class="page-stats-grid">
+    <div class="page-stat"><span>Visible quotes</span><strong>{{ quotes|length }}</strong></div>
+    <div class="page-stat"><span>View</span><strong>{{ scope|title }}</strong></div>
+    <div class="page-stat"><span>Search</span><strong>{{ search or 'All' }}</strong></div>
+  </section>
+</div>
+<section class="library-shell">
+  <div class="library-header"><div></div><div class="library-actions"><a class="btn primary" href="{{ url_for('quote_requests') }}">Open Quote Requests</a><a class="btn secondary" href="{{ url_for('calculator') }}">Create Quote from Calculator</a></div></div>
+  <details class="info-drop"><summary>What does this page do?</summary><div class="info-drop-body"><p>This is your quote diary. Search and filter here, then open the quote itself for pricing, approval, conversion, or archiving.</p></div></details>
+  <div class="library-toolbar">
+    <form method="get" class="stack-inline library-search-form"><input name="q" value="{{ search }}" placeholder="Search by quote number, customer, or title"><select name="scope"><option value="active" {% if scope=='active' %}selected{% endif %}>Active</option><option value="archived" {% if scope=='archived' %}selected{% endif %}>Archived</option><option value="all" {% if scope=='all' %}selected{% endif %}>All</option></select><button class="btn secondary">Filter</button></form>
+    <div class="scope-tabs"><a class="scope-tab {% if scope=='active' %}active{% endif %}" href="{{ url_for('quotes', q=search, scope='active') }}">Active</a><a class="scope-tab {% if scope=='archived' %}active{% endif %}" href="{{ url_for('quotes', q=search, scope='archived') }}">Archived</a><a class="scope-tab {% if scope=='all' %}active{% endif %}" href="{{ url_for('quotes', q=search, scope='all') }}">All</a></div>
+  </div>
+  <div class="workspace-grid">
+    <section class="panel"><div class="panel-head compact-head"><h3>Quotes</h3></div><div class="table-wrap"><table class="table table-readable compact-table"><tr><th>No.</th><th>Customer</th><th>Title</th><th>Status</th><th>Total</th><th></th></tr>{% for r in quotes %}<tr><td><strong>{{ r.quote_number }}</strong></td><td>{{ r.customer_name or 'No customer' }}</td><td>{{ r.title or '' }}</td><td><span class="status-pill {{ (r.status or 'draft')|lower|replace(' ','-') }}">{{ r.status }}</span></td><td>£{{ '%.2f'|format(r.total or 0) }}</td><td><a class="mini-link" href="{{ url_for('quote_view', quote_id=r.id) }}">Open</a></td></tr>{% else %}<tr><td colspan="6" class="empty-cell">No quotes found for this view.</td></tr>{% endfor %}</table></div></section>
+    <aside class="workspace-rail sticky-rail"><section class="panel helper-card compact-card"><div class="panel-head compact-head"><h3>How to make a new quote</h3></div><ol class="simple-list compact-list"><li>Start from Quote Requests when the lead came through the portal.</li><li>Use the Calculator when you need to build pricing manually.</li><li>Come back here to find the quote record later.</li></ol></section><section class="panel helper-card compact-card"><div class="panel-head compact-head"><h3>Keep this page clean</h3></div><p class="readable-copy">This page is for finding and reviewing quotes, not building them. That separation makes the library easier to scan and more professional for everyday use.</p></section></aside>
+  </div>
+</section>
+{% endblock %}

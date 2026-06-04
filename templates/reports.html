@@ -1,0 +1,170 @@
+{% extends "layout.html" %}
+{% block page_title %}Reports{% endblock %}
+{% block body_content %}
+<div class="report-stack">
+  <section class="report-hero">
+    <div class="page-intro" style="margin-bottom:0;">
+      <div class="page-intro-copy">
+        <div class="section-kicker">Finance and performance</div>
+        <h3>Business reporting centre</h3>
+        <p>Use this page to understand sales, invoicing, recurring income, spending, and customer reactivation. The top cards show the quickest numbers to check first, then the deeper panels help you understand where the money is coming from and where it is going.</p>
+      </div>
+      <div class="page-intro-actions">
+        <a class="btn secondary" href="{{ url_for('invoice_reminders') }}">Invoice Reminders</a>
+        <a class="btn secondary" href="{{ url_for('expenses') }}">Expenses</a>
+        <a class="btn primary" href="{{ url_for('backup_centre') }}">Backups</a>
+      </div>
+    </div>
+  </section>
+
+  <div class="soft-stat-grid">
+    <div class="soft-stat"><span>Quote Value</span><strong>£{{ '%.2f'|format(report_data.totals.quotes_total_value) }}</strong></div>
+    <div class="soft-stat"><span>Invoice Value</span><strong>£{{ '%.2f'|format(report_data.totals.invoices_total_value) }}</strong></div>
+    <div class="soft-stat"><span>Cash In 30 Days</span><strong>£{{ '%.2f'|format(report_data.totals.cash_in_last_30) }}</strong></div>
+    <div class="soft-stat"><span>Cash Out 30 Days</span><strong>£{{ '%.2f'|format(report_data.totals.cash_out_last_30) }}</strong></div>
+    <div class="soft-stat"><span>Outstanding</span><strong>£{{ '%.2f'|format(report_data.totals.outstanding_total_value) }}</strong></div>
+    <div class="soft-stat"><span>Expenses</span><strong>£{{ '%.2f'|format(report_data.totals.expenses_total_value) }}</strong></div>
+    <div class="soft-stat"><span>True Profit</span><strong>£{{ '%.2f'|format(report_data.totals.true_profit_total_value) }}</strong></div>
+    <div class="soft-stat"><span>Collection Rate</span><strong>{{ report_data.totals.collection_rate_percent }}%</strong></div>
+  </div>
+
+  <div class="section-grid-2">
+    <section class="panel">
+      <div class="panel-head"><h3>Snapshot</h3></div>
+      <div class="metric-list">
+        <div class="metric-row"><strong>Quote count</strong><span>{{ report_data.totals.quotes_total_count }}</span></div>
+        <div class="metric-row"><strong>Paid invoices</strong><span>£{{ '%.2f'|format(report_data.totals.paid_invoices_total_value) }}</span></div>
+        <div class="metric-row"><strong>Overdue invoices</strong><span>{{ report_data.totals.overdue_count }}</span></div>
+        <div class="metric-row"><strong>Overdue value</strong><span>£{{ '%.2f'|format(report_data.totals.overdue_total_value) }}</span></div>
+        <div class="metric-row"><strong>Average quote value</strong><span>£{{ '%.2f'|format(report_data.totals.average_quote_value) }}</span></div>
+        <div class="metric-row"><strong>Average invoice value</strong><span>£{{ '%.2f'|format(report_data.totals.average_invoice_value) }}</span></div>
+        <div class="metric-row"><strong>Quote to invoice ratio</strong><span>{{ report_data.totals.quote_to_invoice_percent }}%</span></div>
+      </div>
+    </section>
+    <section class="panel">
+      <div class="panel-head"><h3>Recurring income and cashflow</h3></div>
+      <div class="metric-list">
+        <div class="metric-row"><strong>Active recurring plans</strong><span>{{ report_data.totals.recurring_income_total }}</span></div>
+        <div class="metric-row"><strong>Due recurring plans now</strong><span>{{ report_data.totals.recurring_income_due }}</span></div>
+        <div class="metric-row"><strong>Recurring pipeline</strong><span>£{{ '%.2f'|format(report_data.totals.recurring_income_pipeline_value) }}</span></div>
+        <div class="metric-row"><strong>Due next 30 days</strong><span>£{{ '%.2f'|format(report_data.totals.recurring_income_due_30_value) }}</span></div>
+        <div class="metric-row"><strong>Recurring expenses next 30 days</strong><span>£{{ '%.2f'|format(report_data.totals.recurring_expenses_due_30_value) }}</span></div>
+        <div class="metric-row"><strong>Forecast net next 30 days</strong><span>£{{ '%.2f'|format(report_data.totals.forecast_net_30_value) }}</span></div>
+      </div>
+    </section>
+  </div>
+
+  <div class="section-grid-3">
+    <section class="panel">
+      <div class="panel-head"><h3>Top expense categories</h3></div>
+      <div class="report-bars money-bars">
+        {% for row in report_data.expense_by_category %}
+        <div class="report-row slim">
+          <div class="report-label">{{ row.name }}</div>
+          <div class="report-bar-track"><div class="report-bar jobs" style="width: {{ row.width }}%"></div></div>
+          <div class="report-value">£{{ '%.2f'|format(row.value) }}</div>
+        </div>
+        {% else %}
+        <p class="inline-note">No expense categories logged yet.</p>
+        {% endfor %}
+      </div>
+    </section>
+    <section class="panel">
+      <div class="panel-head"><h3>Top suppliers</h3></div>
+      <div class="report-bars money-bars">
+        {% for row in report_data.expense_by_supplier %}
+        <div class="report-row slim">
+          <div class="report-label">{{ row.name }}</div>
+          <div class="report-bar-track"><div class="report-bar invoices" style="width: {{ row.width }}%"></div></div>
+          <div class="report-value">£{{ '%.2f'|format(row.value) }}</div>
+        </div>
+        {% else %}
+        <p class="inline-note">No supplier spend logged yet.</p>
+        {% endfor %}
+      </div>
+    </section>
+    <section class="panel">
+      <div class="panel-head"><h3>Useful shortcuts</h3></div>
+      <div class="inline-tools">
+        <a class="btn secondary" href="{{ url_for('export_quotes_csv') }}">Export Quotes</a>
+        <a class="btn secondary" href="{{ url_for('export_jobs_csv') }}">Export Jobs</a>
+        <a class="btn secondary" href="{{ url_for('export_invoices_csv') }}">Export Invoices</a>
+        <a class="btn secondary" href="{{ url_for('export_expenses_csv') }}">Export Expenses</a>
+        <a class="btn secondary" href="{{ url_for('segments_page') }}">Segments</a>
+        <a class="btn primary" href="{{ url_for('recurring_income') }}">Recurring Income</a>
+      </div>
+    </section>
+  </div>
+
+  <div class="section-grid-2">
+    <section class="panel table-shell">
+      <div class="panel-head"><h3>Customer segments</h3></div>
+      <table class="table">
+        <tr><th>Segment</th><th>Total</th><th></th></tr>
+        <tr><td>New</td><td>{{ segment_data.counts.new }}</td><td><a class="btn secondary" href="{{ url_for('segments_page', segment='new') }}">Open</a></td></tr>
+        <tr><td>Active</td><td>{{ segment_data.counts.active }}</td><td><a class="btn secondary" href="{{ url_for('segments_page', segment='active') }}">Open</a></td></tr>
+        <tr><td>Warm</td><td>{{ segment_data.counts.warm }}</td><td><a class="btn secondary" href="{{ url_for('segments_page', segment='warm') }}">Open</a></td></tr>
+        <tr><td>Cooling Off</td><td>{{ segment_data.counts.cooling_off }}</td><td><a class="btn secondary" href="{{ url_for('segments_page', segment='cooling_off') }}">Open</a></td></tr>
+        <tr><td>Reactivation 6 to 12 Months</td><td>{{ segment_data.counts.reactivation_6m }}</td><td><a class="btn secondary" href="{{ url_for('segments_page', segment='reactivation_6m') }}">Open</a></td></tr>
+        <tr><td>Reactivation 12 Months Plus</td><td>{{ segment_data.counts.reactivation_12m }}</td><td><a class="btn secondary" href="{{ url_for('segments_page', segment='reactivation_12m') }}">Open</a></td></tr>
+        <tr><td>No Invoice Date</td><td>{{ segment_data.counts.no_invoice_date }}</td><td><a class="btn secondary" href="{{ url_for('segments_page', segment='no_invoice_date') }}">Open</a></td></tr>
+      </table>
+    </section>
+    <section class="panel">
+      <div class="panel-head"><h3>Reactivation focus</h3></div>
+      <div class="report-summary-list">
+        <div><strong>6 to 12 months</strong><span>{{ segment_data.counts.reactivation_6m }}</span></div>
+        <div><strong>12 months plus</strong><span>{{ segment_data.counts.reactivation_12m }}</span></div>
+        <div><strong>Total reactivation candidates</strong><span>{{ segment_data.reactivation_candidates|length }}</span></div>
+      </div>
+      <div class="inline-tools" style="margin-top:14px;">
+        <a class="btn primary" href="{{ url_for('segments_page', segment='reactivation_candidates') }}">Open Reactivation List</a>
+        <a class="btn secondary" href="{{ url_for('export_segments_csv', segment='reactivation_candidates') }}">Export CSV</a>
+      </div>
+    </section>
+  </div>
+
+  <section class="panel">
+    <div class="panel-head"><h3>Monthly quote count</h3></div>
+    <div class="report-bars">
+      {% for row in report_data.monthly %}
+      <div class="report-row">
+        <div class="report-label">{{ row.month_label }}</div>
+        <div class="report-bar-track"><div class="report-bar" style="width: {{ row.count_width_quotes }}%"></div></div>
+        <div class="report-value">{{ row.quotes_count }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <div class="section-grid-2">
+    <section class="panel">
+      <div class="panel-head"><h3>Monthly value breakdown</h3></div>
+      <div class="report-bars money-bars">
+        {% for row in report_data.monthly %}
+        <div class="money-group">
+          <div class="money-group-head">
+            <strong>{{ row.month_label }}</strong>
+            <span>Quotes £{{ '%.2f'|format(row.quotes_value) }} | Jobs £{{ '%.2f'|format(row.jobs_value) }} | Invoices £{{ '%.2f'|format(row.invoices_value) }}</span>
+          </div>
+          <div class="report-row slim"><div class="report-label">Quotes</div><div class="report-bar-track"><div class="report-bar quotes" style="width: {{ row.money_width_quotes }}%"></div></div><div class="report-value">£{{ '%.0f'|format(row.quotes_value) }}</div></div>
+          <div class="report-row slim"><div class="report-label">Jobs</div><div class="report-bar-track"><div class="report-bar jobs" style="width: {{ row.money_width_jobs }}%"></div></div><div class="report-value">£{{ '%.0f'|format(row.jobs_value) }}</div></div>
+          <div class="report-row slim"><div class="report-label">Invoices</div><div class="report-bar-track"><div class="report-bar invoices" style="width: {{ row.money_width_invoices }}%"></div></div><div class="report-value">£{{ '%.0f'|format(row.invoices_value) }}</div></div>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+    <section class="panel table-shell">
+      <div class="panel-head"><h3>Month by month table</h3></div>
+      <table class="table">
+        <tr><th>Month</th><th>Quote Count</th><th>Quote Value</th><th>Job Value</th><th>Invoice Value</th><th>Paid Invoices</th><th>Expenses</th><th>True Profit</th></tr>
+        {% for row in report_data.monthly %}
+        <tr>
+          <td>{{ row.month_label }}</td><td>{{ row.quotes_count }}</td><td>£{{ '%.2f'|format(row.quotes_value) }}</td><td>£{{ '%.2f'|format(row.jobs_value) }}</td><td>£{{ '%.2f'|format(row.invoices_value) }}</td><td>£{{ '%.2f'|format(row.paid_invoices_value) }}</td><td>£{{ '%.2f'|format(row.expenses_value) }}</td><td>£{{ '%.2f'|format(row.true_profit_value) }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+    </section>
+  </div>
+</div>
+{% endblock %}

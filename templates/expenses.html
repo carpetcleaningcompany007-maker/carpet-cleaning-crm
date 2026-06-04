@@ -1,0 +1,79 @@
+{% extends "layout.html" %}
+{% block page_title %}Expenses{% endblock %}
+{% block body_content %}
+<div class="page-intro">
+  <div class="page-intro-copy">
+    <div class="section-kicker">Finance area</div>
+    <h3>Track business costs clearly</h3>
+    <p>Log day to day spending, keep recurring cost plans under control, and review supplier and category trends without mixing everything into one crowded screen.</p>
+  </div>
+  <div class="page-intro-actions">
+    <a class="btn {% if expense_view == 'active' %}primary{% else %}secondary{% endif %}" href="{{ url_for('expenses', view='active') }}">Active</a>
+    <a class="btn {% if expense_view == 'archived' %}primary{% else %}secondary{% endif %}" href="{{ url_for('expenses', view='archived') }}">Archived</a>
+    <a class="btn {% if expense_view == 'all' %}primary{% else %}secondary{% endif %}" href="{{ url_for('expenses', view='all') }}">All</a>
+    <a class="btn secondary" href="{{ url_for('export_expenses_csv') }}">Export CSV</a>
+  </div>
+</div>
+<div class="soft-stat-grid">
+  <div class="soft-stat"><span>Net Expenses</span><strong>£{{ '%.2f'|format(totals.amount) }}</strong></div>
+  <div class="soft-stat"><span>VAT Logged</span><strong>£{{ '%.2f'|format(totals.vat) }}</strong></div>
+  <div class="soft-stat"><span>Gross Spend</span><strong>£{{ '%.2f'|format(totals.gross) }}</strong></div>
+  <div class="soft-stat"><span>Recurring Plans</span><strong>{{ recurring_rows|selectattr('archived_at', 'equalto', none)|list|length }}</strong></div>
+</div>
+<div class="section-grid-2">
+  <section class="panel">
+    <div class="panel-head"><h3>{% if edit_expense %}Edit expense{% else %}Add expense{% endif %}</h3></div>
+    <form method="post" class="form" action="{% if edit_expense %}{{ url_for('expense_edit', expense_id=edit_expense.id) }}{% else %}{{ url_for('expenses', view=expense_view) }}{% endif %}">
+      <div class="cols"><input type="date" name="expense_date" value="{{ (edit_expense.expense_date if edit_expense else request.form.get('expense_date','')) }}"><select name="category">{% for item in expense_categories %}<option {% if ((edit_expense.category if edit_expense else request.form.get('category')) == item) %}selected{% endif %}>{{ item }}</option>{% endfor %}</select></div>
+      <div class="cols"><input name="supplier" placeholder="Supplier" value="{{ edit_expense.supplier if edit_expense else request.form.get('supplier','') }}"><input name="description" placeholder="Description" value="{{ edit_expense.description if edit_expense else request.form.get('description','') }}"></div>
+      <div class="cols"><input name="amount" type="number" step="0.01" min="0" placeholder="Net amount" value="{{ edit_expense.amount if edit_expense else request.form.get('amount','') }}"><input name="vat_amount" type="number" step="0.01" min="0" placeholder="VAT amount" value="{{ edit_expense.vat_amount if edit_expense else request.form.get('vat_amount','') }}"></div>
+      <textarea name="notes" placeholder="Notes">{{ edit_expense.notes if edit_expense else request.form.get('notes','') }}</textarea>
+      <div class="inline-tools"><button class="btn primary">{% if edit_expense %}Update Expense{% else %}Save Expense{% endif %}</button>{% if edit_expense %}<a class="btn secondary" href="{{ url_for('expenses', view=expense_view) }}">Cancel Edit</a>{% endif %}</div>
+    </form>
+  </section>
+  <section class="panel">
+    <div class="panel-head"><h3>Tools and reminders</h3></div>
+    <div class="inline-tools"><form method="post" action="{{ url_for('recurring_expenses_run') }}"><button class="btn secondary">Post Due Recurring</button></form><a class="btn secondary" href="{{ url_for('reports') }}">Open Reports</a></div>
+    <p class="inline-note">Track supplier spend, category trends, and recurring business costs so your profit view becomes more realistic.</p>
+    <div class="report-summary-list" style="margin-top:14px;">
+      <div><strong>Current view</strong><span>{{ expense_view|title }}</span></div>
+      <div><strong>Expense categories</strong><span>{{ expense_categories|length }}</span></div>
+      <div><strong>Recurring options</strong><span>{{ recurring_options|length }}</span></div>
+    </div>
+  </section>
+</div>
+<div class="section-grid-2">
+  <section class="panel table-shell"><div class="panel-head"><h3>Top suppliers</h3></div><table class="table"><tr><th>Supplier</th><th>Items</th><th>Net Spend</th></tr>{% for row in supplier_summary %}<tr><td>{{ row.name }}</td><td>{{ row.item_count }}</td><td>£{{ '%.2f'|format(row.total or 0) }}</td></tr>{% else %}<tr><td colspan="3" class="empty-cell">No supplier spend logged yet.</td></tr>{% endfor %}</table></section>
+  <section class="panel table-shell"><div class="panel-head"><h3>Category breakdown</h3></div><table class="table"><tr><th>Category</th><th>Items</th><th>Net Spend</th></tr>{% for row in category_summary %}<tr><td>{{ row.name }}</td><td>{{ row.item_count }}</td><td>£{{ '%.2f'|format(row.total or 0) }}</td></tr>{% else %}<tr><td colspan="3" class="empty-cell">No category spend logged yet.</td></tr>{% endfor %}</table></section>
+</div>
+<div class="section-grid-2">
+  <section class="panel">
+    <div class="panel-head"><h3>Add recurring expense</h3></div>
+    <form method="post" action="{{ url_for('recurring_expense_new') }}" class="form">
+      <div class="cols"><input type="date" name="start_date" value="{{ request.form.get('start_date','') }}"><select name="frequency">{% for item in recurring_options %}<option>{{ item }}</option>{% endfor %}</select></div>
+      <div class="cols"><select name="category">{% for item in expense_categories %}<option>{{ item }}</option>{% endfor %}</select><input name="supplier" placeholder="Supplier"></div>
+      <div class="cols"><input name="description" placeholder="Description"><input name="amount" type="number" step="0.01" min="0" placeholder="Net amount"></div>
+      <div class="cols"><input name="vat_amount" type="number" step="0.01" min="0" placeholder="VAT amount"><input name="notes" placeholder="Notes"></div>
+      <button class="btn primary">Save Recurring Expense</button>
+    </form>
+  </section>
+  <section class="panel table-shell">
+    <div class="panel-head"><h3>Recurring expense plans</h3></div>
+    <table class="table">
+      <tr><th>Next Due</th><th>Frequency</th><th>Supplier</th><th>Amount</th><th></th></tr>
+      {% for row in recurring_rows %}
+      <tr><td>{{ row.next_due_date or row.start_date }}</td><td>{{ row.frequency or '' }}</td><td>{{ row.supplier or row.description or '' }}</td><td>£{{ '%.2f'|format(row.amount or 0) }}</td><td><div class="inline-tools" style="justify-content:flex-end;">{% if not row.archived_at %}<form method="post" action="{{ url_for('recurring_expense_post_now', recurring_id=row.id) }}"><button class="btn secondary">Post Now</button></form><form method="post" action="{{ url_for('recurring_expense_archive', recurring_id=row.id) }}" onsubmit="return confirm('Archive this recurring expense?')"><button class="btn danger">Archive</button></form>{% else %}<form method="post" action="{{ url_for('recurring_expense_restore', recurring_id=row.id) }}"><button class="btn secondary">Restore</button></form>{% endif %}</div></td></tr>
+      {% else %}<tr><td colspan="5" class="empty-cell">No recurring expense plans saved yet.</td></tr>{% endfor %}
+    </table>
+  </section>
+</div>
+<section class="panel table-shell">
+  <div class="panel-head"><h3>Expense log</h3></div>
+  <table class="table">
+    <tr><th>Date</th><th>Category</th><th>Supplier</th><th>Description</th><th>Net</th><th>VAT</th><th>Gross</th><th></th></tr>
+    {% for row in expenses %}
+    <tr><td>{{ row.expense_date or row.created_at[:10] }}</td><td>{{ row.category or '' }}</td><td>{{ row.supplier or '' }}</td><td>{{ row.description or row.notes or '' }}</td><td>£{{ '%.2f'|format(row.amount or 0) }}</td><td>£{{ '%.2f'|format(row.vat_amount or 0) }}</td><td>£{{ '%.2f'|format((row.amount or 0) + (row.vat_amount or 0)) }}</td><td><div class="inline-tools" style="justify-content:flex-end;">{% if not row.archived_at %}<a class="btn secondary" href="{{ url_for('expenses', view=expense_view, edit=row.id) }}">Edit</a>{% endif %}{% if row.archived_at %}<form method="post" action="{{ url_for('expense_restore', expense_id=row.id, view=expense_view) }}"><button class="btn secondary">Restore</button></form>{% else %}<form method="post" action="{{ url_for('expense_archive', expense_id=row.id, view=expense_view) }}" onsubmit="return confirm('Archive this expense?')"><button class="btn danger">Archive</button></form>{% endif %}</div></td></tr>
+    {% else %}<tr><td colspan="8" class="empty-cell">No expenses found for this view yet.</td></tr>{% endfor %}
+  </table>
+</section>
+{% endblock %}

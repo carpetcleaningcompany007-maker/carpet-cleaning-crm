@@ -1,0 +1,44 @@
+{% extends "layout.html" %}
+{% block title %}Future Reminders{% endblock %}
+{% block page_title %}Future Reminders{% endblock %}
+{% block body_content %}
+<section class="panel">
+  <div class="panel-head">
+    <div>
+      <h3>Future reminders</h3>
+      <p>Keep rebooking, aftercare, protector and annual clean follow ups in one place.</p>
+    </div>
+    <div class="scope-tabs">
+      <a class="scope-tab {% if scope=='open' %}active{% endif %}" href="{{ url_for('reminders_library', scope='open') }}">Open</a>
+      <a class="scope-tab {% if scope=='completed' %}active{% endif %}" href="{{ url_for('reminders_library', scope='completed') }}">Completed</a>
+      <a class="scope-tab {% if scope=='all' %}active{% endif %}" href="{{ url_for('reminders_library', scope='all') }}">All</a>
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Due</th><th>Customer</th><th>Type</th><th>Title</th><th>Status</th><th></th></tr></thead>
+      <tbody>
+      {% for row in reminders %}
+        <tr>
+          <td>{{ row.reminder_date or 'No date' }}</td>
+          <td>{% if row.customer_id %}<a href="{{ url_for('customer_view', customer_id=row.customer_id) }}">{{ row.customer_name or 'Customer' }}</a>{% endif %}</td>
+          <td>{{ row.reminder_type or 'Follow up' }}</td>
+          <td>{{ row.title }}</td>
+          <td>{{ row.status or 'Open' }}</td>
+          <td>
+            {% if row.status != 'Completed' %}
+            <form method="post" action="{{ url_for('reminder_complete', reminder_id=row.id) }}">
+              <input type="hidden" name="next_url" value="{{ url_for('reminders_library', scope=scope) }}">
+              <button class="btn small secondary">Complete</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="6">No reminders in this view.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

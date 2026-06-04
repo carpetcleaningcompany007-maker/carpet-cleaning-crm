@@ -1,0 +1,441 @@
+{% extends "layout.html" %}
+{% block page_title %}Customer Record{% endblock %}
+{% block body_content %}
+{% set is_archived = customer.archived_at is defined and customer.archived_at %}
+<section class="customer-hero">
+  <div style="display:flex;gap:16px;align-items:flex-start;">
+    <div class="avatar">{{ (customer.first_name or '?')[:1] }}{{ (customer.last_name or '')[:1] }}</div>
+    <div>
+      <div class="section-kicker">Customer hub</div>
+      <h3 style="margin:0 0 6px;">{{ customer.first_name }} {{ customer.last_name }}</h3>
+      <p style="margin:0;color:#d9dfe5;max-width:700px;">Keep this page as the main working record for the customer. Quotes, jobs, invoices, communications, SMS, notes, and recurring plans all sit here.</p>
+      <div class="badge-row">
+        <span>{{ customer.phone or 'No phone saved' }}</span>
+        <span>{{ customer.email or 'No email saved' }}</span>
+        <span>{{ customer.town or 'No town saved' }}</span>
+        <span>{% if customer.sms_opt_out %}SMS opted out{% else %}SMS allowed{% endif %}</span>
+      </div>
+    </div>
+  </div>
+  <div class="row-actions">
+    <a class="btn secondary" href="#customer-details">Details</a>
+    <a class="btn secondary" href="#customer-sales">Sales and Work</a>
+    <a class="btn secondary" href="#customer-comms">Communications</a>
+    <a class="btn secondary" href="#customer-finance">Finance</a>
+  </div>
+</section>
+
+<style>
+  .workflow-panel{border:1px solid #d7e0e9;background:#fff;border-radius:12px;padding:34px;margin:24px 0}
+  .workflow-main{display:grid;grid-template-columns:minmax(0,1fr) 420px;gap:26px;align-items:stretch}
+  .workflow-stage-card{background:#f8fafc;border:1px solid #d7e0e9;border-radius:12px;padding:30px}
+  .workflow-label{font-size:18px;color:#0b7058;font-weight:900}
+  .workflow-current{font-size:52px;line-height:1;margin:8px 0 22px;color:#111827}
+  .workflow-next{font-size:30px;color:#111827;margin:8px 0 0;font-weight:900}
+  .workflow-progress{height:20px;background:#e4ebf2;border-radius:999px;overflow:hidden;margin:26px 0}
+  .workflow-progress span{display:block;height:100%;background:#0f8f6d}
+  .workflow-action-box{background:#102744;color:#fff;border-radius:12px;padding:30px;display:flex;flex-direction:column;gap:18px}
+  .workflow-action-box textarea{min-height:120px;border-radius:10px;border:0;padding:16px;font-size:19px}
+  .workflow-action-box .btn{width:100%;font-size:22px;padding:18px}
+  .workflow-strip{display:none}
+  .workflow-warnings{margin:18px 0;padding:18px;border-radius:10px;background:#fff3f0;border:1px solid #efb3a6;color:#8a1f0c;font-size:20px}
+  .workflow-message-grid{display:grid;grid-template-columns:1fr;gap:16px;margin-top:22px}
+  .workflow-message{background:#f8fafc;border:1px solid #d7e0e9;border-radius:12px;padding:22px}
+  .workflow-message strong{font-size:24px}
+  .workflow-message textarea{width:100%;min-height:150px;margin:14px 0;border:1px solid #cbdfea;border-radius:10px;padding:14px;font-size:18px}
+  .workflow-history{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-top:22px}
+  .workflow-history-item{border:1px solid #d7e0e9;border-radius:10px;padding:18px;background:#f8fafc;font-size:18px}
+  @media(max-width:1000px){.workflow-main{grid-template-columns:1fr}.workflow-current{font-size:40px}.workflow-next{font-size:26px}}
+</style>
+
+<section class="workflow-panel" id="workflow-panel">
+  <div class="workflow-main">
+    <div class="workflow-stage-card">
+      <div class="workflow-label">Current Stage</div>
+      <h3 class="workflow-current">{{ workflow.current.label }}</h3>
+      <div class="workflow-label">Next Action</div>
+      <p class="workflow-next">{{ workflow.next_action }}</p>
+      <div class="workflow-progress"><span style="width:{{ workflow.progress }}%"></span></div>
+      <p class="muted">Last updated: {{ workflow.last_updated or customer.created_at }}</p>
+      {% if workflow.warnings %}
+      <div class="workflow-warnings">
+        {% for warning in workflow.warnings %}<div>{{ warning }}</div>{% endfor %}
+      </div>
+      {% endif %}
+      <div class="workflow-strip">
+        {% for stage in workflow_stages %}
+          {% set state = 'todo' %}
+          {% if stage.key in workflow.completed|map(attribute='key')|list %}{% set state = 'done' %}{% endif %}
+          {% if stage.key == workflow.current.key %}{% set state = 'current' %}{% endif %}
+          <span class="workflow-dot {{ state }}">{{ stage.label }}</span>
+        {% endfor %}
+      </div>
+    </div>
+    <form class="workflow-action-box" method="post" action="{{ url_for('customer_workflow_action', customer_id=customer.id) }}">
+      <div class="workflow-label" style="color:#cfe3f2;">Required Action</div>
+      <h3 style="margin:0;color:#fff;">{{ workflow.next_action }}</h3>
+      <textarea name="workflow_notes" placeholder="Optional action notes">{{ customer.workflow_notes or '' }}</textarea>
+      <button class="btn primary" type="submit" {% if workflow.current.key == 'completed' %}disabled{% endif %}>{{ workflow.button_label }}</button>
+      <a class="btn secondary" href="{{ url_for('workflow') }}">Open Workflow Board</a>
+    </form>
+  </div>
+
+  <div class="workflow-message-grid">
+    <div class="workflow-message">
+      <strong>Booking form link</strong>
+      <p class="muted">Send this to customers who do not come through the website/Formspree route.</p>
+      <p><a class="btn secondary" href="{{ workflow_messages.booking_form_url }}" target="_blank">Open Booking Form</a></p>
+      <input id="bookingFormUrl" value="{{ workflow_messages.booking_form_url }}" readonly>
+      <textarea id="bookingMessage" readonly>{{ workflow_messages.booking_form }}</textarea>
+      <div class="row-actions">
+        <a class="btn secondary" href="sms:{{ customer.phone }}?body={{ workflow_messages.booking_form|urlencode }}">SMS</a>
+        <a class="btn secondary" href="mailto:{{ customer.email }}?subject=Booking form&body={{ workflow_messages.booking_form|urlencode }}">Email</a>
+        <a class="btn secondary" target="_blank" href="https://wa.me/{{ (customer.phone or '')|replace(' ', '') }}?text={{ workflow_messages.booking_form|urlencode }}">WhatsApp</a>
+        <button class="btn secondary" type="button" data-copy-target="bookingFormUrl">Copy Link Only</button>
+        <button class="btn primary" type="button" data-copy-target="bookingMessage">Copy Full Message</button>
+      </div>
+    </div>
+    <div class="workflow-message">
+      <strong>Reminder message</strong>
+      <textarea id="reminderMessage" readonly>{{ workflow_messages.reminder }}</textarea>
+      <div class="row-actions">
+        <button class="btn primary" type="button" data-copy-target="reminderMessage">Copy Message</button>
+      </div>
+    </div>
+    <div class="workflow-message">
+      <strong>Review request</strong>
+      <textarea id="reviewMessage" readonly>{{ workflow_messages.review }}</textarea>
+      <div class="row-actions">
+        <button class="btn primary" type="button" data-copy-target="reviewMessage">Copy Message</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="workflow-history">
+    {% for item in workflow.history %}
+      <div class="workflow-history-item">
+        <strong>{{ item.to }}</strong>
+        <p class="muted">{{ item.at }} · {{ item.action }}</p>
+        {% if item.notes %}<p>{{ item.notes }}</p>{% endif %}
+      </div>
+    {% else %}
+      <div class="workflow-history-item">No workflow actions recorded yet.</div>
+    {% endfor %}
+  </div>
+</section>
+
+<script>
+document.addEventListener('click', function(e){
+  var btn = e.target.closest('[data-copy-target]');
+  if(!btn) return;
+  var field = document.getElementById(btn.getAttribute('data-copy-target'));
+  if(!field) return;
+  field.select();
+  navigator.clipboard.writeText(field.value).then(function(){ btn.textContent = 'Copied'; });
+});
+</script>
+
+<div class="scope-tabs customer-tabs">
+  <a class="scope-tab active" href="#customer-details">Customer details</a>
+  <a class="scope-tab" href="#customer-sales">Sales and work</a>
+  <a class="scope-tab" href="#customer-timeline">Timeline</a>
+  <a class="scope-tab" href="#customer-comms">Communications</a>
+  <a class="scope-tab" href="#customer-feedback">Feedback</a>
+  <a class="scope-tab" href="#customer-reminders">Reminders</a>
+  <a class="scope-tab" href="#customer-sms">SMS</a>
+  <a class="scope-tab" href="#customer-finance">Finance</a>
+</div>
+
+<div class="kpi-band">
+  <div class="kpi-card"><span>Quotes</span><strong>{{ quotes|length }}</strong></div>
+  <div class="kpi-card"><span>Jobs</span><strong>{{ jobs|length }}</strong></div>
+  <div class="kpi-card"><span>Invoices</span><strong>{{ invoices|length }}</strong></div>
+  <div class="kpi-card"><span>Reminders</span><strong>{{ reminders|selectattr('status','equalto','Open')|list|length }}</strong></div>
+</div>
+
+<section class="customer-command-strip">
+  <a href="#customer-details"><span>1</span><strong>Confirm details</strong><em>Phone, email, address</em></a>
+  <a href="#customer-sales"><span>2</span><strong>Sell and book</strong><em>Quote, job, invoice</em></a>
+  <a href="#customer-comms"><span>3</span><strong>Contact</strong><em>Email, SMS, review</em></a>
+  <a href="#customer-reminders"><span>4</span><strong>Rebook</strong><em>Future reminders</em></a>
+</section>
+
+<div class="customer-layout">
+  <div>
+    <section class="panel customer-section" id="customer-details">
+      <div class="panel-head panel-head-stack">
+        <div>
+          <div class="section-kicker">Step 1</div>
+          <h3>Customer details</h3>
+          <p>Keep the basic record accurate first. Everything else depends on this being right.</p>
+        </div>
+      </div>
+      <form method="post" action="{{ url_for('customer_edit', customer_id=customer.id) }}" class="form">
+        <div class="cols"><input name="first_name" value="{{ customer.first_name }}" placeholder="First name"><input name="last_name" value="{{ customer.last_name }}" placeholder="Last name"></div>
+        <div class="cols"><input name="phone" value="{{ customer.phone or '' }}" placeholder="Phone"><input name="email" value="{{ customer.email or '' }}" placeholder="Email"></div>
+        <input name="address" value="{{ customer.address or '' }}" placeholder="Address">
+        <div class="cols"><input name="town" value="{{ customer.town or '' }}" placeholder="Town"><input name="postcode" value="{{ customer.postcode or '' }}" placeholder="Postcode"></div>
+        <div class="cols"><input name="source" value="{{ customer.source or '' }}" placeholder="Source"><input name="tags" value="{{ customer.tags or '' }}" placeholder="Tags"></div>
+        <textarea name="notes" placeholder="General notes">{{ customer.notes or '' }}</textarea>
+        <div class="row-actions">
+          <button class="btn primary">Save Changes</button>
+          {% if is_archived %}
+          <button formaction="{{ url_for('customer_restore', customer_id=customer.id) }}" class="btn secondary">Restore Customer</button>
+          {% else %}
+          <button formaction="{{ url_for('customer_delete', customer_id=customer.id) }}" class="btn danger" onclick="return confirm('Archive this customer?')">Archive Customer</button>
+          {% endif %}
+        </div>
+      </form>
+    </section>
+
+    <section class="panel customer-section" id="customer-sales">
+      <div class="panel-head panel-head-stack">
+        <div>
+          <div class="section-kicker">Step 2 and 3</div>
+          <h3>Sales and work</h3>
+          <p>Move the customer from quote to booked job and then into invoicing.</p>
+        </div>
+      </div>
+      
+      <div class="workflow-grid-3">
+        <div class="workflow-box">
+          <div class="workflow-box-head"><strong>Quotes</strong><a class="mini-link" href="{{ url_for('quotes') }}">All quotes</a></div>
+          <ul class="simple-list compact-list">{% for r in quotes %}<li><a href="{{ url_for('quote_view', quote_id=r.id) }}">{{ r.quote_number or ('Quote ' ~ r.id) }}</a></li>{% else %}<li class="empty-line">No active quotes.</li>{% endfor %}</ul>
+        </div>
+        <div class="workflow-box">
+          <div class="workflow-box-head"><strong>Jobs</strong><a class="mini-link" href="{{ url_for('jobs') }}">All jobs</a></div>
+          <ul class="simple-list compact-list">{% for r in jobs %}<li><a href="{{ url_for('job_view', job_id=r.id) }}">{{ r.title }}</a></li>{% else %}<li class="empty-line">No active jobs.</li>{% endfor %}</ul>
+        </div>
+        <div class="workflow-box">
+          <div class="workflow-box-head"><strong>Invoices</strong><a class="mini-link" href="{{ url_for('invoices') }}">All invoices</a></div>
+          <ul class="simple-list compact-list">{% for r in invoices %}<li><a href="{{ url_for('invoice_view', invoice_id=r.id) }}">{{ r.invoice_number or ('Invoice ' ~ r.id) }}</a></li>{% else %}<li class="empty-line">No active invoices.</li>{% endfor %}</ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel customer-section" id="customer-timeline">
+      <div class="panel-head panel-head-stack">
+        <div>
+          <div class="section-kicker">Job notes</div>
+          <h3>Timeline and site notes</h3>
+          <p>Use this for visit notes, job updates, and photos.</p>
+        </div>
+      </div>
+      <form method="post" action="{{ url_for('customer_timeline_add', customer_id=customer.id) }}" enctype="multipart/form-data" class="form">
+        <textarea name="note_text" placeholder="Add customer note"></textarea>
+        <input type="file" name="photo" accept="image/*">
+        <button class="btn primary">Add Timeline Entry</button>
+      </form>
+      <div class="timeline">
+        {% for n in timeline %}
+        <div class="timeline-item">
+          <strong>{{ n.created_at }}</strong>
+          <p>{{ n.note_text or '' }}</p>
+          {% if n.photo_filename %}
+          <img src="{{ url_for('static', filename='uploads/' ~ n.photo_filename) }}" class="timeline-photo">
+          {% endif %}
+        </div>
+        {% else %}
+        <div class="empty-state">No timeline entries yet.</div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="panel customer-section" id="customer-feedback">
+      <div class="panel-head panel-head-stack">
+        <div>
+          <div class="section-kicker">Aftercare</div>
+          <h3>Feedback and Google reviews</h3>
+          <p>Record the customer response after a job and track whether the review request has been sent.</p>
+        </div>
+      </div>
+      <form method="post" action="{{ url_for('customer_feedback_new', customer_id=customer.id) }}" class="form">
+        <div class="cols">
+          <select name="rating">
+            <option value="0">No rating</option>
+            {% for r in [5,4,3,2,1] %}<option value="{{ r }}">{{ r }} stars</option>{% endfor %}
+          </select>
+          <select name="job_id">
+            <option value="">No linked job</option>
+            {% for job in jobs %}<option value="{{ job.id }}">{{ job.title }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="cols">
+          <input name="source" value="Phone follow up" placeholder="Source">
+          <label class="check-row"><input type="checkbox" name="review_requested" value="1"> Google review requested</label>
+        </div>
+        <textarea name="feedback_text" placeholder="What did the customer say?"></textarea>
+        <button class="btn primary">Record Feedback</button>
+      </form>
+      <div class="timeline">
+        {% for item in feedback %}
+        <div class="timeline-item">
+          <strong>{{ item.created_at }} · {{ item.rating or 0 }} stars · {{ item.source or 'Manual' }}</strong>
+          <p>{{ item.feedback_text or 'No feedback text.' }}</p>
+          {% if item.review_requested %}<p class="muted">Google review requested{% if item.review_link_sent_at %}: {{ item.review_link_sent_at }}{% endif %}</p>{% endif %}
+        </div>
+        {% else %}
+        <div class="empty-state">No feedback recorded yet.</div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="panel customer-section" id="customer-reminders">
+      <div class="panel-head panel-head-stack">
+        <div>
+          <div class="section-kicker">Retention</div>
+          <h3>Future reminders</h3>
+          <p>Create rebooking, protector, stain check, and annual clean reminders here.</p>
+        </div>
+      </div>
+      <form method="post" action="{{ url_for('customer_reminder_new', customer_id=customer.id) }}" class="form">
+        <div class="cols"><input type="date" name="reminder_date"><input name="title" placeholder="Reminder title" required></div>
+        <div class="cols">
+          <select name="reminder_type">
+            {% for kind in ['Follow up','Rebook clean','Google review','Stain check','Protector reminder','Annual reminder'] %}<option>{{ kind }}</option>{% endfor %}
+          </select>
+          <select name="job_id">
+            <option value="">No linked job</option>
+            {% for job in jobs %}<option value="{{ job.id }}">{{ job.title }}</option>{% endfor %}
+          </select>
+        </div>
+        <textarea name="notes" placeholder="Reminder notes"></textarea>
+        <button class="btn primary">Create Reminder</button>
+      </form>
+      <div class="timeline">
+        {% for item in reminders %}
+        <div class="timeline-item">
+          <strong>{{ item.reminder_date or 'No date' }} · {{ item.reminder_type or 'Follow up' }} · {{ item.status or 'Open' }}</strong>
+          <p>{{ item.title }}</p>
+          <p>{{ item.notes or '' }}</p>
+          {% if item.status != 'Completed' %}
+          <form method="post" action="{{ url_for('reminder_complete', reminder_id=item.id) }}">
+            <input type="hidden" name="next_url" value="{{ url_for('customer_view', customer_id=customer.id) }}#customer-reminders">
+            <button class="btn secondary">Mark Complete</button>
+          </form>
+          {% endif %}
+        </div>
+        {% else %}
+        <div class="empty-state">No future reminders yet.</div>
+        {% endfor %}
+      </div>
+    </section>
+  </div>
+
+  <div class="sticky-rail">
+    <section class="panel customer-section" id="customer-comms">
+      <div class="panel-head panel-head-stack">
+        <div>
+          <div class="section-kicker">Step 4</div>
+          <h3>Communications</h3>
+          <p>Use this after the main quote, job, and invoice flow is already moving.</p>
+        </div>
+      </div>
+      <div class="customer-summary-grid customer-summary-grid-4">
+        <div class="summary-card"><strong>Last contact</strong><span>{{ contact_summary.last_contacted_at or 'Not yet' }}</span></div>
+        <div class="summary-card"><strong>Last 30 days</strong><span>{{ contact_summary.count_recent }}</span></div>
+        <div class="summary-card"><strong>Email</strong><span>{{ contact_summary.email_recent }}</span></div>
+        <div class="summary-card"><strong>SMS</strong><span>{{ contact_summary.sms_recent }}</span></div>
+      </div>
+      <div class="row-actions" style="margin-top:14px;">
+        <a class="btn secondary" href="{{ url_for('customer_email_link', customer_id=customer.id) }}">Email Link</a>
+        <a class="btn secondary" href="{{ url_for('customer_sms_link', customer_id=customer.id) }}">Open SMS App</a>
+        <a class="btn secondary" href="{{ url_for('sms_thread_view', customer_id=customer.id) }}">SMS Thread</a>
+      </div>
+      <form method="post" action="{{ url_for('customer_send_review_sms', customer_id=customer.id) }}" class="form" style="margin-top:12px;">
+        <input type="hidden" name="body" value="Hi {{ '{{first_name}}' }}, thanks again for choosing {{ '{{business_name}}' }}. We would really appreciate a review: {{ '{{review_link}}' }}">
+        <button class="btn primary" {% if not customer.phone %}disabled{% endif %}>Send Review SMS</button>
+        <div class="form-help">Use Demo mode first if the live SMS gateway is not configured yet.</div>
+      </form>
+    </section>
+
+    <section class="panel customer-section">
+      <div class="panel-head panel-head-stack">
+        <div>
+          <div class="section-kicker">History</div>
+          <h3>Recent contact history</h3>
+        </div>
+      </div>
+      <div class="timeline">
+        {% for c in recent_contacts %}
+        <div class="timeline-item">
+          <strong>{{ c.created_at }} · {{ c.channel or 'Note' }}</strong>
+          <p><strong>{{ c.subject or 'No subject' }}</strong></p>
+          <p>{{ (c.body or '')[:220] }}{% if c.body and c.body|length > 220 %}...{% endif %}</p>
+        </div>
+        {% else %}
+        <div class="empty-state">No communications logged yet for this customer.</div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="panel customer-section" id="customer-sms">
+      <div class="panel-head panel-head-stack">
+        <div>
+          <div class="section-kicker">SMS</div>
+          <h3>SMS status and opt in</h3>
+        </div>
+      </div>
+      <div class="customer-summary-grid customer-summary-grid-4">
+        <div class="summary-card"><strong>Total SMS</strong><span>{{ sms_summary.total_count or 0 }}</span></div>
+        <div class="summary-card"><strong>Outbound</strong><span>{{ sms_summary.outbound_count or 0 }}</span></div>
+        <div class="summary-card"><strong>Inbound</strong><span>{{ sms_summary.inbound_count or 0 }}</span></div>
+        <div class="summary-card"><strong>Failed</strong><span>{{ sms_summary.failed_count or 0 }}</span></div>
+      </div>
+      <div class="row-actions" style="margin-top:10px;">
+        {% if customer.sms_opt_out %}
+        <form method="post" action="{{ url_for('customer_sms_opt_in', customer_id=customer.id) }}"><button class="btn secondary">Allow SMS Again</button></form>
+        {% else %}
+        <form method="post" action="{{ url_for('customer_sms_opt_out', customer_id=customer.id) }}" onsubmit="return confirm('Opt this customer out of SMS?')"><button class="btn danger">Opt Out of SMS</button></form>
+        {% endif %}
+      </div>
+      <div class="timeline" style="margin-top:14px;">
+        {% for s in recent_sms %}
+        {% set status_text = s.status or 'Logged' %}
+        {% set status_lower = status_text|lower %}
+        <div class="timeline-item">
+          <strong>{{ s.created_at }} · {{ s.provider or 'SMS' }}</strong>
+          <p>
+            <span class="pill">{{ s.direction or 'outbound' }}</span>
+            <span class="status-pill {% if status_lower in ['delivered','sent','queued','accepted'] %}sent{% elif status_lower in ['failed','undelivered'] or s.error_text %}danger{% else %}draft{% endif %}">{{ status_text }}</span>
+          </p>
+          <p>{{ (s.body or '')[:180] }}{% if s.body and s.body|length > 180 %}...{% endif %}</p>
+          {% if s.error_text %}<p class="muted">Failure reason: {{ s.error_text }}</p>{% endif %}
+        </div>
+        {% else %}
+        <div class="empty-state">No SMS events logged yet for this customer.</div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="panel customer-section" id="customer-finance">
+      <div class="panel-head panel-head-stack">
+        <div>
+          <div class="section-kicker">Finance</div>
+          <h3>Invoices and recurring plans</h3>
+          <p>Keep the money side together here, then use the main Finance pages for deeper admin.</p>
+        </div>
+      </div>
+      <div class="customer-summary-grid customer-summary-grid-4">
+        <div class="summary-card"><strong>Active plans</strong><span>{{ subscription_summary.plan_count }}</span></div>
+        <div class="summary-card"><strong>History entries</strong><span>{{ subscription_summary.history_count }}</span></div>
+        <div class="summary-card"><strong>Auto paid total</strong><span>£{{ '%.2f'|format(subscription_summary.paid_total) }}</span></div>
+        <div class="summary-card"><strong>Pending total</strong><span>£{{ '%.2f'|format(subscription_summary.pending_total) }}</span></div>
+      </div>
+      <table class="table compact-table" style="margin-top:14px;">
+        <tr><th>Next Due</th><th>Plan</th><th>Method</th><th>Net</th></tr>
+        {% for row in subscription_summary.plans %}
+        <tr>
+          <td>{{ row.next_due_date or row.start_date }}</td>
+          <td>{{ row.description or 'Recurring Service Plan' }}</td>
+          <td>{{ row.collection_method or '' }}</td>
+          <td>£{{ '%.2f'|format(row.amount or 0) }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4" class="empty-cell">No active recurring plans linked to this customer.</td></tr>
+        {% endfor %}
+      </table>
+    </section>
+  </div>
+</div>
+{% endblock %}

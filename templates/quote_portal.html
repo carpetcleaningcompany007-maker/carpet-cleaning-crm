@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Customer Quote Portal</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <style>
+    body{padding:24px}
+    .public-wrap{max-width:1200px;margin:0 auto}
+    .public-grid{display:grid;grid-template-columns:1.2fr .8fr;gap:18px}
+    .public-hero{margin-bottom:18px}
+    .public-brand{display:flex;gap:14px;align-items:center;margin-bottom:16px}
+    .public-brand img{width:92px;height:92px;object-fit:cover;border-radius:18px;border:1px solid var(--line);box-shadow:var(--shadow-soft)}
+    .public-topbar{display:flex;justify-content:flex-end;margin-bottom:14px}
+    @media (max-width:1000px){.public-grid{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+<div class="public-wrap">
+  <div class="public-topbar"><a class="btn secondary" href="{{ url_for('dashboard') if session.get('logged_in') else url_for('login') }}">{{ 'Back to CRM' if session.get('logged_in') else 'Back to Login' }}</a></div>
+  <section class="hero public-hero">
+    <div class="public-brand">
+      <img src="https://images.unsplash.com/photo-1520607162513-77705c0f0d4a?auto=format&fit=crop&w=240&q=80" alt="Carpet cleaning">
+      <img src="https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&w=240&q=80" alt="Upholstery cleaning">
+      <div>
+        <div class="hero-tag">Customer quote portal</div>
+        <h3>Tell us what you need cleaned</h3>
+        <p>Choose your rooms, review the estimate, and then send us your details. We will review your request and add it into our CRM.</p>
+      </div>
+    </div>
+  </section>
+
+  <div class="public-grid">
+    <section class="panel">
+      <div class="panel-head"><h3>Build your estimate</h3></div>
+      <div class="res-grid" id="resGrid"></div>
+      <details class="soft-box">
+        <summary>Commercial work</summary>
+        <div class="form">
+          <div class="cols">
+            <select id="areaType">{% for a in area_options %}<option value="{{ a }}">{{ a }}</option>{% endfor %}</select>
+            <input id="customAreaName" placeholder="Custom area name if needed">
+          </div>
+          <div class="cols">
+            <select id="areaMethod">
+              <option value="rotary">Rotary bonnet</option>
+              <option value="hybrid">Hybrid Deep Clean</option>
+              <option value="hwe">Hot water extraction</option>
+              <option value="hardfloor">Hard floor cleaning</option>
+            </select>
+            <input id="areaSqm" type="number" step="0.1" min="0" placeholder="Square metres">
+          </div>
+          <button type="button" class="btn primary" id="addAreaBtn">Add Area</button>
+          <div id="areaList" class="timeline"></div>
+          <div class="cols">
+            <select id="hotelMethod">
+              <option value="rotary">Hotel room rotary</option>
+              <option value="hybrid">Hotel room hybrid</option>
+              <option value="hwe">Hotel room HWE</option>
+            </select>
+            <input id="hotelQty" type="number" min="0" value="0" placeholder="Hotel room qty">
+          </div>
+          <div class="cols">
+            <input id="extraDesc" placeholder="Extra description">
+            <input id="extraPrice" type="number" min="0" step="0.01" value="0" placeholder="Extra price">
+          </div>
+        </div>
+      </details>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head"><h3>Review and send</h3></div>
+      <div id="calcLines" class="timeline"></div>
+      <div class="calc-total">
+        <div><span>Subtotal</span><strong id="subtotalLabel">£0.00</strong></div>
+        <div><span>VAT</span><strong id="vatLabel">£0.00</strong></div>
+        <div><span>Total Payable</span><strong id="totalLabel">£0.00</strong></div>
+      </div>
+      <label class="checkline"><input type="checkbox" id="includeVat"> Include VAT</label>
+
+      <form method="post" action="{{ url_for('public_quote_portal_submit') }}" class="form" style="margin-top:16px;">
+        <div class="cols"><input name="customer_name" placeholder="Full name" required><input name="phone" placeholder="Phone number" required></div>
+        <div class="cols"><input name="email" placeholder="Email"><input name="postcode" placeholder="Postcode"></div>
+        <input name="address" placeholder="Address">
+        <input name="town" placeholder="Town">
+        <textarea name="notes" placeholder="Anything else we should know"></textarea>
+        <input type="hidden" id="payloadJson" name="payload_json">
+        <button class="btn primary">Send Quote Request</button>
+      </form>
+    </section>
+  </div>
+</div>
+<script>window.CALC_PRICING = {{ pricing|tojson }};</script>
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

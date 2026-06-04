@@ -1,0 +1,27 @@
+{% extends "layout.html" %}
+{% block page_title %}Incoming Requests{% endblock %}
+{% block body_content %}
+<section class="hero small-hero">
+  <div>
+    <div class="hero-tag">Customer portal submissions</div>
+    <h3>Incoming quote requests</h3>
+    <p>Customers can fill in the public calculator, submit their details, and those requests land here for approval before they go into your main database.</p>
+  </div>
+</section>
+<section class="panel">
+  <div class="panel-head"><h3>Requests</h3></div>
+  <table class="table">
+    <tr><th>Date</th><th>Name</th><th>Phone</th><th>Status</th><th>Estimate</th><th></th></tr>
+    {% for r in rows %}
+    <tr>
+      <td>{{ r.created_at }}</td>
+      <td>{{ r.customer_name }}</td>
+      <td>{{ r.phone }}</td>
+      <td>{{ r.status }}</td>
+      <td>£{{ '%.2f'|format(r.estimate_total or 0) }}</td>
+      <td><a class="mini-link" href="{{ url_for('quote_request_view', request_id=r.id) }}">Open</a></td>
+    </tr>
+    {% endfor %}
+  </table>
+</section>
+{% endblock %}
