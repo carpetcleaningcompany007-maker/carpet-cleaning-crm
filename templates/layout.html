@@ -53,7 +53,7 @@
   </aside>
 
   <main class="main">
-    <header class="topbar topbar-tabler">
+    <header class="topbar topbar-tabler page-{{ ep|replace('_','-') }}">
       <div class="topbar-left-wrap">
         <div class="eyebrow">The Carpet Cleaning Company</div>
         <h2 class="page-title">{% block page_title %}Dashboard{% endblock %}</h2>
@@ -70,13 +70,15 @@
       </div>
     </header>
 
-    <nav class="quick-dock website-quick-dock" aria-label="Quick actions">
-      <a href="{{ url_for('intake_forms') }}"><span>New enquiry</span><strong>Intake</strong></a>
-      <a href="{{ url_for('customers') }}"><span>Find or add</span><strong>Customer</strong></a>
-      <a href="{{ url_for('calculator') }}"><span>Price up</span><strong>Quote</strong></a>
-      <a href="{{ url_for('full_calendar') }}"><span>Plan diary</span><strong>Calendar</strong></a>
-      <a href="{{ url_for('invoices') }}"><span>Money in</span><strong>Invoices</strong></a>
-    </nav>
+    {% if ep == 'dashboard' %}
+      <nav class="quick-dock website-quick-dock" aria-label="Quick actions">
+        <a href="{{ url_for('intake_forms') }}"><span>New enquiry</span><strong>Intake</strong></a>
+        <a href="{{ url_for('customers') }}"><span>Find or add</span><strong>Customer</strong></a>
+        <a href="{{ url_for('calculator') }}"><span>Price up</span><strong>Quote</strong></a>
+        <a href="{{ url_for('full_calendar') }}"><span>Plan diary</span><strong>Calendar</strong></a>
+        <a href="{{ url_for('invoices') }}"><span>Money in</span><strong>Invoices</strong></a>
+      </nav>
+    {% endif %}
 
     {% with messages = get_flashed_messages() %}
       {% if messages %}

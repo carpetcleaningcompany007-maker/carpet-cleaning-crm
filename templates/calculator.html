@@ -1,16 +1,27 @@
 {% extends "layout.html" %}
 {% block page_title %}Calculator{% endblock %}
 {% block body_content %}
-<section class="hero small-hero">
+<section class="quote-builder-hero">
   <div>
     <div class="hero-tag">Integrated calculator</div>
-    <h3>This now saves properly into quotes and flows forward into jobs and invoices</h3>
+    <h3>Build a quote and move it straight into the job flow.</h3>
+    <p>Create the price, save it to the customer, then carry it forward into jobs and invoices.</p>
+  </div>
+  <div class="quote-hero-actions">
+    <a class="btn secondary" href="{{ url_for('calculator_manager') }}">Manage Calculator</a>
+    <a class="btn primary" href="{{ url_for('public_quote_portal') }}" target="_blank">Open Customer Portal</a>
   </div>
 </section>
 
-<div class="grid-2">
-  <section class="panel span-2">
-    <div class="panel-head"><h3>Build your quote</h3><div class="row-actions"><a class="btn secondary" href="{{ url_for('calculator_manager') }}">Manage Calculator</a><a class="btn secondary" href="{{ url_for('public_quote_portal') }}" target="_blank">Open Customer Portal</a></div></div>
+<div class="quote-builder-layout">
+  <section class="panel quote-items-panel">
+    <div class="panel-head">
+      <div>
+        <span class="section-kicker">Step 1</span>
+        <h3>Choose what needs cleaning</h3>
+        <p>Use the boxes below to build the customer quote.</p>
+      </div>
+    </div>
     <div class="res-grid" id="resGrid"></div>
     <details class="soft-box">
       <summary>Commercial work</summary>
@@ -46,8 +57,14 @@
     </details>
   </section>
 
-  <section class="panel">
-    <div class="panel-head"><h3>Review</h3></div>
+  <aside class="quote-sidebar">
+  <section class="panel quote-review-panel">
+    <div class="panel-head">
+      <div>
+        <span class="section-kicker">Step 2</span>
+        <h3>Review price</h3>
+      </div>
+    </div>
     <div id="calcLines" class="timeline"></div>
     <div class="calc-total">
       <div><span>Subtotal</span><strong id="subtotalLabel">£0.00</strong></div>
@@ -57,8 +74,13 @@
     <label class="checkline"><input type="checkbox" id="includeVat"> Include VAT</label>
   </section>
 
-  <section class="panel">
-    <div class="panel-head"><h3>Save to CRM</h3></div>
+  <section class="panel quote-save-panel">
+    <div class="panel-head">
+      <div>
+        <span class="section-kicker">Step 3</span>
+        <h3>Save to customer</h3>
+      </div>
+    </div>
     <form method="post" action="{{ url_for('quotes_create_from_calculator') }}" class="form">
       <select name="customer_id">
         <option value="">Select customer</option>
@@ -71,6 +93,7 @@
       <button class="btn primary">Create Saved Quote</button>
     </form>
   </section>
+  </aside>
 </div>
 <script>window.CALC_PRICING = {{ pricing|tojson }};</script>
 {% endblock %}
