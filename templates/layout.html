@@ -4,7 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>{% block title %}The Carpet Cleaning Company{% endblock %}</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=website-app-20260604-2">
+  <link rel="icon" href="{{ url_for('static', filename='site/site-icon-512.png') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=own-website-skin-20260605-1">
   <style>:root{--accent: {{ biz.accent or '#56718f' }}; --sidebar-color: {{ biz.sidebar_color or '#1f2933' }};}</style>
 </head>
 <body>
@@ -14,21 +15,20 @@
   <button class="icon-btn mobile-menu-toggle" type="button" aria-label="Open navigation" aria-expanded="false" data-sidebar-toggle>
     <span></span><span></span><span></span>
   </button>
-  <div class="mobile-appbar-title">{{ biz.business_name }}</div>
+  <div class="mobile-appbar-title">
+    <img class="mobile-appbar-logo" src="{% if biz.logo_filename %}{{ url_for('uploaded_file', filename=biz.logo_filename) }}{% else %}{{ url_for('static', filename='site/logo.webp') }}{% endif %}" alt="">
+    <span>{{ biz.business_name }}</span>
+  </div>
   <a class="icon-btn" href="{{ url_for('dashboard') }}" aria-label="Overview">⌂</a>
 </div>
 <div class="sidebar-backdrop" data-sidebar-close></div>
 <div class="shell shell-tabler">
   <aside class="sidebar" id="mainSidebar">
     <div class="brand brand-tabler">
-      {% if biz.logo_filename %}
-        <img class="brand-logo" src="{{ url_for('uploaded_file', filename=biz.logo_filename) }}" alt="{{ biz.business_name }}">
-      {% else %}
-        <div class="bubble-logo"></div>
-      {% endif %}
+      <img class="brand-logo" src="{% if biz.logo_filename %}{{ url_for('uploaded_file', filename=biz.logo_filename) }}{% else %}{{ url_for('static', filename='site/logo.webp') }}{% endif %}" alt="{{ biz.business_name }}">
       <div>
         <h1>{{ biz.business_name }}</h1>
-        <p>Customers, quotes and jobs</p>
+        <p>Professional customer workspace</p>
       </div>
     </div>
 
@@ -48,14 +48,14 @@
 
     <div class="side-note side-note-tabler">
       <strong>Today’s work, clearly laid out</strong>
-      <span>Enquiries, quotes, jobs, invoices and reviews in one calm place.</span>
+      <span>Enquiries, quotes, jobs, invoices and reviews in one clean place.</span>
     </div>
   </aside>
 
   <main class="main">
     <header class="topbar topbar-tabler">
       <div class="topbar-left-wrap">
-        <div class="eyebrow">The Carpet Cleaning Company workspace</div>
+        <div class="eyebrow">The Carpet Cleaning Company</div>
         <h2 class="page-title">{% block page_title %}Dashboard{% endblock %}</h2>
       </div>
       <div class="topbar-right-wrap">
