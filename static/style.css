@@ -641,6 +641,292 @@ th {
   }
 }
 
+/* Beauty rescue pass: centered, readable, more polished. */
+:root {
+  --crm-page-max: 1720px;
+}
+
+body {
+  background:
+    linear-gradient(180deg, #eaf2fb 0%, #f7fbff 42%, #ffffff 100%) !important;
+}
+
+.sidebar {
+  min-height: 92px !important;
+  padding-left: clamp(26px, 4vw, 72px) !important;
+  padding-right: clamp(26px, 4vw, 72px) !important;
+}
+
+.sidebar .brand {
+  margin-right: 24px !important;
+}
+
+.nav {
+  gap: 10px !important;
+}
+
+.nav-link {
+  min-height: 46px !important;
+  padding: 0 17px !important;
+  color: #ffffff !important;
+  font-size: 15px !important;
+}
+
+.nav-link.active,
+.nav-link:hover {
+  background: linear-gradient(135deg, #d8b36a, #f3d88e) !important;
+  color: #081220 !important;
+  box-shadow: 0 10px 24px rgba(216,179,106,.18) !important;
+}
+
+.topbar.page-dashboard {
+  width: min(var(--crm-page-max), calc(100% - 96px)) !important;
+  max-width: var(--crm-page-max) !important;
+  min-height: 430px !important;
+  margin: 24px auto 0 !important;
+  padding: 76px clamp(42px, 6vw, 96px) 86px !important;
+  grid-template-columns: minmax(0, .95fr) minmax(360px, 510px) !important;
+  background:
+    linear-gradient(90deg, rgba(4,16,30,.98) 0%, rgba(4,16,30,.86) 46%, rgba(4,16,30,.54) 100%),
+    url('/static/site/hero-carpet-cleaning.webp') center/cover no-repeat !important;
+}
+
+.topbar.page-dashboard .page-title {
+  font-size: clamp(60px, 5vw, 92px) !important;
+  color: #ffffff !important;
+}
+
+.topbar.page-dashboard .eyebrow {
+  color: #fff4ce !important;
+  background: rgba(216,179,106,.28) !important;
+  border: 1px solid rgba(216,179,106,.28) !important;
+}
+
+.topbar-right-wrap {
+  background: rgba(255,255,255,.98) !important;
+  border: 1px solid rgba(255,255,255,.45) !important;
+}
+
+.topbar-right-wrap input {
+  color: #12263a !important;
+}
+
+.topbar-right-wrap input::placeholder {
+  color: #536b82 !important;
+}
+
+.pill.action-pill {
+  color: #fff !important;
+  background: linear-gradient(135deg, #1269ef, #17446f) !important;
+}
+
+.quick-dock,
+.website-quick-dock {
+  width: min(var(--crm-page-max), calc(100% - 96px)) !important;
+  margin: -30px auto 34px !important;
+  gap: 18px !important;
+}
+
+.quick-dock a {
+  min-height: 130px !important;
+  padding: 26px !important;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.98) 0%, rgba(247,251,255,.98) 100%) !important;
+  border: 1px solid rgba(18,38,58,.08) !important;
+  box-shadow: 0 24px 58px rgba(8,20,40,.12) !important;
+}
+
+.quick-dock a span {
+  color: #51677c !important;
+  font-size: 13px !important;
+}
+
+.quick-dock a strong {
+  color: #071625 !important;
+  font-size: 26px !important;
+}
+
+.simple-home-hero,
+.simple-panel,
+.simple-action-grid,
+.simple-two-col,
+.main > .panel,
+.main > .grid,
+.main > .table-card,
+.main > form,
+.main > section,
+.main > .workflow-board,
+.main > .dashboard-grid,
+.main > .content-grid {
+  width: min(var(--crm-page-max), calc(100% - 96px)) !important;
+}
+
+.simple-home-hero {
+  position: relative !important;
+  overflow: hidden !important;
+  min-height: 300px !important;
+  padding: clamp(36px, 5vw, 72px) !important;
+  background:
+    linear-gradient(135deg, rgba(255,255,255,.98), rgba(247,251,255,.96)) !important;
+  border: 1px solid rgba(18,38,58,.08) !important;
+  box-shadow: 0 28px 72px rgba(8,20,40,.11) !important;
+}
+
+.simple-home-hero::after {
+  content: "" !important;
+  position: absolute !important;
+  width: 480px !important;
+  height: 480px !important;
+  right: -95px !important;
+  top: -120px !important;
+  border-radius: 50% !important;
+  border: 58px solid rgba(216,179,106,.18) !important;
+  background: rgba(15,95,230,.04) !important;
+  pointer-events: none !important;
+}
+
+.simple-home-hero > * {
+  position: relative !important;
+  z-index: 1 !important;
+}
+
+.simple-home-hero .section-kicker,
+.simple-panel .section-kicker,
+.quote-builder-hero .hero-tag {
+  color: #12304f !important;
+  background: #fff3cf !important;
+  border: 1px solid rgba(216,179,106,.35) !important;
+}
+
+.simple-home-hero h3 {
+  max-width: 620px !important;
+  color: #071625 !important;
+  font-size: clamp(42px, 4vw, 70px) !important;
+  line-height: .98 !important;
+  letter-spacing: 0 !important;
+}
+
+.simple-home-hero p {
+  max-width: 650px !important;
+  color: #40576c !important;
+  font-size: 22px !important;
+  line-height: 1.5 !important;
+}
+
+.simple-home-hero .big-action {
+  width: min(360px, 100%) !important;
+  flex: 0 0 auto !important;
+  min-height: 64px !important;
+  font-size: 18px !important;
+}
+
+.simple-action-card,
+.simple-panel,
+.panel,
+.card,
+.table-card,
+.workflow-card,
+.customer-card,
+.form-card,
+.settings-card {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.99) 0%, rgba(250,253,255,.99) 100%) !important;
+  border-color: rgba(18,38,58,.08) !important;
+}
+
+.simple-action-card strong,
+.simple-panel h3,
+.panel h1,
+.panel h2,
+.panel h3,
+.card h2,
+.card h3,
+.table-card h2,
+.main h1,
+.main h2,
+.main h3 {
+  color: #071625 !important;
+}
+
+.simple-action-card p,
+.simple-panel p,
+.panel p,
+.card p,
+.table-card p,
+.muted,
+.help,
+.subtle {
+  color: #40576c !important;
+}
+
+.btn.secondary,
+.btn-secondary {
+  color: #12304f !important;
+  background: #ffffff !important;
+  border: 1px solid #d7e3f0 !important;
+}
+
+.quote-builder-hero {
+  width: min(var(--crm-page-max), calc(100% - 96px)) !important;
+}
+
+.quote-builder-layout {
+  width: min(var(--crm-page-max), calc(100% - 96px)) !important;
+}
+
+.quote-builder-hero h3 {
+  color: #fff !important;
+  max-width: 860px !important;
+}
+
+@media (max-width: 1100px) {
+  .topbar.page-dashboard,
+  .quick-dock,
+  .website-quick-dock,
+  .simple-home-hero,
+  .simple-panel,
+  .simple-action-grid,
+  .simple-two-col,
+  .quote-builder-hero,
+  .quote-builder-layout,
+  .main > .panel,
+  .main > .grid,
+  .main > .table-card,
+  .main > form,
+  .main > section,
+  .main > .workflow-board,
+  .main > .dashboard-grid,
+  .main > .content-grid {
+    width: min(100% - 36px, var(--crm-page-max)) !important;
+  }
+
+  .simple-home-hero {
+    min-height: 0 !important;
+  }
+}
+
+@media (max-width: 760px) {
+  .topbar.page-dashboard,
+  .quick-dock,
+  .website-quick-dock,
+  .simple-home-hero,
+  .simple-panel,
+  .simple-action-grid,
+  .simple-two-col,
+  .quote-builder-hero,
+  .quote-builder-layout {
+    width: calc(100% - 24px) !important;
+  }
+
+  .simple-home-hero h3 {
+    font-size: 40px !important;
+  }
+
+  .simple-home-hero p {
+    font-size: 18px !important;
+  }
+}
+
 /* Internal pages should feel like pages, not another giant landing hero. */
 .topbar:not(.page-dashboard) {
   min-height: 190px !important;
