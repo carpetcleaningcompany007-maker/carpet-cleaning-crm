@@ -2340,6 +2340,8 @@ def workflow_dashboard_data():
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
+    if session.get("logged_in") and request.method == "GET":
+        return redirect(url_for("dashboard"))
     s = settings()
     if request.method == "POST":
         submitted_username = (request.form.get("username") or "").strip()
