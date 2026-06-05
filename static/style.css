@@ -927,6 +927,249 @@ body {
   }
 }
 
+/* Dashboard rescue: clean, centered, readable, no overlaps. */
+body {
+  background:
+    radial-gradient(circle at 8% 0%, rgba(15,95,230,.10), transparent 32%),
+    linear-gradient(180deg, #eef5fc 0%, #f8fbff 50%, #ffffff 100%) !important;
+}
+
+.sidebar {
+  box-shadow: 0 12px 34px rgba(4, 9, 20, .18) !important;
+}
+
+.topbar.page-dashboard {
+  width: min(1500px, calc(100% - 64px)) !important;
+  min-height: 260px !important;
+  margin: 28px auto 24px !important;
+  padding: clamp(34px, 5vw, 58px) !important;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 440px) !important;
+  gap: 28px !important;
+  align-items: center !important;
+  background:
+    linear-gradient(135deg, rgba(8,18,32,.96) 0%, rgba(15,39,65,.92) 55%, rgba(15,95,230,.38) 100%),
+    url('/static/site/hero-carpet-cleaning.webp') center/cover no-repeat !important;
+  border: 1px solid rgba(255,255,255,.35) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 24px 70px rgba(8,20,40,.18) !important;
+}
+
+.topbar.page-dashboard .eyebrow {
+  color: #081220 !important;
+  background: #fff3cf !important;
+  border: 1px solid rgba(216,179,106,.45) !important;
+  text-shadow: none !important;
+}
+
+.topbar.page-dashboard .page-title {
+  margin-top: 16px !important;
+  color: #ffffff !important;
+  font-size: clamp(48px, 5vw, 76px) !important;
+  line-height: .98 !important;
+  text-shadow: 0 14px 34px rgba(0,0,0,.36) !important;
+}
+
+.topbar.page-dashboard .topbar-right-wrap {
+  width: 100% !important;
+  padding: 20px !important;
+  background: rgba(255,255,255,.97) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 18px 48px rgba(4,9,20,.20) !important;
+}
+
+.topbar.page-dashboard .top-search input {
+  min-height: 56px !important;
+  color: #12263a !important;
+  background: #ffffff !important;
+}
+
+.topbar.page-dashboard .top-actions {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 10px !important;
+}
+
+.topbar.page-dashboard .pill.action-pill {
+  min-height: 54px !important;
+  padding: 0 12px !important;
+  color: #fff !important;
+  text-align: center !important;
+}
+
+.quick-dock.website-quick-dock,
+.quick-dock {
+  width: min(1500px, calc(100% - 64px)) !important;
+  margin: 0 auto 28px !important;
+  display: grid !important;
+  grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+  gap: 16px !important;
+  transform: none !important;
+}
+
+.quick-dock a {
+  min-height: 118px !important;
+  padding: 22px !important;
+  background: #ffffff !important;
+  border: 1px solid rgba(18,38,58,.10) !important;
+  border-top: 5px solid #0f5fe6 !important;
+  box-shadow: 0 16px 38px rgba(8,20,40,.08) !important;
+}
+
+.quick-dock a:nth-child(1) { border-top-color: #d8b36a !important; }
+.quick-dock a:nth-child(2) { border-top-color: #0f5fe6 !important; }
+.quick-dock a:nth-child(3) { border-top-color: #17446f !important; }
+.quick-dock a:nth-child(4) { border-top-color: #2bb673 !important; }
+.quick-dock a:nth-child(5) { border-top-color: #ef7d31 !important; }
+
+.quick-dock a span {
+  color: #52687d !important;
+  font-size: 13px !important;
+}
+
+.quick-dock a strong {
+  color: #081220 !important;
+  font-size: 25px !important;
+}
+
+.simple-home-hero {
+  width: min(1500px, calc(100% - 64px)) !important;
+  min-height: 0 !important;
+  margin: 0 auto 28px !important;
+  padding: clamp(32px, 4vw, 54px) !important;
+  display: grid !important;
+  grid-template-columns: minmax(0, .9fr) minmax(280px, .55fr) !important;
+  gap: 28px !important;
+  align-items: center !important;
+  background:
+    linear-gradient(135deg, #ffffff 0%, #f7fbff 100%) !important;
+  border: 1px solid rgba(18,38,58,.10) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 18px 48px rgba(8,20,40,.08) !important;
+}
+
+.simple-home-hero::after {
+  display: none !important;
+}
+
+.simple-home-hero .section-kicker {
+  color: #12304f !important;
+  background: #fff3cf !important;
+  border: 1px solid rgba(216,179,106,.45) !important;
+}
+
+.simple-home-hero h3 {
+  max-width: 680px !important;
+  margin: 14px 0 12px !important;
+  color: #081220 !important;
+  font-size: clamp(36px, 4vw, 58px) !important;
+  line-height: 1.02 !important;
+}
+
+.simple-home-hero p {
+  max-width: 680px !important;
+  color: #40576c !important;
+  font-size: 20px !important;
+  line-height: 1.5 !important;
+}
+
+.simple-home-hero .big-action {
+  justify-self: stretch !important;
+  width: 100% !important;
+  min-height: 64px !important;
+  color: #fff !important;
+}
+
+.simple-action-grid,
+.simple-panel,
+.simple-two-col,
+.main > .panel,
+.main > .grid,
+.main > .table-card,
+.main > form,
+.main > section,
+.main > .workflow-board,
+.main > .dashboard-grid,
+.main > .content-grid {
+  width: min(1500px, calc(100% - 64px)) !important;
+}
+
+.simple-action-card,
+.simple-panel,
+.panel,
+.table-card,
+.card,
+.customer-card,
+.workflow-card {
+  background: #ffffff !important;
+  border: 1px solid rgba(18,38,58,.10) !important;
+  box-shadow: 0 14px 34px rgba(8,20,40,.07) !important;
+}
+
+.simple-action-card strong,
+.simple-panel h3,
+.panel h1,
+.panel h2,
+.panel h3,
+.card h2,
+.card h3,
+.main h1,
+.main h2,
+.main h3 {
+  color: #081220 !important;
+}
+
+.simple-action-card p,
+.simple-panel p,
+.panel p,
+.card p,
+.muted,
+.help,
+.subtle {
+  color: #40576c !important;
+}
+
+@media (max-width: 1050px) {
+  .topbar.page-dashboard,
+  .simple-home-hero {
+    grid-template-columns: 1fr !important;
+  }
+
+  .quick-dock.website-quick-dock,
+  .quick-dock {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 760px) {
+  .topbar.page-dashboard,
+  .quick-dock.website-quick-dock,
+  .quick-dock,
+  .simple-home-hero,
+  .simple-action-grid,
+  .simple-panel,
+  .simple-two-col,
+  .main > .panel,
+  .main > .grid,
+  .main > .table-card,
+  .main > form,
+  .main > section,
+  .main > .workflow-board,
+  .main > .dashboard-grid,
+  .main > .content-grid {
+    width: calc(100% - 24px) !important;
+  }
+
+  .topbar.page-dashboard {
+    margin-top: 14px !important;
+  }
+
+  .quick-dock.website-quick-dock,
+  .quick-dock {
+    grid-template-columns: 1fr !important;
+  }
+}
+
 /* Internal pages should feel like pages, not another giant landing hero. */
 .topbar:not(.page-dashboard) {
   min-height: 190px !important;
