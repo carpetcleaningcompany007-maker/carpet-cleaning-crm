@@ -318,6 +318,123 @@ def find_existing_customer_id(first_name="", last_name="", email="", phone="", p
     return None
 
 
+def import_customer_library_row(row):
+    def pick(*names):
+        for name in names:
+            if name in row and row[name] is not None:
+                value = clean_str(row[name])
+                if value:
+                    return value
+        return ""
+
+    full_name = pick("name", "customer_name", "full_name", "Name", "Customer Name", "Full Name")
+    first_name = pick("first_name", "firstname", "FirstName", "first", "First Name")
+    last_name = pick("last_name", "lastname", "LastName", "surname", "Last Name")
+    if full_name and not (first_name or last_name):
+        first_name, last_name = split_customer_name(full_name)
+    first_name = first_name or "Customer"
+    last_name = last_name or "Imported"
+    phone = pick("phone", "mobile", "telephone", "Phone", "Mobile", "Telephone")
+    email = pick("email", "Email", "email_address", "EmailAddress")
+    address = pick("address", "Address", "full_address", "Full Address")
+    town = pick("town", "Town", "city", "City")
+    postcode = pick("postcode", "Postcode", "postal_code", "PostalCode")
+    source = pick("source", "Source") or "Customer library import"
+    tags = pick("tags", "Tags")
+    notes = pick("notes", "Notes", "job_notes", "Job Notes")
+    xero_contact_id = pick("xero_contact_id", "XeroContactID", "ContactID", "contact_id")
+
+    if xero_contact_id:
+        existing = q("SELECT id FROM customers WHERE IFNULL(xero_contact_id,'')=? ORDER BY id DESC LIMIT 1", (xero_contact_id,), one=True)
+        customer_id = existing["id"] if existing else None
+    else:
+        customer_id = None
+    if not customer_id:
+        customer_id = find_existing_customer_id(first_name=first_name, last_name=last_name, email=email, phone=phone, postcode=postcode)
+
+    if customer_id:
+        run("""UPDATE customers
+               SET first_name=COALESCE(NULLIF(?,''), first_name),
+                   last_name=COALESCE(NULLIF(?,''), last_name),
+                   phone=COALESCE(NULLIF(?,''), phone),
+                   email=COALESCE(NULLIF(?,''), email),
+                   address=COALESCE(NULLIF(?,''), address),
+                   town=COALESCE(NULLIF(?,''), town),
+                   postcode=COALESCE(NULLIF(?,''), postcode),
+                   source=CASE WHEN IFNULL(source,'')='' THEN ? ELSE source END,
+                   tags=CASE
+                        WHEN ?='' THEN tags
+                        WHEN IFNULL(tags,'')='' THEN ?
+                        WHEN tags LIKE '%' || ? || '%' THEN tags
+                        ELSE tags || ', ' || ?
+                   END,
+                   notes=CASE
+                        WHEN ?='' THEN notes
+                        WHEN IFNULL(notes,'')='' THEN ?
+                        WHEN notes LIKE '%' || ? || '%' THEN notes
+                        ELSE notes || char(10) || char(10) || ?
+                   END,
+                   xero_contact_id=COALESCE(NULLIF(?,''), xero_contact_id),
+                   xero_contact_synced_at=CASE WHEN ?<>'' THEN datetime('now') ELSE xero_contact_synced_at END
+               WHERE id=?""", (
+            first_name, last_name, phone, email, address, town, postcode,
+            source,
+            tags, tags, tags, tags,
+            notes, notes, notes, notes,
+            xero_contact_id, xero_contact_id,
+            customer_id,
+        ))
+        return "updated", customer_id
+
+    customer_id = run("""INSERT INTO customers(first_name,last_name,phone,email,address,town,postcode,source,tags,notes,xero_contact_id,xero_contact_synced_at)
+                         VALUES (?,?,?,?,?,?,?,?,?,?,?,CASE WHEN ?<>'' THEN datetime('now') ELSE '' END)""", (
+        first_name, last_name, phone, email, address, town, postcode, source, tags, notes,
+        xero_contact_id, xero_contact_id,
+    ))
+    return "created", customer_id
+
+
+def import_customer_library_from_db(path):
+    con = sqlite3.connect(path)
+    con.row_factory = sqlite3.Row
+    try:
+        tables = {r["name"] for r in con.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        if "customers" not in tables:
+            raise RuntimeError("That database does not contain a customers table.")
+        rows = con.execute("SELECT * FROM customers").fetchall()
+        return import_customer_library_rows([dict(r) for r in rows])
+    finally:
+        con.close()
+
+
+def import_customer_library_from_csv(path):
+    with open(path, "r", encoding="utf-8-sig", newline="") as handle:
+        rows = list(csv.DictReader(handle))
+    if not rows:
+        raise RuntimeError("The CSV did not contain any customer rows.")
+    return import_customer_library_rows(rows)
+
+
+def import_customer_library_rows(rows):
+    created = updated = skipped = failed = 0
+    for row in rows:
+        try:
+            if not any(clean_str(v) for v in dict(row).values()):
+                skipped += 1
+                continue
+            action, customer_id = import_customer_library_row(dict(row))
+            if action == "created":
+                created += 1
+            else:
+                updated += 1
+            run("INSERT INTO customer_timeline(customer_id, note_text, photo_filename) VALUES (?,?,?)",
+                (customer_id, "Customer synced from customer library import.", ""))
+        except Exception as exc:
+            failed += 1
+            logger.exception("Customer library row import failed")
+    return {"created": created, "updated": updated, "skipped": skipped, "failed": failed, "total": len(rows)}
+
+
 def archive_customer_record(customer_id):
     run("UPDATE customers SET archived_at=CURRENT_TIMESTAMP WHERE id=? AND archived_at IS NULL", (customer_id,))
 
@@ -2565,6 +2682,47 @@ def customers():
     annotate_rows_with_last_contact(rows, key="id")
     letters = [chr(c) for c in range(ord('A'), ord('Z')+1)]
     return render_template("customers.html", customers=rows, search=search, scope=scope, starts=starts, letters=letters)
+
+
+@app.route("/customers/import-library", methods=["GET", "POST"])
+@login_required
+def customers_import_library():
+    if request.method == "POST":
+        upload = request.files.get("customer_library")
+        if not upload or not upload.filename:
+            flash("Choose a customer library file first.")
+            return redirect(url_for("customers_import_library"))
+        filename = secure_filename(upload.filename)
+        ext = os.path.splitext(filename)[1].lower()
+        if ext not in {".db", ".sqlite", ".sqlite3", ".csv"}:
+            flash("Upload a CRM database file (.db) or a customer CSV file.")
+            return redirect(url_for("customers_import_library"))
+        os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
+        temp_name = f"customer_library_{uuid.uuid4().hex}{ext}"
+        temp_path = os.path.join(app.config["UPLOAD_FOLDER"], temp_name)
+        upload.save(temp_path)
+        try:
+            if ext == ".csv":
+                result = import_customer_library_from_csv(temp_path)
+            else:
+                result = import_customer_library_from_db(temp_path)
+            flash(
+                "Customer library sync complete. "
+                f"Created {result['created']}; updated {result['updated']}; "
+                f"skipped {result['skipped']}; failed {result['failed']}."
+            )
+            return redirect(url_for("customers", scope="all"))
+        except Exception as exc:
+            logger.exception("Customer library import failed")
+            flash(f"Customer library sync failed: {exc}")
+            return redirect(url_for("customers_import_library"))
+        finally:
+            try:
+                os.remove(temp_path)
+            except OSError:
+                pass
+    return render_template("customer_library_import.html")
+
 
 @app.route("/customers/new", methods=["POST"])
 @login_required

@@ -1,0 +1,34 @@
+{% extends "layout.html" %}
+{% block page_title %}Sync Customer Library{% endblock %}
+{% block body_content %}
+<section class="panel page-shell">
+  <div class="panel-head panel-head-stack">
+    <div>
+      <span class="section-kicker">Customer library</span>
+      <h3>Sync customers into this CRM</h3>
+      <p>Upload an old CRM database or customer CSV. The CRM will merge the library into the live customer list and avoid duplicates where it can.</p>
+    </div>
+    <a class="btn secondary" href="{{ url_for('customers') }}">Back to Customers</a>
+  </div>
+
+  <div class="grid-2">
+    <form method="post" enctype="multipart/form-data" class="panel form">
+      <h3>Upload library</h3>
+      <p class="muted">Accepted files: <strong>.db</strong>, <strong>.sqlite</strong>, <strong>.sqlite3</strong>, or <strong>.csv</strong>.</p>
+      <input type="file" name="customer_library" accept=".db,.sqlite,.sqlite3,.csv" required>
+      <button class="btn primary">Sync Customer Library</button>
+    </form>
+
+    <section class="panel">
+      <h3>What gets matched?</h3>
+      <div class="report-summary-list">
+        <div><strong>Best match</strong><span>Xero ContactID, if present</span></div>
+        <div><strong>Next match</strong><span>Email address</span></div>
+        <div><strong>Then</strong><span>Phone number</span></div>
+        <div><strong>Fallback</strong><span>Name and postcode</span></div>
+      </div>
+      <p class="muted inline-note">Existing customers are updated instead of duplicated. New customers are created when no match is found.</p>
+    </section>
+  </div>
+</section>
+{% endblock %}
