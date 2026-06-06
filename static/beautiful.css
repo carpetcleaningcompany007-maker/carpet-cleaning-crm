@@ -1696,3 +1696,94 @@ body.app-page .quote-items-panel {
     grid-template-columns: 1fr !important;
   }
 }
+
+/* Calculator sidebar repair.
+   The review price panel is narrow, so totals must stack rather than squeeze. */
+body.page-calculator .quote-review-panel {
+  overflow: visible !important;
+}
+
+body.page-calculator .quote-review-panel .timeline {
+  min-height: 92px !important;
+  padding: 18px !important;
+  color: #40576c !important;
+  background: #ffffff !important;
+  border: 1px solid #d7e3f0 !important;
+  border-radius: 14px !important;
+  box-shadow: none !important;
+}
+
+body.page-calculator .calc-total {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  gap: 10px !important;
+  padding: 14px !important;
+  margin: 18px 0 14px !important;
+  color: #ffffff !important;
+  background: linear-gradient(135deg, #081220, #17446f) !important;
+  border: 0 !important;
+  border-radius: 16px !important;
+  box-shadow: 0 20px 44px rgba(8, 18, 32, .18) !important;
+}
+
+body.page-calculator .calc-total div {
+  min-height: 58px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 16px !important;
+  padding: 14px 16px !important;
+  color: #ffffff !important;
+  background: rgba(255, 255, 255, .10) !important;
+  border: 1px solid rgba(255, 255, 255, .18) !important;
+  border-radius: 12px !important;
+  box-shadow: none !important;
+}
+
+body.page-calculator .calc-total span,
+body.page-calculator .calc-total strong {
+  display: block !important;
+  min-width: 0 !important;
+  color: #ffffff !important;
+  opacity: 1 !important;
+  white-space: normal !important;
+  text-shadow: none !important;
+}
+
+body.page-calculator .calc-total span {
+  font-size: 14px !important;
+  font-weight: 800 !important;
+  text-transform: uppercase !important;
+  letter-spacing: .04em !important;
+}
+
+body.page-calculator .calc-total strong {
+  font-size: 24px !important;
+  line-height: 1 !important;
+  text-align: right !important;
+}
+
+body.page-calculator .checkline {
+  min-height: 56px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  padding: 14px 16px !important;
+  color: #071625 !important;
+  background: #f7fbff !important;
+  border: 1px solid #d7e3f0 !important;
+  border-radius: 14px !important;
+  box-shadow: none !important;
+  font-size: 16px !important;
+  font-weight: 900 !important;
+}
+
+body.page-calculator .checkline input[type="checkbox"] {
+  width: 22px !important;
+  height: 22px !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  flex: 0 0 auto !important;
+  accent-color: var(--cc-blue) !important;
+}
