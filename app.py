@@ -11,6 +11,7 @@ from email.mime.text import MIMEText
 from datetime import date, timedelta, datetime
 from functools import wraps
 from urllib.parse import quote
+from zoneinfo import ZoneInfo
 import re
 import io
 import csv
@@ -41,6 +42,10 @@ XERO_INVOICES_URL = "https://api.xero.com/api.xro/2.0/Invoices"
 XERO_PAYMENTS_URL = "https://api.xero.com/api.xro/2.0/Payments"
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("carpet_crm")
+
+
+def uk_today():
+    return datetime.now(ZoneInfo("Europe/London")).date()
 
 
 @app.after_request
@@ -1548,7 +1553,7 @@ def day_run_message(kind, job):
     name = clean_str(job["first_name"]) or "there"
     business = settings()["business_name"] or "The Carpet Cleaning Company"
     phone = settings()["phone"] or ""
-    job_date = clean_str(job["job_date"]) or date.today().isoformat()
+    job_date = clean_str(job["job_date"]) or uk_today().isoformat()
     review_link = settings()["review_link"] or "[GOOGLE REVIEW LINK]"
     if kind == "coming":
         return (
@@ -1610,7 +1615,7 @@ def create_invoice_for_job(job, status="Draft", note_extra=""):
     invoice_id = run("""INSERT INTO invoices(customer_id, job_id, quote_id, invoice_number, invoice_date, due_date, status, subtotal, vat, total, payload_json, notes)
                         VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""", (
         job["customer_id"], job["id"], job["quote_id"], next_invoice_number(),
-        date.today().isoformat(), date.today().isoformat(),
+        uk_today().isoformat(), uk_today().isoformat(),
         status, calc["subtotal"], calc["vat"], calc["total"], json.dumps(payload), notes
     ))
     return invoice_id, True
@@ -2764,7 +2769,7 @@ def workflow():
 @app.route("/today-run")
 @login_required
 def today_run():
-    selected_date = clean_str(request.args.get("date")) or date.today().isoformat()
+    selected_date = clean_str(request.args.get("date")) or uk_today().isoformat()
     jobs_today = q("""SELECT jobs.*, customers.first_name, customers.last_name, customers.phone, customers.email,
                              customers.address, customers.town, customers.postcode, customers.sms_opt_out,
                              invoices.id AS invoice_id, invoices.status AS invoice_status, invoices.total AS invoice_total
@@ -2807,7 +2812,7 @@ def today_run_job_action(job_id):
         return redirect(url_for("today_run"))
     action = clean_str(request.form.get("action"))
     channel = clean_str(request.form.get("channel")).lower()
-    next_url = request.form.get("next_url") or url_for("today_run", date=job["job_date"] or date.today().isoformat())
+    next_url = request.form.get("next_url") or url_for("today_run", date=job["job_date"] or uk_today().isoformat())
     customer_id = job["customer_id"]
 
     if action in {"coming", "reminder", "finished", "review"}:
