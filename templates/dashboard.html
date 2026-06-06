@@ -3,99 +3,105 @@
 {% block body_content %}
 {% set alert_rows = (invoice_alerts.overdue if invoice_alerts.overdue is defined else []) + (invoice_alerts.due_soon if invoice_alerts.due_soon is defined else []) + (invoice_alerts.no_due_date if invoice_alerts.no_due_date is defined else []) %}
 
-<section class="simple-home-hero">
-  <div>
-    <span class="section-kicker">Simple workflow</span>
-    <h3>What needs doing today?</h3>
-    <p>Start here. Open the biggest action, deal with the customer, then come back for the next one.</p>
-  </div>
-  <a class="btn primary big-action" href="{{ url_for('workflow') }}">Open Workflow Board</a>
-</section>
-
-<section class="simple-action-grid">
-  <a class="simple-action-card urgent" href="{{ url_for('intake_forms') }}">
-    <span>1</span>
-    <div>
-      <strong>Review new enquiries</strong>
-      <p>{{ intake_new }} waiting</p>
-    </div>
-  </a>
-  <a class="simple-action-card" href="{{ url_for('workflow') }}">
-    <span>2</span>
-    <div>
-      <strong>See customer stages</strong>
-      <p>Who needs a form, quote, booking, invoice, payment, or review</p>
-    </div>
-  </a>
-  <a class="simple-action-card" href="{{ url_for('jobs') }}">
-    <span>3</span>
-    <div>
-      <strong>Check booked jobs</strong>
-      <p>{{ stats.jobs }} active jobs</p>
-    </div>
-  </a>
-  <a class="simple-action-card" href="{{ url_for('invoices') }}">
-    <span>4</span>
-    <div>
-      <strong>Sort invoices</strong>
-      <p>{{ alert_rows|length }} invoice alerts</p>
-    </div>
-  </a>
-</section>
-
-<section class="simple-panel">
-  <div class="simple-panel-head">
-    <div>
-      <span class="section-kicker">Quick links</span>
-      <h3>Common jobs</h3>
+<section class="cc-hero cc-hero-dashboard">
+  <div class="cc-hero-copy">
+    <span class="cc-chip">Today</span>
+    <h1>What needs doing next?</h1>
+    <p>A clear daily view for enquiries, quotes, jobs, invoices and follow-ups.</p>
+    <div class="cc-hero-actions">
+      <a class="cc-btn cc-btn-primary" href="{{ url_for('workflow') }}">Open Workflow Board</a>
+      <a class="cc-btn cc-btn-light" href="{{ url_for('customers') }}">Find Customer</a>
     </div>
   </div>
-  <div class="simple-link-row">
-    <a class="btn secondary" href="{{ url_for('booking_form') }}" target="_blank">Public Booking Form</a>
-    <a class="btn secondary" href="{{ url_for('customers') }}">Find Customer</a>
-    <a class="btn secondary" href="{{ url_for('calculator') }}">Create Quote</a>
-    <a class="btn secondary" href="{{ url_for('full_calendar') }}">Calendar</a>
-    <a class="btn secondary" href="{{ url_for('xero_dashboard') }}">Xero</a>
+  <div class="cc-hero-panel">
+    <span>Priority</span>
+    <strong>{{ intake_new + alert_rows|length }}</strong>
+    <p>items waiting for attention</p>
   </div>
 </section>
 
-<section class="simple-two-col">
-  <div class="simple-panel">
-    <div class="simple-panel-head">
+<section class="cc-quick-grid">
+  <a class="cc-quick-card is-gold" href="{{ url_for('intake_forms') }}">
+    <span>New enquiry</span>
+    <strong>Intake</strong>
+    <em>{{ intake_new }} waiting</em>
+  </a>
+  <a class="cc-quick-card is-blue" href="{{ url_for('customers') }}">
+    <span>Find or add</span>
+    <strong>Customer</strong>
+    <em>Open records</em>
+  </a>
+  <a class="cc-quick-card is-navy" href="{{ url_for('calculator') }}">
+    <span>Price up</span>
+    <strong>Quote</strong>
+    <em>Create quote</em>
+  </a>
+  <a class="cc-quick-card is-green" href="{{ url_for('full_calendar') }}">
+    <span>Plan diary</span>
+    <strong>Calendar</strong>
+    <em>{{ stats.jobs }} jobs</em>
+  </a>
+  <a class="cc-quick-card is-orange" href="{{ url_for('invoices') }}">
+    <span>Money in</span>
+    <strong>Invoices</strong>
+    <em>{{ alert_rows|length }} alerts</em>
+  </a>
+</section>
+
+<section class="cc-section">
+  <div class="cc-section-head">
+    <div>
+      <span class="cc-chip">Workflow</span>
+      <h2>Start with the biggest action.</h2>
+      <p>Open the customer, press the next action button, then come back here.</p>
+    </div>
+    <a class="cc-btn cc-btn-primary" href="{{ url_for('workflow') }}">Do Next</a>
+  </div>
+  <div class="cc-action-grid">
+    <a href="{{ url_for('intake_forms') }}"><b>1</b><strong>Review new enquiries</strong><span>{{ intake_new }} waiting</span></a>
+    <a href="{{ url_for('workflow') }}"><b>2</b><strong>See customer stages</strong><span>Form, quote, booking, invoice, payment, review</span></a>
+    <a href="{{ url_for('jobs') }}"><b>3</b><strong>Check booked jobs</strong><span>{{ stats.jobs }} active jobs</span></a>
+    <a href="{{ url_for('invoices') }}"><b>4</b><strong>Sort invoices</strong><span>{{ alert_rows|length }} invoice alerts</span></a>
+  </div>
+</section>
+
+<section class="cc-two-col">
+  <div class="cc-panel">
+    <div class="cc-panel-head">
       <div>
-        <span class="section-kicker">Upcoming</span>
-        <h3>Jobs</h3>
+        <span class="cc-chip">Upcoming</span>
+        <h2>Jobs</h2>
       </div>
-      <a class="mini-link" href="{{ url_for('jobs') }}">See all</a>
+      <a href="{{ url_for('jobs') }}">See all</a>
     </div>
-    <div class="simple-list-cards">
+    <div class="cc-list">
       {% for row in recent_jobs[:5] %}
       <a href="{{ url_for('job_view', job_id=row.id) }}">
         <strong>{{ row.title }}</strong>
         <span>{{ row.job_date or 'No date' }}{% if row.customer_name %} · {{ row.customer_name }}{% endif %}</span>
       </a>
       {% else %}
-      <div class="empty-state">No jobs found.</div>
+      <div class="cc-empty">No jobs found.</div>
       {% endfor %}
     </div>
   </div>
 
-  <div class="simple-panel">
-    <div class="simple-panel-head">
+  <div class="cc-panel">
+    <div class="cc-panel-head">
       <div>
-        <span class="section-kicker">Money</span>
-        <h3>Invoice alerts</h3>
+        <span class="cc-chip">Money</span>
+        <h2>Invoice alerts</h2>
       </div>
-      <a class="mini-link" href="{{ url_for('invoices') }}">See all</a>
+      <a href="{{ url_for('invoices') }}">See all</a>
     </div>
-    <div class="simple-list-cards">
+    <div class="cc-list">
       {% for row in alert_rows[:5] %}
       <a href="{{ url_for('invoice_view', invoice_id=row.id) }}">
         <strong>{{ row.invoice_number or ('Invoice ' ~ row.id) }}</strong>
         <span>{{ row.status or 'Draft' }}{% if row.customer_name %} · {{ row.customer_name }}{% endif %}</span>
       </a>
       {% else %}
-      <div class="empty-state">No invoice alerts right now.</div>
+      <div class="cc-empty">No invoice alerts right now.</div>
       {% endfor %}
     </div>
   </div>

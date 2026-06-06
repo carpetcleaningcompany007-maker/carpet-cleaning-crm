@@ -1,34 +1,42 @@
 {% extends "layout.html" %}
 {% block title %}Workflow{% endblock %}
-{% block page_title %}Workflow{% endblock %}
+{% block page_title %}Do Next{% endblock %}
 {% block body_content %}
-<section class="big-workflow-hero">
-  <div>
-    <span>Customer workflow</span>
-    <h3>Who needs your attention?</h3>
-    <p>Big simple cards. Open a customer, press the next action button, then come back here.</p>
+<section class="cc-hero cc-hero-workflow">
+  <div class="cc-hero-copy">
+    <span class="cc-chip">Customer workflow</span>
+    <h1>Who needs your attention?</h1>
+    <p>Every customer sits in one simple journey. Open the card, follow the next action, then come back here.</p>
+    <div class="cc-hero-actions">
+      <a class="cc-btn cc-btn-primary" href="{{ url_for('customers') }}">Find Customer</a>
+      <a class="cc-btn cc-btn-light" href="{{ url_for('booking_form') }}" target="_blank">Open Booking Form</a>
+    </div>
   </div>
-  <a class="btn primary big-action" href="{{ url_for('customers') }}">Find Customer</a>
+  <div class="cc-hero-panel">
+    <span>Waiting</span>
+    <strong>{{ data.new_intake + data.open_quotes + data.booked_jobs + data.unpaid_invoices }}</strong>
+    <p>workflow items</p>
+  </div>
 </section>
 
-<section class="big-workflow-summary">
+<section class="cc-stat-grid">
   <a href="{{ url_for('intake_forms') }}"><span>New enquiries</span><strong>{{ data.new_intake }}</strong></a>
   <a href="{{ url_for('quotes') }}"><span>Open quotes</span><strong>{{ data.open_quotes }}</strong></a>
   <a href="{{ url_for('jobs') }}"><span>Booked jobs</span><strong>{{ data.booked_jobs }}</strong></a>
   <a href="{{ url_for('invoices') }}"><span>Unpaid invoices</span><strong>{{ data.unpaid_invoices }}</strong></a>
 </section>
 
-<section class="big-stage-list">
+<section class="cc-stage-board">
   {% for column in workflow_columns %}
     {% if column.cards %}
-    <div class="big-stage">
-      <div class="big-stage-head">
-        <h3>{{ column.title }}</h3>
+    <div class="cc-stage">
+      <div class="cc-stage-head">
+        <h2>{{ column.title }}</h2>
         <strong>{{ column.cards|length }}</strong>
       </div>
-      <div class="big-customer-list">
+      <div class="cc-customer-stack">
         {% for card in column.cards %}
-        <a class="big-customer-card {% if card.priority_status == 'Overdue' %}is-overdue{% endif %}" href="{{ url_for('customer_view', customer_id=card.id) }}#workflow-panel">
+        <a class="cc-customer-card {% if card.priority_status == 'Overdue' %}is-overdue{% endif %}" href="{{ url_for('customer_view', customer_id=card.id) }}#workflow-panel">
           <div>
             <strong>{{ card.customer_name }}</strong>
             <span>{{ card.phone or 'No phone' }}{% if card.email %} · {{ card.email }}{% endif %}</span>
@@ -49,6 +57,9 @@
 </section>
 
 {% if workflow_columns|selectattr('cards')|list|length == 0 %}
-  <section class="simple-panel"><h3>No customers need action right now.</h3></section>
+  <section class="cc-section">
+    <span class="cc-chip">Clear</span>
+    <h2>No customers need action right now.</h2>
+  </section>
 {% endif %}
 {% endblock %}
