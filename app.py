@@ -5958,6 +5958,7 @@ def xero_connect():
 @login_required
 def xero_dashboard():
     token = xero_token_row()
+    token_ready = bool(token and token["refresh_token"])
     counts = {
         "customers_linked": q("SELECT COUNT(*) AS c FROM customers WHERE IFNULL(xero_contact_id,'')<>''", one=True)["c"],
         "invoices_linked": q("SELECT COUNT(*) AS c FROM invoices WHERE IFNULL(xero_invoice_id,'')<>''", one=True)["c"],
@@ -5972,7 +5973,7 @@ def xero_dashboard():
     return render_template(
         "xero_dashboard.html",
         configured=xero_is_configured(),
-        connected=bool(token and token["access_token"]),
+        connected=token_ready,
         token=token,
         counts=counts,
         recent_invoices=recent_invoices,
@@ -6156,6 +6157,11 @@ def xero_refresh_open_invoices():
 @login_required
 def xero_pull_contacts():
     try:
+        if not xero_is_configured():
+            raise RuntimeError("Xero cannot pull customers yet. Set XERO_CLIENT_ID, XERO_CLIENT_SECRET, and XERO_REDIRECT_URI in Render, then redeploy.")
+        token = xero_token_row()
+        if not token or not token["refresh_token"]:
+            raise RuntimeError("Xero is not connected yet. Open Xero Sync and press Connect Xero before pulling customers.")
         result = pull_xero_contacts_into_crm()
         flash(
             "Xero customer pull complete. "

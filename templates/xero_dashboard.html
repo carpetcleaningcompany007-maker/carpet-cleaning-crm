@@ -23,15 +23,25 @@
     {% elif connected %}
       <div class="notice">Xero is connected. Tenant ID: {{ token.tenant_id or 'not selected yet' }}</div>
     {% else %}
-      <div class="notice">Xero credentials are configured, but the CRM has not been authorised yet.</div>
+      <div class="notice danger-notice">Xero credentials are configured, but the CRM has not been authorised yet. Press Connect Xero before pulling customers.</div>
     {% endif %}
     <div class="row-actions">
       <a class="btn primary" href="{{ url_for('xero_connect') }}">Connect Xero</a>
       <a class="btn secondary" href="{{ url_for('xero_test') }}">Test Connection</a>
-      <form method="post" action="{{ url_for('xero_pull_contacts') }}"><button class="btn primary">Pull All Xero Customers</button></form>
+      {% if configured and connected %}
+        <form method="post" action="{{ url_for('xero_pull_contacts') }}"><button class="btn primary">Pull All Xero Customers</button></form>
+      {% else %}
+        <button class="btn secondary" type="button" disabled title="Connect Xero before pulling customers">Pull All Xero Customers</button>
+      {% endif %}
       <form method="post" action="{{ url_for('xero_refresh_open_invoices') }}"><button class="btn secondary">Refresh Open Invoice Statuses</button></form>
     </div>
-    <p class="muted inline-note">Pull All Xero Customers imports active Xero contacts into the CRM, links existing matches, and avoids duplicates using Xero ContactID, email, phone, and postcode.</p>
+    {% if configured and connected %}
+      <p class="muted inline-note">Pull All Xero Customers imports active Xero contacts into the CRM, links existing matches, and avoids duplicates using Xero ContactID, email, phone, and postcode.</p>
+    {% elif configured %}
+      <p class="muted inline-note">Next step: press Connect Xero, approve the CRM in Xero, then come back here and press Pull All Xero Customers.</p>
+    {% else %}
+      <p class="muted inline-note">Next step: add the Xero environment variables in Render, then redeploy this CRM.</p>
+    {% endif %}
   </section>
 
   <section class="panel">
