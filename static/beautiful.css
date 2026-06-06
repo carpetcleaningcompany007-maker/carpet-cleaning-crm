@@ -1384,3 +1384,315 @@ body.page-workflow .cc-hero .cc-chip {
     grid-template-columns: 1fr !important;
   }
 }
+
+/* Full desktop redesign lock.
+   This final layer removes the last old layout clashes that made pages look
+   off-centre, cramped, or unreadable on wider screens. */
+:root {
+  --cc-max: 1520px;
+  --cc-radius: 18px;
+}
+
+body.app-page {
+  background:
+    linear-gradient(180deg, #edf5fc 0%, #f8fbff 42%, #ffffff 100%) !important;
+}
+
+body.app-page .sidebar {
+  min-height: 86px !important;
+  padding: 10px clamp(24px, 4vw, 64px) !important;
+}
+
+body.app-page .nav {
+  max-width: 1120px !important;
+  flex-wrap: nowrap !important;
+  padding-left: 18px !important;
+  padding-right: 18px !important;
+  overflow: visible !important;
+  scrollbar-width: none !important;
+}
+
+body.app-page .nav::-webkit-scrollbar {
+  display: none !important;
+}
+
+body.app-page .nav-link {
+  border-radius: 999px !important;
+  padding: 0 18px !important;
+}
+
+body.app-page .main {
+  max-width: none !important;
+  padding: 24px 0 72px !important;
+}
+
+body.app-page .main > * {
+  position: relative !important;
+}
+
+body.app-page .cc-hero,
+body.app-page .cc-quick-grid,
+body.app-page .cc-section,
+body.app-page .cc-two-col,
+body.app-page .cc-stat-grid,
+body.app-page .cc-stage-board,
+body.app-page .quote-builder-hero,
+body.app-page .quote-builder-layout,
+body.app-page .main > .panel,
+body.app-page .main > .grid,
+body.app-page .main > .table-card,
+body.app-page .main > form,
+body.app-page .main > section:not(.cc-hero):not(.cc-quick-grid):not(.cc-section):not(.cc-two-col):not(.cc-stat-grid):not(.cc-stage-board):not(.quote-builder-hero) {
+  width: min(var(--cc-max), calc(100vw - 112px)) !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+
+body.app-page .cc-hero,
+body.app-page .quote-builder-hero {
+  min-height: 430px !important;
+  margin-top: 0 !important;
+  margin-bottom: 26px !important;
+  padding: clamp(42px, 5vw, 78px) !important;
+  grid-template-columns: minmax(0, 1.05fr) minmax(360px, 480px) !important;
+  align-items: center !important;
+  border-radius: var(--cc-radius) !important;
+  border: 1px solid rgba(255,255,255,.55) !important;
+  background:
+    linear-gradient(90deg, rgba(3, 15, 29, .94) 0%, rgba(8, 28, 52, .88) 48%, rgba(8, 18, 32, .34) 100%),
+    url('/static/site/hero-carpet-cleaning.webp') center/cover no-repeat !important;
+  box-shadow: 0 34px 90px rgba(7, 22, 37, .20) !important;
+}
+
+body.app-page .cc-hero::after,
+body.app-page .quote-builder-hero::after {
+  width: 560px !important;
+  height: 560px !important;
+  right: -155px !important;
+  top: -135px !important;
+  border: 72px solid rgba(216, 179, 106, .18) !important;
+  background: rgba(18, 105, 239, .08) !important;
+}
+
+body.app-page .cc-hero-copy {
+  max-width: 820px !important;
+}
+
+body.app-page .cc-chip,
+body.app-page .hero-tag,
+body.app-page .section-kicker {
+  border-radius: 999px !important;
+  background: linear-gradient(135deg, #fff5d9, #ffe29a) !important;
+  color: #071625 !important;
+  box-shadow: 0 12px 28px rgba(0,0,0,.12) !important;
+}
+
+body.app-page .cc-hero h1,
+body.app-page .quote-builder-hero h3 {
+  max-width: 860px !important;
+  color: #ffffff !important;
+  font-size: clamp(54px, 5vw, 92px) !important;
+  line-height: .95 !important;
+  text-shadow: 0 18px 42px rgba(0,0,0,.50) !important;
+}
+
+body.app-page .cc-hero p,
+body.app-page .quote-builder-hero p {
+  color: #f7fbff !important;
+  font-size: clamp(20px, 1.7vw, 27px) !important;
+  line-height: 1.42 !important;
+  text-shadow: 0 8px 24px rgba(0,0,0,.38) !important;
+}
+
+body.app-page .cc-hero-panel {
+  align-self: center !important;
+  padding: 34px !important;
+  border-radius: var(--cc-radius) !important;
+  background: rgba(255, 255, 255, .96) !important;
+}
+
+body.app-page .cc-hero .cc-hero-panel p,
+body.page-workflow .cc-hero .cc-hero-panel p {
+  color: #536b82 !important;
+  opacity: 1 !important;
+  text-shadow: none !important;
+}
+
+body.app-page .cc-btn,
+body.app-page .btn,
+body.app-page button,
+body.app-page input[type="submit"] {
+  border-radius: 12px !important;
+  letter-spacing: 0 !important;
+}
+
+body.app-page .cc-btn-primary,
+body.app-page .btn.primary {
+  background: linear-gradient(135deg, #176df2, #104f91) !important;
+}
+
+body.app-page .cc-quick-grid,
+body.app-page .cc-stat-grid {
+  gap: 18px !important;
+}
+
+body.app-page .cc-quick-card,
+body.app-page .cc-stat-grid a,
+body.app-page .cc-panel,
+body.app-page .cc-section,
+body.app-page .cc-stage,
+body.app-page .panel,
+body.app-page .table-card,
+body.app-page .card {
+  border-radius: var(--cc-radius) !important;
+  background: rgba(255,255,255,.96) !important;
+  box-shadow: 0 24px 70px rgba(7, 22, 37, .10) !important;
+}
+
+body.app-page .cc-section {
+  overflow: hidden !important;
+}
+
+body.app-page .cc-section::before {
+  content: none !important;
+}
+
+body.app-page .cc-section h2,
+body.app-page .cc-panel h2,
+body.app-page .cc-stage h2,
+body.app-page .panel h1,
+body.app-page .panel h2,
+body.app-page .panel h3 {
+  color: var(--cc-ink) !important;
+  opacity: 1 !important;
+  text-shadow: none !important;
+}
+
+body.app-page .cc-section p,
+body.app-page .cc-panel p,
+body.app-page .panel p,
+body.app-page .card p {
+  color: #40576c !important;
+  opacity: 1 !important;
+}
+
+body.app-page .cc-section-head {
+  align-items: center !important;
+}
+
+body.app-page .cc-action-grid a,
+body.app-page .cc-customer-card,
+body.app-page .cc-list a {
+  border-radius: 14px !important;
+}
+
+body.app-page .cc-stage-board {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 22px !important;
+}
+
+body.app-page .cc-stage {
+  min-height: 220px !important;
+  padding: 26px !important;
+}
+
+body.app-page .cc-stage-head h2 {
+  font-size: clamp(28px, 2vw, 40px) !important;
+}
+
+body.app-page .quote-builder-layout {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 440px) !important;
+  gap: 24px !important;
+  align-items: start !important;
+}
+
+body.app-page .quote-items-panel,
+body.app-page .quote-sidebar {
+  width: 100% !important;
+  min-width: 0 !important;
+}
+
+body.app-page .res-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 18px !important;
+}
+
+body.app-page .res-grid > *,
+body.app-page .quote-sidebar,
+body.app-page .quote-items-panel {
+  border-radius: var(--cc-radius) !important;
+}
+
+@media (min-width: 1500px) {
+  body.app-page .cc-hero,
+  body.app-page .quote-builder-hero {
+    min-height: 470px !important;
+  }
+}
+
+@media (max-width: 1280px) {
+  body.app-page .brand {
+    min-width: 250px !important;
+  }
+
+  body.app-page .brand h1 {
+    max-width: 190px !important;
+  }
+
+  body.app-page .nav-link {
+    padding: 0 13px !important;
+    font-size: 13px !important;
+  }
+
+  body.app-page .cc-hero,
+  body.app-page .quote-builder-hero,
+  body.app-page .quote-builder-layout {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 900px) {
+  body.app-page .main {
+    padding-top: 14px !important;
+  }
+
+  body.app-page .cc-hero,
+  body.app-page .cc-quick-grid,
+  body.app-page .cc-section,
+  body.app-page .cc-two-col,
+  body.app-page .cc-stat-grid,
+  body.app-page .cc-stage-board,
+  body.app-page .quote-builder-hero,
+  body.app-page .quote-builder-layout,
+  body.app-page .main > .panel,
+  body.app-page .main > .grid,
+  body.app-page .main > .table-card,
+  body.app-page .main > form,
+  body.app-page .main > section:not(.cc-hero):not(.cc-quick-grid):not(.cc-section):not(.cc-two-col):not(.cc-stat-grid):not(.cc-stage-board):not(.quote-builder-hero) {
+    width: calc(100vw - 24px) !important;
+  }
+
+  body.app-page .cc-hero,
+  body.app-page .quote-builder-hero {
+    min-height: auto !important;
+    padding: 32px 22px !important;
+  }
+
+  body.app-page .cc-hero h1,
+  body.app-page .quote-builder-hero h3 {
+    font-size: clamp(40px, 11vw, 58px) !important;
+  }
+
+  body.app-page .cc-hero p,
+  body.app-page .quote-builder-hero p {
+    font-size: 20px !important;
+  }
+
+  body.app-page .cc-stage-board,
+  body.app-page .res-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
