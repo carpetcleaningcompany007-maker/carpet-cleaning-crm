@@ -6,11 +6,16 @@
   <title>{% block title %}The Carpet Cleaning Company{% endblock %}</title>
   <link rel="icon" href="{{ url_for('static', filename='site/site-icon-512.png') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=own-website-skin-20260605-1">
+  <link rel="stylesheet" href="{{ url_for('static', filename='beautiful.css') }}?v=proper-redesign-20260606-1">
   <style>:root{--accent: {{ biz.accent or '#56718f' }}; --sidebar-color: {{ biz.sidebar_color or '#1f2933' }};}</style>
 </head>
-<body>
 {% if session.get('logged_in') and not public_mode %}
 {% set ep = request.endpoint or '' %}
+<body class="app-page page-{{ ep|replace('_','-') }}">
+{% else %}
+<body class="public-page page-public">
+{% endif %}
+{% if session.get('logged_in') and not public_mode %}
 <div class="mobile-appbar">
   <button class="icon-btn mobile-menu-toggle" type="button" aria-label="Open navigation" aria-expanded="false" data-sidebar-toggle>
     <span></span><span></span><span></span>

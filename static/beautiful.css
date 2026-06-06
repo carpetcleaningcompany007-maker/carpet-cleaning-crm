@@ -1,0 +1,709 @@
+/* Clean final CRM design layer.
+   Loaded after the older stylesheet so this file owns the visible design. */
+
+:root {
+  --cc-bg: #eef5fc;
+  --cc-surface: #ffffff;
+  --cc-surface-soft: #f7fbff;
+  --cc-ink: #071625;
+  --cc-text: #12263a;
+  --cc-muted: #536b82;
+  --cc-navy: #081220;
+  --cc-navy-2: #0f2741;
+  --cc-blue: #1269ef;
+  --cc-blue-2: #17446f;
+  --cc-gold: #d8b36a;
+  --cc-green: #18a36b;
+  --cc-line: rgba(18, 38, 58, .11);
+  --cc-shadow: 0 18px 48px rgba(8, 20, 40, .10);
+  --cc-shadow-strong: 0 28px 80px rgba(8, 20, 40, .16);
+  --cc-max: 1480px;
+}
+
+* {
+  box-sizing: border-box !important;
+}
+
+html,
+body {
+  margin: 0 !important;
+  min-height: 100% !important;
+}
+
+body.app-page,
+body.public-page {
+  overflow-x: hidden !important;
+  color: var(--cc-text) !important;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(18, 105, 239, .10), transparent 34%),
+    linear-gradient(180deg, #edf5fd 0%, #f8fbff 48%, #ffffff 100%) !important;
+  font-family: Inter, Segoe UI, Arial, sans-serif !important;
+  font-size: 16px !important;
+  line-height: 1.55 !important;
+}
+
+body.app-page .mobile-appbar {
+  display: none !important;
+}
+
+body.app-page .shell {
+  display: block !important;
+  min-height: 100vh !important;
+  background: transparent !important;
+}
+
+body.app-page .sidebar {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 80 !important;
+  min-height: 88px !important;
+  width: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 28px !important;
+  padding: 12px 28px !important;
+  background: rgba(8, 18, 32, .98) !important;
+  border: 0 !important;
+  border-bottom: 1px solid rgba(255,255,255,.12) !important;
+  box-shadow: 0 16px 36px rgba(4, 9, 20, .20) !important;
+}
+
+body.app-page .brand {
+  flex: 0 0 auto !important;
+  min-width: 300px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 13px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+body.app-page .brand-logo {
+  width: 62px !important;
+  height: 62px !important;
+  object-fit: contain !important;
+  border-radius: 50% !important;
+  padding: 4px !important;
+  background: #fff !important;
+  border: 2px solid var(--cc-gold) !important;
+  box-shadow: 0 10px 28px rgba(0,0,0,.20) !important;
+}
+
+body.app-page .brand h1 {
+  max-width: 230px !important;
+  margin: 0 !important;
+  color: #fff !important;
+  font-size: 19px !important;
+  line-height: 1.08 !important;
+  font-weight: 900 !important;
+  letter-spacing: 0 !important;
+}
+
+body.app-page .brand p,
+body.app-page .side-note,
+body.app-page .nav-icon {
+  display: none !important;
+}
+
+body.app-page .nav {
+  flex: 0 1 auto !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+body.app-page .nav-link {
+  min-height: 44px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 14px !important;
+  color: rgba(255,255,255,.92) !important;
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  border-radius: 8px !important;
+  font-size: 14px !important;
+  font-weight: 900 !important;
+  white-space: nowrap !important;
+  text-decoration: none !important;
+  letter-spacing: 0 !important;
+  box-shadow: none !important;
+}
+
+body.app-page .nav-link.active,
+body.app-page .nav-link:hover {
+  color: var(--cc-navy) !important;
+  background: linear-gradient(135deg, var(--cc-gold), #f0d891) !important;
+  border-color: rgba(255,255,255,.12) !important;
+}
+
+body.app-page .main {
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 0 0 56px !important;
+  background: transparent !important;
+}
+
+body.app-page .topbar {
+  width: min(var(--cc-max), calc(100% - 64px)) !important;
+  margin: 28px auto 24px !important;
+  padding: 34px !important;
+  min-height: auto !important;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 450px) !important;
+  gap: 28px !important;
+  align-items: center !important;
+  color: #fff !important;
+  background:
+    linear-gradient(135deg, rgba(8,18,32,.96), rgba(15,39,65,.90) 58%, rgba(18,105,239,.35)),
+    url('/static/site/hero-carpet-cleaning.webp') center/cover no-repeat !important;
+  border: 1px solid rgba(255,255,255,.36) !important;
+  border-radius: 8px !important;
+  overflow: hidden !important;
+  box-shadow: var(--cc-shadow-strong) !important;
+}
+
+body.app-page .topbar-left-wrap,
+body.app-page .topbar-right-wrap {
+  position: relative !important;
+  z-index: 1 !important;
+}
+
+body.app-page .eyebrow,
+body.app-page .section-kicker,
+body.app-page .hero-tag {
+  width: fit-content !important;
+  max-width: 100% !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 8px 12px !important;
+  color: #12304f !important;
+  background: #fff3cf !important;
+  border: 1px solid rgba(216,179,106,.45) !important;
+  border-radius: 8px !important;
+  font-size: 13px !important;
+  line-height: 1 !important;
+  font-weight: 900 !important;
+  letter-spacing: .06em !important;
+  text-transform: uppercase !important;
+  text-shadow: none !important;
+}
+
+body.app-page .page-title,
+body.app-page .topbar h2 {
+  max-width: 850px !important;
+  margin: 16px 0 0 !important;
+  color: #fff !important;
+  font-size: clamp(42px, 4.5vw, 76px) !important;
+  line-height: 1 !important;
+  font-weight: 900 !important;
+  letter-spacing: 0 !important;
+  overflow-wrap: normal !important;
+  word-break: normal !important;
+  text-wrap: balance !important;
+  text-shadow: 0 16px 38px rgba(0,0,0,.36) !important;
+}
+
+body.app-page .topbar-right-wrap {
+  width: 100% !important;
+  display: grid !important;
+  gap: 12px !important;
+  padding: 18px !important;
+  background: rgba(255,255,255,.97) !important;
+  border: 1px solid rgba(255,255,255,.50) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 18px 48px rgba(4,9,20,.20) !important;
+}
+
+body.app-page .top-search input {
+  width: 100% !important;
+  min-height: 56px !important;
+  padding: 0 18px !important;
+  color: var(--cc-text) !important;
+  background: #fff !important;
+  border: 1px solid #d7e3f0 !important;
+  border-radius: 8px !important;
+  font-weight: 850 !important;
+}
+
+body.app-page .top-search input::placeholder {
+  color: #60778f !important;
+  opacity: 1 !important;
+}
+
+body.app-page .top-actions {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 10px !important;
+}
+
+body.app-page .pill.action-pill {
+  min-height: 54px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 12px !important;
+  color: #fff !important;
+  background: linear-gradient(135deg, var(--cc-blue), var(--cc-blue-2)) !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  font-size: 15px !important;
+  font-weight: 900 !important;
+  text-align: center !important;
+}
+
+body.page-calculator .topbar {
+  display: none !important;
+}
+
+body.app-page .quick-dock {
+  width: min(var(--cc-max), calc(100% - 64px)) !important;
+  margin: 0 auto 28px !important;
+  display: grid !important;
+  grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+  gap: 16px !important;
+  transform: none !important;
+}
+
+body.app-page .quick-dock a {
+  min-height: 116px !important;
+  display: block !important;
+  padding: 22px !important;
+  color: var(--cc-ink) !important;
+  background: var(--cc-surface) !important;
+  border: 1px solid var(--cc-line) !important;
+  border-top: 5px solid var(--cc-blue) !important;
+  border-radius: 8px !important;
+  box-shadow: var(--cc-shadow) !important;
+  text-decoration: none !important;
+}
+
+body.app-page .quick-dock a:nth-child(1) { border-top-color: var(--cc-gold) !important; }
+body.app-page .quick-dock a:nth-child(2) { border-top-color: var(--cc-blue) !important; }
+body.app-page .quick-dock a:nth-child(3) { border-top-color: var(--cc-blue-2) !important; }
+body.app-page .quick-dock a:nth-child(4) { border-top-color: var(--cc-green) !important; }
+body.app-page .quick-dock a:nth-child(5) { border-top-color: #ef7d31 !important; }
+
+body.app-page .quick-dock a span {
+  display: block !important;
+  color: var(--cc-muted) !important;
+  font-size: 13px !important;
+  font-weight: 900 !important;
+  letter-spacing: .04em !important;
+  text-transform: uppercase !important;
+}
+
+body.app-page .quick-dock a strong {
+  display: block !important;
+  margin-top: 8px !important;
+  color: var(--cc-ink) !important;
+  font-size: 25px !important;
+  line-height: 1.1 !important;
+}
+
+body.app-page .simple-home-hero,
+body.app-page .simple-action-grid,
+body.app-page .simple-panel,
+body.app-page .simple-two-col,
+body.app-page .quote-builder-hero,
+body.app-page .quote-builder-layout,
+body.app-page .main > .panel,
+body.app-page .main > .grid,
+body.app-page .main > .table-card,
+body.app-page .main > form,
+body.app-page .main > section,
+body.app-page .main > .workflow-board,
+body.app-page .main > .dashboard-grid,
+body.app-page .main > .content-grid {
+  width: min(var(--cc-max), calc(100% - 64px)) !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+
+body.app-page .simple-home-hero {
+  display: block !important;
+  min-height: auto !important;
+  margin-top: 0 !important;
+  margin-bottom: 28px !important;
+  padding: clamp(34px, 4vw, 58px) !important;
+  color: var(--cc-text) !important;
+  background: linear-gradient(135deg, #fff 0%, #f7fbff 100%) !important;
+  border: 1px solid var(--cc-line) !important;
+  border-radius: 8px !important;
+  box-shadow: var(--cc-shadow) !important;
+}
+
+body.app-page .simple-home-hero::after {
+  display: none !important;
+}
+
+body.app-page .simple-home-hero > div {
+  max-width: 900px !important;
+}
+
+body.app-page .simple-home-hero h3 {
+  max-width: 900px !important;
+  margin: 18px 0 12px !important;
+  color: var(--cc-ink) !important;
+  font-size: clamp(40px, 3.4vw, 62px) !important;
+  line-height: 1.03 !important;
+  font-weight: 900 !important;
+  letter-spacing: 0 !important;
+  overflow-wrap: normal !important;
+  word-break: normal !important;
+  text-wrap: balance !important;
+}
+
+body.app-page .simple-home-hero p {
+  max-width: 820px !important;
+  margin: 0 !important;
+  color: #40576c !important;
+  font-size: 20px !important;
+  line-height: 1.55 !important;
+}
+
+body.app-page .simple-home-hero .big-action {
+  width: auto !important;
+  min-width: 300px !important;
+  min-height: 62px !important;
+  margin-top: 24px !important;
+  padding: 0 34px !important;
+}
+
+body.app-page .simple-action-grid {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 16px !important;
+  margin-bottom: 28px !important;
+}
+
+body.app-page .simple-action-card,
+body.app-page .simple-panel,
+body.app-page .panel,
+body.app-page .card,
+body.app-page .table-card,
+body.app-page .customer-card,
+body.app-page .workflow-card,
+body.app-page .form-card,
+body.app-page .settings-card {
+  color: var(--cc-text) !important;
+  background: #fff !important;
+  border: 1px solid var(--cc-line) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 14px 34px rgba(8,20,40,.07) !important;
+}
+
+body.app-page .simple-action-card {
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 16px !important;
+  min-height: 150px !important;
+  padding: 22px !important;
+}
+
+body.app-page .simple-action-card > span {
+  min-width: 44px !important;
+  height: 44px !important;
+  display: grid !important;
+  place-items: center !important;
+  color: var(--cc-navy) !important;
+  background: var(--cc-gold) !important;
+  border-radius: 8px !important;
+  font-size: 22px !important;
+  font-weight: 900 !important;
+}
+
+body.app-page .simple-action-card strong,
+body.app-page .simple-panel h3,
+body.app-page .panel h1,
+body.app-page .panel h2,
+body.app-page .panel h3,
+body.app-page .card h2,
+body.app-page .card h3,
+body.app-page .main h1,
+body.app-page .main h2,
+body.app-page .main h3 {
+  color: var(--cc-ink) !important;
+  letter-spacing: 0 !important;
+}
+
+body.app-page .simple-action-card p,
+body.app-page .simple-panel p,
+body.app-page .panel p,
+body.app-page .card p,
+body.app-page .muted,
+body.app-page .help,
+body.app-page .subtle {
+  color: #40576c !important;
+}
+
+body.app-page .simple-panel {
+  display: flex !important;
+  flex-direction: column !important;
+  margin-bottom: 28px !important;
+  padding: clamp(24px, 3vw, 36px) !important;
+}
+
+body.app-page .simple-two-col {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 18px !important;
+}
+
+body.app-page .btn,
+body.app-page button,
+body.app-page input[type="submit"] {
+  min-height: 52px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 22px !important;
+  border-radius: 8px !important;
+  font-size: 16px !important;
+  font-weight: 900 !important;
+  letter-spacing: 0 !important;
+}
+
+body.app-page .btn.primary,
+body.app-page .btn-primary,
+body.app-page button.primary,
+body.app-page input[type="submit"],
+body.app-page .big-action {
+  color: #fff !important;
+  background: linear-gradient(135deg, var(--cc-blue), var(--cc-blue-2)) !important;
+  border: 0 !important;
+  box-shadow: 0 14px 30px rgba(18,105,239,.18) !important;
+}
+
+body.app-page .btn.secondary,
+body.app-page .btn-secondary {
+  color: #12304f !important;
+  background: #fff !important;
+  border: 1px solid #d7e3f0 !important;
+}
+
+body.app-page input,
+body.app-page select,
+body.app-page textarea {
+  min-height: 52px !important;
+  padding: 10px 14px !important;
+  color: var(--cc-text) !important;
+  background: #fbfdff !important;
+  border: 1px solid #d7e3f0 !important;
+  border-radius: 8px !important;
+  font-size: 16px !important;
+}
+
+body.app-page textarea {
+  min-height: 130px !important;
+}
+
+body.page-calculator .quote-builder-hero {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 360px) !important;
+  gap: 28px !important;
+  align-items: end !important;
+  margin-top: 28px !important;
+  margin-bottom: 24px !important;
+  padding: clamp(34px, 4vw, 58px) !important;
+  color: #fff !important;
+  background:
+    linear-gradient(135deg, rgba(8,18,32,.96), rgba(15,39,65,.88) 58%, rgba(18,105,239,.38)),
+    url('/static/site/hero-carpet-cleaning.webp') center/cover no-repeat !important;
+  border: 1px solid rgba(255,255,255,.36) !important;
+  border-radius: 8px !important;
+  box-shadow: var(--cc-shadow-strong) !important;
+  overflow: hidden !important;
+}
+
+body.page-calculator .quote-builder-hero h3 {
+  max-width: 840px !important;
+  margin: 18px 0 12px !important;
+  color: #fff !important;
+  font-size: clamp(38px, 4vw, 64px) !important;
+  line-height: 1.02 !important;
+  font-weight: 900 !important;
+  letter-spacing: 0 !important;
+  text-wrap: balance !important;
+}
+
+body.page-calculator .quote-builder-hero p {
+  max-width: 740px !important;
+  margin: 0 !important;
+  color: #edf4ff !important;
+  font-size: 19px !important;
+}
+
+body.page-calculator .quote-hero-actions {
+  display: grid !important;
+  gap: 12px !important;
+}
+
+body.page-calculator .quote-builder-layout {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) minmax(340px, 430px) !important;
+  gap: 22px !important;
+  align-items: start !important;
+  margin-bottom: 48px !important;
+}
+
+body.page-calculator .quote-sidebar {
+  display: grid !important;
+  gap: 18px !important;
+  position: sticky !important;
+  top: 112px !important;
+}
+
+body.page-calculator .res-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 16px !important;
+}
+
+body.page-calculator .res-grid > * {
+  min-width: 0 !important;
+  padding: 18px !important;
+  background: linear-gradient(180deg, #fff 0%, #fbfdff 100%) !important;
+  border: 1px solid #d7e3f0 !important;
+  border-radius: 8px !important;
+  box-shadow: 0 12px 26px rgba(8,20,40,.06) !important;
+}
+
+body.page-calculator .calc-total {
+  display: grid !important;
+  gap: 10px !important;
+  padding: 18px !important;
+  color: #fff !important;
+  background: linear-gradient(135deg, var(--cc-navy), var(--cc-blue-2)) !important;
+  border-radius: 8px !important;
+}
+
+body.public-page .login-wrap {
+  min-height: 100vh !important;
+  display: grid !important;
+  place-items: center !important;
+  padding: 34px !important;
+  background:
+    linear-gradient(90deg, rgba(4,16,30,.96), rgba(4,16,30,.84) 48%, rgba(4,16,30,.62)),
+    url('/static/site/hero-carpet-cleaning.webp') center/cover no-repeat !important;
+}
+
+body.public-page .login-hero-panel {
+  width: min(1180px, 100%) !important;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) 430px !important;
+  gap: 28px !important;
+}
+
+body.public-page .login-copy,
+body.public-page .login-card {
+  border-radius: 8px !important;
+}
+
+@media (max-width: 1180px) {
+  body.app-page .sidebar {
+    align-items: flex-start !important;
+    flex-direction: column !important;
+  }
+
+  body.app-page .brand {
+    min-width: 0 !important;
+  }
+
+  body.app-page .nav {
+    justify-content: flex-start !important;
+  }
+
+  body.app-page .topbar,
+  body.page-calculator .quote-builder-hero,
+  body.page-calculator .quote-builder-layout {
+    grid-template-columns: 1fr !important;
+  }
+
+  body.page-calculator .quote-sidebar {
+    position: static !important;
+  }
+
+  body.app-page .quick-dock,
+  body.app-page .simple-action-grid,
+  body.app-page .simple-two-col {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 820px) {
+  body.app-page .mobile-appbar {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 90 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    padding: 10px 14px !important;
+    color: #fff !important;
+    background: var(--cc-navy) !important;
+  }
+
+  body.app-page .sidebar {
+    display: none !important;
+  }
+
+  body.app-page .topbar,
+  body.app-page .quick-dock,
+  body.app-page .simple-home-hero,
+  body.app-page .simple-action-grid,
+  body.app-page .simple-panel,
+  body.app-page .simple-two-col,
+  body.app-page .quote-builder-hero,
+  body.app-page .quote-builder-layout,
+  body.app-page .main > .panel,
+  body.app-page .main > .grid,
+  body.app-page .main > .table-card,
+  body.app-page .main > form,
+  body.app-page .main > section,
+  body.app-page .main > .workflow-board,
+  body.app-page .main > .dashboard-grid,
+  body.app-page .main > .content-grid {
+    width: calc(100% - 24px) !important;
+  }
+
+  body.app-page .topbar {
+    margin-top: 14px !important;
+    grid-template-columns: 1fr !important;
+    padding: 32px 22px !important;
+  }
+
+  body.app-page .topbar-right-wrap {
+    display: none !important;
+  }
+
+  body.app-page .page-title,
+  body.app-page .topbar h2 {
+    font-size: 42px !important;
+  }
+
+  body.app-page .quick-dock,
+  body.app-page .simple-action-grid,
+  body.app-page .simple-two-col,
+  body.page-calculator .res-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  body.app-page .simple-home-hero h3,
+  body.page-calculator .quote-builder-hero h3 {
+    font-size: 38px !important;
+  }
+
+  body.public-page .login-wrap {
+    padding: 16px !important;
+  }
+
+  body.public-page .login-hero-panel {
+    grid-template-columns: 1fr !important;
+  }
+}
