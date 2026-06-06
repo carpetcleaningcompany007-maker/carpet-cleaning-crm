@@ -1247,6 +1247,30 @@ body.app-page .quick-dock {
   }
 }
 
+/* Absolute final text contrast fixes for redesigned hero sections. */
+body.app-page .cc-hero .cc-hero-copy h1,
+body.app-page .cc-hero h1,
+body.page-workflow .cc-hero .cc-hero-copy h1,
+body.page-workflow .cc-hero h1 {
+  color: #ffffff !important;
+  opacity: 1 !important;
+  text-shadow: 0 16px 38px rgba(0,0,0,.42) !important;
+}
+
+body.app-page .cc-hero .cc-hero-copy p,
+body.app-page .cc-hero p,
+body.page-workflow .cc-hero .cc-hero-copy p,
+body.page-workflow .cc-hero p {
+  color: #f3f8ff !important;
+  opacity: 1 !important;
+}
+
+body.app-page .cc-hero .cc-chip,
+body.page-workflow .cc-hero .cc-chip {
+  color: #081220 !important;
+  background: #fff3cf !important;
+}
+
 @media (max-width: 1180px) {
   body.app-page .sidebar {
     align-items: flex-start !important;
