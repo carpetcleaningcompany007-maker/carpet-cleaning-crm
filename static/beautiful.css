@@ -1787,3 +1787,241 @@ body.page-calculator .checkline input[type="checkbox"] {
   flex: 0 0 auto !important;
   accent-color: var(--cc-blue) !important;
 }
+
+/* Today Run: phone-first job workflow. */
+body.page-today-run .run-hero,
+body.page-today-run .run-stats,
+body.page-today-run .run-list {
+  width: min(1180px, calc(100vw - 28px)) !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+
+body.page-today-run .run-hero {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 320px) !important;
+  gap: 22px !important;
+  align-items: end !important;
+  padding: clamp(28px, 5vw, 54px) !important;
+  margin-top: 0 !important;
+  margin-bottom: 18px !important;
+  color: #fff !important;
+  background:
+    linear-gradient(135deg, rgba(8,18,32,.96), rgba(15,39,65,.90)),
+    url('/static/site/hero-carpet-cleaning.webp') center/cover no-repeat !important;
+  border-radius: 22px !important;
+  box-shadow: 0 28px 74px rgba(7,22,37,.18) !important;
+}
+
+body.page-today-run .run-hero h3 {
+  max-width: 760px !important;
+  margin: 14px 0 10px !important;
+  color: #fff !important;
+  font-size: clamp(42px, 7vw, 76px) !important;
+  line-height: .96 !important;
+  text-shadow: 0 16px 38px rgba(0,0,0,.42) !important;
+}
+
+body.page-today-run .run-hero p {
+  max-width: 720px !important;
+  color: #f4f8ff !important;
+  font-size: 21px !important;
+}
+
+body.page-today-run .run-date-form {
+  display: grid !important;
+  gap: 12px !important;
+  padding: 18px !important;
+  background: rgba(255,255,255,.96) !important;
+  border-radius: 18px !important;
+}
+
+body.page-today-run .run-stats {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 12px !important;
+  margin-bottom: 18px !important;
+}
+
+body.page-today-run .run-stats div,
+body.page-today-run .run-card,
+body.page-today-run .run-empty {
+  background: rgba(255,255,255,.98) !important;
+  border: 1px solid #d7e3f0 !important;
+  border-radius: 20px !important;
+  box-shadow: 0 20px 58px rgba(7,22,37,.10) !important;
+}
+
+body.page-today-run .run-stats div {
+  padding: 18px !important;
+}
+
+body.page-today-run .run-stats span,
+body.page-today-run .run-info span,
+body.page-today-run .run-notes span {
+  display: block !important;
+  color: #536b82 !important;
+  font-weight: 900 !important;
+  font-size: 13px !important;
+  letter-spacing: .04em !important;
+  text-transform: uppercase !important;
+}
+
+body.page-today-run .run-stats strong {
+  display: block !important;
+  color: var(--cc-ink) !important;
+  font-size: 44px !important;
+  line-height: 1 !important;
+}
+
+body.page-today-run .run-list {
+  display: grid !important;
+  gap: 22px !important;
+}
+
+body.page-today-run .run-card {
+  padding: clamp(18px, 4vw, 34px) !important;
+  border-top: 8px solid var(--cc-blue) !important;
+}
+
+body.page-today-run .run-card.is-done {
+  border-top-color: var(--cc-green) !important;
+}
+
+body.page-today-run .run-card-top {
+  display: flex !important;
+  justify-content: space-between !important;
+  gap: 16px !important;
+  align-items: flex-start !important;
+  margin-bottom: 18px !important;
+}
+
+body.page-today-run .run-number,
+body.page-today-run .run-status {
+  display: inline-flex !important;
+  width: fit-content !important;
+  padding: 8px 12px !important;
+  color: #071625 !important;
+  background: #fff3cf !important;
+  border-radius: 999px !important;
+  font-weight: 900 !important;
+}
+
+body.page-today-run .run-status {
+  background: #eaf4ff !important;
+}
+
+body.page-today-run .run-card h2 {
+  margin: 12px 0 4px !important;
+  color: var(--cc-ink) !important;
+  font-size: clamp(34px, 5vw, 56px) !important;
+  line-height: 1 !important;
+}
+
+body.page-today-run .run-card h3 {
+  margin: 0 0 12px !important;
+  color: var(--cc-ink) !important;
+  font-size: 24px !important;
+}
+
+body.page-today-run .run-card p {
+  color: #40576c !important;
+  font-size: 18px !important;
+}
+
+body.page-today-run .run-info {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 12px !important;
+  margin: 18px 0 !important;
+}
+
+body.page-today-run .run-info div,
+body.page-today-run .run-notes,
+body.page-today-run .run-payment,
+body.page-today-run .run-followups,
+body.page-today-run .run-message-preview {
+  padding: 16px !important;
+  background: #f7fbff !important;
+  border: 1px solid #d7e3f0 !important;
+  border-radius: 16px !important;
+}
+
+body.page-today-run .run-info strong {
+  display: block !important;
+  margin-top: 5px !important;
+  color: var(--cc-ink) !important;
+  font-size: 18px !important;
+  line-height: 1.25 !important;
+}
+
+body.page-today-run .run-primary-actions,
+body.page-today-run .run-flow {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 12px !important;
+  margin-top: 14px !important;
+}
+
+body.page-today-run .run-flow form {
+  width: 100% !important;
+  margin: 0 !important;
+}
+
+body.page-today-run .run-flow .btn,
+body.page-today-run .run-primary-actions .btn,
+body.page-today-run .next-job-link {
+  width: 100% !important;
+  min-height: 62px !important;
+  font-size: 17px !important;
+}
+
+body.page-today-run .cash-btn {
+  color: #071625 !important;
+  background: linear-gradient(135deg, #f0d891, #d8b36a) !important;
+}
+
+body.page-today-run .run-payment,
+body.page-today-run .run-followups,
+body.page-today-run .run-message-preview {
+  margin-top: 16px !important;
+}
+
+body.page-today-run .run-message-preview textarea {
+  width: 100% !important;
+  min-height: 150px !important;
+  margin-top: 12px !important;
+}
+
+body.page-today-run .next-job-link {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin-top: 18px !important;
+  color: #fff !important;
+  background: linear-gradient(135deg, var(--cc-green), #0d7c50) !important;
+  border-radius: 14px !important;
+  font-weight: 900 !important;
+  text-decoration: none !important;
+}
+
+@media (max-width: 900px) {
+  body.page-today-run .run-hero {
+    grid-template-columns: 1fr !important;
+  }
+
+  body.page-today-run .run-stats,
+  body.page-today-run .run-info,
+  body.page-today-run .run-primary-actions,
+  body.page-today-run .run-flow {
+    grid-template-columns: 1fr !important;
+  }
+
+  body.page-today-run .run-card-top {
+    display: grid !important;
+  }
+
+  body.page-today-run .run-status {
+    justify-self: start !important;
+  }
+}

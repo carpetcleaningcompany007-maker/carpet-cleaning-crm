@@ -39,6 +39,7 @@
 
     <nav class="nav nav-tabler redesigned-nav simple-main-nav">
       <a class="nav-link {% if ep=='dashboard' %}active{% endif %}" href="{{ url_for('dashboard') }}"><span class="nav-icon"></span><span>Today</span></a>
+      <a class="nav-link {% if ep=='today_run' %}active{% endif %}" href="{{ url_for('today_run') }}"><span class="nav-icon"></span><span>Today Run</span></a>
       <a class="nav-link {% if ep=='workflow' %}active{% endif %}" href="{{ url_for('workflow') }}"><span class="nav-icon"></span><span>Do Next</span></a>
       <a class="nav-link {% if ep in ['customers','customer_view','customer_edit'] %}active{% endif %}" href="{{ url_for('customers') }}"><span class="nav-icon"></span><span>Customers</span></a>
       <a class="nav-link {% if ep in ['intake_forms','intake_form_view'] %}active{% endif %}" href="{{ url_for('intake_forms') }}"><span class="nav-icon"></span><span>Form Replies</span></a>
@@ -97,6 +98,7 @@
 
     <div class="mobile-quick-nav">
       <a href="{{ url_for('dashboard') }}">Overview</a>
+      <a href="{{ url_for('today_run') }}">Today Run</a>
       <a href="{{ url_for('customers') }}">Customers</a>
       <a href="{{ url_for('quotes') }}">Quotes</a>
       <a href="{{ url_for('jobs') }}">Jobs</a>

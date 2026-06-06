@@ -1,0 +1,144 @@
+{% extends "layout.html" %}
+{% block title %}Today Run{% endblock %}
+{% block page_title %}Today Run{% endblock %}
+{% block body_content %}
+<section class="run-hero">
+  <div>
+    <span class="section-kicker">Mobile job run</span>
+    <h3>Today’s jobs, in order.</h3>
+    <p>Use this on your phone from morning directions through messages, payment, review request, then onto the next job.</p>
+  </div>
+  <form method="get" class="run-date-form">
+    <input type="date" name="date" value="{{ selected_date }}">
+    <button class="btn secondary">Show Day</button>
+  </form>
+</section>
+
+<section class="run-stats">
+  <div><span>Jobs today</span><strong>{{ stats.total }}</strong></div>
+  <div><span>Done</span><strong>{{ stats.done }}</strong></div>
+  <div><span>Left</span><strong>{{ stats.remaining }}</strong></div>
+  <div><span>Paid</span><strong>{{ stats.paid }}</strong></div>
+</section>
+
+<section class="run-list">
+  {% for job in jobs %}
+  <article class="run-card {% if job.is_done %}is-done{% endif %}" id="job-{{ job.id }}">
+    <div class="run-card-top">
+      <div>
+        <span class="run-number">Job {{ loop.index }}</span>
+        <h2>{{ job.customer_name }}</h2>
+        <p>{{ job.title }}</p>
+      </div>
+      <strong class="run-status">{{ job.status or 'Booked' }}</strong>
+    </div>
+
+    <div class="run-info">
+      <div><span>Address</span><strong>{{ job.address_text or 'No address saved' }}</strong></div>
+      <div><span>Phone</span><strong>{{ job.phone or 'No phone saved' }}</strong></div>
+      <div><span>Amount</span><strong>£{{ '%.2f'|format(job.amount or 0) }}</strong></div>
+      <div><span>Invoice</span><strong>{% if job.invoice_id %}{{ job.invoice_status or 'Created' }}{% else %}Not created{% endif %}</strong></div>
+    </div>
+
+    {% if job.notes %}
+    <div class="run-notes">
+      <span>Job notes</span>
+      <p>{{ job.notes }}</p>
+    </div>
+    {% endif %}
+
+    <div class="run-primary-actions">
+      {% if job.directions_url %}<a class="btn primary" href="{{ job.directions_url }}" target="_blank">Directions</a>{% endif %}
+      {% if job.phone %}<a class="btn secondary" href="tel:{{ job.phone }}">Call</a>{% endif %}
+      <a class="btn secondary" href="{{ url_for('customer_view', customer_id=job.customer_id) }}">Customer</a>
+    </div>
+
+    <div class="run-flow">
+      <form method="post" action="{{ url_for('today_run_job_action', job_id=job.id) }}">
+        <input type="hidden" name="action" value="coming">
+        <input type="hidden" name="channel" value="sms">
+        <input type="hidden" name="next_url" value="{{ url_for('today_run', date=selected_date) }}#job-{{ job.id }}">
+        <button class="btn secondary">Text: We’re coming</button>
+      </form>
+      <form method="post" action="{{ url_for('today_run_job_action', job_id=job.id) }}">
+        <input type="hidden" name="action" value="coming">
+        <input type="hidden" name="channel" value="email">
+        <input type="hidden" name="next_url" value="{{ url_for('today_run', date=selected_date) }}#job-{{ job.id }}">
+        <button class="btn secondary">Email: We’re coming</button>
+      </form>
+      <form method="post" action="{{ url_for('today_run_job_action', job_id=job.id) }}">
+        <input type="hidden" name="action" value="start">
+        <input type="hidden" name="next_url" value="{{ url_for('today_run', date=selected_date) }}#job-{{ job.id }}">
+        <button class="btn primary">Start Job</button>
+      </form>
+      <form method="post" action="{{ url_for('today_run_job_action', job_id=job.id) }}">
+        <input type="hidden" name="action" value="complete">
+        <input type="hidden" name="next_url" value="{{ url_for('today_run', date=selected_date) }}#job-{{ job.id }}">
+        <button class="btn primary">Complete Job</button>
+      </form>
+    </div>
+
+    <div class="run-payment">
+      <h3>Payment and invoice</h3>
+      <div class="run-flow">
+        <form method="post" action="{{ url_for('today_run_job_action', job_id=job.id) }}">
+          <input type="hidden" name="action" value="cash_paid">
+          <input type="hidden" name="next_url" value="{{ url_for('today_run', date=selected_date) }}#job-{{ job.id }}">
+          <button class="btn cash-btn">Cash paid - no invoice</button>
+        </form>
+        <form method="post" action="{{ url_for('today_run_job_action', job_id=job.id) }}">
+          <input type="hidden" name="action" value="create_invoice">
+          <input type="hidden" name="next_url" value="{{ url_for('today_run', date=selected_date) }}#job-{{ job.id }}">
+          <button class="btn secondary">Create Invoice</button>
+        </form>
+        <form method="post" action="{{ url_for('today_run_job_action', job_id=job.id) }}">
+          <input type="hidden" name="action" value="card_paid">
+          <input type="hidden" name="next_url" value="{{ url_for('today_run', date=selected_date) }}#job-{{ job.id }}">
+          <button class="btn primary">Card/Bank paid + invoice</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="run-followups">
+      <h3>After job follow-ups</h3>
+      <div class="run-flow">
+        <form method="post" action="{{ url_for('today_run_job_action', job_id=job.id) }}">
+          <input type="hidden" name="action" value="finished">
+          <input type="hidden" name="channel" value="sms">
+          <input type="hidden" name="next_url" value="{{ url_for('today_run', date=selected_date) }}#job-{{ job.id }}">
+          <button class="btn secondary">Text: Job finished</button>
+        </form>
+        <form method="post" action="{{ url_for('today_run_job_action', job_id=job.id) }}">
+          <input type="hidden" name="action" value="review">
+          <input type="hidden" name="channel" value="sms">
+          <input type="hidden" name="next_url" value="{{ url_for('today_run', date=selected_date) }}#job-{{ job.id }}">
+          <button class="btn primary">Text review request</button>
+        </form>
+        <form method="post" action="{{ url_for('today_run_job_action', job_id=job.id) }}">
+          <input type="hidden" name="action" value="review">
+          <input type="hidden" name="channel" value="email">
+          <input type="hidden" name="next_url" value="{{ url_for('today_run', date=selected_date) }}#job-{{ job.id }}">
+          <button class="btn secondary">Email review request</button>
+        </form>
+      </div>
+    </div>
+
+    <details class="run-message-preview">
+      <summary>Message previews</summary>
+      <textarea readonly>{{ job.coming_message }}</textarea>
+      <textarea readonly>{{ job.review_message }}</textarea>
+    </details>
+
+    {% if not loop.last %}
+    <a class="next-job-link" href="#job-{{ loop.index + 1 }}">Next job</a>
+    {% endif %}
+  </article>
+  {% else %}
+  <section class="panel run-empty">
+    <h2>No jobs booked for {{ selected_date }}.</h2>
+    <p>When jobs are booked for this date, they will appear here as a simple phone workflow.</p>
+    <a class="btn primary" href="{{ url_for('jobs') }}">Open Jobs</a>
+  </section>
+  {% endfor %}
+</section>
+{% endblock %}

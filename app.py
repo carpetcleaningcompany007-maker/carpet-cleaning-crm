@@ -1514,6 +1514,108 @@ def contact_badge_text(last_contact):
         return f'Last contact {last_contact}'
 
 
+def customer_full_name(row):
+    if not row:
+        return "Customer"
+    try:
+        return clean_str(f"{row['first_name'] or ''} {row['last_name'] or ''}") or "Customer"
+    except Exception:
+        return "Customer"
+
+
+def customer_address_text(row):
+    if not row:
+        return ""
+    parts = []
+    for key in ("address", "town", "postcode"):
+        try:
+            value = clean_str(row[key])
+        except Exception:
+            value = ""
+        if value:
+            parts.append(value)
+    return ", ".join(parts)
+
+
+def directions_url_for_customer(row):
+    address = customer_address_text(row)
+    if not address:
+        return ""
+    return "https://www.google.com/maps/search/?api=1&query=" + quote(address)
+
+
+def day_run_message(kind, job):
+    name = clean_str(job["first_name"]) or "there"
+    business = settings()["business_name"] or "The Carpet Cleaning Company"
+    phone = settings()["phone"] or ""
+    job_date = clean_str(job["job_date"]) or date.today().isoformat()
+    review_link = settings()["review_link"] or "[GOOGLE REVIEW LINK]"
+    if kind == "coming":
+        return (
+            f"Hi {name},\n\n"
+            f"We are on our way for your carpet cleaning appointment today.\n\n"
+            f"Thanks\nPaul\n{business}"
+        )
+    if kind == "reminder":
+        return (
+            f"Hi {name},\n\n"
+            f"Just a reminder that your carpet cleaning appointment is booked for {job_date}.\n\n"
+            f"Thanks\nPaul\n{business}"
+        )
+    if kind == "finished":
+        return (
+            f"Hi {name},\n\n"
+            "The work is now complete. Thank you for using us today.\n\n"
+            f"If you need anything, you can contact me on {phone}.\n\n"
+            f"Thanks\nPaul\n{business}"
+        )
+    if kind == "review":
+        return (
+            f"Hi {name},\n\n"
+            f"Thank you for using {business}.\n\n"
+            "If you are happy with the work, I would really appreciate a quick Google review.\n\n"
+            f"{review_link}\n\n"
+            "Thank you\nPaul"
+        )
+    return ""
+
+
+def log_customer_message(customer_id, channel, subject, body):
+    if not customer_id:
+        return None
+    return run("INSERT INTO communications(customer_id, channel, subject, body, created_at) VALUES (?,?,?,?,datetime('now'))", (
+        customer_id, channel, subject, body
+    ))
+
+
+def create_invoice_for_job(job, status="Draft", note_extra=""):
+    existing_invoice = q("SELECT id FROM invoices WHERE job_id=? AND IFNULL(status,'') <> 'Archived' ORDER BY id DESC LIMIT 1", (job["id"],), one=True)
+    if existing_invoice:
+        return existing_invoice["id"], False
+    payload = {}
+    if job["quote_id"]:
+        qr = q("SELECT payload_json FROM quotes WHERE id=?", (job["quote_id"],), one=True)
+        if qr and qr["payload_json"]:
+            payload = json.loads(qr["payload_json"])
+    calc = calc_from_payload(payload) if payload else {
+        "subtotal": float(job["amount"] or 0),
+        "vat": 0.0,
+        "total": float(job["amount"] or 0),
+        "lines": [],
+        "raw_total": float(job["amount"] or 0),
+        "minimum": float(settings()["minimum_charge"] or 100),
+        "include_vat": False
+    }
+    notes = append_note(job["notes"] or "", note_extra)
+    invoice_id = run("""INSERT INTO invoices(customer_id, job_id, quote_id, invoice_number, invoice_date, due_date, status, subtotal, vat, total, payload_json, notes)
+                        VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""", (
+        job["customer_id"], job["id"], job["quote_id"], next_invoice_number(),
+        date.today().isoformat(), date.today().isoformat(),
+        status, calc["subtotal"], calc["vat"], calc["total"], json.dumps(payload), notes
+    ))
+    return invoice_id, True
+
+
 def annotate_rows_with_last_contact(rows, customer_id_key='id', key=None):
     if key is not None:
         customer_id_key = key
@@ -2657,6 +2759,125 @@ def workflow():
                             WHERE IFNULL(future_reminders.status,'Open')='Open'
                             ORDER BY COALESCE(reminder_date,'9999-12-31') ASC, future_reminders.id DESC LIMIT 12""")
     return render_template("workflow.html", data=data, reminders=recent_reminders, workflow_columns=workflow_dashboard_data())
+
+
+@app.route("/today-run")
+@login_required
+def today_run():
+    selected_date = clean_str(request.args.get("date")) or date.today().isoformat()
+    jobs_today = q("""SELECT jobs.*, customers.first_name, customers.last_name, customers.phone, customers.email,
+                             customers.address, customers.town, customers.postcode, customers.sms_opt_out,
+                             invoices.id AS invoice_id, invoices.status AS invoice_status, invoices.total AS invoice_total
+                      FROM jobs
+                      LEFT JOIN customers ON customers.id = jobs.customer_id
+                      LEFT JOIN invoices ON invoices.job_id = jobs.id AND IFNULL(invoices.status,'') <> 'Archived'
+                      WHERE IFNULL(jobs.status,'') <> 'Archived'
+                        AND COALESCE(jobs.job_date,'') = ?
+                      ORDER BY jobs.id ASC""", (selected_date,))
+    cards = []
+    for row in jobs_today:
+        item = dict(row)
+        item["customer_name"] = customer_full_name(row)
+        item["address_text"] = customer_address_text(row)
+        item["directions_url"] = directions_url_for_customer(row)
+        item["coming_message"] = day_run_message("coming", row)
+        item["reminder_message"] = day_run_message("reminder", row)
+        item["finished_message"] = day_run_message("finished", row)
+        item["review_message"] = day_run_message("review", row)
+        item["is_done"] = clean_str(row["status"]).lower() in {"completed", "invoiced", "paid"}
+        cards.append(item)
+    stats = {
+        "total": len(cards),
+        "done": len([c for c in cards if c["is_done"]]),
+        "remaining": len([c for c in cards if not c["is_done"]]),
+        "paid": len([c for c in cards if clean_str(c.get("status")).lower() == "paid" or clean_str(c.get("invoice_status")).lower() == "paid"]),
+    }
+    return render_template("today_run.html", jobs=cards, selected_date=selected_date, stats=stats)
+
+
+@app.route("/today-run/job/<int:job_id>/action", methods=["POST"])
+@login_required
+def today_run_job_action(job_id):
+    job = q("""SELECT jobs.*, customers.first_name, customers.last_name, customers.phone, customers.email,
+                      customers.address, customers.town, customers.postcode, customers.sms_opt_out
+               FROM jobs LEFT JOIN customers ON customers.id = jobs.customer_id
+               WHERE jobs.id=?""", (job_id,), one=True)
+    if not job:
+        flash("Job not found.")
+        return redirect(url_for("today_run"))
+    action = clean_str(request.form.get("action"))
+    channel = clean_str(request.form.get("channel")).lower()
+    next_url = request.form.get("next_url") or url_for("today_run", date=job["job_date"] or date.today().isoformat())
+    customer_id = job["customer_id"]
+
+    if action in {"coming", "reminder", "finished", "review"}:
+        body = day_run_message(action, job)
+        subject_map = {
+            "coming": "We are on our way",
+            "reminder": "Appointment reminder",
+            "finished": "Job completed",
+            "review": "Review request",
+        }
+        subject = subject_map[action]
+        if channel == "email":
+            ok, msg = send_email_smtp(job["email"] or "", subject, body, customer=job)
+            if ok:
+                log_customer_message(customer_id, "Email", subject, body)
+        elif channel == "sms":
+            ok, msg = send_sms_gateway(job["phone"] or "", body, customer=job, message_category="review" if action == "review" else "reminder")
+            if ok:
+                log_customer_message(customer_id, "SMS", subject, body)
+        else:
+            ok, msg = True, "Message copied/logged."
+            log_customer_message(customer_id, "Note", subject, body)
+        if action == "reminder" and customer_id:
+            set_customer_workflow(customer_id, "reminder_sent", "Reminder sent from Today Run.", "Reminder sent")
+            run("UPDATE jobs SET status='Reminder Sent' WHERE id=? AND IFNULL(status,'') IN ('Booked','Lead','Quoted')", (job_id,))
+        if action == "review" and customer_id:
+            set_customer_workflow(customer_id, "completed", "Review request sent from Today Run.", "Review request sent")
+            run("UPDATE customers SET review_request_sent_at=datetime('now') WHERE id=?", (customer_id,))
+        flash(msg)
+        return redirect(next_url)
+
+    if action == "start":
+        run("UPDATE jobs SET status='In Progress' WHERE id=?", (job_id,))
+        if customer_id:
+            run("INSERT INTO customer_timeline(customer_id, note_text, photo_filename) VALUES (?,?,?)",
+                (customer_id, "Today Run: job started.", ""))
+        flash("Job marked as in progress.")
+        return redirect(next_url)
+
+    if action == "complete":
+        run("UPDATE jobs SET status='Completed' WHERE id=?", (job_id,))
+        if customer_id:
+            set_customer_workflow(customer_id, "job_completed", "Job completed from Today Run.", "Job completed")
+        flash("Job marked complete.")
+        return redirect(next_url)
+
+    if action == "cash_paid":
+        notes = append_note(job["notes"] or "", f"Cash paid on {datetime.now().strftime('%Y-%m-%d %H:%M')}. No invoice created.")
+        run("UPDATE jobs SET status='Paid', notes=? WHERE id=?", (notes, job_id))
+        if customer_id:
+            set_customer_workflow(customer_id, "payment_received", "Cash payment recorded from Today Run. No invoice created.", "Payment received")
+            run("INSERT INTO customer_timeline(customer_id, note_text, photo_filename) VALUES (?,?,?)",
+                (customer_id, "Cash payment received. No invoice created.", ""))
+        flash("Cash payment recorded. No invoice created.")
+        return redirect(next_url)
+
+    if action in {"create_invoice", "card_paid"}:
+        status = "Paid" if action == "card_paid" else "Draft"
+        invoice_id, created = create_invoice_for_job(job, status=status, note_extra="Created from Today Run.")
+        run("UPDATE jobs SET status=? WHERE id=?", ("Paid" if action == "card_paid" else "Invoiced", job_id))
+        if customer_id:
+            set_customer_workflow(customer_id, "payment_received" if action == "card_paid" else "invoice_created",
+                                  "Payment recorded from Today Run." if action == "card_paid" else "Invoice created from Today Run.",
+                                  "Payment received" if action == "card_paid" else "Invoice created")
+        flash("Invoice created and marked paid." if action == "card_paid" else ("Invoice created." if created else "Existing invoice opened."))
+        return redirect(url_for("invoice_view", invoice_id=invoice_id))
+
+    flash("Unknown Today Run action.")
+    return redirect(next_url)
+
 
 @app.route("/customers")
 @login_required
