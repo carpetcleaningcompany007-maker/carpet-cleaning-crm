@@ -5184,6 +5184,114 @@ def find_xero_contact_id_for_customer(customer):
     return ""
 
 
+def xero_contact_phone(contact):
+    for phone in contact.get("Phones") or []:
+        number = clean_str(phone.get("PhoneNumber") or phone.get("PhoneAreaCode") or "")
+        if number:
+            return number
+    return ""
+
+
+def xero_contact_address(contact):
+    for address in contact.get("Addresses") or []:
+        line1 = clean_str(address.get("AddressLine1"))
+        line2 = clean_str(address.get("AddressLine2"))
+        city = clean_str(address.get("City"))
+        postcode = clean_str(address.get("PostalCode"))
+        if line1 or line2 or city or postcode:
+            return {
+                "address": "\n".join([x for x in [line1, line2] if x]),
+                "town": city,
+                "postcode": postcode,
+            }
+    return {"address": "", "town": "", "postcode": ""}
+
+
+def xero_contact_name_parts(contact):
+    first_name = clean_str(contact.get("FirstName"))
+    last_name = clean_str(contact.get("LastName"))
+    if first_name or last_name:
+        return first_name or "Customer", last_name or "Xero"
+    return split_customer_name(clean_str(contact.get("Name")) or "Xero Customer")
+
+
+def pull_xero_contacts_into_crm(max_pages=20):
+    created = 0
+    updated = 0
+    skipped = 0
+    failed = 0
+    seen = 0
+    for page in range(1, max_pages + 1):
+        result = xero_api_request(f"{XERO_CONTACTS_URL}?page={page}")
+        contacts = result.get("Contacts") or []
+        if not contacts:
+            break
+        for contact in contacts:
+            seen += 1
+            try:
+                contact_id = clean_str(contact.get("ContactID"))
+                status = clean_str(contact.get("ContactStatus")).upper()
+                name = clean_str(contact.get("Name"))
+                email = clean_str(contact.get("EmailAddress")).lower()
+                if not contact_id or status == "ARCHIVED" or not name:
+                    skipped += 1
+                    continue
+                first_name, last_name = xero_contact_name_parts(contact)
+                phone = xero_contact_phone(contact)
+                address = xero_contact_address(contact)
+                existing = q("SELECT id FROM customers WHERE IFNULL(xero_contact_id,'')=? ORDER BY id DESC LIMIT 1", (contact_id,), one=True)
+                customer_id = existing["id"] if existing else None
+                if not customer_id:
+                    customer_id = find_existing_customer_id(
+                        first_name=first_name,
+                        last_name=last_name,
+                        email=email,
+                        phone=phone,
+                        postcode=address["postcode"],
+                    )
+                if customer_id:
+                    run("""UPDATE customers
+                           SET first_name=COALESCE(NULLIF(?,''), first_name),
+                               last_name=COALESCE(NULLIF(?,''), last_name),
+                               phone=COALESCE(NULLIF(?,''), phone),
+                               email=COALESCE(NULLIF(?,''), email),
+                               address=COALESCE(NULLIF(?,''), address),
+                               town=COALESCE(NULLIF(?,''), town),
+                               postcode=COALESCE(NULLIF(?,''), postcode),
+                               source=CASE WHEN IFNULL(source,'')='' THEN 'Xero' ELSE source END,
+                               tags=CASE WHEN IFNULL(tags,'')='' THEN 'Xero' WHEN tags NOT LIKE '%Xero%' THEN tags || ', Xero' ELSE tags END,
+                               xero_contact_id=?,
+                               xero_contact_synced_at=datetime('now'),
+                               xero_contact_error=''
+                           WHERE id=?""", (
+                        first_name, last_name, phone, email, address["address"], address["town"], address["postcode"],
+                        contact_id, customer_id,
+                    ))
+                    updated += 1
+                else:
+                    customer_id = run("""INSERT INTO customers(first_name,last_name,phone,email,address,town,postcode,source,tags,notes,xero_contact_id,xero_contact_synced_at)
+                                         VALUES (?,?,?,?,?,?,?,?,?,?,?,datetime('now'))""", (
+                        first_name,
+                        last_name,
+                        phone,
+                        email,
+                        address["address"],
+                        address["town"],
+                        address["postcode"],
+                        "Xero",
+                        "Xero",
+                        f"Imported from Xero contact: {name}",
+                        contact_id,
+                    ))
+                    created += 1
+                log_xero_sync("customer", customer_id, "pull_contact", "ok", f"Pulled Xero contact: {name}", {"ContactID": contact_id})
+            except Exception as exc:
+                failed += 1
+                logger.exception("Xero pull contact failed")
+                log_xero_sync("customer", 0, "pull_contact", "error", str(exc), contact)
+    return {"seen": seen, "created": created, "updated": updated, "skipped": skipped, "failed": failed}
+
+
 def ensure_xero_contact_for_customer(customer_id):
     customer = q("SELECT * FROM customers WHERE id=?", (customer_id,), one=True)
     if not customer:
@@ -5657,6 +5765,23 @@ def xero_refresh_open_invoices():
             run("UPDATE invoices SET xero_error=? WHERE id=?", (str(exc), invoice["id"]))
             log_xero_sync("invoice", invoice["id"], "bulk_refresh_status", "error", str(exc))
     flash(f"Xero status refresh complete. Updated {updated}; failed {failed}.")
+    return redirect(url_for("xero_dashboard"))
+
+
+@app.route("/xero/pull-contacts", methods=["POST"])
+@login_required
+def xero_pull_contacts():
+    try:
+        result = pull_xero_contacts_into_crm()
+        flash(
+            "Xero customer pull complete. "
+            f"Seen {result['seen']}; created {result['created']}; updated {result['updated']}; "
+            f"skipped {result['skipped']}; failed {result['failed']}."
+        )
+    except Exception as exc:
+        logger.exception("Xero pull all contacts failed")
+        log_xero_sync("customer", 0, "pull_all_contacts", "error", str(exc))
+        flash(f"Xero customer pull failed: {exc}")
     return redirect(url_for("xero_dashboard"))
 
 
