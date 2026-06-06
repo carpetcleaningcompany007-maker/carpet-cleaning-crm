@@ -1170,6 +1170,69 @@ body {
   }
 }
 
+/* Fix dashboard action panel: no crushed words, no empty white void. */
+.simple-home-hero {
+  display: block !important;
+  width: min(1500px, calc(100% - 64px)) !important;
+  min-height: 0 !important;
+  padding: clamp(34px, 4vw, 58px) !important;
+  margin: 0 auto 28px !important;
+  background:
+    linear-gradient(135deg, rgba(255,255,255,.99) 0%, rgba(248,252,255,.99) 100%) !important;
+  border: 1px solid rgba(18,38,58,.10) !important;
+  box-shadow: 0 18px 48px rgba(8,20,40,.08) !important;
+}
+
+.simple-home-hero > div {
+  max-width: 860px !important;
+}
+
+.simple-home-hero h3 {
+  display: block !important;
+  width: 100% !important;
+  max-width: 900px !important;
+  margin: 18px 0 12px !important;
+  color: #081220 !important;
+  font-size: clamp(40px, 3.2vw, 62px) !important;
+  line-height: 1.02 !important;
+  letter-spacing: 0 !important;
+  word-break: normal !important;
+  overflow-wrap: normal !important;
+  text-wrap: balance !important;
+}
+
+.simple-home-hero p {
+  max-width: 820px !important;
+  color: #40576c !important;
+  font-size: 20px !important;
+  line-height: 1.55 !important;
+}
+
+.simple-home-hero .big-action {
+  display: inline-flex !important;
+  width: auto !important;
+  min-width: 300px !important;
+  max-width: 100% !important;
+  margin-top: 24px !important;
+  padding: 0 34px !important;
+  min-height: 62px !important;
+}
+
+@media (max-width: 760px) {
+  .simple-home-hero {
+    width: calc(100% - 24px) !important;
+  }
+
+  .simple-home-hero h3 {
+    font-size: 38px !important;
+  }
+
+  .simple-home-hero .big-action {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+}
+
 /* Internal pages should feel like pages, not another giant landing hero. */
 .topbar:not(.page-dashboard) {
   min-height: 190px !important;
