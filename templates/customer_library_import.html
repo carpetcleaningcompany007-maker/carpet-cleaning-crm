@@ -1,22 +1,25 @@
 {% extends "layout.html" %}
-{% block page_title %}Sync Customer Library{% endblock %}
+{% block page_title %}Import Old Customer File{% endblock %}
 {% block body_content %}
 <section class="panel page-shell">
   <div class="panel-head panel-head-stack">
     <div>
-      <span class="section-kicker">Customer library</span>
-      <h3>Sync customers into this CRM</h3>
-      <p>Upload an old CRM database or customer CSV. The CRM will merge the library into the live customer list and avoid duplicates where it can.</p>
+      <span class="section-kicker">Old file import</span>
+      <h3>Import an old customer file</h3>
+      <p>This page is only for old CRM database or CSV files. To pull live customers from Xero, use the Xero Sync page.</p>
     </div>
-    <a class="btn secondary" href="{{ url_for('customers') }}">Back to Customers</a>
+    <div class="stack-inline">
+      <a class="btn primary" href="{{ url_for('xero_dashboard') }}">Pull Customers From Xero</a>
+      <a class="btn secondary" href="{{ url_for('customers') }}">Back to Customers</a>
+    </div>
   </div>
 
   <div class="grid-2">
     <form method="post" enctype="multipart/form-data" class="panel form">
-      <h3>Upload library</h3>
+      <h3>Upload old file</h3>
       <p class="muted">Accepted files: <strong>.db</strong>, <strong>.sqlite</strong>, <strong>.sqlite3</strong>, or <strong>.csv</strong>.</p>
       <input type="file" name="customer_library" accept=".db,.sqlite,.sqlite3,.csv" required>
-      <button class="btn primary">Sync Customer Library</button>
+      <button class="btn primary">Import Old File</button>
     </form>
 
     <section class="panel">
