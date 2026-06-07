@@ -2913,6 +2913,9 @@ def customers():
 @app.route("/customers/import-library", methods=["GET", "POST"])
 @login_required
 def customers_import_library():
+    if request.method == "GET":
+        flash("Customer sync now pulls from Xero. Use Pull All Xero Customers on this page.")
+        return redirect(url_for("xero_dashboard"))
     if request.method == "POST":
         upload = request.files.get("customer_library")
         if not upload or not upload.filename:
