@@ -23,7 +23,7 @@
     <table>
       <thead>
         <tr>
-          <th>Received</th><th>Name</th><th>Contact</th><th>Preferred</th><th>Status</th><th>Xero</th><th></th>
+          <th>Received</th><th>Name</th><th>Contact</th><th>Service</th><th>Status</th><th>Xero</th><th>Email</th><th>SMS</th><th>Owner alerts</th><th>Follow up</th><th></th>
         </tr>
       </thead>
       <tbody>
@@ -32,13 +32,17 @@
             <td>{{ lead.created_at }}</td>
             <td>{{ lead.name }}</td>
             <td>{{ lead.phone }}<br>{{ lead.email }}</td>
-            <td>{{ lead.preferred_date }} {{ lead.preferred_time }}</td>
+            <td>{{ lead.what_cleaned or lead.rooms_areas }}<br>{{ lead.preferred_date }} {{ lead.preferred_time }}</td>
             <td>{{ lead.status }}</td>
-            <td>{% if lead.xero_contact_id %}Sent{% elif lead.xero_error %}Error{% else %}Pending{% endif %}</td>
+            <td>{{ lead.xero_sync_status or ('Sent' if lead.xero_contact_id else ('Failed' if lead.xero_error else 'Pending')) }}</td>
+            <td>{{ lead.customer_email_status or 'Pending' }}</td>
+            <td>{{ lead.customer_sms_status or 'Pending' }}</td>
+            <td>Email: {{ lead.owner_email_status or 'Pending' }}<br>SMS: {{ lead.owner_sms_status or 'Pending' }}</td>
+            <td>{{ lead.follow_up_status or 'Follow up required' }}</td>
             <td><a class="btn small" href="{{ url_for('intake_form_view', lead_id=lead.id) }}">View</a></td>
           </tr>
         {% else %}
-          <tr><td colspan="7">No intake forms yet.</td></tr>
+          <tr><td colspan="11">No intake forms yet.</td></tr>
         {% endfor %}
       </tbody>
     </table>

@@ -48,6 +48,7 @@
       <a class="nav-link {% if ep in ['invoices','invoice_view'] %}active{% endif %}" href="{{ url_for('invoices') }}"><span class="nav-icon"></span><span>Invoices</span></a>
       <a class="nav-link {% if ep=='full_calendar' or ep=='scheduler' %}active{% endif %}" href="{{ url_for('full_calendar') }}"><span class="nav-icon"></span><span>Calendar</span></a>
       <a class="nav-link public-booking-link" href="{{ url_for('booking_form') }}" target="_blank"><span class="nav-icon"></span><span>Booking Form</span></a>
+      <a class="nav-link {% if ep=='message_settings' %}active{% endif %}" href="{{ url_for('message_settings') }}"><span class="nav-icon"></span><span>Messages</span></a>
       <a class="nav-link {% if ep=='settings_page' %}active{% endif %}" href="{{ url_for('settings_page') }}"><span class="nav-icon"></span><span>Settings</span></a>
       <a class="nav-link" href="{{ url_for('logout') }}"><span class="nav-icon"></span><span>Logout</span></a>
     </nav>

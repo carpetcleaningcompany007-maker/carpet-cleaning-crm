@@ -1258,6 +1258,280 @@ def send_website_form_sms_alert(data, customer_id=None):
     return ok, msg
 
 
+def enquiry_public_site_url():
+    return "https://www.thecarpetcleaningcrew.co.uk"
+
+
+DEFAULT_MESSAGE_TEMPLATES = {
+    "customer_enquiry_email": {
+        "name": "Customer enquiry email",
+        "subject": "Thank you for your enquiry",
+        "body": "Hi {{name}},\n\nThank you for your enquiry. We have received your message and will get back to you shortly.\n\nWebsite: https://www.thecarpetcleaningcrew.co.uk\nFacebook: https://www.facebook.com/profile.php?id=61559013150413\nGoogle reviews: https://share.google/XHQjHHLwpmlugHP0c\nPhone: 07802 563213\n\nThanks\nPaul\nThe Carpet Cleaning Company",
+    },
+    "customer_enquiry_sms": {
+        "name": "Customer enquiry SMS",
+        "subject": "",
+        "body": "Thank you for contacting The Carpet Cleaning Company. We have received your enquiry and will get back to you shortly. You can view our work and reviews here: www.thecarpetcleaningcrew.co.uk",
+    },
+    "owner_enquiry_alert_email": {
+        "name": "Owner enquiry alert email",
+        "subject": "New website enquiry received",
+        "body": "{{owner_alert_details}}",
+    },
+    "owner_enquiry_alert_sms": {
+        "name": "Owner enquiry alert SMS",
+        "subject": "",
+        "body": "New website enquiry for The Carpet Cleaning Company. Name: {{name}}. Phone: {{phone}}. Service: {{service}}. Check the CRM and follow up as soon as possible.",
+    },
+    "booking_confirmation_email": {"name": "Booking confirmation email", "subject": "Booking confirmation", "body": "Hi {{name}},\n\nYour booking is confirmed.\n\nThanks\nPaul"},
+    "booking_confirmation_sms": {"name": "Booking confirmation SMS", "subject": "", "body": "Your carpet cleaning booking is confirmed. Thanks, Paul."},
+    "appointment_reminder_sms": {"name": "Appointment reminder SMS", "subject": "", "body": "Hi {{name}}, just a reminder that your carpet cleaning appointment is booked for {{date}} at {{time}}. Thanks, Paul."},
+    "thank_you_message": {"name": "Thank you message", "subject": "Thank you", "body": "Hi {{name}}, thank you for using The Carpet Cleaning Company."},
+    "review_request_message": {"name": "Review request message", "subject": "Review request", "body": "Hi {{name}}, thank you for using The Carpet Cleaning Company. If you are happy with the work, I would really appreciate a quick Google review: https://share.google/XHQjHHLwpmlugHP0c"},
+}
+
+
+def template_context_for_enquiry(data, customer_id=None, lead_id=None):
+    service = request_value(data, "service", "what_cleaned", "service_required", "cleaning_required")
+    phone = request_value(data, "phone", "phone_number", "telephone", "tel")
+    owner_details = owner_enquiry_alert_text(data, customer_id=customer_id, lead_id=lead_id)
+    return {
+        "{{name}}": request_value(data, "name", "full_name", "customer_name"),
+        "{{phone}}": phone,
+        "{{email}}": request_value(data, "email", "email_address"),
+        "{{address}}": request_value(data, "address", "full_address", "street_address"),
+        "{{postcode}}": request_value(data, "postcode", "post_code", "zip"),
+        "{{service}}": service,
+        "{{preferred_date}}": request_value(data, "preferred_date", "date", "preferred_days_times"),
+        "{{message}}": request_value(data, "message", "notes", "additional_notes"),
+        "{{owner_alert_details}}": owner_details,
+        "{{website}}": enquiry_public_site_url(),
+    }
+
+
+def render_simple_template(text, replacements):
+    rendered = str(text or "")
+    for key, value in replacements.items():
+        rendered = rendered.replace(key, clean_str(value))
+    return rendered
+
+
+def message_template(key):
+    default = DEFAULT_MESSAGE_TEMPLATES.get(key, {"name": key, "subject": "", "body": ""})
+    row = q("SELECT * FROM message_templates WHERE template_key=?", (key,), one=True)
+    if not row:
+        return default
+    return {
+        "name": row["name"] or default["name"],
+        "subject": row["subject"] if row["subject"] is not None else default["subject"],
+        "body": row["body"] if row["body"] is not None else default["body"],
+    }
+
+
+def status_text(ok, message="", skipped=False):
+    if skipped:
+        return "Skipped: " + clean_str(message)
+    return ("Sent: " if ok else "Failed: ") + clean_str(message)
+
+
+def update_intake_delivery_status(lead_id, **fields):
+    allowed = {
+        "xero_sync_status", "customer_email_status", "customer_sms_status",
+        "owner_email_status", "owner_sms_status", "follow_up_status"
+    }
+    updates = []
+    params = []
+    for key, value in fields.items():
+        if key in allowed:
+            updates.append(f"{key}=?")
+            params.append(clean_str(value))
+    if not updates:
+        return
+    updates.append("updated_at=datetime('now')")
+    params.append(lead_id)
+    run(f"UPDATE intake_submissions SET {', '.join(updates)} WHERE id=?", tuple(params))
+
+
+def enquiry_customer_email_html(data):
+    replacements = template_context_for_enquiry(data)
+    text_body = render_simple_template(message_template("customer_enquiry_email")["body"], replacements)
+    logo_url = os.environ.get("CRM_LOGO_URL", "").strip()
+    logo_html = f'<img src="{html_lib.escape(logo_url)}" alt="The Carpet Cleaning Company" style="width:96px;height:auto;margin-bottom:18px">' if logo_url else ""
+    paragraphs = "".join(f"<p style='font-size:17px;line-height:1.55'>{html_lib.escape(part).replace(chr(10), '<br>')}</p>" for part in text_body.split("\n\n") if part.strip())
+    return f"""<!doctype html>
+<html><body style="margin:0;background:#f3f7fb;font-family:Arial,Helvetica,sans-serif;color:#102033">
+  <div style="max-width:620px;margin:0 auto;padding:28px 16px">
+    <div style="background:#ffffff;border-radius:18px;padding:28px;border:1px solid #dbe7f2">
+      {logo_html}
+      <h1 style="margin:0 0 12px;font-size:28px;line-height:1.15;color:#092033">Thank you for your enquiry</h1>
+      {paragraphs}
+      <p style="margin:24px 0">
+        <a href="{enquiry_public_site_url()}" style="display:inline-block;background:#155fc5;color:#fff;text-decoration:none;padding:13px 18px;border-radius:10px;font-weight:bold">Visit website</a>
+      </p>
+      <p style="font-size:15px;line-height:1.6">
+        Phone: <a href="tel:07802563213">07802 563213</a><br>
+        Facebook: <a href="https://www.facebook.com/profile.php?id=61559013150413">The Carpet Cleaning Company</a><br>
+        Reviews: <a href="https://share.google/XHQjHHLwpmlugHP0c">Google reviews</a>
+      </p>
+      <p style="font-size:17px;line-height:1.55">Thanks<br>Paul<br>The Carpet Cleaning Company</p>
+    </div>
+  </div>
+</body></html>"""
+
+
+def enquiry_customer_email_text(data):
+    return render_simple_template(message_template("customer_enquiry_email")["body"], template_context_for_enquiry(data))
+
+
+def send_env_email(to_email, subject, text_body, html_body="", customer=None):
+    host = os.environ.get("SMTP_HOST", "").strip()
+    user = os.environ.get("SMTP_USER", "").strip()
+    password = os.environ.get("SMTP_PASSWORD", "").strip()
+    port = int(os.environ.get("SMTP_PORT", "465") or 465)
+    sender = os.environ.get("SMTP_FROM", "").strip() or user
+    from_name = os.environ.get("SMTP_FROM_NAME", "The Carpet Cleaning Company").strip()
+    if not host or not sender or not password:
+        return send_email_smtp(to_email, subject, html_body or text_body, customer=customer)
+    recipients = parse_email_list(to_email)
+    if not recipients:
+        return False, "No email recipient was supplied."
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"] = f"{from_name} <{sender}>"
+    msg["To"] = ", ".join(recipients)
+    msg.attach(MIMEText(text_body or " ", "plain", "utf-8"))
+    msg.attach(MIMEText(html_body or html_lib.escape(text_body or " "), "html", "utf-8"))
+    try:
+        if port == 465:
+            with smtplib.SMTP_SSL(host, port, context=ssl.create_default_context()) as server:
+                if user:
+                    server.login(user, password)
+                server.sendmail(sender, recipients, msg.as_string())
+        else:
+            with smtplib.SMTP(host, port, timeout=30) as server:
+                server.starttls(context=ssl.create_default_context())
+                if user:
+                    server.login(user, password)
+                server.sendmail(sender, recipients, msg.as_string())
+        return True, f"Email sent to {', '.join(recipients)}."
+    except Exception as exc:
+        return False, str(exc)
+
+
+def send_clicksend_env_sms(to_phone, body, customer=None, category="Website Enquiry"):
+    username = os.environ.get("CLICKSEND_USERNAME", "").strip()
+    api_key = os.environ.get("CLICKSEND_API_KEY", "").strip()
+    from_name = os.environ.get("CLICKSEND_FROM_NAME", "").strip()
+    phone = normalize_phone(to_phone)
+    if not phone:
+        return False, "No recipient mobile number was supplied."
+    if not username or not api_key:
+        return send_sms_gateway(phone, body, customer=customer, message_category=category)
+    try:
+        payload = {"messages": [{"source": "python", "to": phone, "body": body, "from": from_name}]}
+        response = http_post_basic_json("https://rest.clicksend.com/v3/sms/send", payload, username, api_key)
+        data = json.loads(response)
+        msg_data = (((data.get("data") or {}).get("messages")) or [{}])[0]
+        ext = str(msg_data.get("message_id") or "")
+        status = str(msg_data.get("status") or msg_data.get("status_text") or "queued")
+        log_sms_event(customer["id"] if customer else None, None, "ClickSend", "send", phone, from_name, body, ext, status.title(), "outbound", data)
+        if ext or data.get("http_code") in (200, 201) or "SUCCESS" in response.upper():
+            return True, f"SMS accepted by ClickSend for {phone}."
+        return False, f"ClickSend send failed: {response[:220]}"
+    except Exception as exc:
+        log_sms_event(customer["id"] if customer else None, None, "ClickSend", "send_failed", phone, from_name, body, "", "Failed", "outbound", {}, str(exc))
+        return False, str(exc)
+
+
+def owner_enquiry_alert_text(data, customer_id=None, lead_id=None):
+    customer_url = url_for("customer_view", customer_id=customer_id, _external=True) if customer_id else ""
+    lines = [
+        "New website enquiry received",
+        f"Customer name: {request_value(data, 'name', 'full_name', 'customer_name')}",
+        f"Phone number: {request_value(data, 'phone', 'phone_number', 'telephone', 'tel')}",
+        f"Email address: {request_value(data, 'email', 'email_address')}",
+        f"Address: {request_value(data, 'address', 'full_address', 'street_address')}",
+        f"Postcode: {request_value(data, 'postcode', 'post_code', 'zip')}",
+        f"Service requested: {request_value(data, 'service', 'what_cleaned', 'service_required', 'cleaning_required')}",
+        f"Preferred date: {request_value(data, 'preferred_date', 'date', 'preferred_days_times')}",
+        f"Message: {request_value(data, 'message', 'notes', 'additional_notes')}",
+    ]
+    if customer_url:
+        lines.append(f"Open in CRM: {customer_url}")
+    if lead_id:
+        lines.append(f"Intake ID: {lead_id}")
+    return "\n".join(lines)
+
+
+def run_website_enquiry_automation(lead_id, customer_id, data):
+    lead = q("SELECT * FROM intake_submissions WHERE id=?", (lead_id,), one=True)
+    customer = q("SELECT * FROM customers WHERE id=?", (customer_id,), one=True)
+    if not lead or not customer:
+        return {}
+    results = {}
+
+    try:
+        contact_id = find_xero_contact_id_for_lead(lead)
+        payload = xero_contact_payload_from_lead(lead)
+        if contact_id:
+            payload["Contacts"][0]["ContactID"] = contact_id
+        result = xero_api_request(XERO_CONTACTS_URL, method="POST", payload=payload, idempotency_key=f"website-enquiry-contact-{lead_id}-{contact_id or 'new'}")
+        contact = (result.get("Contacts") or [{}])[0]
+        contact_id = contact.get("ContactID") or contact_id
+        if not contact_id:
+            raise RuntimeError("Xero did not return a ContactID.")
+        run("""UPDATE intake_submissions SET xero_contact_id=?, xero_sent_at=datetime('now'), xero_error='', xero_sync_status=?, updated_at=datetime('now') WHERE id=?""", (contact_id, "Sent: Xero contact created or updated", lead_id))
+        run("""UPDATE customers SET xero_contact_id=?, xero_contact_synced_at=datetime('now'), xero_contact_error='' WHERE id=?""", (contact_id, customer_id))
+        run("INSERT INTO customer_timeline(customer_id, note_text, created_at) VALUES (?,?,datetime('now'))", (customer_id, "Xero contact created or updated from website enquiry."))
+        results["xero"] = (True, f"Xero contact ready: {contact_id}")
+    except Exception as exc:
+        run("""UPDATE intake_submissions SET xero_error=?, xero_sync_status=?, updated_at=datetime('now') WHERE id=?""", (str(exc), f"Failed: {exc}", lead_id))
+        run("UPDATE customers SET xero_contact_error=? WHERE id=?", (str(exc), customer_id))
+        run("INSERT INTO customer_timeline(customer_id, note_text, created_at) VALUES (?,?,datetime('now'))", (customer_id, f"Xero sync failed: {exc}"))
+        results["xero"] = (False, str(exc))
+
+    customer_email = request_value(data, "email", "email_address")
+    if customer_email:
+        customer_email_template = message_template("customer_enquiry_email")
+        subject = render_simple_template(customer_email_template["subject"] or "Thank you for your enquiry", template_context_for_enquiry(data, customer_id=customer_id, lead_id=lead_id))
+        ok, msg = send_env_email(customer_email, subject, enquiry_customer_email_text(data), enquiry_customer_email_html(data), customer=customer)
+        update_intake_delivery_status(lead_id, customer_email_status=status_text(ok, msg))
+        run("INSERT INTO communications(customer_id, channel, subject, body, created_at) VALUES (?,?,?,?,datetime('now'))", (customer_id, "Email", "Customer enquiry thank you", enquiry_customer_email_text(data)))
+        results["customer_email"] = (ok, msg)
+    else:
+        update_intake_delivery_status(lead_id, customer_email_status=status_text(False, "No customer email supplied", skipped=True))
+
+    customer_phone = request_value(data, "phone", "phone_number", "telephone", "tel")
+    customer_sms = render_simple_template(message_template("customer_enquiry_sms")["body"], template_context_for_enquiry(data, customer_id=customer_id, lead_id=lead_id))
+    ok, msg = send_clicksend_env_sms(customer_phone, customer_sms, customer=customer, category="Service")
+    update_intake_delivery_status(lead_id, customer_sms_status=status_text(ok, msg))
+    results["customer_sms"] = (ok, msg)
+
+    owner_email = os.environ.get("OWNER_ALERT_EMAIL", "").strip()
+    owner_email_template = message_template("owner_enquiry_alert_email")
+    alert_body = render_simple_template(owner_email_template["body"], template_context_for_enquiry(data, customer_id=customer_id, lead_id=lead_id))
+    if owner_email:
+        subject = render_simple_template(owner_email_template["subject"] or "New website enquiry received", template_context_for_enquiry(data, customer_id=customer_id, lead_id=lead_id))
+        ok, msg = send_env_email(owner_email, subject, alert_body, "<pre style='font-family:Arial, sans-serif; white-space:pre-wrap'>" + html_lib.escape(alert_body) + "</pre>")
+        update_intake_delivery_status(lead_id, owner_email_status=status_text(ok, msg))
+        results["owner_email"] = (ok, msg)
+    else:
+        update_intake_delivery_status(lead_id, owner_email_status=status_text(False, "OWNER_ALERT_EMAIL not set", skipped=True))
+
+    owner_mobile = os.environ.get("OWNER_ALERT_MOBILE", "").strip()
+    owner_sms = render_simple_template(message_template("owner_enquiry_alert_sms")["body"], template_context_for_enquiry(data, customer_id=customer_id, lead_id=lead_id))
+    if owner_mobile:
+        ok, msg = send_clicksend_env_sms(owner_mobile, owner_sms, customer=None, category="Service")
+        update_intake_delivery_status(lead_id, owner_sms_status=status_text(ok, msg))
+        results["owner_sms"] = (ok, msg)
+    else:
+        update_intake_delivery_status(lead_id, owner_sms_status=status_text(False, "OWNER_ALERT_MOBILE not set", skipped=True))
+
+    update_intake_delivery_status(lead_id, follow_up_status="Follow up required")
+    run("INSERT INTO customer_timeline(customer_id, note_text, created_at) VALUES (?,?,datetime('now'))", (customer_id, "Follow up required after website enquiry."))
+    return results
+
+
 def send_sms_gateway(to_phone, body, customer=None, communication_id=None, message_category=''):
     phone = normalize_phone(to_phone)
     if not phone:
@@ -2173,6 +2447,13 @@ def init_db():
         last_viewed_at TEXT DEFAULT '',
         muted INTEGER DEFAULT 0
     );
+    CREATE TABLE IF NOT EXISTS message_templates (
+        template_key TEXT PRIMARY KEY,
+        name TEXT,
+        subject TEXT,
+        body TEXT,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
     """)
     cur = conn.cursor()
     # Safe additive migrations for older databases
@@ -2254,6 +2535,14 @@ def init_db():
         ("intake_submissions", "parking", "TEXT DEFAULT ''"),
         ("intake_submissions", "preferred_days_times", "TEXT DEFAULT ''"),
         ("intake_submissions", "additional_notes", "TEXT DEFAULT ''"),
+        ("intake_submissions", "source", "TEXT DEFAULT ''"),
+        ("intake_submissions", "marketing_consent", "TEXT DEFAULT ''"),
+        ("intake_submissions", "xero_sync_status", "TEXT DEFAULT 'Pending'"),
+        ("intake_submissions", "customer_email_status", "TEXT DEFAULT 'Pending'"),
+        ("intake_submissions", "customer_sms_status", "TEXT DEFAULT 'Pending'"),
+        ("intake_submissions", "owner_email_status", "TEXT DEFAULT 'Pending'"),
+        ("intake_submissions", "owner_sms_status", "TEXT DEFAULT 'Pending'"),
+        ("intake_submissions", "follow_up_status", "TEXT DEFAULT 'Follow up required'"),
         ("customer_feedback", "review_requested", "INTEGER DEFAULT 0"),
         ("customer_feedback", "review_link_sent_at", "TEXT DEFAULT ''"),
         ("future_reminders", "reminder_type", "TEXT DEFAULT 'Follow up'"),
@@ -2266,6 +2555,11 @@ def init_db():
             pass
     conn.execute("INSERT OR IGNORE INTO settings (id) VALUES (1)")
     conn.execute("INSERT OR IGNORE INTO pricing_config (id, data_json) VALUES (1, ?)", (json.dumps(PRICING_DEFAULTS),))
+    for key, template in DEFAULT_MESSAGE_TEMPLATES.items():
+        conn.execute(
+            "INSERT OR IGNORE INTO message_templates(template_key, name, subject, body, updated_at) VALUES (?,?,?,?,datetime('now'))",
+            (key, template["name"], template["subject"], template["body"]),
+        )
     conn.commit()
     conn.close()
     try:
@@ -2439,6 +2733,7 @@ def create_intake_from_website_payload(data, source="Website form", photo_filena
     additional_notes = request_value(data, "additional_notes", "notes", "message", "comments")
     preferred_date = request_value(data, "preferred_date", "date")
     preferred_time = request_value(data, "preferred_time", "time")
+    marketing_consent = request_value(data, "marketing_consent", "marketing", "consent")
     if not name:
         name = "Website Customer"
     if not phone and not email:
@@ -2450,11 +2745,13 @@ def create_intake_from_website_payload(data, source="Website form", photo_filena
     lead_id = run("""INSERT INTO intake_submissions
            (name, phone, email, full_address, postcode, google_maps_link, what3words, job_notes, rooms_areas,
             what_cleaned, number_rooms, upholstery, rugs, stains, pets, parking, preferred_days_times, additional_notes,
-            preferred_date, preferred_time, photo_filename, status)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", (
+            preferred_date, preferred_time, photo_filename, status, source, marketing_consent,
+            xero_sync_status, customer_email_status, customer_sms_status, owner_email_status, owner_sms_status, follow_up_status)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", (
         name, phone, email, address, postcode, "", "", notes, what_cleaned,
         what_cleaned, number_rooms, upholstery, rugs, stains, pets, parking, preferred, additional_notes,
-        preferred_date, preferred_time, photo_filename, "Waiting for review",
+        preferred_date, preferred_time, photo_filename, "Waiting for review", source, marketing_consent,
+        "Pending", "Pending", "Pending", "Pending", "Pending", "Follow up required",
     ))
     lead = q("SELECT * FROM intake_submissions WHERE id=?", (lead_id,), one=True)
     customer_id = create_customer_from_intake(lead)
@@ -2737,7 +3034,9 @@ def dashboard():
                            LEFT JOIN customers ON customers.id = customer_feedback.customer_id
                            ORDER BY customer_feedback.id DESC LIMIT 5""")
     intake_new = q("SELECT COUNT(*) AS c FROM intake_submissions WHERE IFNULL(status,'New') IN ('New','Reviewed')", one=True)
-    return render_template("dashboard.html", stats=stats, recent_quotes=quotes, recent_jobs=jobs, archive_counts=archive_counts, report_summary=report_summary, invoice_alerts=invoice_alerts, app_settings=settings(), follow_up_summary=follow_up_summary, cashflow=cashflow, reminders_due=reminders_due, feedback_recent=feedback_recent, intake_new=intake_new["c"] if intake_new else 0)
+    recent_enquiries = q("""SELECT * FROM intake_submissions
+                            ORDER BY id DESC LIMIT 8""")
+    return render_template("dashboard.html", stats=stats, recent_quotes=quotes, recent_jobs=jobs, archive_counts=archive_counts, report_summary=report_summary, invoice_alerts=invoice_alerts, app_settings=settings(), follow_up_summary=follow_up_summary, cashflow=cashflow, reminders_due=reminders_due, feedback_recent=feedback_recent, intake_new=intake_new["c"] if intake_new else 0, recent_enquiries=recent_enquiries)
 
 
 
@@ -3315,6 +3614,34 @@ def sms_template_delete(template_id):
     run("DELETE FROM sms_templates WHERE id=?", (template_id,))
     flash('SMS template deleted.')
     return redirect(url_for('sms_templates_page'))
+
+
+@app.route("/message-settings", methods=["GET", "POST"])
+@login_required
+def message_settings():
+    init_db()
+    if request.method == "POST":
+        for key in DEFAULT_MESSAGE_TEMPLATES:
+            name = clean_str(request.form.get(f"{key}_name")) or DEFAULT_MESSAGE_TEMPLATES[key]["name"]
+            subject = clean_str(request.form.get(f"{key}_subject"))
+            body = request.form.get(f"{key}_body") or ""
+            run("""INSERT INTO message_templates(template_key, name, subject, body, updated_at)
+                   VALUES (?,?,?,?,datetime('now'))
+                   ON CONFLICT(template_key) DO UPDATE SET name=excluded.name, subject=excluded.subject, body=excluded.body, updated_at=datetime('now')""",
+                (key, name, subject, body))
+        flash("Message templates saved.")
+        return redirect(url_for("message_settings"))
+    rows = {row["template_key"]: row for row in q("SELECT * FROM message_templates ORDER BY name")}
+    templates = []
+    for key, default in DEFAULT_MESSAGE_TEMPLATES.items():
+        row = rows.get(key)
+        templates.append({
+            "key": key,
+            "name": row["name"] if row else default["name"],
+            "subject": row["subject"] if row else default["subject"],
+            "body": row["body"] if row else default["body"],
+        })
+    return render_template("message_settings.html", templates=templates)
 
 
 @app.route('/sms-inbox')
@@ -5519,8 +5846,12 @@ def create_customer_from_intake(lead):
 
 def xero_contact_payload_from_lead(lead):
     name = clean_str(lead["name"]) or "Customer"
+    first_name, last_name = split_customer_name(name)
     contact = {
         "Name": name,
+        "FirstName": first_name,
+        "LastName": last_name,
+        "ContactNumber": f"FORM-{lead['id']}",
         "Phones": [{"PhoneType": "MOBILE", "PhoneNumber": clean_str(lead["phone"])}] if lead["phone"] else [],
         "Addresses": [{"AddressType": "STREET", "AddressLine1": clean_str(lead["full_address"]), "PostalCode": clean_str(lead["postcode"])}],
     }
@@ -5832,29 +6163,28 @@ def website_form_submit():
             return {"ok": False, "error": str(exc)}, 400
         flash(str(exc))
         return redirect(url_for("booking_form"))
-    formspree_ok, formspree_message = forward_website_form_to_formspree(data, lead_id=lead_id, customer_id=customer_id)
-    sms_ok, sms_message = send_website_form_sms_alert(data, customer_id=customer_id)
+    automation_results = run_website_enquiry_automation(lead_id, customer_id, data)
     if request.is_json or request.path.startswith("/api/"):
         customer = q("SELECT * FROM customers WHERE id=?", (customer_id,), one=True)
+        lead = q("SELECT * FROM intake_submissions WHERE id=?", (lead_id,), one=True)
         return {
             "ok": True,
             "lead_id": lead_id,
             "customer_id": customer_id,
             "customer_url": url_for("customer_view", customer_id=customer_id, _external=True),
             "next_action": customer["next_action"] if customer else "Review website form and approve customer for Xero",
-            "formspree_email_sent": formspree_ok,
-            "formspree_message": formspree_message,
-            "sms_alert_sent": sms_ok,
-            "sms_message": sms_message,
+            "xero_status": lead["xero_sync_status"] if lead else "",
+            "customer_email_status": lead["customer_email_status"] if lead else "",
+            "customer_sms_status": lead["customer_sms_status"] if lead else "",
+            "owner_email_status": lead["owner_email_status"] if lead else "",
+            "owner_sms_status": lead["owner_sms_status"] if lead else "",
+            "automation": {key: {"ok": value[0], "message": value[1]} for key, value in automation_results.items()},
         }
     return render_template(
         "customer_intake_thanks.html",
         biz=settings(),
         public_mode=True,
-        formspree_ok=formspree_ok,
-        formspree_message=formspree_message,
-        sms_ok=sms_ok,
-        sms_message=sms_message,
+        message="Thank you. Your enquiry has been received and we will get back to you shortly.",
     )
 
 

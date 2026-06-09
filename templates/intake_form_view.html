@@ -19,7 +19,20 @@
     <div><strong>Preferred</strong><span>{{ lead.preferred_date }} {{ lead.preferred_time }}</span></div>
     <div><strong>Status</strong><span>{{ lead.status }}</span></div>
     <div class="span-2"><strong>Rooms or areas</strong><span>{{ lead.rooms_areas }}</span></div>
+    <div><strong>Service required</strong><span>{{ lead.what_cleaned }}</span></div>
+    <div><strong>Source</strong><span>{{ lead.source or 'Website form' }}</span></div>
+    <div><strong>Marketing consent</strong><span>{{ lead.marketing_consent }}</span></div>
+    <div><strong>Follow up</strong><span>{{ lead.follow_up_status or 'Follow up required' }}</span></div>
     <div class="span-2"><strong>Job notes</strong><span>{{ lead.job_notes }}</span></div>
+    <div class="span-2"><strong>Automation status</strong>
+      <span>
+        Xero: {{ lead.xero_sync_status or 'Pending' }}<br>
+        Customer email: {{ lead.customer_email_status or 'Pending' }}<br>
+        Customer SMS: {{ lead.customer_sms_status or 'Pending' }}<br>
+        Owner email: {{ lead.owner_email_status or 'Pending' }}<br>
+        Owner SMS: {{ lead.owner_sms_status or 'Pending' }}
+      </span>
+    </div>
     {% if lead.photo_filename %}
       <div class="span-2"><strong>Photo</strong><span><a href="{{ url_for('uploaded_file', filename=lead.photo_filename) }}" target="_blank">{{ lead.photo_filename }}</a></span></div>
     {% endif %}

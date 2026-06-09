@@ -65,6 +65,49 @@
   </div>
 </section>
 
+<section class="cc-section">
+  <div class="cc-section-head">
+    <div>
+      <span class="cc-chip">New enquiries</span>
+      <h2>Website enquiries just received.</h2>
+      <p>Every form reply is saved first, then Xero, email, SMS and owner alerts are tracked here.</p>
+    </div>
+    <a class="cc-btn cc-btn-primary" href="{{ url_for('intake_forms') }}">Open All Enquiries</a>
+  </div>
+  <div class="table-wrap">
+    <table class="table table-readable compact-table">
+      <tr>
+        <th>Customer</th>
+        <th>Contact</th>
+        <th>Service</th>
+        <th>Received</th>
+        <th>Xero</th>
+        <th>Customer email</th>
+        <th>Customer SMS</th>
+        <th>Owner alerts</th>
+        <th>Follow up</th>
+        <th></th>
+      </tr>
+      {% for lead in recent_enquiries %}
+      <tr>
+        <td><strong>{{ lead.name }}</strong></td>
+        <td>{{ lead.phone }}<br><span class="subtle-row">{{ lead.email }}</span></td>
+        <td>{{ lead.what_cleaned or lead.rooms_areas or 'Website enquiry' }}</td>
+        <td>{{ lead.created_at }}</td>
+        <td>{{ lead.xero_sync_status or ('Sent' if lead.xero_contact_id else ('Failed: ' ~ lead.xero_error if lead.xero_error else 'Pending')) }}</td>
+        <td>{{ lead.customer_email_status or 'Pending' }}</td>
+        <td>{{ lead.customer_sms_status or 'Pending' }}</td>
+        <td>Email: {{ lead.owner_email_status or 'Pending' }}<br>SMS: {{ lead.owner_sms_status or 'Pending' }}</td>
+        <td>{{ lead.follow_up_status or 'Follow up required' }}</td>
+        <td><a class="mini-link" href="{{ url_for('intake_form_view', lead_id=lead.id) }}">Open</a></td>
+      </tr>
+      {% else %}
+      <tr><td colspan="10" class="empty-cell">No website enquiries yet.</td></tr>
+      {% endfor %}
+    </table>
+  </div>
+</section>
+
 <section class="cc-two-col">
   <div class="cc-panel">
     <div class="cc-panel-head">

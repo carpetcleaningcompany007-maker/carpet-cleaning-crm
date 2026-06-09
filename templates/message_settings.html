@@ -1,0 +1,32 @@
+{% extends "layout.html" %}
+{% block title %}Message Settings{% endblock %}
+{% block page_title %}Message Settings{% endblock %}
+{% block body_content %}
+<section class="panel page-shell">
+  <div class="panel-head panel-head-stack">
+    <div>
+      <span class="section-kicker">Automation messages</span>
+      <h3>Customer and owner message templates</h3>
+      <p>Edit the messages used by website enquiries, booking confirmations, reminders, thank you messages, and review requests.</p>
+    </div>
+  </div>
+  <div class="notice">
+    Useful placeholders: {{ "{{name}}" }}, {{ "{{phone}}" }}, {{ "{{email}}" }}, {{ "{{address}}" }}, {{ "{{postcode}}" }}, {{ "{{service}}" }}, {{ "{{preferred_date}}" }}, {{ "{{message}}" }}, {{ "{{website}}" }}.
+  </div>
+  <form method="post" class="form">
+    {% for template in templates %}
+      <section class="panel">
+        <h3>{{ template.name }}</h3>
+        <input type="hidden" name="{{ template.key }}_name" value="{{ template.name }}">
+        <label>Subject
+          <input name="{{ template.key }}_subject" value="{{ template.subject }}">
+        </label>
+        <label>Message
+          <textarea name="{{ template.key }}_body" rows="7">{{ template.body }}</textarea>
+        </label>
+      </section>
+    {% endfor %}
+    <button class="btn primary">Save Message Templates</button>
+  </form>
+</section>
+{% endblock %}
