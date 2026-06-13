@@ -1485,6 +1485,9 @@ def send_env_email(to_email, subject, text_body, html_body="", customer=None):
 
 
 def send_clicksend_email(to_email, subject, text_body, html_body=""):
+    enabled = os.environ.get("CLICKSEND_EMAIL_ENABLED", "").strip().lower()
+    if enabled not in {"1", "true", "yes", "on"}:
+        return False, ""
     username = os.environ.get("CLICKSEND_USERNAME", "").strip()
     api_key = os.environ.get("CLICKSEND_API_KEY", "").strip()
     email_address_id = os.environ.get("CLICKSEND_EMAIL_ADDRESS_ID", "").strip()
