@@ -232,7 +232,12 @@ def clean_str(value):
 
 
 def normalize_phone(value):
-    return re.sub(r"[^0-9+]", "", clean_str(value))
+    phone = re.sub(r"[^0-9+]", "", clean_str(value))
+    if phone.startswith("00"):
+        return "+" + phone[2:]
+    if phone.startswith("0") and len(phone) >= 10:
+        return "+44" + phone[1:]
+    return phone
 
 
 def parse_sms_keywords(value, defaults=''):
