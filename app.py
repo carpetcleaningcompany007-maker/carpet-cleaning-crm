@@ -1276,7 +1276,7 @@ DEFAULT_MESSAGE_TEMPLATES = {
     "customer_enquiry_sms": {
         "name": "Customer enquiry SMS",
         "subject": "",
-        "body": "Hi {{name}},\n\nThank you for contacting The Carpet Cleaning Company.\n\nWe’ve received your enquiry and will respond as soon as possible.\n\nWhy not take a look at some of our recent results and customer feedback while you wait?\n\nFacebook:\nhttps://www.facebook.com/profile.php?id=61559013150413\n\nGoogle Reviews:\nhttps://share.google/XHQjHHLwpmlugHP0c\n\nThank you for considering The Carpet Cleaning Company. We look forward to assisting you.",
+        "body": "Hi {{name}},\n\nThank you for contacting The Carpet Cleaning Company.\n\nWe’ve received your enquiry and will respond as soon as possible.\n\nWhile you wait, please follow us on Facebook to see our videos, recent work, and before-and-after photos:\nhttps://www.facebook.com/profile.php?id=61559013150413\n\nGoogle Reviews:\nhttps://share.google/XHQjHHLwpmlugHP0c\n\nThank you for considering The Carpet Cleaning Company. We look forward to assisting you.",
     },
     "owner_enquiry_alert_email": {
         "name": "Owner enquiry alert email",
