@@ -1276,7 +1276,7 @@ DEFAULT_MESSAGE_TEMPLATES = {
     "customer_enquiry_sms": {
         "name": "Customer enquiry SMS",
         "subject": "",
-        "body": "Thank you for contacting The Carpet Cleaning Company. We have received your enquiry. Please follow us on Facebook to see our work: https://www.facebook.com/profile.php?id=61559013150413 Google reviews: https://share.google/XHQjHHLwpmlugHP0c",
+        "body": "Hi {{name}},\n\nThank you for contacting The Carpet Cleaning Company.\n\nWe’ve received your enquiry and will respond as soon as possible.\n\nWhy not take a look at some of our recent results and customer feedback while you wait?\n\nFacebook:\nhttps://www.facebook.com/profile.php?id=61559013150413\n\nGoogle Reviews:\nhttps://share.google/XHQjHHLwpmlugHP0c\n\nThank you for considering The Carpet Cleaning Company. We look forward to assisting you.",
     },
     "owner_enquiry_alert_email": {
         "name": "Owner enquiry alert email",
@@ -1301,7 +1301,7 @@ def template_context_for_enquiry(data, customer_id=None, lead_id=None):
     phone = request_value(data, "phone", "phone_number", "telephone", "tel")
     owner_details = owner_enquiry_alert_text(data, customer_id=customer_id, lead_id=lead_id)
     return {
-        "{{name}}": request_value(data, "name", "full_name", "customer_name"),
+        "{{name}}": request_value(data, "name", "full_name", "customer_name") or "there",
         "{{phone}}": phone,
         "{{email}}": request_value(data, "email", "email_address"),
         "{{address}}": request_value(data, "address", "full_address", "street_address"),
@@ -1433,16 +1433,26 @@ def send_clicksend_env_sms(to_phone, body, customer=None, category="Website Enqu
     if not username or not api_key:
         return send_sms_gateway(phone, body, customer=customer, message_category=category)
     try:
-        payload = {"messages": [{"source": "python", "to": phone, "body": body, "from": from_name}]}
+        message = {"source": "python", "to": phone, "body": body}
+        if from_name:
+            message["from"] = from_name
+        payload = {"messages": [message]}
         response = http_post_basic_json("https://rest.clicksend.com/v3/sms/send", payload, username, api_key)
         data = json.loads(response)
         msg_data = (((data.get("data") or {}).get("messages")) or [{}])[0]
         ext = str(msg_data.get("message_id") or "")
-        status = str(msg_data.get("status") or msg_data.get("status_text") or "queued")
-        log_sms_event(customer["id"] if customer else None, None, "ClickSend", "send", phone, from_name, body, ext, status.title(), "outbound", data)
-        if ext or data.get("http_code") in (200, 201) or "SUCCESS" in response.upper():
-            return True, f"SMS accepted by ClickSend for {phone}."
-        return False, f"ClickSend send failed: {response[:220]}"
+        status = str(msg_data.get("status") or msg_data.get("status_text") or data.get("response_code") or "queued")
+        response_code = str(data.get("response_code") or "").upper()
+        status_upper = status.upper()
+        error_text = str(msg_data.get("error_text") or data.get("response_msg") or "")
+        accepted = bool(ext) and response_code in ("SUCCESS", "200", "")
+        failed = any(word in status_upper for word in ("FAIL", "ERROR", "REJECT", "INVALID")) or response_code in ("FAILED", "ERROR")
+        event_type = "send" if accepted and not failed else "send_failed"
+        event_status = status.title() if status else ("Accepted" if accepted else "Failed")
+        log_sms_event(customer["id"] if customer else None, None, "ClickSend", event_type, phone, from_name, body, ext, event_status, "outbound", data, error_text)
+        if accepted and not failed:
+            return True, f"SMS accepted by ClickSend for {phone}. Message ID: {ext}. Status: {status or response_code}."
+        return False, f"ClickSend send failed for {phone}. Status: {status or response_code}. {error_text}".strip()
     except Exception as exc:
         log_sms_event(customer["id"] if customer else None, None, "ClickSend", "send_failed", phone, from_name, body, "", "Failed", "outbound", {}, str(exc))
         return False, str(exc)
@@ -2569,10 +2579,12 @@ def init_db():
         """UPDATE message_templates
               SET body=?, updated_at=datetime('now')
             WHERE template_key='customer_enquiry_sms'
-              AND body=?""",
+              AND body IN (?,?,?)""",
         (
             DEFAULT_MESSAGE_TEMPLATES["customer_enquiry_sms"]["body"],
             "Thank you for contacting The Carpet Cleaning Company. We have received your enquiry and will get back to you shortly. You can view our work and reviews here: www.thecarpetcleaningcrew.co.uk",
+            "Thank you for contacting The Carpet Cleaning Company. We have received your enquiry and Paul will call you from 07802 563213. Please follow us on Facebook to see our work: https://www.facebook.com/profile.php?id=61559013150413 Google reviews: https://share.google/XHQjHHLwpmlugHP0c",
+            "Thank you for contacting The Carpet Cleaning Company. We have received your enquiry. Please follow us on Facebook to see our work: https://www.facebook.com/profile.php?id=61559013150413 Google reviews: https://share.google/XHQjHHLwpmlugHP0c",
         ),
     )
     conn.commit()
