@@ -1276,7 +1276,7 @@ DEFAULT_MESSAGE_TEMPLATES = {
     "customer_enquiry_sms": {
         "name": "Customer enquiry SMS",
         "subject": "",
-        "body": "Thank you for contacting The Carpet Cleaning Company. We have received your enquiry and will get back to you shortly. You can view our work and reviews here: www.thecarpetcleaningcrew.co.uk",
+        "body": "Thank you for contacting The Carpet Cleaning Company. We have received your enquiry and Paul will call you from 07802 563213. Please follow us on Facebook to see our work: https://www.facebook.com/profile.php?id=61559013150413 Google reviews: https://share.google/XHQjHHLwpmlugHP0c",
     },
     "owner_enquiry_alert_email": {
         "name": "Owner enquiry alert email",
@@ -2565,6 +2565,16 @@ def init_db():
             "INSERT OR IGNORE INTO message_templates(template_key, name, subject, body, updated_at) VALUES (?,?,?,?,datetime('now'))",
             (key, template["name"], template["subject"], template["body"]),
         )
+    conn.execute(
+        """UPDATE message_templates
+              SET body=?, updated_at=datetime('now')
+            WHERE template_key='customer_enquiry_sms'
+              AND body=?""",
+        (
+            DEFAULT_MESSAGE_TEMPLATES["customer_enquiry_sms"]["body"],
+            "Thank you for contacting The Carpet Cleaning Company. We have received your enquiry and will get back to you shortly. You can view our work and reviews here: www.thecarpetcleaningcrew.co.uk",
+        ),
+    )
     conn.commit()
     conn.close()
     try:
