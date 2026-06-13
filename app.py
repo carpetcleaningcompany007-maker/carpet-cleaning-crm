@@ -1276,7 +1276,7 @@ DEFAULT_MESSAGE_TEMPLATES = {
     "customer_enquiry_sms": {
         "name": "Customer enquiry SMS",
         "subject": "",
-        "body": "Thank you for contacting The Carpet Cleaning Company. We have received your enquiry and Paul will call you from 07802 563213. Please follow us on Facebook to see our work: https://www.facebook.com/profile.php?id=61559013150413 Google reviews: https://share.google/XHQjHHLwpmlugHP0c",
+        "body": "Thank you for contacting The Carpet Cleaning Company. We have received your enquiry. Please follow us on Facebook to see our work: https://www.facebook.com/profile.php?id=61559013150413 Google reviews: https://share.google/XHQjHHLwpmlugHP0c",
     },
     "owner_enquiry_alert_email": {
         "name": "Owner enquiry alert email",
