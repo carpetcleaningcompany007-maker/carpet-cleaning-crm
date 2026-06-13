@@ -1447,6 +1447,9 @@ def enquiry_customer_email_text(data):
 
 
 def send_env_email(to_email, subject, text_body, html_body="", customer=None):
+    clicksend_ok, clicksend_msg = send_clicksend_email(to_email, subject, text_body, html_body)
+    if clicksend_ok or clicksend_msg:
+        return clicksend_ok, clicksend_msg
     host = os.environ.get("SMTP_HOST", "").strip()
     user = os.environ.get("SMTP_USER", "").strip()
     password = os.environ.get("SMTP_PASSWORD", "").strip()
@@ -1479,6 +1482,41 @@ def send_env_email(to_email, subject, text_body, html_body="", customer=None):
         return True, f"Email sent to {', '.join(recipients)}."
     except Exception as exc:
         return False, str(exc)
+
+
+def send_clicksend_email(to_email, subject, text_body, html_body=""):
+    username = os.environ.get("CLICKSEND_USERNAME", "").strip()
+    api_key = os.environ.get("CLICKSEND_API_KEY", "").strip()
+    email_address_id = os.environ.get("CLICKSEND_EMAIL_ADDRESS_ID", "").strip()
+    from_name = os.environ.get("CLICKSEND_EMAIL_FROM_NAME", "The Carpet Cleaning Company").strip()
+    if not username or not api_key:
+        return False, ""
+    recipients = parse_email_list(to_email)
+    if not recipients:
+        return False, "No email recipient was supplied."
+    payload = {
+        "to": [{"email": recipient, "name": ""} for recipient in recipients],
+        "subject": subject,
+        "body": html_body or html_lib.escape(text_body or " "),
+    }
+    if email_address_id:
+        try:
+            payload["from"] = {"email_address_id": int(email_address_id), "name": from_name}
+        except ValueError:
+            return False, "CLICKSEND_EMAIL_ADDRESS_ID must be a number from ClickSend Email settings."
+    try:
+        response = http_post_basic_json("https://rest.clicksend.com/v3/email/send", payload, username, api_key)
+        data = json.loads(response)
+        response_code = str(data.get("response_code") or "").upper()
+        response_msg = clean_str(data.get("response_msg") or "")
+        if response_code == "SUCCESS":
+            return True, f"ClickSend email accepted for {', '.join(recipients)}."
+        return False, f"ClickSend email failed: {response_msg or response[:260]}"
+    except urllib.error.HTTPError as exc:
+        error_body = exc.read().decode("utf-8", errors="replace")
+        return False, f"ClickSend email failed HTTP {exc.code}: {error_body[:300]}"
+    except Exception as exc:
+        return False, f"ClickSend email failed: {exc}"
 
 
 def send_clicksend_env_sms(to_phone, body, customer=None, category="Website Enquiry"):
