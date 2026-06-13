@@ -1267,11 +1267,18 @@ def enquiry_public_site_url():
     return "https://www.thecarpetcleaningcrew.co.uk"
 
 
+def public_static_url(filename):
+    try:
+        return url_for("static", filename=filename, _external=True)
+    except RuntimeError:
+        return ""
+
+
 DEFAULT_MESSAGE_TEMPLATES = {
     "customer_enquiry_email": {
         "name": "Customer enquiry email",
         "subject": "Thank you for your enquiry",
-        "body": "Hi {{name}},\n\nThank you for your enquiry. We have received your message and will get back to you shortly.\n\nWebsite: https://www.thecarpetcleaningcrew.co.uk\nFacebook: https://www.facebook.com/profile.php?id=61559013150413\nGoogle reviews: https://share.google/XHQjHHLwpmlugHP0c\nPhone: 07802 563213\n\nThanks\nPaul\nThe Carpet Cleaning Company",
+        "body": "Hi {{name}},\n\nThank you for contacting The Carpet Cleaning Company.\n\nWe’ve received your enquiry and will be in touch shortly.\n\nTo help us prepare a faster and more accurate quotation, please send a few photos of the areas you would like cleaned. You can reply to this email with photos, or reply to our SMS message from your phone.\n\nWhile you wait, you can see recent videos, before-and-after photos, and customer feedback here:\nFacebook: https://www.facebook.com/profile.php?id=61559013150413\nGoogle Reviews: https://share.google/XHQjHHLwpmlugHP0c\nWebsite: https://www.thecarpetcleaningcrew.co.uk\n\nThank you for considering The Carpet Cleaning Company.\n\nPaul Nicholas\nThe Carpet Cleaning Company\n07802 563213\nwww.thecarpetcleaningcrew.co.uk",
     },
     "customer_enquiry_sms": {
         "name": "Customer enquiry SMS",
@@ -1286,7 +1293,7 @@ DEFAULT_MESSAGE_TEMPLATES = {
     "owner_enquiry_alert_sms": {
         "name": "Owner enquiry alert SMS",
         "subject": "",
-        "body": "New website enquiry for The Carpet Cleaning Company. Name: {{name}}. Phone: {{phone}}. Service: {{service}}. Check the CRM and follow up as soon as possible.",
+        "body": "New enquiry\nName: {{name}}\nPhone: {{phone}}\nEmail: {{email}}\nPostcode: {{postcode}}\nService: {{service}}\nMessage: {{message}}",
     },
     "booking_confirmation_email": {"name": "Booking confirmation email", "subject": "Booking confirmation", "body": "Hi {{name}},\n\nYour booking is confirmed.\n\nThanks\nPaul"},
     "booking_confirmation_sms": {"name": "Booking confirmation SMS", "subject": "", "body": "Your carpet cleaning booking is confirmed. Thanks, Paul."},
@@ -1359,29 +1366,80 @@ def update_intake_delivery_status(lead_id, **fields):
 
 def enquiry_customer_email_html(data):
     replacements = template_context_for_enquiry(data)
-    text_body = render_simple_template(message_template("customer_enquiry_email")["body"], replacements)
-    logo_url = os.environ.get("CRM_LOGO_URL", "").strip()
-    logo_html = f'<img src="{html_lib.escape(logo_url)}" alt="The Carpet Cleaning Company" style="width:96px;height:auto;margin-bottom:18px">' if logo_url else ""
-    paragraphs = "".join(f"<p style='font-size:17px;line-height:1.55'>{html_lib.escape(part).replace(chr(10), '<br>')}</p>" for part in text_body.split("\n\n") if part.strip())
+    customer_name = html_lib.escape(replacements.get("{{name}}") or "there")
+    logo_url = os.environ.get("CRM_LOGO_URL", "").strip() or public_static_url("site/logo.webp")
+    hero_url = public_static_url("site/hero-carpet-cleaning.webp")
+    website_url = enquiry_public_site_url()
+    facebook_url = "https://www.facebook.com/profile.php?id=61559013150413"
+    reviews_url = "https://share.google/XHQjHHLwpmlugHP0c"
+    logo_html = f'<img src="{html_lib.escape(logo_url)}" alt="The Carpet Cleaning Company" width="92" style="display:block;width:92px;height:auto;border:0;margin:0 auto 14px">' if logo_url else ""
+    hero_html = f"""
+        <tr>
+          <td style="padding:0 28px 24px">
+            <img src="{html_lib.escape(hero_url)}" alt="Professional carpet cleaning" width="584" style="display:block;width:100%;max-width:584px;height:auto;border-radius:18px;border:0">
+          </td>
+        </tr>
+    """ if hero_url else ""
     return f"""<!doctype html>
-<html><body style="margin:0;background:#f3f7fb;font-family:Arial,Helvetica,sans-serif;color:#102033">
-  <div style="max-width:620px;margin:0 auto;padding:28px 16px">
-    <div style="background:#ffffff;border-radius:18px;padding:28px;border:1px solid #dbe7f2">
-      {logo_html}
-      <h1 style="margin:0 0 12px;font-size:28px;line-height:1.15;color:#092033">Thank you for your enquiry</h1>
-      {paragraphs}
-      <p style="margin:24px 0">
-        <a href="{enquiry_public_site_url()}" style="display:inline-block;background:#155fc5;color:#fff;text-decoration:none;padding:13px 18px;border-radius:10px;font-weight:bold">Visit website</a>
-      </p>
-      <p style="font-size:15px;line-height:1.6">
-        Phone: <a href="tel:07802563213">07802 563213</a><br>
-        Facebook: <a href="https://www.facebook.com/profile.php?id=61559013150413">The Carpet Cleaning Company</a><br>
-        Reviews: <a href="https://share.google/XHQjHHLwpmlugHP0c">Google reviews</a>
-      </p>
-      <p style="font-size:17px;line-height:1.55">Thanks<br>Paul<br>The Carpet Cleaning Company</p>
-    </div>
-  </div>
-</body></html>"""
+<html>
+<body style="margin:0;background:#eef4f8;font-family:Arial,Helvetica,sans-serif;color:#0b1f33">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#eef4f8;margin:0;padding:0">
+    <tr>
+      <td align="center" style="padding:28px 14px">
+        <table role="presentation" width="640" cellspacing="0" cellpadding="0" style="width:100%;max-width:640px;background:#ffffff;border-radius:24px;overflow:hidden;border:1px solid #d8e4ee;box-shadow:0 18px 48px rgba(12,31,51,.10)">
+          <tr>
+            <td align="center" style="background:#071524;padding:28px 28px 24px;color:#ffffff">
+              {logo_html}
+              <div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#e3bd66;font-weight:700">The Carpet Cleaning Company</div>
+              <h1 style="margin:12px 0 0;font-size:30px;line-height:1.15;color:#ffffff">Thanks for your enquiry, {customer_name}</h1>
+              <p style="margin:12px auto 0;max-width:500px;font-size:16px;line-height:1.55;color:#d9e7f2">We’ve received your message and will be in touch shortly.</p>
+            </td>
+          </tr>
+          {hero_html}
+          <tr>
+            <td style="padding:0 28px 8px">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f8fbfd;border:1px solid #dce8f1;border-radius:18px">
+                <tr>
+                  <td style="padding:22px">
+                    <h2 style="margin:0 0 10px;font-size:22px;line-height:1.25;color:#071524">Send photos for a faster quote</h2>
+                    <p style="margin:0;font-size:16px;line-height:1.65;color:#385066">If you can, please send a few photos of the areas you would like cleaned. Photos help us provide a faster and more accurate quotation.</p>
+                    <p style="margin:14px 0 0;font-size:16px;line-height:1.65;color:#385066">You can send photos by replying to this email, or by replying to our SMS message from your phone.</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:18px 28px 8px">
+              <p style="margin:0 0 16px;font-size:16px;line-height:1.65;color:#385066">While you wait, please follow us on Facebook to see our videos, recent work, and before-and-after photos. You can also read our Google reviews below.</p>
+              <table role="presentation" cellspacing="0" cellpadding="0">
+                <tr>
+                  <td style="padding:0 10px 10px 0"><a href="{html_lib.escape(facebook_url)}" style="display:inline-block;background:#165dcc;color:#ffffff;text-decoration:none;font-weight:700;font-size:15px;padding:13px 17px;border-radius:12px">Follow us on Facebook</a></td>
+                  <td style="padding:0 10px 10px 0"><a href="{html_lib.escape(reviews_url)}" style="display:inline-block;background:#0d7c61;color:#ffffff;text-decoration:none;font-weight:700;font-size:15px;padding:13px 17px;border-radius:12px">Read Google reviews</a></td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:10px 28px 26px">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-top:1px solid #dce8f1">
+                <tr>
+                  <td style="padding-top:20px;font-size:15px;line-height:1.65;color:#385066">
+                    <strong style="color:#071524">Paul Nicholas</strong><br>
+                    The Carpet Cleaning Company<br>
+                    <a href="tel:07802563213" style="color:#165dcc;text-decoration:none">07802 563213</a><br>
+                    <a href="{html_lib.escape(website_url)}" style="color:#165dcc;text-decoration:none">www.thecarpetcleaningcrew.co.uk</a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>"""
 
 
 def enquiry_customer_email_text(data):
@@ -2586,6 +2644,20 @@ def init_db():
             "Thank you for contacting The Carpet Cleaning Company. We have received your enquiry and Paul will call you from 07802 563213. Please follow us on Facebook to see our work: https://www.facebook.com/profile.php?id=61559013150413 Google reviews: https://share.google/XHQjHHLwpmlugHP0c",
             "Thank you for contacting The Carpet Cleaning Company. We have received your enquiry. Please follow us on Facebook to see our work: https://www.facebook.com/profile.php?id=61559013150413 Google reviews: https://share.google/XHQjHHLwpmlugHP0c",
         ),
+    )
+    conn.execute(
+        """UPDATE message_templates
+              SET body=?, updated_at=datetime('now')
+            WHERE template_key='customer_enquiry_email'
+              AND body LIKE '%Website: https://www.thecarpetcleaningcrew.co.uk%'""",
+        (DEFAULT_MESSAGE_TEMPLATES["customer_enquiry_email"]["body"],),
+    )
+    conn.execute(
+        """UPDATE message_templates
+              SET body=?, updated_at=datetime('now')
+            WHERE template_key='owner_enquiry_alert_sms'
+              AND body LIKE 'New website enquiry for The Carpet Cleaning Company.%'""",
+        (DEFAULT_MESSAGE_TEMPLATES["owner_enquiry_alert_sms"]["body"],),
     )
     conn.commit()
     conn.close()
