@@ -1493,7 +1493,10 @@ def send_env_email(to_email, subject, text_body, html_body="", customer=None):
                 server.sendmail(sender, recipients, msg.as_string())
         return True, f"Email sent to {', '.join(recipients)}."
     except Exception as exc:
-        return False, str(exc)
+        fallback_ok, fallback_msg = send_email_smtp(to_email, subject, html_body or text_body, customer=customer)
+        if fallback_ok:
+            return True, fallback_msg
+        return False, f"{exc} CRM Gmail fallback also failed: {fallback_msg}"
 
 
 def send_clicksend_email(to_email, subject, text_body, html_body=""):
