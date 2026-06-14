@@ -1377,11 +1377,11 @@ def enquiry_customer_email_html(data):
     postcode = html_lib.escape(clean_str(data.get("postcode") or "Not supplied"))
     preferred_date = html_lib.escape(clean_str(data.get("preferred_date") or "Not supplied"))
     message = html_lib.escape(clean_str(data.get("message") or "No extra message supplied."))
-    logo_html = f'<img src="{html_lib.escape(logo_url)}" alt="The Carpet Cleaning Company" width="92" style="display:block;width:92px;height:auto;border:0;margin:0 auto 14px">' if logo_url else ""
+    logo_html = f'<img src="{html_lib.escape(logo_url)}" alt="The Carpet Cleaning Company" width="74" style="display:block;width:74px;height:auto;border:0;margin:0 14px 0 0">' if logo_url else ""
     hero_html = f"""
         <tr>
-          <td style="padding:0 28px 24px">
-            <img src="{html_lib.escape(hero_url)}" alt="Professional carpet cleaning" width="584" style="display:block;width:100%;max-width:584px;height:auto;border-radius:18px;border:0">
+          <td style="padding:0 30px 22px">
+            <img src="{html_lib.escape(hero_url)}" alt="Professional carpet cleaning" width="580" style="display:block;width:100%;max-width:580px;height:auto;border-radius:16px;border:0">
           </td>
         </tr>
     """ if hero_url else ""
@@ -1392,41 +1392,40 @@ def enquiry_customer_email_html(data):
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#eef4f8;margin:0;padding:0">
     <tr>
       <td align="center" style="padding:28px 14px">
-        <table role="presentation" width="640" cellspacing="0" cellpadding="0" style="width:100%;max-width:640px;background:#ffffff;border-radius:24px;overflow:hidden;border:1px solid #d8e4ee;box-shadow:0 18px 48px rgba(12,31,51,.10)">
+        <table role="presentation" width="640" cellspacing="0" cellpadding="0" style="width:100%;max-width:640px;background:#ffffff;border-radius:22px;overflow:hidden;border:1px solid #d8e4ee;box-shadow:0 18px 48px rgba(12,31,51,.10)">
           <tr>
-            <td align="center" style="background:#071524;padding:30px 28px 26px;color:#ffffff">
-              {logo_html}
-              <div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#e3bd66;font-weight:700">The Carpet Cleaning Company</div>
-              <h1 style="margin:12px 0 0;font-size:32px;line-height:1.15;color:#ffffff">Thanks for your enquiry, {customer_name}</h1>
-              <p style="margin:12px auto 0;max-width:520px;font-size:17px;line-height:1.58;color:#d9e7f2">We have received your message and will be in touch shortly to help with your quote.</p>
+            <td style="background:#ffffff;padding:26px 30px 18px;color:#071524">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                <tr>
+                  <td width="88" valign="middle">{logo_html}</td>
+                  <td valign="middle">
+                    <div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#b8872f;font-weight:700">The Carpet Cleaning Company</div>
+                    <h1 style="margin:7px 0 0;font-size:28px;line-height:1.18;color:#071524">Thanks, {customer_name}</h1>
+                    <p style="margin:8px 0 0;font-size:16px;line-height:1.55;color:#385066">We have received your enquiry and will be in touch shortly.</p>
+                  </td>
+                </tr>
+              </table>
             </td>
           </tr>
           {hero_html}
           <tr>
-            <td style="padding:0 28px 10px">
-              <h2 style="margin:0 0 10px;font-size:23px;line-height:1.25;color:#071524">Professional cleaning, quoted properly</h2>
-              <p style="margin:0;font-size:16px;line-height:1.65;color:#385066">We provide professional carpet cleaning, upholstery cleaning and stain treatment services. Every job is different, so we look at the fabric, condition, staining and access before advising on the best option.</p>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:0 28px 8px">
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f8fbfd;border:1px solid #dce8f1;border-radius:18px">
+            <td style="padding:0 30px 8px">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f8fbfd;border:1px solid #dce8f1;border-radius:16px">
                 <tr>
-                  <td style="padding:22px">
-                    <h2 style="margin:0 0 10px;font-size:22px;line-height:1.25;color:#071524">Send photos for a faster, more accurate quote</h2>
-                    <p style="margin:0;font-size:16px;line-height:1.65;color:#385066">If you can, please send photos of anything you would like us to quote for: carpets, upholstery, stains, heavy soiling, pet marks, traffic lanes, rugs, stairs, hallways, sofas or chairs.</p>
-                    <p style="margin:14px 0 0;font-size:16px;line-height:1.65;color:#385066">You can send photos by replying to this email, or by replying to our SMS message from your phone.</p>
-                    <p style="margin:14px 0 0;font-size:16px;line-height:1.65;color:#385066">Photos help us understand the carpet or upholstery type, the condition, the stains and the best cleaning approach. We can then recommend the most suitable option and discuss the best way to get the best result for your budget.</p>
+                  <td style="padding:20px">
+                    <h2 style="margin:0 0 10px;font-size:21px;line-height:1.25;color:#071524">A quick note before we quote</h2>
+                    <p style="margin:0;font-size:16px;line-height:1.65;color:#385066">We clean carpets, upholstery and stains professionally, and every job is a little different. Photos help us see the fabric, condition, staining, traffic lanes, pet marks and access before recommending the best approach.</p>
+                    <p style="margin:13px 0 0;font-size:16px;line-height:1.65;color:#385066">Please reply with any photos you have, or send them back through the SMS. It helps us quote faster and more accurately.</p>
                   </td>
                 </tr>
               </table>
             </td>
           </tr>
           <tr>
-            <td style="padding:10px 28px 8px">
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #dce8f1;border-radius:18px;overflow:hidden">
+            <td style="padding:10px 30px 8px">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #dce8f1;border-radius:16px;overflow:hidden">
                 <tr>
-                  <td colspan="2" style="background:#071524;color:#ffffff;padding:16px 20px;font-size:18px;font-weight:700">Your enquiry summary</td>
+                  <td colspan="2" style="background:#f3f8fb;color:#071524;padding:15px 20px;font-size:17px;font-weight:700">Your enquiry summary</td>
                 </tr>
                 <tr>
                   <td style="width:38%;padding:14px 20px;border-top:1px solid #dce8f1;color:#5c7187;font-size:14px">Service</td>
@@ -1452,31 +1451,31 @@ def enquiry_customer_email_html(data):
             </td>
           </tr>
           <tr>
-            <td style="padding:10px 28px 8px">
+            <td style="padding:10px 30px 8px">
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
                 <tr>
-                  <td style="padding:16px 16px;background:#fff8e8;border:1px solid #efd28a;border-radius:16px">
+                  <td style="padding:17px 18px;background:#fff8e8;border:1px solid #efd28a;border-radius:16px">
                     <h2 style="margin:0 0 10px;font-size:20px;line-height:1.25;color:#071524">What happens next?</h2>
-                    <p style="margin:0;font-size:15px;line-height:1.6;color:#385066"><strong>1.</strong> We review your enquiry and any photos you send.<br><strong>2.</strong> We advise on the most suitable cleaning approach.<br><strong>3.</strong> We discuss price, availability and the best way to get the result you want.</p>
+                    <p style="margin:0;font-size:15px;line-height:1.65;color:#385066"><strong>1.</strong> We review the details and photos.<br><strong>2.</strong> We advise on the most suitable clean.<br><strong>3.</strong> We discuss price, availability and the best way forward.</p>
                   </td>
                 </tr>
               </table>
             </td>
           </tr>
           <tr>
-            <td style="padding:18px 28px 8px">
-              <p style="margin:0 0 16px;font-size:16px;line-height:1.65;color:#385066">While you wait, please take a look at, like and follow our Facebook page to see our videos, recent work, before-and-after photos and customer feedback. You can also read our Google reviews below.</p>
+            <td style="padding:18px 30px 8px">
+              <p style="margin:0 0 16px;font-size:16px;line-height:1.65;color:#385066">While you wait, you can see our recent videos, before-and-after photos and customer feedback here:</p>
               <table role="presentation" cellspacing="0" cellpadding="0">
                 <tr>
-                  <td style="padding:0 10px 10px 0"><a href="{html_lib.escape(facebook_url)}" style="display:inline-block;background:#165dcc;color:#ffffff;text-decoration:none;font-weight:700;font-size:15px;padding:13px 17px;border-radius:12px">Follow us on Facebook</a></td>
-                  <td style="padding:0 10px 10px 0"><a href="{html_lib.escape(reviews_url)}" style="display:inline-block;background:#0d7c61;color:#ffffff;text-decoration:none;font-weight:700;font-size:15px;padding:13px 17px;border-radius:12px">Read Google reviews</a></td>
-                  <td style="padding:0 10px 10px 0"><a href="{html_lib.escape(website_url)}" style="display:inline-block;background:#071524;color:#ffffff;text-decoration:none;font-weight:700;font-size:15px;padding:13px 17px;border-radius:12px">Visit website</a></td>
+                  <td style="padding:0 8px 10px 0"><a href="{html_lib.escape(facebook_url)}" style="display:inline-block;background:#1559b8;color:#ffffff;text-decoration:none;font-weight:700;font-size:15px;padding:12px 15px;border-radius:10px">Facebook</a></td>
+                  <td style="padding:0 8px 10px 0"><a href="{html_lib.escape(reviews_url)}" style="display:inline-block;background:#0d7c61;color:#ffffff;text-decoration:none;font-weight:700;font-size:15px;padding:12px 15px;border-radius:10px">Google reviews</a></td>
+                  <td style="padding:0 8px 10px 0"><a href="{html_lib.escape(website_url)}" style="display:inline-block;background:#071524;color:#ffffff;text-decoration:none;font-weight:700;font-size:15px;padding:12px 15px;border-radius:10px">Website</a></td>
                 </tr>
               </table>
             </td>
           </tr>
           <tr>
-            <td style="padding:10px 28px 26px">
+            <td style="padding:10px 30px 26px">
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-top:1px solid #dce8f1">
                 <tr>
                   <td style="padding-top:20px;font-size:15px;line-height:1.65;color:#385066">
