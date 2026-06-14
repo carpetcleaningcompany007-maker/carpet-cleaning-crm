@@ -1372,6 +1372,11 @@ def enquiry_customer_email_html(data):
     website_url = enquiry_public_site_url()
     facebook_url = "https://www.facebook.com/profile.php?id=61559013150413"
     reviews_url = "https://share.google/XHQjHHLwpmlugHP0c"
+    service = html_lib.escape(clean_str(data.get("service_required") or data.get("service") or "Cleaning enquiry"))
+    rooms = html_lib.escape(clean_str(data.get("rooms") or data.get("rooms_or_items") or "Not supplied"))
+    postcode = html_lib.escape(clean_str(data.get("postcode") or "Not supplied"))
+    preferred_date = html_lib.escape(clean_str(data.get("preferred_date") or "Not supplied"))
+    message = html_lib.escape(clean_str(data.get("message") or "No extra message supplied."))
     logo_html = f'<img src="{html_lib.escape(logo_url)}" alt="The Carpet Cleaning Company" width="92" style="display:block;width:92px;height:auto;border:0;margin:0 auto 14px">' if logo_url else ""
     hero_html = f"""
         <tr>
@@ -1383,16 +1388,17 @@ def enquiry_customer_email_html(data):
     return f"""<!doctype html>
 <html>
 <body style="margin:0;background:#eef4f8;font-family:Arial,Helvetica,sans-serif;color:#0b1f33">
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent">We have received your enquiry. Please send photos if you can so we can quote accurately.</div>
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#eef4f8;margin:0;padding:0">
     <tr>
       <td align="center" style="padding:28px 14px">
         <table role="presentation" width="640" cellspacing="0" cellpadding="0" style="width:100%;max-width:640px;background:#ffffff;border-radius:24px;overflow:hidden;border:1px solid #d8e4ee;box-shadow:0 18px 48px rgba(12,31,51,.10)">
           <tr>
-            <td align="center" style="background:#071524;padding:28px 28px 24px;color:#ffffff">
+            <td align="center" style="background:#071524;padding:30px 28px 26px;color:#ffffff">
               {logo_html}
               <div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#e3bd66;font-weight:700">The Carpet Cleaning Company</div>
-              <h1 style="margin:12px 0 0;font-size:30px;line-height:1.15;color:#ffffff">Thanks for your enquiry, {customer_name}</h1>
-              <p style="margin:12px auto 0;max-width:520px;font-size:16px;line-height:1.55;color:#d9e7f2">We’ve received your message and will be in touch shortly.</p>
+              <h1 style="margin:12px 0 0;font-size:32px;line-height:1.15;color:#ffffff">Thanks for your enquiry, {customer_name}</h1>
+              <p style="margin:12px auto 0;max-width:520px;font-size:17px;line-height:1.58;color:#d9e7f2">We have received your message and will be in touch shortly to help with your quote.</p>
             </td>
           </tr>
           {hero_html}
@@ -1417,12 +1423,54 @@ def enquiry_customer_email_html(data):
             </td>
           </tr>
           <tr>
+            <td style="padding:10px 28px 8px">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #dce8f1;border-radius:18px;overflow:hidden">
+                <tr>
+                  <td colspan="2" style="background:#071524;color:#ffffff;padding:16px 20px;font-size:18px;font-weight:700">Your enquiry summary</td>
+                </tr>
+                <tr>
+                  <td style="width:38%;padding:14px 20px;border-top:1px solid #dce8f1;color:#5c7187;font-size:14px">Service</td>
+                  <td style="padding:14px 20px;border-top:1px solid #dce8f1;color:#071524;font-size:15px;font-weight:700">{service}</td>
+                </tr>
+                <tr>
+                  <td style="padding:14px 20px;border-top:1px solid #dce8f1;color:#5c7187;font-size:14px">Rooms/items</td>
+                  <td style="padding:14px 20px;border-top:1px solid #dce8f1;color:#071524;font-size:15px">{rooms}</td>
+                </tr>
+                <tr>
+                  <td style="padding:14px 20px;border-top:1px solid #dce8f1;color:#5c7187;font-size:14px">Postcode</td>
+                  <td style="padding:14px 20px;border-top:1px solid #dce8f1;color:#071524;font-size:15px">{postcode}</td>
+                </tr>
+                <tr>
+                  <td style="padding:14px 20px;border-top:1px solid #dce8f1;color:#5c7187;font-size:14px">Preferred date</td>
+                  <td style="padding:14px 20px;border-top:1px solid #dce8f1;color:#071524;font-size:15px">{preferred_date}</td>
+                </tr>
+                <tr>
+                  <td style="padding:14px 20px;border-top:1px solid #dce8f1;color:#5c7187;font-size:14px">Message</td>
+                  <td style="padding:14px 20px;border-top:1px solid #dce8f1;color:#071524;font-size:15px;line-height:1.5">{message}</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:10px 28px 8px">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                <tr>
+                  <td style="padding:16px 16px;background:#fff8e8;border:1px solid #efd28a;border-radius:16px">
+                    <h2 style="margin:0 0 10px;font-size:20px;line-height:1.25;color:#071524">What happens next?</h2>
+                    <p style="margin:0;font-size:15px;line-height:1.6;color:#385066"><strong>1.</strong> We review your enquiry and any photos you send.<br><strong>2.</strong> We advise on the most suitable cleaning approach.<br><strong>3.</strong> We discuss price, availability and the best way to get the result you want.</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
             <td style="padding:18px 28px 8px">
               <p style="margin:0 0 16px;font-size:16px;line-height:1.65;color:#385066">While you wait, please take a look at, like and follow our Facebook page to see our videos, recent work, before-and-after photos and customer feedback. You can also read our Google reviews below.</p>
               <table role="presentation" cellspacing="0" cellpadding="0">
                 <tr>
                   <td style="padding:0 10px 10px 0"><a href="{html_lib.escape(facebook_url)}" style="display:inline-block;background:#165dcc;color:#ffffff;text-decoration:none;font-weight:700;font-size:15px;padding:13px 17px;border-radius:12px">Follow us on Facebook</a></td>
                   <td style="padding:0 10px 10px 0"><a href="{html_lib.escape(reviews_url)}" style="display:inline-block;background:#0d7c61;color:#ffffff;text-decoration:none;font-weight:700;font-size:15px;padding:13px 17px;border-radius:12px">Read Google reviews</a></td>
+                  <td style="padding:0 10px 10px 0"><a href="{html_lib.escape(website_url)}" style="display:inline-block;background:#071524;color:#ffffff;text-decoration:none;font-weight:700;font-size:15px;padding:13px 17px;border-radius:12px">Visit website</a></td>
                 </tr>
               </table>
             </td>
