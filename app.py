@@ -1377,7 +1377,7 @@ def enquiry_customer_email_html(data):
     postcode = html_lib.escape(clean_str(data.get("postcode") or "Not supplied"))
     preferred_date = html_lib.escape(clean_str(data.get("preferred_date") or "Not supplied"))
     message = html_lib.escape(clean_str(data.get("message") or "No extra message supplied."))
-    logo_html = f'<img src="{html_lib.escape(logo_url)}" alt="The Carpet Cleaning Company" width="74" style="display:block;width:74px;height:auto;border:0;margin:0 14px 0 0">' if logo_url else ""
+    logo_html = f'<img src="{html_lib.escape(logo_url)}" alt="The Carpet Cleaning Company" width="86" style="display:block;width:86px;height:auto;border:0;margin:0">' if logo_url else ""
     hero_html = f"""
         <tr>
           <td style="padding:0 30px 22px">
@@ -1394,14 +1394,23 @@ def enquiry_customer_email_html(data):
       <td align="center" style="padding:28px 14px">
         <table role="presentation" width="640" cellspacing="0" cellpadding="0" style="width:100%;max-width:640px;background:#ffffff;border-radius:22px;overflow:hidden;border:1px solid #d8e4ee;box-shadow:0 18px 48px rgba(12,31,51,.10)">
           <tr>
-            <td style="background:#ffffff;padding:26px 30px 18px;color:#071524">
+            <td style="height:8px;background:linear-gradient(90deg,#071524 0%,#0f4a5a 50%,#d8af55 100%);font-size:0;line-height:0">&nbsp;</td>
+          </tr>
+          <tr>
+            <td style="background:#fbf7ee;padding:26px 30px 22px;color:#071524;border-bottom:1px solid #eadfcb">
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
                 <tr>
-                  <td width="88" valign="middle">{logo_html}</td>
+                  <td width="112" valign="middle">
+                    <table role="presentation" cellspacing="0" cellpadding="0" style="background:#ffffff;border:1px solid #ead6a8;border-radius:999px;box-shadow:0 10px 24px rgba(7,21,36,.10)">
+                      <tr>
+                        <td style="padding:10px">{logo_html}</td>
+                      </tr>
+                    </table>
+                  </td>
                   <td valign="middle">
-                    <div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#b8872f;font-weight:700">The Carpet Cleaning Company</div>
-                    <h1 style="margin:7px 0 0;font-size:28px;line-height:1.18;color:#071524">Thanks, {customer_name}</h1>
-                    <p style="margin:8px 0 0;font-size:16px;line-height:1.55;color:#385066">We have received your enquiry and will be in touch shortly.</p>
+                    <div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#9a6d20;font-weight:700">The Carpet Cleaning Company</div>
+                    <h1 style="margin:7px 0 0;font-size:29px;line-height:1.18;color:#071524">Thanks, {customer_name}</h1>
+                    <p style="margin:8px 0 0;font-size:16px;line-height:1.55;color:#385066">Your enquiry has arrived safely. We’ll review the details and come back to you shortly.</p>
                   </td>
                 </tr>
               </table>
@@ -1422,7 +1431,7 @@ def enquiry_customer_email_html(data):
             </td>
           </tr>
           <tr>
-            <td style="padding:10px 30px 8px">
+            <td style="padding:12px 30px 8px">
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #dce8f1;border-radius:16px;overflow:hidden">
                 <tr>
                   <td colspan="2" style="background:#f3f8fb;color:#071524;padding:15px 20px;font-size:17px;font-weight:700">Your enquiry summary</td>
@@ -1451,10 +1460,10 @@ def enquiry_customer_email_html(data):
             </td>
           </tr>
           <tr>
-            <td style="padding:10px 30px 8px">
+            <td style="padding:12px 30px 8px">
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
                 <tr>
-                  <td style="padding:17px 18px;background:#fff8e8;border:1px solid #efd28a;border-radius:16px">
+                  <td style="padding:17px 18px;background:#fff8e8;border:1px solid #efd28a;border-radius:16px;border-left:5px solid #d8af55">
                     <h2 style="margin:0 0 10px;font-size:20px;line-height:1.25;color:#071524">What happens next?</h2>
                     <p style="margin:0;font-size:15px;line-height:1.65;color:#385066"><strong>1.</strong> We review the details and photos.<br><strong>2.</strong> We advise on the most suitable clean.<br><strong>3.</strong> We discuss price, availability and the best way forward.</p>
                   </td>
@@ -1467,9 +1476,9 @@ def enquiry_customer_email_html(data):
               <p style="margin:0 0 16px;font-size:16px;line-height:1.65;color:#385066">While you wait, you can see our recent videos, before-and-after photos and customer feedback here:</p>
               <table role="presentation" cellspacing="0" cellpadding="0">
                 <tr>
-                  <td style="padding:0 8px 10px 0"><a href="{html_lib.escape(facebook_url)}" style="display:inline-block;background:#1559b8;color:#ffffff;text-decoration:none;font-weight:700;font-size:15px;padding:12px 15px;border-radius:10px">Facebook</a></td>
-                  <td style="padding:0 8px 10px 0"><a href="{html_lib.escape(reviews_url)}" style="display:inline-block;background:#0d7c61;color:#ffffff;text-decoration:none;font-weight:700;font-size:15px;padding:12px 15px;border-radius:10px">Google reviews</a></td>
-                  <td style="padding:0 8px 10px 0"><a href="{html_lib.escape(website_url)}" style="display:inline-block;background:#071524;color:#ffffff;text-decoration:none;font-weight:700;font-size:15px;padding:12px 15px;border-radius:10px">Website</a></td>
+                  <td style="padding:0 8px 10px 0"><a href="{html_lib.escape(facebook_url)}" style="display:inline-block;background:#1457a8;color:#ffffff;text-decoration:none;font-weight:700;font-size:15px;padding:12px 15px;border-radius:10px">Facebook</a></td>
+                  <td style="padding:0 8px 10px 0"><a href="{html_lib.escape(reviews_url)}" style="display:inline-block;background:#0f7b63;color:#ffffff;text-decoration:none;font-weight:700;font-size:15px;padding:12px 15px;border-radius:10px">Google reviews</a></td>
+                  <td style="padding:0 8px 10px 0"><a href="{html_lib.escape(website_url)}" style="display:inline-block;background:#d8af55;color:#071524;text-decoration:none;font-weight:700;font-size:15px;padding:12px 15px;border-radius:10px">Website</a></td>
                 </tr>
               </table>
             </td>
