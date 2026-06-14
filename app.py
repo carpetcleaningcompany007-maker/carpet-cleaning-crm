@@ -3489,11 +3489,11 @@ def today_run_job_action(job_id):
         subject = subject_map[action]
         if channel == "email":
             email_body = day_run_email_html(action, job, body)
-            ok, msg = send_email_smtp(job["email"] or "", subject, email_body, customer=job)
+            ok, msg = send_env_email(job["email"] or "", subject, body, email_body, customer=job)
             if ok:
                 log_customer_message(customer_id, "Email", subject, body)
         elif channel == "sms":
-            ok, msg = send_sms_gateway(job["phone"] or "", body, customer=job, message_category="review" if action == "review" else "reminder")
+            ok, msg = send_clicksend_env_sms(job["phone"] or "", body, customer=job, category="review" if action == "review" else "reminder")
             if ok:
                 log_customer_message(customer_id, "SMS", subject, body)
         else:
