@@ -1277,8 +1277,8 @@ def public_static_url(filename):
 DEFAULT_MESSAGE_TEMPLATES = {
     "customer_enquiry_email": {
         "name": "Customer enquiry email",
-        "subject": "Thank you for your enquiry",
-        "body": "Hi {{name}},\n\nThank you for contacting The Carpet Cleaning Company.\n\nWe’ve received your enquiry and will be in touch shortly.\n\nTo help us prepare a faster and more accurate quotation, please send a few photos of the areas you would like cleaned. You can reply to this email with photos, or reply to our SMS message from your phone.\n\nWhile you wait, you can see recent videos, before-and-after photos, and customer feedback here:\nFacebook: https://www.facebook.com/profile.php?id=61559013150413\nGoogle Reviews: https://share.google/XHQjHHLwpmlugHP0c\nWebsite: https://www.thecarpetcleaningcrew.co.uk\n\nThank you for considering The Carpet Cleaning Company.\n\nPaul Nicholas\nThe Carpet Cleaning Company\n07802 563213\nwww.thecarpetcleaningcrew.co.uk",
+        "subject": "Thank you for contacting The Carpet Cleaning Company",
+        "body": "Hi {{name}},\n\nThank you for contacting The Carpet Cleaning Company.\n\nWe’ve received your enquiry and will be in touch shortly.\n\nWe provide professional carpet cleaning, upholstery cleaning and stain treatment services, with the aim of choosing the right cleaning approach for each job rather than guessing from a short message.\n\nIf you can, please send photos of the areas you would like us to quote for. This can include carpets, upholstery, stains, heavy soiling, pet marks, traffic lanes, rugs, stairs, hallways, sofas, chairs, or anything else you would like cleaned.\n\nPhotos help us understand the carpet or upholstery type, the condition, the stains, and the best cleaning method. We can then advise on the most suitable cleaning option and discuss the best way to get the best result for your budget.\n\nYou can send photos by replying to this email, or by replying to our SMS message from your phone.\n\nWhile you wait, please take a look at, like and follow our Facebook page to see our videos, recent work, before-and-after photos, and customer feedback:\nFacebook: https://www.facebook.com/profile.php?id=61559013150413\nGoogle Reviews: https://share.google/XHQjHHLwpmlugHP0c\nWebsite: https://www.thecarpetcleaningcrew.co.uk\n\nThank you for considering The Carpet Cleaning Company.\n\nPaul Nicholas\nThe Carpet Cleaning Company\n07802 563213\nwww.thecarpetcleaningcrew.co.uk",
     },
     "customer_enquiry_sms": {
         "name": "Customer enquiry SMS",
@@ -1392,18 +1392,25 @@ def enquiry_customer_email_html(data):
               {logo_html}
               <div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#e3bd66;font-weight:700">The Carpet Cleaning Company</div>
               <h1 style="margin:12px 0 0;font-size:30px;line-height:1.15;color:#ffffff">Thanks for your enquiry, {customer_name}</h1>
-              <p style="margin:12px auto 0;max-width:500px;font-size:16px;line-height:1.55;color:#d9e7f2">We’ve received your message and will be in touch shortly.</p>
+              <p style="margin:12px auto 0;max-width:520px;font-size:16px;line-height:1.55;color:#d9e7f2">We’ve received your message and will be in touch shortly.</p>
             </td>
           </tr>
           {hero_html}
+          <tr>
+            <td style="padding:0 28px 10px">
+              <h2 style="margin:0 0 10px;font-size:23px;line-height:1.25;color:#071524">Professional cleaning, quoted properly</h2>
+              <p style="margin:0;font-size:16px;line-height:1.65;color:#385066">We provide professional carpet cleaning, upholstery cleaning and stain treatment services. Every job is different, so we look at the fabric, condition, staining and access before advising on the best option.</p>
+            </td>
+          </tr>
           <tr>
             <td style="padding:0 28px 8px">
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f8fbfd;border:1px solid #dce8f1;border-radius:18px">
                 <tr>
                   <td style="padding:22px">
-                    <h2 style="margin:0 0 10px;font-size:22px;line-height:1.25;color:#071524">Send photos for a faster quote</h2>
-                    <p style="margin:0;font-size:16px;line-height:1.65;color:#385066">If you can, please send a few photos of the areas you would like cleaned. Photos help us provide a faster and more accurate quotation.</p>
+                    <h2 style="margin:0 0 10px;font-size:22px;line-height:1.25;color:#071524">Send photos for a faster, more accurate quote</h2>
+                    <p style="margin:0;font-size:16px;line-height:1.65;color:#385066">If you can, please send photos of anything you would like us to quote for: carpets, upholstery, stains, heavy soiling, pet marks, traffic lanes, rugs, stairs, hallways, sofas or chairs.</p>
                     <p style="margin:14px 0 0;font-size:16px;line-height:1.65;color:#385066">You can send photos by replying to this email, or by replying to our SMS message from your phone.</p>
+                    <p style="margin:14px 0 0;font-size:16px;line-height:1.65;color:#385066">Photos help us understand the carpet or upholstery type, the condition, the stains and the best cleaning approach. We can then recommend the most suitable option and discuss the best way to get the best result for your budget.</p>
                   </td>
                 </tr>
               </table>
@@ -1411,7 +1418,7 @@ def enquiry_customer_email_html(data):
           </tr>
           <tr>
             <td style="padding:18px 28px 8px">
-              <p style="margin:0 0 16px;font-size:16px;line-height:1.65;color:#385066">While you wait, please follow us on Facebook to see our videos, recent work, and before-and-after photos. You can also read our Google reviews below.</p>
+              <p style="margin:0 0 16px;font-size:16px;line-height:1.65;color:#385066">While you wait, please take a look at, like and follow our Facebook page to see our videos, recent work, before-and-after photos and customer feedback. You can also read our Google reviews below.</p>
               <table role="presentation" cellspacing="0" cellpadding="0">
                 <tr>
                   <td style="padding:0 10px 10px 0"><a href="{html_lib.escape(facebook_url)}" style="display:inline-block;background:#165dcc;color:#ffffff;text-decoration:none;font-weight:700;font-size:15px;padding:13px 17px;border-radius:12px">Follow us on Facebook</a></td>
@@ -1611,6 +1618,7 @@ def run_website_enquiry_automation(lead_id, customer_id, data):
         ok, msg = send_env_email(customer_email, subject, enquiry_customer_email_text(data), enquiry_customer_email_html(data), customer=customer)
         update_intake_delivery_status(lead_id, customer_email_status=status_text(ok, msg))
         run("INSERT INTO communications(customer_id, channel, subject, body, created_at) VALUES (?,?,?,?,datetime('now'))", (customer_id, "Email", "Customer enquiry thank you", enquiry_customer_email_text(data)))
+        run("INSERT INTO customer_timeline(customer_id, note_text, created_at) VALUES (?,?,datetime('now'))", (customer_id, ("Customer welcome email sent. " if ok else "Customer welcome email failed. ") + clean_str(msg)))
         results["customer_email"] = (ok, msg)
     else:
         update_intake_delivery_status(lead_id, customer_email_status=status_text(False, "No customer email supplied", skipped=True))
@@ -2688,10 +2696,18 @@ def init_db():
     )
     conn.execute(
         """UPDATE message_templates
-              SET body=?, updated_at=datetime('now')
+              SET subject=?, body=?, updated_at=datetime('now')
             WHERE template_key='customer_enquiry_email'
-              AND body LIKE '%Website: https://www.thecarpetcleaningcrew.co.uk%'""",
-        (DEFAULT_MESSAGE_TEMPLATES["customer_enquiry_email"]["body"],),
+              AND (
+                    body LIKE '%Website: https://www.thecarpetcleaningcrew.co.uk%'
+                 OR body LIKE '%To help us prepare a faster and more accurate quotation%'
+                 OR body LIKE '%please send a few photos%'
+                 OR body LIKE '%Thank you for your enquiry. We have received your message%'
+              )""",
+        (
+            DEFAULT_MESSAGE_TEMPLATES["customer_enquiry_email"]["subject"],
+            DEFAULT_MESSAGE_TEMPLATES["customer_enquiry_email"]["body"],
+        ),
     )
     conn.execute(
         """UPDATE message_templates
