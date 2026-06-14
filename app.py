@@ -1459,7 +1459,8 @@ def send_env_email(to_email, subject, text_body, html_body="", customer=None):
         return clicksend_ok, clicksend_msg
     host = os.environ.get("SMTP_HOST", "").strip() or "smtp.gmail.com"
     user = os.environ.get("SMTP_USER", "").strip()
-    password = re.sub(r"\s+", "", os.environ.get("SMTP_PASSWORD", "").strip())
+    password_raw = os.environ.get("SMTP_PASSWORD", "").strip()
+    password = re.sub(r"\s+", "", password_raw)
     port = int(os.environ.get("SMTP_PORT", "465") or 465)
     sender = os.environ.get("SMTP_FROM", "").strip() or user
     from_name = os.environ.get("SMTP_FROM_NAME", "The Carpet Cleaning Company").strip()
@@ -1496,7 +1497,9 @@ def send_env_email(to_email, subject, text_body, html_body="", customer=None):
         fallback_ok, fallback_msg = send_email_smtp(to_email, subject, html_body or text_body, customer=customer)
         if fallback_ok:
             return True, fallback_msg
-        return False, f"{exc} CRM Gmail fallback also failed: {fallback_msg}"
+        smtp_user_hint = user if "@" in user else ("set" if user else "missing")
+        smtp_debug = f"SMTP user: {smtp_user_hint}; app password length after spaces removed: {len(password)}."
+        return False, f"{exc} {smtp_debug} CRM Gmail fallback also failed: {fallback_msg}"
 
 
 def send_clicksend_email(to_email, subject, text_body, html_body=""):
