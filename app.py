@@ -1459,7 +1459,7 @@ def send_env_email(to_email, subject, text_body, html_body="", customer=None):
         return clicksend_ok, clicksend_msg
     host = os.environ.get("SMTP_HOST", "").strip() or "smtp.gmail.com"
     user = os.environ.get("SMTP_USER", "").strip()
-    password = os.environ.get("SMTP_PASSWORD", "").strip()
+    password = re.sub(r"\s+", "", os.environ.get("SMTP_PASSWORD", "").strip())
     port = int(os.environ.get("SMTP_PORT", "465") or 465)
     sender = os.environ.get("SMTP_FROM", "").strip() or user
     from_name = os.environ.get("SMTP_FROM_NAME", "The Carpet Cleaning Company").strip()
