@@ -1367,7 +1367,7 @@ def update_intake_delivery_status(lead_id, **fields):
 def enquiry_customer_email_html(data):
     replacements = template_context_for_enquiry(data)
     customer_name = html_lib.escape(replacements.get("{{name}}") or "there")
-    logo_url = os.environ.get("CRM_LOGO_URL", "").strip() or public_static_url("site/logo.webp")
+    logo_url = os.environ.get("CRM_EMAIL_LOGO_URL", "").strip() or public_static_url("site/email-logo.png")
     hero_url = public_static_url("site/hero-carpet-cleaning.webp")
     website_url = enquiry_public_site_url()
     facebook_url = "https://www.facebook.com/profile.php?id=61559013150413"
@@ -1377,7 +1377,7 @@ def enquiry_customer_email_html(data):
     postcode = html_lib.escape(clean_str(data.get("postcode") or "Not supplied"))
     preferred_date = html_lib.escape(clean_str(data.get("preferred_date") or "Not supplied"))
     message = html_lib.escape(clean_str(data.get("message") or "No extra message supplied."))
-    logo_html = f'<img src="{html_lib.escape(logo_url)}" alt="The Carpet Cleaning Company" width="86" style="display:block;width:86px;height:auto;border:0;margin:0">' if logo_url else ""
+    logo_html = f'<img src="{html_lib.escape(logo_url)}" alt="The Carpet Cleaning Company" width="104" style="display:block;width:104px;height:auto;border:0;margin:0 auto">' if logo_url else ""
     hero_html = f"""
         <tr>
           <td style="padding:0 30px 22px">
@@ -1397,20 +1397,18 @@ def enquiry_customer_email_html(data):
             <td style="height:8px;background:linear-gradient(90deg,#071524 0%,#0f4a5a 50%,#d8af55 100%);font-size:0;line-height:0">&nbsp;</td>
           </tr>
           <tr>
-            <td style="background:#fbf7ee;padding:26px 30px 22px;color:#071524;border-bottom:1px solid #eadfcb">
+            <td align="center" style="background:#fbf7ee;padding:26px 30px 24px;color:#071524;border-bottom:1px solid #eadfcb">
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
                 <tr>
-                  <td width="112" valign="middle">
-                    <table role="presentation" cellspacing="0" cellpadding="0" style="background:#ffffff;border:1px solid #ead6a8;border-radius:999px;box-shadow:0 10px 24px rgba(7,21,36,.10)">
+                  <td align="center">
+                    <table role="presentation" cellspacing="0" cellpadding="0" style="background:#ffffff;border:1px solid #ead6a8;border-radius:999px;box-shadow:0 10px 24px rgba(7,21,36,.10);margin:0 auto 14px">
                       <tr>
-                        <td style="padding:10px">{logo_html}</td>
+                        <td style="padding:12px">{logo_html}</td>
                       </tr>
                     </table>
-                  </td>
-                  <td valign="middle">
                     <div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#9a6d20;font-weight:700">The Carpet Cleaning Company</div>
-                    <h1 style="margin:7px 0 0;font-size:29px;line-height:1.18;color:#071524">Thanks, {customer_name}</h1>
-                    <p style="margin:8px 0 0;font-size:16px;line-height:1.55;color:#385066">Your enquiry has arrived safely. We’ll review the details and come back to you shortly.</p>
+                    <h1 style="margin:8px 0 0;font-size:30px;line-height:1.18;color:#071524">Thanks, {customer_name}</h1>
+                    <p style="margin:9px auto 0;max-width:500px;font-size:16px;line-height:1.55;color:#385066">Your enquiry has arrived safely. We’ll review the details and come back to you shortly.</p>
                   </td>
                 </tr>
               </table>
@@ -1473,12 +1471,19 @@ def enquiry_customer_email_html(data):
           </tr>
           <tr>
             <td style="padding:18px 30px 8px">
-              <p style="margin:0 0 16px;font-size:16px;line-height:1.65;color:#385066">While you wait, you can see our recent videos, before-and-after photos and customer feedback here:</p>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f7fbff;border:1px solid #d8e7f6;border-radius:16px">
+                <tr>
+                  <td style="padding:18px">
+                    <h2 style="margin:0 0 8px;font-size:20px;line-height:1.25;color:#071524">See our recent work while you wait</h2>
+                    <p style="margin:0 0 15px;font-size:16px;line-height:1.65;color:#385066">Please follow us on Facebook to see our videos, recent cleans, before-and-after photos and customer feedback. It is the best place to see the kind of results we get.</p>
               <table role="presentation" cellspacing="0" cellpadding="0">
                 <tr>
-                  <td style="padding:0 8px 10px 0"><a href="{html_lib.escape(facebook_url)}" style="display:inline-block;background:#1457a8;color:#ffffff;text-decoration:none;font-weight:700;font-size:15px;padding:12px 15px;border-radius:10px">Facebook</a></td>
+                  <td style="padding:0 8px 10px 0"><a href="{html_lib.escape(facebook_url)}" style="display:inline-block;background:#1457a8;color:#ffffff;text-decoration:none;font-weight:700;font-size:15px;padding:13px 17px;border-radius:10px">Follow us on Facebook</a></td>
                   <td style="padding:0 8px 10px 0"><a href="{html_lib.escape(reviews_url)}" style="display:inline-block;background:#0f7b63;color:#ffffff;text-decoration:none;font-weight:700;font-size:15px;padding:12px 15px;border-radius:10px">Google reviews</a></td>
                   <td style="padding:0 8px 10px 0"><a href="{html_lib.escape(website_url)}" style="display:inline-block;background:#d8af55;color:#071524;text-decoration:none;font-weight:700;font-size:15px;padding:12px 15px;border-radius:10px">Website</a></td>
+                </tr>
+              </table>
+                  </td>
                 </tr>
               </table>
             </td>
