@@ -1457,14 +1457,19 @@ def send_env_email(to_email, subject, text_body, html_body="", customer=None):
     clicksend_ok, clicksend_msg = send_clicksend_email(to_email, subject, text_body, html_body)
     if clicksend_ok or clicksend_msg:
         return clicksend_ok, clicksend_msg
-    host = os.environ.get("SMTP_HOST", "").strip()
+    host = os.environ.get("SMTP_HOST", "").strip() or "smtp.gmail.com"
     user = os.environ.get("SMTP_USER", "").strip()
     password = os.environ.get("SMTP_PASSWORD", "").strip()
     port = int(os.environ.get("SMTP_PORT", "465") or 465)
     sender = os.environ.get("SMTP_FROM", "").strip() or user
     from_name = os.environ.get("SMTP_FROM_NAME", "The Carpet Cleaning Company").strip()
-    if not host or not sender or not password:
+    if not user and not password:
         return send_email_smtp(to_email, subject, html_body or text_body, customer=customer)
+    if not user or not password:
+        missing = "SMTP_USER" if not user else "SMTP_PASSWORD"
+        return False, f"Gmail SMTP is missing {missing} in Render environment variables."
+    if not sender:
+        return False, "Gmail SMTP is missing SMTP_FROM or SMTP_USER in Render environment variables."
     recipients = parse_email_list(to_email)
     if not recipients:
         return False, "No email recipient was supplied."
