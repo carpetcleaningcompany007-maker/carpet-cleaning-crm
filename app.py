@@ -1322,6 +1322,26 @@ DEFAULT_MESSAGE_TEMPLATES = {
     },
     "booking_confirmation_email": {"name": "Booking confirmation email", "subject": "Booking confirmation", "body": "Hi {{name}},\n\nYour booking is confirmed.\n\nThanks\nPaul"},
     "booking_confirmation_sms": {"name": "Booking confirmation SMS", "subject": "", "body": "Your carpet cleaning booking is confirmed. Thanks, Paul."},
+    "today_run_coming_email": {
+        "name": "Today Run - we are on our way email",
+        "subject": "We are on our way",
+        "body": "Hi {{name}},\n\nWe are on our way for your carpet cleaning appointment today.\n\nAppointment date: {{date}}\nAddress: {{address}}\n\nThanks\nPaul\n{{business_name}}",
+    },
+    "today_run_coming_sms": {
+        "name": "Today Run - we are on our way SMS",
+        "subject": "",
+        "body": "Hi {{name}}, we are on our way for your carpet cleaning appointment today. Thanks, Paul - {{business_name}}",
+    },
+    "today_run_reminder_email": {
+        "name": "Today Run - appointment reminder email",
+        "subject": "Appointment reminder",
+        "body": "Hi {{name}},\n\nJust a reminder that your carpet cleaning appointment is booked for {{date}}.\n\nThanks\nPaul\n{{business_name}}",
+    },
+    "today_run_reminder_sms": {
+        "name": "Today Run - appointment reminder SMS",
+        "subject": "",
+        "body": "Hi {{name}}, just a reminder that your carpet cleaning appointment is booked for {{date}}. Thanks, Paul - {{business_name}}",
+    },
     "appointment_reminder_sms": {"name": "Appointment reminder SMS", "subject": "", "body": "Hi {{name}}, just a reminder that your carpet cleaning appointment is booked for {{date}} at {{time}}. Thanks, Paul."},
     "thank_you_message": {"name": "Thank you message", "subject": "Thank you", "body": "Hi {{name}}, thank you for using The Carpet Cleaning Company."},
     "review_request_message": {"name": "Review request message", "subject": "Review request", "body": "Hi {{name}}, thank you for using The Carpet Cleaning Company. If you are happy with the work, I would really appreciate a quick Google review: https://share.google/XHQjHHLwpmlugHP0c"},
@@ -2039,6 +2059,54 @@ def directions_url_for_customer(row):
     if not address:
         return ""
     return "https://www.google.com/maps/search/?api=1&query=" + quote(address)
+
+
+def template_context_for_job(job):
+    s = settings()
+    name = clean_str(row_value(job, "first_name")) or "there"
+    address_parts = [
+        clean_str(row_value(job, "address")),
+        clean_str(row_value(job, "town")),
+        clean_str(row_value(job, "postcode")),
+    ]
+    address = ", ".join([part for part in address_parts if part])
+    return {
+        "{{name}}": name,
+        "{{first_name}}": name,
+        "{{date}}": clean_str(row_value(job, "job_date")) or uk_today().isoformat(),
+        "{{time}}": clean_str(row_value(job, "job_time")),
+        "{{address}}": address,
+        "{{postcode}}": clean_str(row_value(job, "postcode")),
+        "{{business_name}}": s["business_name"] or "The Carpet Cleaning Company",
+        "{{phone}}": s["phone"] or "07802 563213",
+        "{{review_link}}": s["review_link"] or "https://share.google/XHQjHHLwpmlugHP0c",
+        "{{website}}": enquiry_public_site_url(),
+        "{{facebook}}": "https://www.facebook.com/profile.php?id=61559013150413",
+    }
+
+
+def day_run_template_key(kind, channel):
+    mapped = {
+        ("coming", "email"): "today_run_coming_email",
+        ("coming", "sms"): "today_run_coming_sms",
+        ("reminder", "email"): "today_run_reminder_email",
+        ("reminder", "sms"): "today_run_reminder_sms",
+        ("finished", "email"): "thank_you_message",
+        ("finished", "sms"): "thank_you_message",
+        ("review", "email"): "review_request_message",
+        ("review", "sms"): "review_request_message",
+    }
+    return mapped.get((kind, channel), "")
+
+
+def day_run_rendered_message(kind, job, channel="sms"):
+    key = day_run_template_key(kind, channel)
+    if key:
+        template = message_template(key)
+        subject = render_simple_template(template.get("subject") or "", template_context_for_job(job))
+        body = render_simple_template(template.get("body") or "", template_context_for_job(job))
+        return subject, body
+    return "", day_run_message(kind, job)
 
 
 def day_run_message(kind, job):
@@ -3479,24 +3547,28 @@ def today_run_job_action(job_id):
     customer_id = job["customer_id"]
 
     if action in {"coming", "reminder", "finished", "review"}:
-        body = day_run_message(action, job)
         subject_map = {
             "coming": "We are on our way",
             "reminder": "Appointment reminder",
             "finished": "Job completed",
             "review": "Review request",
         }
-        subject = subject_map[action]
         if channel == "email":
+            template_subject, body = day_run_rendered_message(action, job, "email")
+            subject = template_subject or subject_map[action]
             email_body = day_run_email_html(action, job, body)
             ok, msg = send_env_email(job["email"] or "", subject, body, email_body, customer=job)
             if ok:
                 log_customer_message(customer_id, "Email", subject, body)
         elif channel == "sms":
+            template_subject, body = day_run_rendered_message(action, job, "sms")
+            subject = template_subject or subject_map[action]
             ok, msg = send_clicksend_env_sms(job["phone"] or "", body, customer=job, category="review" if action == "review" else "reminder")
             if ok:
                 log_customer_message(customer_id, "SMS", subject, body)
         else:
+            subject, body = day_run_rendered_message(action, job, "sms")
+            subject = subject or subject_map[action]
             ok, msg = True, "Message copied/logged."
             log_customer_message(customer_id, "Note", subject, body)
         if action == "reminder" and customer_id:
