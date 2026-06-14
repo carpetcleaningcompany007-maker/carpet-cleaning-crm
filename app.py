@@ -222,6 +222,31 @@ def build_email_html(body, footer=""):
     return content + ((("<br><br>" + footer) if footer else ""))
 
 
+def crm_email_logo_url():
+    return os.environ.get("CRM_EMAIL_LOGO_URL", "").strip() or public_static_url("site/email-logo.png")
+
+
+def email_action_button(label, url, background="#1457a8", color="#ffffff"):
+    return f"""
+      <tr>
+        <td style="padding:0 0 10px">
+          <a href="{html_lib.escape(url)}" style="display:block;width:100%;box-sizing:border-box;background:{background};color:{color};text-decoration:none;text-align:center;font-weight:800;font-size:16px;line-height:1.25;padding:15px 18px;border-radius:12px">{html_lib.escape(label)}</a>
+        </td>
+      </tr>
+    """
+
+
+def row_value(row, key, default=""):
+    if not row:
+        return default
+    if isinstance(row, dict):
+        return row.get(key, default)
+    try:
+        return row[key]
+    except Exception:
+        return default
+
+
 def is_valid_email(value):
     value = (value or "").strip()
     return bool(re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", value))
@@ -1367,7 +1392,7 @@ def update_intake_delivery_status(lead_id, **fields):
 def enquiry_customer_email_html(data):
     replacements = template_context_for_enquiry(data)
     customer_name = html_lib.escape(replacements.get("{{name}}") or "there")
-    logo_url = os.environ.get("CRM_EMAIL_LOGO_URL", "").strip() or public_static_url("site/email-logo.png")
+    logo_url = crm_email_logo_url()
     hero_url = public_static_url("site/hero-carpet-cleaning.webp")
     website_url = enquiry_public_site_url()
     facebook_url = "https://www.facebook.com/profile.php?id=61559013150413"
@@ -1476,13 +1501,12 @@ def enquiry_customer_email_html(data):
                   <td style="padding:18px">
                     <h2 style="margin:0 0 8px;font-size:20px;line-height:1.25;color:#071524">See our recent work while you wait</h2>
                     <p style="margin:0 0 15px;font-size:16px;line-height:1.65;color:#385066">Please follow us on Facebook to see our videos, recent cleans, before-and-after photos and customer feedback. It is the best place to see the kind of results we get.</p>
-              <table role="presentation" cellspacing="0" cellpadding="0">
-                <tr>
-                  <td style="padding:0 8px 10px 0"><a href="{html_lib.escape(facebook_url)}" style="display:inline-block;background:#1457a8;color:#ffffff;text-decoration:none;font-weight:700;font-size:15px;padding:13px 17px;border-radius:10px">Follow us on Facebook</a></td>
-                  <td style="padding:0 8px 10px 0"><a href="{html_lib.escape(reviews_url)}" style="display:inline-block;background:#0f7b63;color:#ffffff;text-decoration:none;font-weight:700;font-size:15px;padding:12px 15px;border-radius:10px">Google reviews</a></td>
-                  <td style="padding:0 8px 10px 0"><a href="{html_lib.escape(website_url)}" style="display:inline-block;background:#d8af55;color:#071524;text-decoration:none;font-weight:700;font-size:15px;padding:12px 15px;border-radius:10px">Website</a></td>
-                </tr>
-              </table>
+                    <p style="margin:0 0 12px;font-size:15px;line-height:1.55;color:#071524;font-weight:800">↓ Click these links ↓</p>
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                      {email_action_button("Follow us on Facebook", facebook_url, "#1457a8", "#ffffff")}
+                      {email_action_button("Read our Google reviews", reviews_url, "#0f7b63", "#ffffff")}
+                      {email_action_button("Visit our website", website_url, "#d8af55", "#071524")}
+                    </table>
                   </td>
                 </tr>
               </table>
@@ -2051,6 +2075,118 @@ def day_run_message(kind, job):
             "Thank you\nPaul"
         )
     return ""
+
+
+def day_run_email_html(kind, job, plain_body):
+    name = clean_str(row_value(job, "first_name")) or "there"
+    business = settings()["business_name"] or "The Carpet Cleaning Company"
+    logo_url = crm_email_logo_url()
+    website_url = enquiry_public_site_url()
+    facebook_url = "https://www.facebook.com/profile.php?id=61559013150413"
+    reviews_url = settings()["review_link"] or "https://share.google/XHQjHHLwpmlugHP0c"
+    address_parts = [
+        clean_str(row_value(job, "address")),
+        clean_str(row_value(job, "town")),
+        clean_str(row_value(job, "postcode")),
+    ]
+    address = ", ".join([part for part in address_parts if part]) or "Your saved job address"
+    job_date = clean_str(row_value(job, "job_date")) or uk_today().isoformat()
+    title_map = {
+        "coming": "We are on our way",
+        "reminder": "Your appointment reminder",
+        "finished": "Your clean is complete",
+        "review": "Thank you for choosing us",
+    }
+    strap_map = {
+        "coming": "We are heading to your carpet cleaning appointment today.",
+        "reminder": "A quick reminder about your upcoming carpet cleaning appointment.",
+        "finished": "Thank you for using us today.",
+        "review": "If you are happy with the result, a Google review really helps.",
+    }
+    title = title_map.get(kind, "Message from The Carpet Cleaning Company")
+    strap = strap_map.get(kind, "A quick update from The Carpet Cleaning Company.")
+    logo_html = f'<img src="{html_lib.escape(logo_url)}" alt="{html_lib.escape(business)}" width="104" style="display:block;width:104px;height:auto;border:0;margin:0 auto">' if logo_url else ""
+    message_html = html_lib.escape(plain_body or "").replace("\n", "<br>")
+    return f"""<!doctype html>
+<html>
+<body style="margin:0;background:#eef4f8;font-family:Arial,Helvetica,sans-serif;color:#0b1f33">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#eef4f8;margin:0;padding:0">
+    <tr>
+      <td align="center" style="padding:28px 14px">
+        <table role="presentation" width="640" cellspacing="0" cellpadding="0" style="width:100%;max-width:640px;background:#ffffff;border-radius:22px;overflow:hidden;border:1px solid #d8e4ee;box-shadow:0 18px 48px rgba(12,31,51,.10)">
+          <tr>
+            <td style="height:8px;background:linear-gradient(90deg,#071524 0%,#0f4a5a 50%,#d8af55 100%);font-size:0;line-height:0">&nbsp;</td>
+          </tr>
+          <tr>
+            <td align="center" style="background:#fbf7ee;padding:26px 30px 24px;color:#071524;border-bottom:1px solid #eadfcb">
+              <table role="presentation" cellspacing="0" cellpadding="0" style="background:#ffffff;border:1px solid #ead6a8;border-radius:999px;box-shadow:0 10px 24px rgba(7,21,36,.10);margin:0 auto 14px">
+                <tr>
+                  <td style="padding:12px">{logo_html}</td>
+                </tr>
+              </table>
+              <div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#9a6d20;font-weight:700">{html_lib.escape(business)}</div>
+              <h1 style="margin:8px 0 0;font-size:30px;line-height:1.18;color:#071524">{html_lib.escape(title)}</h1>
+              <p style="margin:9px auto 0;max-width:500px;font-size:16px;line-height:1.55;color:#385066">Hi {html_lib.escape(name)}, {html_lib.escape(strap)}</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:24px 30px 10px">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f8fbfd;border:1px solid #dce8f1;border-radius:16px">
+                <tr>
+                  <td style="padding:20px;font-size:16px;line-height:1.65;color:#385066">{message_html}</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:12px 30px 8px">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #dce8f1;border-radius:16px;overflow:hidden">
+                <tr>
+                  <td style="background:#f3f8fb;color:#071524;padding:15px 20px;font-size:17px;font-weight:700">Appointment details</td>
+                </tr>
+                <tr>
+                  <td style="padding:14px 20px;border-top:1px solid #dce8f1;color:#385066;font-size:15px;line-height:1.55"><strong>Date:</strong> {html_lib.escape(job_date)}<br><strong>Address:</strong> {html_lib.escape(address)}</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:18px 30px 8px">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f7fbff;border:1px solid #d8e7f6;border-radius:16px">
+                <tr>
+                  <td style="padding:18px">
+                    <h2 style="margin:0 0 8px;font-size:20px;line-height:1.25;color:#071524">Useful links</h2>
+                    <p style="margin:0 0 12px;font-size:15px;line-height:1.55;color:#071524;font-weight:800">↓ Click these links ↓</p>
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                      {email_action_button("Follow us on Facebook", facebook_url, "#1457a8", "#ffffff")}
+                      {email_action_button("Read our Google reviews", reviews_url, "#0f7b63", "#ffffff")}
+                      {email_action_button("Visit our website", website_url, "#d8af55", "#071524")}
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:10px 30px 26px">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-top:1px solid #dce8f1">
+                <tr>
+                  <td style="padding-top:20px;font-size:15px;line-height:1.65;color:#385066">
+                    <strong style="color:#071524">Paul Nicholas</strong><br>
+                    {html_lib.escape(business)}<br>
+                    <a href="tel:07802563213" style="color:#165dcc;text-decoration:none">07802 563213</a><br>
+                    <a href="{html_lib.escape(website_url)}" style="color:#165dcc;text-decoration:none">www.thecarpetcleaningcrew.co.uk</a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>"""
 
 
 def log_customer_message(customer_id, channel, subject, body):
@@ -3352,7 +3488,8 @@ def today_run_job_action(job_id):
         }
         subject = subject_map[action]
         if channel == "email":
-            ok, msg = send_email_smtp(job["email"] or "", subject, body, customer=job)
+            email_body = day_run_email_html(action, job, body)
+            ok, msg = send_email_smtp(job["email"] or "", subject, email_body, customer=job)
             if ok:
                 log_customer_message(customer_id, "Email", subject, body)
         elif channel == "sms":
