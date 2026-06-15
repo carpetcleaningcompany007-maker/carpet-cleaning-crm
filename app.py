@@ -2293,7 +2293,7 @@ def booking_confirmation_email_html(job):
     name = customer_full_name(job)
     first_name = clean_str(row_value(job, "first_name")) or name
     business = settings()["business_name"] or "The Carpet Cleaning Company"
-    logo_url = os.environ.get("CRM_EMAIL_LOGO_URL", "").strip() or public_static_or_live_url("site/logo.webp")
+    logo_url = public_static_or_live_url("site/email-logo-white.png")
     hero_url = public_static_or_live_url("site/hero-carpet-cleaning.webp")
     website_url = enquiry_public_site_url()
     reviews_url = settings()["review_link"] or "https://share.google/XHQjHHLwpmlugHP0c"
@@ -3472,6 +3472,7 @@ def create_intake_from_website_payload(data, source="Website form", photo_filena
     postcode = request_value(data, "postcode", "post_code", "zip")
     town = request_value(data, "town", "city")
     what_cleaned = request_value(data, "what_cleaned", "what_would_you_like_cleaned", "service", "service_required", "cleaning_required", "message")
+    rooms_areas = request_value(data, "rooms_areas", "rooms_or_items", "rooms_items", "items_required", "areas", "room_areas")
     number_rooms = request_value(data, "number_rooms", "rooms", "number_of_rooms", "room_count")
     upholstery = request_value(data, "upholstery", "any_upholstery")
     rugs = request_value(data, "rugs", "any_rugs")
@@ -3497,7 +3498,7 @@ def create_intake_from_website_payload(data, source="Website form", photo_filena
             preferred_date, preferred_time, photo_filename, status, source, marketing_consent,
             xero_sync_status, customer_email_status, customer_sms_status, owner_email_status, owner_sms_status, follow_up_status)
            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", (
-        name, phone, email, address, postcode, "", "", notes, what_cleaned,
+        name, phone, email, address, postcode, "", "", notes, rooms_areas,
         what_cleaned, number_rooms, upholstery, rugs, stains, pets, parking, preferred, additional_notes,
         preferred_date, preferred_time, photo_filename, "Waiting for review", source, marketing_consent,
         "Pending", "Pending", "Pending", "Pending", "Pending", "Follow up required",
@@ -3782,7 +3783,7 @@ def dashboard():
                            FROM customer_feedback
                            LEFT JOIN customers ON customers.id = customer_feedback.customer_id
                            ORDER BY customer_feedback.id DESC LIMIT 5""")
-    intake_new = q("SELECT COUNT(*) AS c FROM intake_submissions WHERE IFNULL(status,'New') IN ('New','Reviewed')", one=True)
+    intake_new = q("SELECT COUNT(*) AS c FROM intake_submissions WHERE IFNULL(status,'New') IN ('New','Reviewed','Waiting for review')", one=True)
     recent_enquiries = q("""SELECT * FROM intake_submissions
                             ORDER BY id DESC LIMIT 8""")
     return render_template("dashboard.html", stats=stats, recent_quotes=quotes, recent_jobs=jobs, archive_counts=archive_counts, report_summary=report_summary, invoice_alerts=invoice_alerts, app_settings=settings(), follow_up_summary=follow_up_summary, cashflow=cashflow, reminders_due=reminders_due, feedback_recent=feedback_recent, intake_new=intake_new["c"] if intake_new else 0, recent_enquiries=recent_enquiries)
@@ -3799,7 +3800,7 @@ def help_page():
 @login_required
 def workflow():
     data = {
-        "new_intake": q("SELECT COUNT(*) AS c FROM intake_submissions WHERE IFNULL(status,'New') IN ('New','Reviewed')", one=True)["c"],
+        "new_intake": q("SELECT COUNT(*) AS c FROM intake_submissions WHERE IFNULL(status,'New') IN ('New','Reviewed','Waiting for review')", one=True)["c"],
         "open_quotes": q("SELECT COUNT(*) AS c FROM quotes WHERE IFNULL(status,'Draft') IN ('Draft','Sent')", one=True)["c"],
         "booked_jobs": q("SELECT COUNT(*) AS c FROM jobs WHERE IFNULL(status,'Booked') IN ('Booked','In Progress')", one=True)["c"],
         "completed_jobs": q("SELECT COUNT(*) AS c FROM jobs WHERE IFNULL(status,'')='Completed'", one=True)["c"],
@@ -4667,6 +4668,22 @@ def job_send_booking_confirmation(job_id):
     customer_id = row_value(job, "customer_id")
     subject = message_template("booking_confirmation_email").get("subject") or "Your carpet cleaning booking is confirmed"
     text_body = booking_confirmation_text(job)
+    if channel == "test_email":
+        test_to = (
+            clean_str(request.form.get("test_to"))
+            or os.environ.get("OWNER_ALERT_EMAIL", "").strip()
+            or os.environ.get("SMTP_USER", "").strip()
+        )
+        if not test_to:
+            flash("No test email address is configured. Set OWNER_ALERT_EMAIL or SMTP_USER.")
+            return redirect(url_for("job_view", job_id=job_id))
+        html_body = booking_confirmation_email_html(job)
+        ok, msg = send_env_email(test_to, f"TEST - {subject}", text_body, html_body, customer=job)
+        if ok and customer_id:
+            run("INSERT INTO customer_timeline(customer_id, note_text, photo_filename) VALUES (?,?,?)",
+                (customer_id, f"Booking confirmation test email sent to {test_to}.", ""))
+        flash(msg)
+        return redirect(url_for("job_view", job_id=job_id))
     if channel == "sms":
         sms_template = message_template("booking_confirmation_sms")
         sms_body = render_simple_template(sms_template.get("body") or text_body, template_context_for_job(job))
@@ -7060,10 +7077,20 @@ def intake_create_job(lead_id):
     if lead["job_id"]:
         flash("This intake already has a job.")
         return redirect(url_for("job_view", job_id=lead["job_id"]))
-    title = clean_str(request.form.get("title")) or f"Intake job - {lead['name']}"
+    service_type = clean_str(row_get(lead, "what_cleaned")) or clean_str(lead["rooms_areas"]) or "Carpet cleaning"
+    title = clean_str(request.form.get("title")) or f"{service_type} - {lead['name']}"
     notes = "\n".join([x for x in [
         lead["job_notes"] or "",
+        f"Service required: {row_get(lead, 'what_cleaned')}" if row_get(lead, "what_cleaned") else "",
         f"Rooms/areas: {lead['rooms_areas']}" if lead["rooms_areas"] else "",
+        f"Number of rooms: {row_get(lead, 'number_rooms')}" if row_get(lead, "number_rooms") else "",
+        f"Upholstery: {row_get(lead, 'upholstery')}" if row_get(lead, "upholstery") else "",
+        f"Rugs: {row_get(lead, 'rugs')}" if row_get(lead, "rugs") else "",
+        f"Stains/problem areas: {row_get(lead, 'stains')}" if row_get(lead, "stains") else "",
+        f"Pets: {row_get(lead, 'pets')}" if row_get(lead, "pets") else "",
+        f"Parking: {row_get(lead, 'parking')}" if row_get(lead, "parking") else "",
+        f"Preferred days/times: {row_get(lead, 'preferred_days_times')}" if row_get(lead, "preferred_days_times") else "",
+        f"Additional notes: {row_get(lead, 'additional_notes')}" if row_get(lead, "additional_notes") else "",
         f"Address: {lead['full_address']}" if lead["full_address"] else "",
         f"Postcode: {lead['postcode']}" if lead["postcode"] else "",
         f"Google Maps: {lead['google_maps_link']}" if lead["google_maps_link"] else "",
@@ -7072,9 +7099,11 @@ def intake_create_job(lead_id):
     ] if x])
     job_id = run("""INSERT INTO jobs(customer_id, title, service_type, job_date, job_time, status, amount, assigned_to, notes)
                     VALUES (?,?,?,?,?,?,?,?,?)""", (
-        customer_id, title, "Customer intake", lead["preferred_date"], lead["preferred_time"] or "", "Booked", 0, "", notes,
+        customer_id, title, service_type, lead["preferred_date"], lead["preferred_time"] or "", "Booked", 0, "", notes,
     ))
     run("""UPDATE intake_submissions SET job_id=?, status='Booked', updated_at=datetime('now') WHERE id=?""", (job_id, lead_id))
+    set_customer_workflow(customer_id, "job_booked", f"Job created from website enquiry #{lead_id}.", "Send booking confirmation")
+    run("UPDATE customers SET next_action='Send booking confirmation email' WHERE id=?", (customer_id,))
     flash("Job created from intake form.")
     return redirect(url_for("job_view", job_id=job_id))
 

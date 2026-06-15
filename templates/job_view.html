@@ -48,12 +48,16 @@
     </div>
     <div class="row-actions" style="margin-bottom:16px;">
       <form method="post" action="{{ url_for('job_send_booking_confirmation', job_id=job.id) }}">
+        <input type="hidden" name="channel" value="test_email">
+        <button class="btn secondary">Send Test Email To Me</button>
+      </form>
+      <form method="post" action="{{ url_for('job_send_booking_confirmation', job_id=job.id) }}">
         <input type="hidden" name="channel" value="email">
-        <button class="btn primary">Send Booking Confirmation Email</button>
+        <button class="btn primary">Send Email To Customer</button>
       </form>
       <form method="post" action="{{ url_for('job_send_booking_confirmation', job_id=job.id) }}">
         <input type="hidden" name="channel" value="sms">
-        <button class="btn secondary">Send Booking Confirmation SMS</button>
+        <button class="btn secondary">Send SMS To Customer</button>
       </form>
     </div>
     {% if existing_invoice_id %}
