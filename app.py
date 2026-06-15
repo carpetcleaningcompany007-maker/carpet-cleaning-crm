@@ -1299,6 +1299,11 @@ def public_static_url(filename):
         return ""
 
 
+def public_static_or_live_url(filename):
+    live_base = os.environ.get("CRM_PUBLIC_BASE_URL", "https://carpet-cleaning-crm.onrender.com").rstrip("/")
+    return public_static_url(filename) or f"{live_base}/static/{filename.lstrip('/')}"
+
+
 DEFAULT_MESSAGE_TEMPLATES = {
     "customer_enquiry_email": {
         "name": "Customer enquiry email",
@@ -1320,8 +1325,8 @@ DEFAULT_MESSAGE_TEMPLATES = {
         "subject": "",
         "body": "New enquiry\nName: {{name}}\nPhone: {{phone}}\nEmail: {{email}}\nPostcode: {{postcode}}\nService: {{service}}\nMessage: {{message}}",
     },
-    "booking_confirmation_email": {"name": "Booking confirmation email", "subject": "Booking confirmation", "body": "Hi {{name}},\n\nYour booking is confirmed.\n\nThanks\nPaul"},
-    "booking_confirmation_sms": {"name": "Booking confirmation SMS", "subject": "", "body": "Your carpet cleaning booking is confirmed. Thanks, Paul."},
+    "booking_confirmation_email": {"name": "Booking confirmation email", "subject": "Your clean is booked", "body": "Hi {{name}},\n\nYour clean is booked.\n\nDate: {{date}}\nArrival: {{time}}\nAddress: {{address}}\n\nThanks\nPaul\n{{business_name}}"},
+    "booking_confirmation_sms": {"name": "Booking confirmation SMS", "subject": "", "body": "Hi {{name}}, your clean is booked for {{date}} at {{time}}. Total: {{total}}. Please clear small items and save parking if possible. Thanks, Paul - {{business_name}}"},
     "today_run_coming_email": {
         "name": "Today Run - we are on our way email",
         "subject": "We are on our way",
@@ -1412,7 +1417,7 @@ def update_intake_delivery_status(lead_id, **fields):
 def enquiry_customer_email_html(data):
     replacements = template_context_for_enquiry(data)
     customer_name = html_lib.escape(replacements.get("{{name}}") or "there")
-    logo_url = crm_email_logo_url()
+    logo_url = os.environ.get("CRM_EMAIL_LOGO_URL", "").strip() or public_static_or_live_url("site/logo.webp")
     hero_url = public_static_url("site/hero-carpet-cleaning.webp")
     website_url = enquiry_public_site_url()
     facebook_url = "https://www.facebook.com/profile.php?id=61559013150413"
@@ -2077,6 +2082,7 @@ def template_context_for_job(job):
         "{{time}}": clean_str(row_value(job, "job_time")),
         "{{address}}": address,
         "{{postcode}}": clean_str(row_value(job, "postcode")),
+        "{{total}}": f"£{float(row_value(job, 'amount', 0) or 0):.2f}",
         "{{business_name}}": s["business_name"] or "The Carpet Cleaning Company",
         "{{phone}}": s["phone"] or "07802 563213",
         "{{review_link}}": s["review_link"] or "https://share.google/XHQjHHLwpmlugHP0c",
@@ -2148,7 +2154,7 @@ def day_run_message(kind, job):
 def day_run_email_html(kind, job, plain_body):
     name = clean_str(row_value(job, "first_name")) or "there"
     business = settings()["business_name"] or "The Carpet Cleaning Company"
-    logo_url = crm_email_logo_url()
+    logo_url = os.environ.get("CRM_EMAIL_LOGO_URL", "").strip() or public_static_or_live_url("site/logo.webp")
     website_url = enquiry_public_site_url()
     facebook_url = "https://www.facebook.com/profile.php?id=61559013150413"
     reviews_url = settings()["review_link"] or "https://share.google/XHQjHHLwpmlugHP0c"
@@ -2255,6 +2261,290 @@ def day_run_email_html(kind, job, plain_body):
   </table>
 </body>
 </html>"""
+
+
+def booking_confirmation_text(job):
+    name = customer_full_name(job)
+    first_name = clean_str(row_value(job, "first_name")) or name
+    business = settings()["business_name"] or "The Carpet Cleaning Company"
+    job_date = clean_str(row_value(job, "job_date")) or "To be confirmed"
+    job_time = clean_str(row_value(job, "job_time")) or "To be confirmed"
+    amount = float(row_value(job, "amount", 0) or 0)
+    service = clean_str(row_value(job, "service_type")) or clean_str(row_value(job, "title")) or "Carpet cleaning"
+    address = customer_address_text(job) or "Your saved job address"
+    notes = clean_str(row_value(job, "notes")) or "Your booking has been confirmed. Please let us know if anything changes before we arrive."
+    return (
+        f"Hi {first_name},\n\n"
+        f"Your clean is booked with {business}.\n\n"
+        f"Date: {job_date}\n"
+        f"Arrival: {job_time}\n"
+        f"Total: £{amount:.2f}\n"
+        f"Service: {service}\n"
+        f"Address: {address}\n\n"
+        f"Notes: {notes}\n\n"
+        "Before I arrive, please make space close to the front door, clear small furniture where possible, and clear any pets from the working areas.\n\n"
+        "Payment can be made by cash, card or bank transfer on the day.\n\n"
+        "Thanks\nPaul\nThe Carpet Cleaning Company"
+    )
+
+
+def booking_confirmation_email_html(job):
+    name = customer_full_name(job)
+    first_name = clean_str(row_value(job, "first_name")) or name
+    business = settings()["business_name"] or "The Carpet Cleaning Company"
+    logo_url = crm_email_logo_url()
+    hero_url = public_static_or_live_url("site/hero-carpet-cleaning.webp")
+    website_url = enquiry_public_site_url()
+    reviews_url = settings()["review_link"] or "https://share.google/XHQjHHLwpmlugHP0c"
+    service = clean_str(row_value(job, "service_type")) or clean_str(row_value(job, "title")) or "Carpet cleaning"
+    address = customer_address_text(job) or "Your saved job address"
+    job_date = clean_str(row_value(job, "job_date")) or "To be confirmed"
+    job_time = clean_str(row_value(job, "job_time")) or "To be confirmed"
+    amount = float(row_value(job, "amount", 0) or 0)
+    notes = clean_str(row_value(job, "notes")) or "Your booking is confirmed. Please let us know if anything changes before we arrive."
+    logo_html = f'<img src="{html_lib.escape(logo_url)}" alt="{html_lib.escape(business)}" width="42" style="display:block;width:42px;height:auto;border:0">' if logo_url else ""
+    hero_html = f'<img src="{html_lib.escape(hero_url)}" alt="Professional carpet cleaning" width="520" style="display:block;width:100%;max-width:520px;height:auto;border:0;border-radius:12px">' if hero_url else ""
+    return f"""<!doctype html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="margin:0;background:#eef5fb;font-family:Arial,Helvetica,sans-serif;color:#102033">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#eef5fb;margin:0;padding:0">
+    <tr>
+      <td align="center" style="padding:14px 8px">
+        <table role="presentation" width="560" cellspacing="0" cellpadding="0" style="width:100%;max-width:560px;background:#ffffff;border:1px solid #cfddea;border-radius:10px;overflow:hidden">
+          <tr>
+            <td style="padding:16px 18px 10px">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                <tr>
+                  <td align="left" style="width:54px">{logo_html}</td>
+                  <td align="right" style="font-size:11px;line-height:1.5;color:#56677a">
+                    <a href="tel:07802563213" style="color:#0d559f;text-decoration:none">07802 563213</a><br>
+                    Trusted local carpet cleaning
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0 18px 12px">
+              <span style="display:inline-block;background:#d8af55;color:#071524;border-radius:999px;padding:5px 10px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.04em">Booking confirmed</span>
+              <h1 style="margin:10px 0 4px;font-size:28px;line-height:1.06;color:#071524"> {html_lib.escape(first_name)},<br>your clean is booked.</h1>
+              <p style="margin:0;font-size:13px;line-height:1.55;color:#42566c">Thanks for choosing <strong>{html_lib.escape(business)}</strong>. Below is your appointment summary, preparation checklist and payment information.</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0 18px 12px">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #d7e4f1;border-radius:8px;overflow:hidden">
+                <tr>
+                  <td style="padding:10px 12px;width:33%;border-right:1px solid #d7e4f1"><div style="font-size:9px;font-weight:800;text-transform:uppercase;color:#1860ad">Date</div><div style="font-size:13px;font-weight:800;color:#071524">{html_lib.escape(job_date)}</div></td>
+                  <td style="padding:10px 12px;width:33%;border-right:1px solid #d7e4f1"><div style="font-size:9px;font-weight:800;text-transform:uppercase;color:#1860ad">Arrival</div><div style="font-size:13px;font-weight:800;color:#071524">{html_lib.escape(job_time)}</div></td>
+                  <td style="padding:10px 12px;width:33%"><div style="font-size:9px;font-weight:800;text-transform:uppercase;color:#1860ad">Total</div><div style="font-size:13px;font-weight:800;color:#0b7a53">&pound;{amount:.2f}</div></td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr><td style="padding:0 18px 14px">{hero_html}</td></tr>
+          <tr>
+            <td style="padding:0 18px 12px">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                <tr>
+                  <td width="50%" valign="top" style="padding:0 6px 0 0">
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #d7e4f1;border-radius:10px">
+                      <tr><td style="padding:13px"><div style="font-size:9px;font-weight:800;text-transform:uppercase;color:#1860ad">Your technician</div><table role="presentation"><tr><td style="padding-right:10px"><span style="display:inline-block;width:40px;height:40px;border-radius:999px;background:#0b2a44;color:#ffffff;font-size:13px;font-weight:800;line-height:40px;text-align:center">PN</span></td><td><strong style="font-size:14px;color:#071524">Paul Nicholas</strong><br><span style="font-size:11px;color:#54677a">Owner operator<br>The Carpet Cleaning Company</span></td></tr></table><p style="margin:10px 0 0;font-size:11px;line-height:1.45;color:#54677a">I'll be carrying out your clean and will call ahead if traffic or access causes a delay.</p></td></tr>
+                    </table>
+                  </td>
+                  <td width="50%" valign="top" style="padding:0 0 0 6px">
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#fff9ed;border:1px solid #d8af55;border-radius:10px">
+                      <tr><td align="center" style="padding:13px"><span style="display:inline-block;width:48px;height:48px;border-radius:999px;background:#d8af55;color:#071524;font-size:15px;font-weight:900;line-height:48px;text-align:center">100%</span><strong style="display:block;font-size:14px;color:#071524;margin-top:6px">Satisfaction guaranteed</strong><p style="margin:7px 0 0;font-size:11px;line-height:1.45;color:#655536">Professional local service, clear communication and careful cleaning.</p></td></tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0 18px 12px">
+              <h2 style="margin:0 0 8px;font-size:15px;color:#071524">Job details</h2>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #d7e4f1;border-radius:10px;overflow:hidden">
+                <tr>
+                  <td style="width:50%;padding:10px 12px;border-right:1px solid #d7e4f1;border-bottom:1px solid #d7e4f1"><div style="font-size:9px;font-weight:800;text-transform:uppercase;color:#1860ad">Service</div><div style="font-size:12px;font-weight:800;color:#071524">{html_lib.escape(service)}</div></td>
+                  <td style="width:50%;padding:10px 12px;border-bottom:1px solid #d7e4f1"><div style="font-size:9px;font-weight:800;text-transform:uppercase;color:#1860ad">Address</div><div style="font-size:12px;font-weight:800;color:#071524">{html_lib.escape(address)}</div></td>
+                </tr>
+                <tr><td colspan="2" style="padding:10px 12px"><div style="font-size:9px;font-weight:800;text-transform:uppercase;color:#1860ad">Notes</div><div style="font-size:11px;line-height:1.5;color:#465b70">{html_lib.escape(notes)}</div></td></tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0 18px 12px">
+              <h2 style="margin:0 0 8px;font-size:15px;color:#071524">Before I arrive</h2>
+              <ol style="margin:0;padding-left:18px;font-size:11px;line-height:1.7;color:#26384d">
+                <li><strong>Parking:</strong> please save space as close to the front door as possible.</li>
+                <li><strong>Clear the area:</strong> remove small items, toys, shoes and breakables.</li>
+                <li><strong>Small furniture:</strong> move anything you would like cleaned underneath.</li>
+                <li><strong>Pets:</strong> please keep pets away from the working areas.</li>
+              </ol>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0 18px 12px">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#fff8e8;border:1px solid #d8af55;border-radius:10px">
+                <tr><td style="padding:13px"><strong style="font-size:13px;color:#071524">Payment</strong><p style="margin:5px 0 0;font-size:11px;line-height:1.45;color:#5a4b2a">Cash, card, or bank transfer on the day.</p></td></tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0 18px 14px">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#edf7ff;border:1px solid #cbe0f4;border-radius:10px">
+                <tr><td style="padding:13px"><strong style="font-size:13px;color:#071524">After the clean</strong><p style="margin:5px 0 10px;font-size:11px;line-height:1.45;color:#42566c">If you're happy with the service, a quick Google review really helps a local business.</p><a href="{html_lib.escape(reviews_url)}" style="display:inline-block;background:#1967d2;color:#ffffff;text-decoration:none;font-weight:800;font-size:11px;padding:9px 13px;border-radius:7px">Leave a Google review</a></td></tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0 18px 18px">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #d7e4f1;border-radius:10px">
+                <tr><td style="padding:12px;font-size:11px;line-height:1.45;color:#52677b"><strong style="color:#071524">Paul Nicholas</strong><br>{html_lib.escape(business)}<br>07802 563213<br>Shropshire, Herefordshire & Worcestershire</td><td align="right" style="padding:12px"><a href="{html_lib.escape(website_url)}" style="font-size:11px;font-weight:800;color:#1967d2;text-decoration:none">Visit website</a></td></tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>"""
+
+
+def built_in_visual_email_templates():
+    business = "The Carpet Cleaning Company"
+    logo_url = os.environ.get("CRM_EMAIL_LOGO_URL", "").strip() or public_static_or_live_url("site/email-logo.png")
+    hero_url = public_static_or_live_url("site/hero-carpet-cleaning.webp")
+    website_url = enquiry_public_site_url()
+    facebook_url = "https://www.facebook.com/profile.php?id=61559013150413"
+    reviews_url = "https://share.google/XHQjHHLwpmlugHP0c"
+    logo_html = f'<img src="{html_lib.escape(logo_url)}" alt="{business}" width="108" style="display:block;width:108px;height:auto;border:0;margin:0 auto">' if logo_url else ""
+    hero_html = f'<img src="{html_lib.escape(hero_url)}" alt="Professional carpet cleaning" width="580" style="display:block;width:100%;max-width:580px;height:auto;border:0;border-radius:18px">' if hero_url else ""
+
+    def shell(title, strap, body_html, subject):
+        return {
+            "channel": "Email",
+            "subject": subject,
+            "body": f"""<!doctype html>
+<html>
+<body style="margin:0;background:#eef4f8;font-family:Arial,Helvetica,sans-serif;color:#071524">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#eef4f8;margin:0;padding:0">
+    <tr>
+      <td align="center" style="padding:28px 14px">
+        <table role="presentation" width="640" cellspacing="0" cellpadding="0" style="width:100%;max-width:640px;background:#ffffff;border:1px solid #d8e4ee;border-radius:22px;overflow:hidden;box-shadow:0 18px 48px rgba(12,31,51,.10)">
+          <tr><td style="height:8px;background:linear-gradient(90deg,#071524 0%,#0f4a5a 50%,#d8af55 100%);font-size:0;line-height:0">&nbsp;</td></tr>
+          <tr>
+            <td align="center" style="background:#fbf7ee;padding:26px 30px 24px;border-bottom:1px solid #eadfcb">
+              <table role="presentation" cellspacing="0" cellpadding="0" style="background:#ffffff;border:1px solid #ead6a8;border-radius:999px;box-shadow:0 10px 24px rgba(7,21,36,.10);margin:0 auto 14px">
+                <tr><td style="padding:12px">{logo_html}</td></tr>
+              </table>
+              <div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#9a6d20;font-weight:800">{business}</div>
+              <h1 style="margin:8px 0 0;font-size:30px;line-height:1.18;color:#071524">{title}</h1>
+              <p style="margin:9px auto 0;max-width:500px;font-size:16px;line-height:1.55;color:#385066">{strap}</p>
+            </td>
+          </tr>
+          <tr><td style="padding:24px 30px 14px">{hero_html}</td></tr>
+          {body_html}
+          <tr>
+            <td style="padding:18px 30px 8px">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f7fbff;border:1px solid #d8e7f6;border-radius:16px">
+                <tr>
+                  <td style="padding:18px">
+                    <h2 style="margin:0 0 8px;font-size:20px;line-height:1.25;color:#071524">See our recent work while you wait</h2>
+                    <p style="margin:0 0 12px;font-size:15px;line-height:1.55;color:#385066">Please follow us on Facebook to see our videos, recent cleans, before-and-after photos and customer feedback.</p>
+                    <p style="margin:0 0 12px;font-size:15px;line-height:1.55;color:#071524;font-weight:800">↓ Click these links ↓</p>
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                      {email_action_button("Follow us on Facebook", facebook_url, "#1457a8", "#ffffff")}
+                      {email_action_button("Read our Google reviews", reviews_url, "#0f7b63", "#ffffff")}
+                      {email_action_button("Visit our website", website_url, "#d8af55", "#071524")}
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:10px 30px 26px">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-top:1px solid #dce8f1">
+                <tr>
+                  <td style="padding-top:20px;font-size:15px;line-height:1.65;color:#385066">
+                    <strong style="color:#071524">Paul Nicholas</strong><br>
+                    {business}<br>
+                    <a href="tel:07802563213" style="color:#165dcc;text-decoration:none">07802 563213</a><br>
+                    <a href="{website_url}" style="color:#165dcc;text-decoration:none">www.thecarpetcleaningcrew.co.uk</a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>""",
+        }
+
+    welcome_body = """
+          <tr>
+            <td style="padding:0 30px 8px">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f8fbfd;border:1px solid #dce8f1;border-radius:16px">
+                <tr>
+                  <td style="padding:20px">
+                    <h2 style="margin:0 0 10px;font-size:21px;line-height:1.25;color:#071524">A quick note before we quote</h2>
+                    <p style="margin:0;font-size:16px;line-height:1.65;color:#385066">We clean carpets, upholstery and stains professionally, and every job is a little different. Photos help us see the carpet or upholstery type, condition, staining, traffic lanes, pet marks and access before recommending the best approach.</p>
+                    <p style="margin:13px 0 0;font-size:16px;line-height:1.65;color:#385066">Please reply with any photos you have. That helps us quote faster, advise on the best cleaning option, and discuss the best way to get the best result for your budget.</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+    """
+    coming_body = """
+          <tr>
+            <td style="padding:0 30px 8px">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f8fbfd;border:1px solid #dce8f1;border-radius:16px">
+                <tr>
+                  <td style="padding:20px">
+                    <h2 style="margin:0 0 10px;font-size:21px;line-height:1.25;color:#071524">Your appointment today</h2>
+                    <p style="margin:0;font-size:16px;line-height:1.65;color:#385066">Hi {{first_name}}, we are on our way for your carpet cleaning appointment today.</p>
+                    <p style="margin:13px 0 0;font-size:16px;line-height:1.65;color:#385066"><strong>Date:</strong> {{date}}<br><strong>Time:</strong> {{time}}<br><strong>Address:</strong> {{address}}</p>
+                    <p style="margin:13px 0 0;font-size:16px;line-height:1.65;color:#385066">Please make sure access, parking and any areas being cleaned are ready where possible.</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+    """
+    return {
+        "Website enquiry welcome - visual": shell(
+            "Thanks, {{first_name}}",
+            "Your enquiry has arrived safely. We will review the details and come back to you shortly.",
+            welcome_body,
+            "Thank you for contacting The Carpet Cleaning Company",
+        ),
+        "Booked in / we are on our way - visual": shell(
+            "We are on our way",
+            "A quick update about your carpet cleaning appointment.",
+            coming_body,
+            "We are on our way",
+        ),
+    }
+
+
+def seed_visual_email_templates(conn):
+    templates = built_in_visual_email_templates()
+    for name, template in templates.items():
+        exists = conn.execute("SELECT id FROM communication_templates WHERE name=? LIMIT 1", (name,)).fetchone()
+        if exists:
+            continue
+        conn.execute(
+            "INSERT INTO communication_templates(name, channel, subject, body) VALUES (?,?,?,?)",
+            (name, template["channel"], template["subject"], template["body"]),
+        )
 
 
 def log_customer_message(customer_id, channel, subject, body):
@@ -2593,6 +2883,7 @@ def init_db():
         title TEXT,
         service_type TEXT,
         job_date TEXT,
+        job_time TEXT,
         status TEXT DEFAULT 'Booked',
         amount REAL DEFAULT 0,
         assigned_to TEXT,
@@ -2903,6 +3194,7 @@ def init_db():
         ("customers", "payment_received_at", "TEXT DEFAULT ''"),
         ("customers", "review_request_sent_at", "TEXT DEFAULT ''"),
         ("customers", "workflow_history", "TEXT DEFAULT '[]'"),
+        ("jobs", "job_time", "TEXT DEFAULT ''"),
         ("invoices", "reminder_count", "INTEGER DEFAULT 0"),
         ("invoices", "last_reminder_sent_at", "TEXT"),
         ("invoices", "xero_invoice_id", "TEXT DEFAULT ''"),
@@ -2958,6 +3250,7 @@ def init_db():
             "INSERT OR IGNORE INTO message_templates(template_key, name, subject, body, updated_at) VALUES (?,?,?,?,datetime('now'))",
             (key, template["name"], template["subject"], template["body"]),
         )
+    seed_visual_email_templates(conn)
     conn.execute(
         """UPDATE message_templates
               SET body=?, updated_at=datetime('now')
@@ -4262,10 +4555,11 @@ def quote_to_job(quote_id):
     if existing_job:
         flash("This quote has already been converted to a live job, so a duplicate was not created.")
         return redirect(url_for("job_view", job_id=existing_job["id"]))
-    job_id = run("""INSERT INTO jobs(customer_id, quote_id, title, service_type, job_date, status, amount, assigned_to, notes)
-                    VALUES (?,?,?,?,?,?,?,?,?)""", (
+    job_id = run("""INSERT INTO jobs(customer_id, quote_id, title, service_type, job_date, job_time, status, amount, assigned_to, notes)
+                    VALUES (?,?,?,?,?,?,?,?,?,?)""", (
         quote["customer_id"], quote_id, clean_str(request.form.get("title")) or quote["title"] or "Job from Quote",
         "Quote Conversion", clean_str(request.form.get("job_date")) or date.today().isoformat(),
+        clean_str(request.form.get("job_time")),
         "Booked", quote["total"], clean_str(request.form.get("assigned_to")) or "", quote["notes"] or ""
     ))
     run("UPDATE quotes SET status='Converted' WHERE id=?", (quote_id,))
@@ -4309,10 +4603,11 @@ def jobs_new():
     except ValueError as exc:
         flash(str(exc))
         return redirect(url_for("jobs"))
-    job_id = run("""INSERT INTO jobs(customer_id, title, service_type, job_date, status, amount, assigned_to, notes)
-                    VALUES (?,?,?,?,?,?,?,?)""", (
+    job_id = run("""INSERT INTO jobs(customer_id, title, service_type, job_date, job_time, status, amount, assigned_to, notes)
+                    VALUES (?,?,?,?,?,?,?,?,?)""", (
         request.form.get("customer_id") or None, title, clean_str(request.form.get("service_type")),
-        clean_str(request.form.get("job_date")), clean_str(request.form.get("status")) or "Booked", amount,
+        clean_str(request.form.get("job_date")), clean_str(request.form.get("job_time")),
+        clean_str(request.form.get("status")) or "Booked", amount,
         clean_str(request.form.get("assigned_to")), clean_str(request.form.get("notes"))
     ))
     customer_id = request.form.get("customer_id") or None
@@ -4333,6 +4628,43 @@ def job_view(job_id):
     contact_summary = customer_contact_summary(job["customer_id"] if job else None, 30)
     return render_template("job_view.html", job=job, is_archived=((job["status"] or "") == "Archived"), existing_invoice_id=(existing_invoice["id"] if existing_invoice else None), recent_contacts=recent_contacts, contact_summary=contact_summary)
 
+
+@app.route("/jobs/<int:job_id>/send-booking-confirmation", methods=["POST"])
+@login_required
+def job_send_booking_confirmation(job_id):
+    job = q("""SELECT jobs.*, customers.first_name, customers.last_name, customers.phone, customers.email,
+                      customers.address, customers.town, customers.postcode, customers.sms_opt_out
+               FROM jobs LEFT JOIN customers ON customers.id = jobs.customer_id
+               WHERE jobs.id=?""", (job_id,), one=True)
+    if not job:
+        flash("Job not found.")
+        return redirect(url_for("jobs"))
+    channel = clean_str(request.form.get("channel") or "email").lower()
+    customer_id = row_value(job, "customer_id")
+    subject = message_template("booking_confirmation_email").get("subject") or "Your carpet cleaning booking is confirmed"
+    text_body = booking_confirmation_text(job)
+    if channel == "sms":
+        sms_template = message_template("booking_confirmation_sms")
+        sms_body = render_simple_template(sms_template.get("body") or text_body, template_context_for_job(job))
+        ok, msg = send_clicksend_env_sms(row_value(job, "phone") or "", sms_body, customer=job, category="booking")
+        if ok:
+            log_customer_message(customer_id, "SMS", "Booking confirmation", sms_body)
+            if customer_id:
+                run("INSERT INTO customer_timeline(customer_id, note_text, photo_filename) VALUES (?,?,?)",
+                    (customer_id, "Booking confirmation SMS sent.", ""))
+        flash(msg)
+        return redirect(url_for("job_view", job_id=job_id))
+
+    html_body = booking_confirmation_email_html(job)
+    ok, msg = send_env_email(row_value(job, "email") or "", subject, text_body, html_body, customer=job)
+    if ok:
+        log_customer_message(customer_id, "Email", subject, text_body)
+        if customer_id:
+            run("INSERT INTO customer_timeline(customer_id, note_text, photo_filename) VALUES (?,?,?)",
+                (customer_id, "Booking confirmation email sent.", ""))
+    flash(msg)
+    return redirect(url_for("job_view", job_id=job_id))
+
 @app.route("/jobs/<int:job_id>/edit", methods=["POST"])
 @login_required
 def job_edit(job_id):
@@ -4349,8 +4681,9 @@ def job_edit(job_id):
     if status == "Archived":
         flash("Use the Archive button to archive a job.")
         return redirect(url_for("job_view", job_id=job_id))
-    run("""UPDATE jobs SET title=?, service_type=?, job_date=?, status=?, amount=?, assigned_to=?, notes=? WHERE id=?""", (
+    run("""UPDATE jobs SET title=?, service_type=?, job_date=?, job_time=?, status=?, amount=?, assigned_to=?, notes=? WHERE id=?""", (
         title, clean_str(request.form.get("service_type")), clean_str(request.form.get("job_date")),
+        clean_str(request.form.get("job_time")),
         status, amount, clean_str(request.form.get("assigned_to")),
         clean_str(request.form.get("notes")), job_id
     ))
@@ -5372,10 +5705,17 @@ def safe_replace(text, replacements):
 
 def comms_replacements(customer=None):
     s = settings()
-    name = (customer["name"] if customer else "") if customer else ""
+    name = ""
+    if customer:
+        try:
+            name = clean_str(customer["name"])
+        except Exception:
+            name = clean_str(f"{row_value(customer, 'first_name')} {row_value(customer, 'last_name')}")
     first_name = name.split(" ")[0] if name else ""
-    email = (customer["email"] if customer else "") if customer else ""
-    phone = (customer["phone"] if customer else "") if customer else ""
+    email = row_value(customer, "email") if customer else ""
+    phone = row_value(customer, "phone") if customer else ""
+    address = customer_address_text(customer) if customer else ""
+    postcode = row_value(customer, "postcode") if customer else ""
     return {
         "{{name}}": name,
         "{{first_name}}": first_name,
@@ -5383,6 +5723,11 @@ def comms_replacements(customer=None):
         "{{phone}}": s["phone"] or "",
         "{{review_link}}": s["review_link"] or "",
         "{{website}}": s["website"] or "",
+        "{{facebook}}": "https://www.facebook.com/profile.php?id=61559013150413",
+        "{{date}}": uk_today().isoformat(),
+        "{{time}}": "",
+        "{{address}}": address,
+        "{{postcode}}": postcode,
         "{{email}}": email,
         "{{customer_email}}": email,
         "{{customer_phone}}": phone,
@@ -5392,6 +5737,11 @@ def comms_replacements(customer=None):
         "[[phone]]": s["phone"] or "",
         "[[review_link]]": s["review_link"] or "",
         "[[website]]": s["website"] or "",
+        "[[facebook]]": "https://www.facebook.com/profile.php?id=61559013150413",
+        "[[date]]": uk_today().isoformat(),
+        "[[time]]": "",
+        "[[address]]": address,
+        "[[postcode]]": postcode,
         "[[email]]": email,
         "[[customer_email]]": email,
         "[[customer_phone]]": phone,
@@ -6023,8 +6373,8 @@ def seed():
     ]
     completed_job_id = None
     for customer_id, quote_id, title, service_type, job_date, status, amount, assigned_to, notes in job_specs:
-        job_id = run("""INSERT INTO jobs(customer_id, quote_id, title, service_type, job_date, status, amount, assigned_to, notes)
-                        VALUES (?,?,?,?,?,?,?,?,?)""", (customer_id, quote_id, title, service_type, job_date, status, amount, assigned_to, notes))
+        job_id = run("""INSERT INTO jobs(customer_id, quote_id, title, service_type, job_date, job_time, status, amount, assigned_to, notes)
+                        VALUES (?,?,?,?,?,?,?,?,?,?)""", (customer_id, quote_id, title, service_type, job_date, "", status, amount, assigned_to, notes))
         if status == 'Completed':
             completed_job_id = job_id
 
@@ -6696,9 +7046,9 @@ def intake_create_job(lead_id):
         f"What3Words: {lead['what3words']}" if lead["what3words"] else "",
         f"Photo: {lead['photo_filename']}" if lead["photo_filename"] else "",
     ] if x])
-    job_id = run("""INSERT INTO jobs(customer_id, title, service_type, job_date, status, amount, assigned_to, notes)
-                    VALUES (?,?,?,?,?,?,?,?)""", (
-        customer_id, title, "Customer intake", lead["preferred_date"], "Booked", 0, "", notes,
+    job_id = run("""INSERT INTO jobs(customer_id, title, service_type, job_date, job_time, status, amount, assigned_to, notes)
+                    VALUES (?,?,?,?,?,?,?,?,?)""", (
+        customer_id, title, "Customer intake", lead["preferred_date"], lead["preferred_time"] or "", "Booked", 0, "", notes,
     ))
     run("""UPDATE intake_submissions SET job_id=?, status='Booked', updated_at=datetime('now') WHERE id=?""", (job_id, lead_id))
     flash("Job created from intake form.")

@@ -26,7 +26,8 @@
     <form method="post" action="{{ url_for('job_edit', job_id=job.id) }}" class="form">
       <input name="title" value="{{ job.title }}">
       <div class="cols"><input name="service_type" value="{{ job.service_type or '' }}" placeholder="Service type"><input type="date" name="job_date" value="{{ job.job_date or '' }}"></div>
-      <div class="cols"><input name="amount" type="number" step="0.01" value="{{ job.amount or 0 }}"><input name="assigned_to" value="{{ job.assigned_to or '' }}" placeholder="Assigned to"></div>
+      <div class="cols"><input type="time" name="job_time" value="{{ job.job_time or '' }}"><input name="amount" type="number" step="0.01" value="{{ job.amount or 0 }}"></div>
+      <input name="assigned_to" value="{{ job.assigned_to or '' }}" placeholder="Assigned to">
       <select name="status">{% for s in ['Lead','Quoted','Booked','Reminder Sent','In Progress','Completed','Invoiced','Paid'] %}<option {% if job.status==s %}selected{% endif %}>{{ s }}</option>{% endfor %}</select>
       <textarea name="notes" placeholder="Arrival notes, access, stains, rooms, parking">{{ job.notes or '' }}</textarea>
       <button class="btn primary">Save Job</button>
@@ -41,6 +42,20 @@
 
   <section class="panel">
     <div class="panel-head"><h3>Complete and invoice</h3></div>
+    <div class="notice" style="margin-bottom:14px;">
+      <strong>Booking confirmation</strong>
+      <p>After you confirm the price and book the job, send the customer the proper confirmation email with date, arrival, total, prep notes and payment details.</p>
+    </div>
+    <div class="row-actions" style="margin-bottom:16px;">
+      <form method="post" action="{{ url_for('job_send_booking_confirmation', job_id=job.id) }}">
+        <input type="hidden" name="channel" value="email">
+        <button class="btn primary">Send Booking Confirmation Email</button>
+      </form>
+      <form method="post" action="{{ url_for('job_send_booking_confirmation', job_id=job.id) }}">
+        <input type="hidden" name="channel" value="sms">
+        <button class="btn secondary">Send Booking Confirmation SMS</button>
+      </form>
+    </div>
     {% if existing_invoice_id %}
     <p>This job already has a live invoice.</p>
     <a class="btn secondary" href="{{ url_for('invoice_view', invoice_id=existing_invoice_id) }}">Open Existing Invoice</a>

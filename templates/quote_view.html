@@ -37,7 +37,8 @@
     {% else %}
     <form method="post" action="{{ url_for('quote_to_job', quote_id=quote.id) }}" class="form">
       <input name="title" value="{{ quote.title or 'Job from Quote' }}">
-      <div class="cols"><input type="date" name="job_date"><input name="assigned_to" placeholder="Assigned to"></div>
+      <div class="cols"><input type="date" name="job_date"><input type="time" name="job_time"></div>
+      <input name="assigned_to" placeholder="Assigned to">
       <button class="btn primary" {% if is_archived %}disabled{% endif %}>Convert Quote to Job</button>
     </form>
     {% endif %}
