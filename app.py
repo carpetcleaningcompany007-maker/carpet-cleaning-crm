@@ -1417,8 +1417,8 @@ def update_intake_delivery_status(lead_id, **fields):
 def enquiry_customer_email_html(data):
     replacements = template_context_for_enquiry(data)
     customer_name = html_lib.escape(replacements.get("{{name}}") or "there")
-    logo_url = os.environ.get("CRM_EMAIL_LOGO_URL", "").strip() or public_static_or_live_url("site/logo.webp")
-    hero_url = public_static_url("site/hero-carpet-cleaning.webp")
+    logo_url = public_static_or_live_url("site/email-logo-white.png")
+    hero_url = public_static_or_live_url("site/hero-carpet-cleaning.webp")
     website_url = enquiry_public_site_url()
     facebook_url = "https://www.facebook.com/profile.php?id=61559013150413"
     reviews_url = "https://share.google/XHQjHHLwpmlugHP0c"
@@ -1437,26 +1437,27 @@ def enquiry_customer_email_html(data):
     """ if hero_url else ""
     return f"""<!doctype html>
 <html>
+<head><meta charset="utf-8"></head>
 <body style="margin:0;background:#eef4f8;font-family:Arial,Helvetica,sans-serif;color:#0b1f33">
   <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent">We have received your enquiry. Please send photos if you can so we can quote accurately.</div>
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#eef4f8;margin:0;padding:0">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#edf5f2;margin:0;padding:0">
     <tr>
       <td align="center" style="padding:28px 14px">
-        <table role="presentation" width="640" cellspacing="0" cellpadding="0" style="width:100%;max-width:640px;background:#ffffff;border-radius:22px;overflow:hidden;border:1px solid #d8e4ee;box-shadow:0 18px 48px rgba(12,31,51,.10)">
+        <table role="presentation" width="640" cellspacing="0" cellpadding="0" style="width:100%;max-width:640px;background:#ffffff;border-radius:24px;overflow:hidden;border:1px solid #d7e5df;box-shadow:0 20px 54px rgba(7,21,36,.12)">
           <tr>
-            <td style="height:8px;background:linear-gradient(90deg,#071524 0%,#0f4a5a 50%,#d8af55 100%);font-size:0;line-height:0">&nbsp;</td>
+            <td style="height:9px;background:linear-gradient(90deg,#071524 0%,#0d5c4e 55%,#d8af55 100%);font-size:0;line-height:0">&nbsp;</td>
           </tr>
           <tr>
-            <td align="center" style="background:#fbf7ee;padding:26px 30px 24px;color:#071524;border-bottom:1px solid #eadfcb">
+            <td align="center" style="background:#fff8ec;padding:28px 30px 25px;color:#071524;border-bottom:1px solid #eadfcb">
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
                 <tr>
                   <td align="center">
-                    <table role="presentation" cellspacing="0" cellpadding="0" style="background:#ffffff;border:1px solid #ead6a8;border-radius:999px;box-shadow:0 10px 24px rgba(7,21,36,.10);margin:0 auto 14px">
+                    <table role="presentation" cellspacing="0" cellpadding="0" style="background:#ffffff;border:1px solid #e3c36f;border-radius:999px;box-shadow:0 12px 28px rgba(7,21,36,.12);margin:0 auto 14px">
                       <tr>
                         <td style="padding:12px">{logo_html}</td>
                       </tr>
                     </table>
-                    <div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#9a6d20;font-weight:700">The Carpet Cleaning Company</div>
+                    <div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#967024;font-weight:800">The Carpet Cleaning Company</div>
                     <h1 style="margin:8px 0 0;font-size:30px;line-height:1.18;color:#071524">Thanks, {customer_name}</h1>
                     <p style="margin:9px auto 0;max-width:500px;font-size:16px;line-height:1.55;color:#385066">Your enquiry has arrived safely. We’ll review the details and come back to you shortly.</p>
                   </td>
@@ -1467,7 +1468,7 @@ def enquiry_customer_email_html(data):
           {hero_html}
           <tr>
             <td style="padding:0 30px 8px">
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f8fbfd;border:1px solid #dce8f1;border-radius:16px">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f7fbf8;border:1px solid #d8e8df;border-radius:18px">
                 <tr>
                   <td style="padding:20px">
                     <h2 style="margin:0 0 10px;font-size:21px;line-height:1.25;color:#071524">A quick note before we quote</h2>
@@ -1480,9 +1481,9 @@ def enquiry_customer_email_html(data):
           </tr>
           <tr>
             <td style="padding:12px 30px 8px">
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #dce8f1;border-radius:16px;overflow:hidden">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #d8e8df;border-radius:18px;overflow:hidden">
                 <tr>
-                  <td colspan="2" style="background:#f3f8fb;color:#071524;padding:15px 20px;font-size:17px;font-weight:700">Your enquiry summary</td>
+                  <td colspan="2" style="background:#f5f0e5;color:#071524;padding:15px 20px;font-size:17px;font-weight:800">Your enquiry summary</td>
                 </tr>
                 <tr>
                   <td style="width:38%;padding:14px 20px;border-top:1px solid #dce8f1;color:#5c7187;font-size:14px">Service</td>
@@ -1511,7 +1512,7 @@ def enquiry_customer_email_html(data):
             <td style="padding:12px 30px 8px">
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
                 <tr>
-                  <td style="padding:17px 18px;background:#fff8e8;border:1px solid #efd28a;border-radius:16px;border-left:5px solid #d8af55">
+                  <td style="padding:18px;background:#fff8e8;border:1px solid #e3c36f;border-radius:18px;border-left:5px solid #d8af55">
                     <h2 style="margin:0 0 10px;font-size:20px;line-height:1.25;color:#071524">What happens next?</h2>
                     <p style="margin:0;font-size:15px;line-height:1.65;color:#385066"><strong>1.</strong> We review the details and photos.<br><strong>2.</strong> We advise on the most suitable clean.<br><strong>3.</strong> We discuss price, availability and the best way forward.</p>
                   </td>
@@ -1521,15 +1522,15 @@ def enquiry_customer_email_html(data):
           </tr>
           <tr>
             <td style="padding:18px 30px 8px">
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f7fbff;border:1px solid #d8e7f6;border-radius:16px">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f3faf6;border:1px solid #cfe5d9;border-radius:18px">
                 <tr>
                   <td style="padding:18px">
                     <h2 style="margin:0 0 8px;font-size:20px;line-height:1.25;color:#071524">See our recent work while you wait</h2>
                     <p style="margin:0 0 15px;font-size:16px;line-height:1.65;color:#385066">Please follow us on Facebook to see our videos, recent cleans, before-and-after photos and customer feedback. It is the best place to see the kind of results we get.</p>
                     <p style="margin:0 0 12px;font-size:15px;line-height:1.55;color:#071524;font-weight:800">↓ Click these links ↓</p>
                     <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
-                      {email_action_button("Follow us on Facebook", facebook_url, "#1457a8", "#ffffff")}
-                      {email_action_button("Read our Google reviews", reviews_url, "#0f7b63", "#ffffff")}
+                      {email_action_button("Follow us on Facebook", facebook_url, "#164f91", "#ffffff")}
+                      {email_action_button("Read our Google reviews", reviews_url, "#0d6b58", "#ffffff")}
                       {email_action_button("Visit our website", website_url, "#d8af55", "#071524")}
                     </table>
                   </td>
@@ -2154,7 +2155,7 @@ def day_run_message(kind, job):
 def day_run_email_html(kind, job, plain_body):
     name = clean_str(row_value(job, "first_name")) or "there"
     business = settings()["business_name"] or "The Carpet Cleaning Company"
-    logo_url = os.environ.get("CRM_EMAIL_LOGO_URL", "").strip() or public_static_or_live_url("site/logo.webp")
+    logo_url = public_static_or_live_url("site/email-logo-white.png")
     website_url = enquiry_public_site_url()
     facebook_url = "https://www.facebook.com/profile.php?id=61559013150413"
     reviews_url = settings()["review_link"] or "https://share.google/XHQjHHLwpmlugHP0c"
@@ -2292,7 +2293,7 @@ def booking_confirmation_email_html(job):
     name = customer_full_name(job)
     first_name = clean_str(row_value(job, "first_name")) or name
     business = settings()["business_name"] or "The Carpet Cleaning Company"
-    logo_url = crm_email_logo_url()
+    logo_url = os.environ.get("CRM_EMAIL_LOGO_URL", "").strip() or public_static_or_live_url("site/logo.webp")
     hero_url = public_static_or_live_url("site/hero-carpet-cleaning.webp")
     website_url = enquiry_public_site_url()
     reviews_url = settings()["review_link"] or "https://share.google/XHQjHHLwpmlugHP0c"
@@ -2302,60 +2303,69 @@ def booking_confirmation_email_html(job):
     job_time = clean_str(row_value(job, "job_time")) or "To be confirmed"
     amount = float(row_value(job, "amount", 0) or 0)
     notes = clean_str(row_value(job, "notes")) or "Your booking is confirmed. Please let us know if anything changes before we arrive."
-    logo_html = f'<img src="{html_lib.escape(logo_url)}" alt="{html_lib.escape(business)}" width="42" style="display:block;width:42px;height:auto;border:0">' if logo_url else ""
-    hero_html = f'<img src="{html_lib.escape(hero_url)}" alt="Professional carpet cleaning" width="520" style="display:block;width:100%;max-width:520px;height:auto;border:0;border-radius:12px">' if hero_url else ""
+    logo_html = f'<img src="{html_lib.escape(logo_url)}" alt="{html_lib.escape(business)}" width="104" style="display:block;width:104px;height:auto;border:0;margin:0 auto">' if logo_url else ""
+    hero_html = f"""
+        <tr>
+          <td style="padding:0 30px 22px">
+            <img src="{html_lib.escape(hero_url)}" alt="Professional carpet cleaning" width="580" style="display:block;width:100%;max-width:580px;height:auto;border:0;border-radius:16px">
+          </td>
+        </tr>
+    """ if hero_url else ""
     return f"""<!doctype html>
 <html>
 <head><meta charset="utf-8"></head>
-<body style="margin:0;background:#eef5fb;font-family:Arial,Helvetica,sans-serif;color:#102033">
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#eef5fb;margin:0;padding:0">
+<body style="margin:0;background:#edf5f2;font-family:Arial,Helvetica,sans-serif;color:#0b1f33">
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent">Your clean is booked. Below is your appointment summary, preparation checklist and payment information.</div>
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#edf5f2;margin:0;padding:0">
     <tr>
-      <td align="center" style="padding:14px 8px">
-        <table role="presentation" width="560" cellspacing="0" cellpadding="0" style="width:100%;max-width:560px;background:#ffffff;border:1px solid #cfddea;border-radius:10px;overflow:hidden">
+      <td align="center" style="padding:28px 14px">
+        <table role="presentation" width="640" cellspacing="0" cellpadding="0" style="width:100%;max-width:640px;background:#ffffff;border-radius:24px;overflow:hidden;border:1px solid #d7e5df;box-shadow:0 20px 54px rgba(7,21,36,.12)">
           <tr>
-            <td style="padding:16px 18px 10px">
+            <td style="height:9px;background:linear-gradient(90deg,#071524 0%,#0d5c4e 55%,#d8af55 100%);font-size:0;line-height:0">&nbsp;</td>
+          </tr>
+          <tr>
+            <td align="center" style="background:#fff8ec;padding:28px 30px 25px;color:#071524;border-bottom:1px solid #eadfcb">
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
                 <tr>
-                  <td align="left" style="width:54px">{logo_html}</td>
-                  <td align="right" style="font-size:11px;line-height:1.5;color:#56677a">
-                    <a href="tel:07802563213" style="color:#0d559f;text-decoration:none">07802 563213</a><br>
-                    Trusted local carpet cleaning
+                  <td align="center">
+                    <table role="presentation" cellspacing="0" cellpadding="0" style="background:#ffffff;border:1px solid #e3c36f;border-radius:999px;box-shadow:0 12px 28px rgba(7,21,36,.12);margin:0 auto 14px">
+                      <tr>
+                        <td style="padding:12px">{logo_html}</td>
+                      </tr>
+                    </table>
+                    <div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#967024;font-weight:800">{html_lib.escape(business)}</div>
+                    <div style="display:inline-block;background:#d8af55;color:#071524;border-radius:999px;padding:6px 12px;font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.04em;margin-top:12px">Booking confirmed</div>
+                    <h1 style="margin:12px 0 0;font-size:30px;line-height:1.16;color:#071524">{html_lib.escape(first_name)},<br>your clean is booked.</h1>
+                    <p style="margin:9px auto 0;max-width:510px;font-size:16px;line-height:1.55;color:#385066">Thanks for choosing <strong>{html_lib.escape(business)}</strong>. Below is your appointment summary, preparation checklist and payment information.</p>
                   </td>
                 </tr>
               </table>
             </td>
           </tr>
           <tr>
-            <td style="padding:0 18px 12px">
-              <span style="display:inline-block;background:#d8af55;color:#071524;border-radius:999px;padding:5px 10px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.04em">Booking confirmed</span>
-              <h1 style="margin:10px 0 4px;font-size:28px;line-height:1.06;color:#071524"> {html_lib.escape(first_name)},<br>your clean is booked.</h1>
-              <p style="margin:0;font-size:13px;line-height:1.55;color:#42566c">Thanks for choosing <strong>{html_lib.escape(business)}</strong>. Below is your appointment summary, preparation checklist and payment information.</p>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:0 18px 12px">
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #d7e4f1;border-radius:8px;overflow:hidden">
+            <td style="padding:24px 30px 14px">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #d8e8df;border-radius:18px;overflow:hidden;background:#ffffff">
                 <tr>
-                  <td style="padding:10px 12px;width:33%;border-right:1px solid #d7e4f1"><div style="font-size:9px;font-weight:800;text-transform:uppercase;color:#1860ad">Date</div><div style="font-size:13px;font-weight:800;color:#071524">{html_lib.escape(job_date)}</div></td>
-                  <td style="padding:10px 12px;width:33%;border-right:1px solid #d7e4f1"><div style="font-size:9px;font-weight:800;text-transform:uppercase;color:#1860ad">Arrival</div><div style="font-size:13px;font-weight:800;color:#071524">{html_lib.escape(job_time)}</div></td>
-                  <td style="padding:10px 12px;width:33%"><div style="font-size:9px;font-weight:800;text-transform:uppercase;color:#1860ad">Total</div><div style="font-size:13px;font-weight:800;color:#0b7a53">&pound;{amount:.2f}</div></td>
+                  <td style="padding:15px 18px;width:33%;border-right:1px solid #d8e8df;background:#f7fbf8"><div style="font-size:11px;font-weight:900;text-transform:uppercase;color:#0d6b58;letter-spacing:.04em">Date</div><div style="font-size:17px;font-weight:900;color:#071524;margin-top:4px">{html_lib.escape(job_date)}</div></td>
+                  <td style="padding:15px 18px;width:33%;border-right:1px solid #d8e8df;background:#f7fbf8"><div style="font-size:11px;font-weight:900;text-transform:uppercase;color:#0d6b58;letter-spacing:.04em">Arrival</div><div style="font-size:17px;font-weight:900;color:#071524;margin-top:4px">{html_lib.escape(job_time)}</div></td>
+                  <td style="padding:15px 18px;width:33%;background:#fff8e8"><div style="font-size:11px;font-weight:900;text-transform:uppercase;color:#967024;letter-spacing:.04em">Total</div><div style="font-size:17px;font-weight:900;color:#0d6b58;margin-top:4px">&pound;{amount:.2f}</div></td>
                 </tr>
               </table>
             </td>
           </tr>
-          <tr><td style="padding:0 18px 14px">{hero_html}</td></tr>
+          {hero_html}
           <tr>
-            <td style="padding:0 18px 12px">
+            <td style="padding:0 30px 14px">
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
                 <tr>
                   <td width="50%" valign="top" style="padding:0 6px 0 0">
-                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #d7e4f1;border-radius:10px">
-                      <tr><td style="padding:13px"><div style="font-size:9px;font-weight:800;text-transform:uppercase;color:#1860ad">Your technician</div><table role="presentation"><tr><td style="padding-right:10px"><span style="display:inline-block;width:40px;height:40px;border-radius:999px;background:#0b2a44;color:#ffffff;font-size:13px;font-weight:800;line-height:40px;text-align:center">PN</span></td><td><strong style="font-size:14px;color:#071524">Paul Nicholas</strong><br><span style="font-size:11px;color:#54677a">Owner operator<br>The Carpet Cleaning Company</span></td></tr></table><p style="margin:10px 0 0;font-size:11px;line-height:1.45;color:#54677a">I'll be carrying out your clean and will call ahead if traffic or access causes a delay.</p></td></tr>
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f7fbf8;border:1px solid #d8e8df;border-radius:18px">
+                      <tr><td style="padding:18px"><div style="font-size:11px;font-weight:900;text-transform:uppercase;color:#0d6b58;letter-spacing:.04em">Your technician</div><table role="presentation" cellspacing="0" cellpadding="0" style="margin-top:10px"><tr><td style="padding-right:12px"><span style="display:inline-block;width:48px;height:48px;border-radius:999px;background:#071524;color:#ffffff;font-size:15px;font-weight:900;line-height:48px;text-align:center">PN</span></td><td><strong style="font-size:16px;color:#071524">Paul Nicholas</strong><br><span style="font-size:13px;line-height:1.45;color:#54677a">Owner operator<br>The Carpet Cleaning Company</span></td></tr></table><p style="margin:12px 0 0;font-size:14px;line-height:1.55;color:#54677a">I'll be carrying out your clean and will call ahead if traffic or access causes a delay.</p></td></tr>
                     </table>
                   </td>
                   <td width="50%" valign="top" style="padding:0 0 0 6px">
-                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#fff9ed;border:1px solid #d8af55;border-radius:10px">
-                      <tr><td align="center" style="padding:13px"><span style="display:inline-block;width:48px;height:48px;border-radius:999px;background:#d8af55;color:#071524;font-size:15px;font-weight:900;line-height:48px;text-align:center">100%</span><strong style="display:block;font-size:14px;color:#071524;margin-top:6px">Satisfaction guaranteed</strong><p style="margin:7px 0 0;font-size:11px;line-height:1.45;color:#655536">Professional local service, clear communication and careful cleaning.</p></td></tr>
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#fff8e8;border:1px solid #e3c36f;border-radius:18px">
+                      <tr><td align="center" style="padding:18px"><span style="display:inline-block;width:56px;height:56px;border-radius:999px;background:#d8af55;color:#071524;font-size:16px;font-weight:900;line-height:56px;text-align:center">100%</span><strong style="display:block;font-size:16px;color:#071524;margin-top:9px">Satisfaction guaranteed</strong><p style="margin:8px 0 0;font-size:14px;line-height:1.55;color:#655536">Professional local service, clear communication and careful cleaning.</p></td></tr>
                     </table>
                   </td>
                 </tr>
@@ -2363,46 +2373,60 @@ def booking_confirmation_email_html(job):
             </td>
           </tr>
           <tr>
-            <td style="padding:0 18px 12px">
-              <h2 style="margin:0 0 8px;font-size:15px;color:#071524">Job details</h2>
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #d7e4f1;border-radius:10px;overflow:hidden">
+            <td style="padding:0 30px 14px">
+              <h2 style="margin:0 0 10px;font-size:20px;color:#071524">Job details</h2>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #d8e8df;border-radius:18px;overflow:hidden">
                 <tr>
-                  <td style="width:50%;padding:10px 12px;border-right:1px solid #d7e4f1;border-bottom:1px solid #d7e4f1"><div style="font-size:9px;font-weight:800;text-transform:uppercase;color:#1860ad">Service</div><div style="font-size:12px;font-weight:800;color:#071524">{html_lib.escape(service)}</div></td>
-                  <td style="width:50%;padding:10px 12px;border-bottom:1px solid #d7e4f1"><div style="font-size:9px;font-weight:800;text-transform:uppercase;color:#1860ad">Address</div><div style="font-size:12px;font-weight:800;color:#071524">{html_lib.escape(address)}</div></td>
+                  <td style="width:50%;padding:14px 18px;border-right:1px solid #d8e8df;border-bottom:1px solid #d8e8df;background:#f7fbf8"><div style="font-size:11px;font-weight:900;text-transform:uppercase;color:#0d6b58;letter-spacing:.04em">Service</div><div style="font-size:15px;font-weight:900;color:#071524;margin-top:4px">{html_lib.escape(service)}</div></td>
+                  <td style="width:50%;padding:14px 18px;border-bottom:1px solid #d8e8df;background:#f7fbf8"><div style="font-size:11px;font-weight:900;text-transform:uppercase;color:#0d6b58;letter-spacing:.04em">Address</div><div style="font-size:15px;font-weight:900;color:#071524;margin-top:4px">{html_lib.escape(address)}</div></td>
                 </tr>
-                <tr><td colspan="2" style="padding:10px 12px"><div style="font-size:9px;font-weight:800;text-transform:uppercase;color:#1860ad">Notes</div><div style="font-size:11px;line-height:1.5;color:#465b70">{html_lib.escape(notes)}</div></td></tr>
+                <tr><td colspan="2" style="padding:14px 18px"><div style="font-size:11px;font-weight:900;text-transform:uppercase;color:#0d6b58;letter-spacing:.04em">Notes</div><div style="font-size:14px;line-height:1.6;color:#465b70;margin-top:4px">{html_lib.escape(notes)}</div></td></tr>
               </table>
             </td>
           </tr>
           <tr>
-            <td style="padding:0 18px 12px">
-              <h2 style="margin:0 0 8px;font-size:15px;color:#071524">Before I arrive</h2>
-              <ol style="margin:0;padding-left:18px;font-size:11px;line-height:1.7;color:#26384d">
+            <td style="padding:0 30px 14px">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#ffffff;border:1px solid #d8e8df;border-radius:18px">
+                <tr>
+                  <td style="padding:18px">
+              <h2 style="margin:0 0 10px;font-size:20px;color:#071524">Before I arrive</h2>
+              <ol style="margin:0;padding-left:20px;font-size:15px;line-height:1.8;color:#26384d">
                 <li><strong>Parking:</strong> please save space as close to the front door as possible.</li>
                 <li><strong>Clear the area:</strong> remove small items, toys, shoes and breakables.</li>
                 <li><strong>Small furniture:</strong> move anything you would like cleaned underneath.</li>
                 <li><strong>Pets:</strong> please keep pets away from the working areas.</li>
               </ol>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:0 18px 12px">
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#fff8e8;border:1px solid #d8af55;border-radius:10px">
-                <tr><td style="padding:13px"><strong style="font-size:13px;color:#071524">Payment</strong><p style="margin:5px 0 0;font-size:11px;line-height:1.45;color:#5a4b2a">Cash, card, or bank transfer on the day.</p></td></tr>
+                  </td>
+                </tr>
               </table>
             </td>
           </tr>
           <tr>
-            <td style="padding:0 18px 14px">
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#edf7ff;border:1px solid #cbe0f4;border-radius:10px">
-                <tr><td style="padding:13px"><strong style="font-size:13px;color:#071524">After the clean</strong><p style="margin:5px 0 10px;font-size:11px;line-height:1.45;color:#42566c">If you're happy with the service, a quick Google review really helps a local business.</p><a href="{html_lib.escape(reviews_url)}" style="display:inline-block;background:#1967d2;color:#ffffff;text-decoration:none;font-weight:800;font-size:11px;padding:9px 13px;border-radius:7px">Leave a Google review</a></td></tr>
+            <td style="padding:0 30px 14px">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#fff8e8;border:1px solid #e3c36f;border-radius:18px;border-left:5px solid #d8af55">
+                <tr><td style="padding:18px"><strong style="font-size:17px;color:#071524">Payment</strong><p style="margin:6px 0 0;font-size:15px;line-height:1.55;color:#5a4b2a">Cash, card, or bank transfer on the day.</p></td></tr>
               </table>
             </td>
           </tr>
           <tr>
-            <td style="padding:0 18px 18px">
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #d7e4f1;border-radius:10px">
-                <tr><td style="padding:12px;font-size:11px;line-height:1.45;color:#52677b"><strong style="color:#071524">Paul Nicholas</strong><br>{html_lib.escape(business)}<br>07802 563213<br>Shropshire, Herefordshire & Worcestershire</td><td align="right" style="padding:12px"><a href="{html_lib.escape(website_url)}" style="font-size:11px;font-weight:800;color:#1967d2;text-decoration:none">Visit website</a></td></tr>
+            <td style="padding:0 30px 18px">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f3faf6;border:1px solid #cfe5d9;border-radius:18px">
+                <tr><td style="padding:18px"><strong style="font-size:17px;color:#071524">After the clean</strong><p style="margin:6px 0 13px;font-size:15px;line-height:1.55;color:#42566c">If you're happy with the service, a quick Google review really helps a local business.</p><table role="presentation" width="100%" cellspacing="0" cellpadding="0">{email_action_button("Leave a Google review", reviews_url, "#0d6b58", "#ffffff")}</table></td></tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0 30px 26px">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-top:1px solid #dce8f1">
+                <tr>
+                  <td style="padding-top:20px;font-size:15px;line-height:1.65;color:#385066">
+                    <strong style="color:#071524">Paul Nicholas</strong><br>
+                    {html_lib.escape(business)}<br>
+                    <a href="tel:07802563213" style="color:#165dcc;text-decoration:none">07802 563213</a><br>
+                    Shropshire, Herefordshire & Worcestershire<br>
+                    <a href="{html_lib.escape(website_url)}" style="color:#165dcc;text-decoration:none">www.thecarpetcleaningcrew.co.uk</a>
+                  </td>
+                </tr>
               </table>
             </td>
           </tr>
@@ -2416,7 +2440,7 @@ def booking_confirmation_email_html(job):
 
 def built_in_visual_email_templates():
     business = "The Carpet Cleaning Company"
-    logo_url = os.environ.get("CRM_EMAIL_LOGO_URL", "").strip() or public_static_or_live_url("site/email-logo.png")
+    logo_url = public_static_or_live_url("site/email-logo-white.png")
     hero_url = public_static_or_live_url("site/hero-carpet-cleaning.webp")
     website_url = enquiry_public_site_url()
     facebook_url = "https://www.facebook.com/profile.php?id=61559013150413"
