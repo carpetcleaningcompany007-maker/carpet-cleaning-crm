@@ -47,6 +47,7 @@
       <p>After you confirm the price and book the job, send the customer the proper confirmation email with date, arrival, total, prep notes and payment details.</p>
     </div>
     <div class="row-actions" style="margin-bottom:16px;">
+      <a class="btn secondary" href="{{ url_for('job_booking_email_preview', job_id=job.id) }}" target="_blank">Preview Booking Email</a>
       <form method="post" action="{{ url_for('job_send_booking_confirmation', job_id=job.id) }}">
         <input type="hidden" name="channel" value="test_email">
         <button class="btn secondary">Send Test Email To Me</button>

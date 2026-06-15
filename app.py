@@ -4654,6 +4654,19 @@ def job_view(job_id):
     return render_template("job_view.html", job=job, is_archived=((job["status"] or "") == "Archived"), existing_invoice_id=(existing_invoice["id"] if existing_invoice else None), recent_contacts=recent_contacts, contact_summary=contact_summary)
 
 
+@app.route("/jobs/<int:job_id>/booking-email-preview")
+@login_required
+def job_booking_email_preview(job_id):
+    job = q("""SELECT jobs.*, customers.first_name, customers.last_name, customers.phone, customers.email,
+                      customers.address, customers.town, customers.postcode, customers.sms_opt_out
+               FROM jobs LEFT JOIN customers ON customers.id = jobs.customer_id
+               WHERE jobs.id=?""", (job_id,), one=True)
+    if not job:
+        flash("Job not found.")
+        return redirect(url_for("jobs"))
+    return Response(booking_confirmation_email_html(job), mimetype="text/html")
+
+
 @app.route("/jobs/<int:job_id>/send-booking-confirmation", methods=["POST"])
 @login_required
 def job_send_booking_confirmation(job_id):
@@ -7032,6 +7045,26 @@ def intake_form_view(lead_id):
         flash("Intake form not found.")
         return redirect(url_for("intake_forms"))
     return render_template("intake_form_view.html", lead=lead, xero_configured=xero_is_configured(), xero_connected=bool(xero_token_row()))
+
+
+@app.route("/intake-forms/<int:lead_id>/welcome-email-preview")
+@login_required
+def intake_welcome_email_preview(lead_id):
+    lead = q("SELECT * FROM intake_submissions WHERE id=?", (lead_id,), one=True)
+    if not lead:
+        flash("Intake form not found.")
+        return redirect(url_for("intake_forms"))
+    data = dict(lead)
+    data.update({
+        "name": row_get(lead, "name"),
+        "phone": row_get(lead, "phone"),
+        "email": row_get(lead, "email"),
+        "address": row_get(lead, "full_address"),
+        "service_required": row_get(lead, "what_cleaned") or row_get(lead, "rooms_areas"),
+        "rooms_or_items": row_get(lead, "rooms_areas"),
+        "message": row_get(lead, "additional_notes") or row_get(lead, "job_notes"),
+    })
+    return Response(enquiry_customer_email_html(data), mimetype="text/html")
 
 
 @app.route("/intake-forms/<int:lead_id>/review", methods=["POST"])

@@ -60,6 +60,7 @@
   </form>
 
   <div class="actions action-row">
+    <a class="btn" href="{{ url_for('intake_welcome_email_preview', lead_id=lead.id) }}" target="_blank">Preview Welcome Email</a>
     <form method="post" action="{{ url_for('intake_create_customer', lead_id=lead.id) }}"><button class="btn" type="submit">Create customer</button></form>
     <form method="post" action="{{ url_for('intake_create_job', lead_id=lead.id) }}"><button class="btn" type="submit">Create job</button></form>
     <form method="post" action="{{ url_for('xero_create_contact', lead_id=lead.id) }}"><button class="btn primary" type="submit">Send to Xero</button></form>
