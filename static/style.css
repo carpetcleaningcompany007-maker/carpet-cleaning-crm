@@ -5631,3 +5631,38 @@ input[type=submit],
       url("/static/site/hero-carpet-cleaning.webp") center top / auto 320px no-repeat !important;
   }
 }
+
+/* Mobile CRM repairs: approval links should be quick and the menu button must open. */
+@media (max-width: 820px) {
+  body.app-page.sidebar-open .sidebar {
+    display: flex !important;
+    position: fixed !important;
+    inset: 0 auto 0 0 !important;
+    z-index: 90 !important;
+    width: min(86vw, 330px) !important;
+    height: 100vh !important;
+    min-height: 100vh !important;
+    overflow-y: auto !important;
+    transform: translateX(0) !important;
+  }
+
+  body.app-page .sidebar-backdrop {
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 85 !important;
+    background: rgba(15,23,42,.42) !important;
+  }
+
+  body.app-page.sidebar-open .sidebar-backdrop {
+    display: block !important;
+  }
+
+  body.page-intake-form-view .topbar,
+  body.page-intake-form-view .mobile-quick-nav {
+    display: none !important;
+  }
+
+  body.page-intake-form-view .main {
+    padding: 12px !important;
+  }
+}

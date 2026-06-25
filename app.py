@@ -1743,7 +1743,12 @@ def contact_form_alert_text(lead, customer_id=None):
         f"Address: {lead['full_address'] or ''}",
         f"Postcode: {lead['postcode'] or ''}",
         f"What3Words: {lead['what3words'] or 'Not supplied'}",
+        f"Rooms or areas: {row_get(lead, 'rooms_areas') or 'Not supplied'}",
+        f"Service: {row_get(lead, 'what_cleaned') or 'Not supplied'}",
         f"Job details: {lead['job_notes'] or 'Not supplied'}",
+        f"Access / parking: {row_get(lead, 'parking') or 'Not supplied'}",
+        f"Preferred dates or times: {row_get(lead, 'preferred_days_times') or 'Not supplied'}",
+        f"Extra notes: {row_get(lead, 'additional_notes') or 'Not supplied'}",
         "Review before Xero:",
         review_url,
     ]
@@ -1757,20 +1762,29 @@ def contact_form_alert_html(lead, customer_id=None):
     customer_url = crm_external_url("customer_view", customer_id=customer_id) if customer_id else ""
     safe = html_lib.escape
     customer_link = f'<p><a href="{safe(customer_url)}">Open customer record</a></p>' if customer_url else ""
-    return f"""<div style="font-family:Arial,sans-serif;color:#071524;line-height:1.55">
-      <h2 style="margin:0 0 12px">Customer details form completed</h2>
-      <p>The customer has filled out the form you sent them. It is ready for you to check before anything is uploaded to Xero.</p>
-      <table style="border-collapse:collapse;width:100%;max-width:620px">
-        <tr><td style="padding:8px;border-bottom:1px solid #dde7ef"><strong>Name</strong></td><td style="padding:8px;border-bottom:1px solid #dde7ef">{safe(lead['name'] or '')}</td></tr>
-        <tr><td style="padding:8px;border-bottom:1px solid #dde7ef"><strong>Phone</strong></td><td style="padding:8px;border-bottom:1px solid #dde7ef">{safe(lead['phone'] or '')}</td></tr>
-        <tr><td style="padding:8px;border-bottom:1px solid #dde7ef"><strong>Email</strong></td><td style="padding:8px;border-bottom:1px solid #dde7ef">{safe(lead['email'] or '')}</td></tr>
-        <tr><td style="padding:8px;border-bottom:1px solid #dde7ef"><strong>Address</strong></td><td style="padding:8px;border-bottom:1px solid #dde7ef">{safe(lead['full_address'] or '')}</td></tr>
-        <tr><td style="padding:8px;border-bottom:1px solid #dde7ef"><strong>Postcode</strong></td><td style="padding:8px;border-bottom:1px solid #dde7ef">{safe(lead['postcode'] or '')}</td></tr>
-        <tr><td style="padding:8px;border-bottom:1px solid #dde7ef"><strong>What3Words</strong></td><td style="padding:8px;border-bottom:1px solid #dde7ef">{safe(lead['what3words'] or 'Not supplied')}</td></tr>
-        <tr><td style="padding:8px;border-bottom:1px solid #dde7ef"><strong>Job details</strong></td><td style="padding:8px;border-bottom:1px solid #dde7ef">{safe(lead['job_notes'] or 'Not supplied')}</td></tr>
+    return f"""<div style="margin:0;background:#eef6ff;padding:18px;font-family:Arial,sans-serif;color:#071524;line-height:1.55">
+      <div style="max-width:680px;margin:0 auto;background:#ffffff;border:1px solid #d8e7f2;border-radius:14px;padding:20px">
+      <p style="margin:0 0 8px;color:#1677c8;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.05em">The Carpet Cleaning Company</p>
+      <h2 style="margin:0 0 12px;font-size:26px">Customer details form completed</h2>
+      <p style="margin:0 0 18px">The customer has filled out the form you sent them. Check the details below, then approve it before anything is uploaded to Xero.</p>
+      <p style="margin:20px 0"><a href="{safe(review_url)}" style="display:inline-block;background:#1677c8;color:#fff;padding:14px 18px;border-radius:8px;text-decoration:none;font-weight:700">Review and approve in CRM</a></p>
+      <p style="margin:0 0 18px;font-size:14px;color:#36516b">Review link:<br><a href="{safe(review_url)}">{safe(review_url)}</a></p>
+      <table style="border-collapse:collapse;width:100%;max-width:680px">
+        <tr><td style="padding:9px;border-bottom:1px solid #dde7ef;width:34%"><strong>Name</strong></td><td style="padding:9px;border-bottom:1px solid #dde7ef">{safe(lead['name'] or '')}</td></tr>
+        <tr><td style="padding:9px;border-bottom:1px solid #dde7ef"><strong>Phone</strong></td><td style="padding:9px;border-bottom:1px solid #dde7ef">{safe(lead['phone'] or '')}</td></tr>
+        <tr><td style="padding:9px;border-bottom:1px solid #dde7ef"><strong>Email</strong></td><td style="padding:9px;border-bottom:1px solid #dde7ef">{safe(lead['email'] or '')}</td></tr>
+        <tr><td style="padding:9px;border-bottom:1px solid #dde7ef"><strong>Address</strong></td><td style="padding:9px;border-bottom:1px solid #dde7ef">{safe(lead['full_address'] or '')}</td></tr>
+        <tr><td style="padding:9px;border-bottom:1px solid #dde7ef"><strong>Postcode</strong></td><td style="padding:9px;border-bottom:1px solid #dde7ef">{safe(lead['postcode'] or '')}</td></tr>
+        <tr><td style="padding:9px;border-bottom:1px solid #dde7ef"><strong>What3Words</strong></td><td style="padding:9px;border-bottom:1px solid #dde7ef">{safe(lead['what3words'] or 'Not supplied')}</td></tr>
+        <tr><td style="padding:9px;border-bottom:1px solid #dde7ef"><strong>Rooms or areas</strong></td><td style="padding:9px;border-bottom:1px solid #dde7ef">{safe(row_get(lead, 'rooms_areas') or 'Not supplied')}</td></tr>
+        <tr><td style="padding:9px;border-bottom:1px solid #dde7ef"><strong>Service</strong></td><td style="padding:9px;border-bottom:1px solid #dde7ef">{safe(row_get(lead, 'what_cleaned') or 'Not supplied')}</td></tr>
+        <tr><td style="padding:9px;border-bottom:1px solid #dde7ef"><strong>Job details</strong></td><td style="padding:9px;border-bottom:1px solid #dde7ef">{safe(lead['job_notes'] or 'Not supplied')}</td></tr>
+        <tr><td style="padding:9px;border-bottom:1px solid #dde7ef"><strong>Access / parking</strong></td><td style="padding:9px;border-bottom:1px solid #dde7ef">{safe(row_get(lead, 'parking') or 'Not supplied')}</td></tr>
+        <tr><td style="padding:9px;border-bottom:1px solid #dde7ef"><strong>Preferred dates or times</strong></td><td style="padding:9px;border-bottom:1px solid #dde7ef">{safe(row_get(lead, 'preferred_days_times') or 'Not supplied')}</td></tr>
+        <tr><td style="padding:9px;border-bottom:1px solid #dde7ef"><strong>Extra notes</strong></td><td style="padding:9px;border-bottom:1px solid #dde7ef">{safe(row_get(lead, 'additional_notes') or 'Not supplied')}</td></tr>
       </table>
-      <p style="margin:22px 0"><a href="{safe(review_url)}" style="display:inline-block;background:#1677c8;color:#fff;padding:14px 18px;border-radius:8px;text-decoration:none;font-weight:700">Review and approve</a></p>
       {customer_link}
+      </div>
     </div>"""
 
 
@@ -1779,7 +1793,7 @@ def send_contact_form_owner_alerts(lead_id, customer_id=None):
     if not lead:
         return {}
     owner_email, owner_mobile = owner_contact_form_recipients()
-    subject = f"New customer contact form: {lead['name'] or 'Customer'}"
+    subject = f"Customer details form completed - {lead['name'] or 'Customer'}"
     text_body = contact_form_alert_text(lead, customer_id=customer_id)
     results = {}
 
@@ -2010,11 +2024,22 @@ def send_sms_gateway(to_phone, body, customer=None, communication_id=None, messa
 
 
 # --- v87 compatibility and SMS history helpers ---
+def safe_next_url(value):
+    value = (value or "").strip()
+    if not value:
+        return url_for("dashboard")
+    parsed = urllib.parse.urlparse(value)
+    if parsed.scheme or parsed.netloc or not value.startswith("/"):
+        return url_for("dashboard")
+    return value
+
+
 def login_required(fn):
     @wraps(fn)
     def wrapper(*args, **kwargs):
         if not session.get('logged_in'):
-            return redirect(url_for('login'))
+            next_url = request.full_path if request.query_string else request.path
+            return redirect(url_for('login', next=next_url))
         return fn(*args, **kwargs)
     wrapper.__name__ = fn.__name__
     return wrapper
@@ -3743,8 +3768,9 @@ def workflow_dashboard_data():
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
+    next_url = safe_next_url(request.values.get("next"))
     if session.get("logged_in") and request.method == "GET":
-        return redirect(url_for("dashboard"))
+        return redirect(next_url)
     s = settings()
     if request.method == "POST":
         submitted_username = (request.form.get("username") or "").strip()
@@ -3755,9 +3781,9 @@ def login():
             if s["password"] and not is_password_hash(s["password"]):
                 run("UPDATE settings SET password=? WHERE id=1", (normalize_password_for_storage(s["password"]),))
             session["logged_in"] = True
-            return redirect(url_for("dashboard"))
+            return redirect(next_url)
         flash("Login details were incorrect.")
-    return render_template("login.html")
+    return render_template("login.html", next_url=next_url)
 
 @app.route("/logout")
 def logout():

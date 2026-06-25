@@ -16,6 +16,7 @@
       </div>
     </div>
     <form method="post" class="login-card simple-login-card">
+      <input type="hidden" name="next" value="{{ next_url or '' }}">
       <span class="section-kicker">Sign in</span>
       <h2>Welcome back</h2>
       <p>Use your CRM login to continue.</p>
