@@ -17,3 +17,5 @@ services:
         value: /data/backups
       - key: CRM_UPLOAD_FOLDER
         value: /data/uploads
+      - key: CRM_PUBLIC_BASE_URL
+        value: https://carpet-cleaning-crm.onrender.com

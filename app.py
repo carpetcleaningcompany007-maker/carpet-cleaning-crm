@@ -1706,6 +1706,103 @@ def owner_enquiry_alert_text(data, customer_id=None, lead_id=None):
     return "\n".join(lines)
 
 
+def crm_external_url(endpoint, **values):
+    base = os.environ.get("CRM_PUBLIC_BASE_URL", "").strip().rstrip("/")
+    if base:
+        return base + url_for(endpoint, **values)
+    return url_for(endpoint, _external=True, **values)
+
+
+def owner_contact_form_recipients():
+    s = settings()
+    owner_email = (
+        os.environ.get("OWNER_ALERT_EMAIL", "").strip()
+        or clean_str(row_value(s, "test_email"))
+        or clean_str(row_value(s, "email"))
+        or clean_str(row_value(s, "gmail_address"))
+        or os.environ.get("SMTP_USER", "").strip()
+    )
+    owner_mobile = normalize_phone(
+        os.environ.get("OWNER_ALERT_MOBILE", "").strip()
+        or os.environ.get("WEBSITE_FORM_SMS_TO", "").strip()
+        or clean_str(row_value(s, "sms_test_number"))
+        or clean_str(row_value(s, "phone"))
+    )
+    return owner_email, owner_mobile
+
+
+def contact_form_alert_text(lead, customer_id=None):
+    review_url = crm_external_url("intake_form_view", lead_id=lead["id"])
+    customer_url = crm_external_url("customer_view", customer_id=customer_id) if customer_id else ""
+    lines = [
+        "New customer contact form filled out",
+        f"Name: {lead['name'] or ''}",
+        f"Phone: {lead['phone'] or ''}",
+        f"Email: {lead['email'] or ''}",
+        f"Postcode: {lead['postcode'] or ''}",
+        f"What3Words: {lead['what3words'] or 'Not supplied'}",
+        "Review before Xero:",
+        review_url,
+    ]
+    if customer_url:
+        lines.extend(["Customer record:", customer_url])
+    return "\n".join(lines)
+
+
+def contact_form_alert_html(lead, customer_id=None):
+    review_url = crm_external_url("intake_form_view", lead_id=lead["id"])
+    customer_url = crm_external_url("customer_view", customer_id=customer_id) if customer_id else ""
+    safe = html_lib.escape
+    customer_link = f'<p><a href="{safe(customer_url)}">Open customer record</a></p>' if customer_url else ""
+    return f"""<div style="font-family:Arial,sans-serif;color:#071524;line-height:1.55">
+      <h2 style="margin:0 0 12px">New customer contact form filled out</h2>
+      <p>This form is waiting for review before Xero is updated.</p>
+      <table style="border-collapse:collapse;width:100%;max-width:620px">
+        <tr><td style="padding:8px;border-bottom:1px solid #dde7ef"><strong>Name</strong></td><td style="padding:8px;border-bottom:1px solid #dde7ef">{safe(lead['name'] or '')}</td></tr>
+        <tr><td style="padding:8px;border-bottom:1px solid #dde7ef"><strong>Phone</strong></td><td style="padding:8px;border-bottom:1px solid #dde7ef">{safe(lead['phone'] or '')}</td></tr>
+        <tr><td style="padding:8px;border-bottom:1px solid #dde7ef"><strong>Email</strong></td><td style="padding:8px;border-bottom:1px solid #dde7ef">{safe(lead['email'] or '')}</td></tr>
+        <tr><td style="padding:8px;border-bottom:1px solid #dde7ef"><strong>Address</strong></td><td style="padding:8px;border-bottom:1px solid #dde7ef">{safe(lead['full_address'] or '')}</td></tr>
+        <tr><td style="padding:8px;border-bottom:1px solid #dde7ef"><strong>Postcode</strong></td><td style="padding:8px;border-bottom:1px solid #dde7ef">{safe(lead['postcode'] or '')}</td></tr>
+        <tr><td style="padding:8px;border-bottom:1px solid #dde7ef"><strong>What3Words</strong></td><td style="padding:8px;border-bottom:1px solid #dde7ef">{safe(lead['what3words'] or 'Not supplied')}</td></tr>
+      </table>
+      <p style="margin:22px 0"><a href="{safe(review_url)}" style="display:inline-block;background:#0d5c4e;color:#fff;padding:14px 18px;border-radius:8px;text-decoration:none;font-weight:700">Review form reply</a></p>
+      {customer_link}
+    </div>"""
+
+
+def send_contact_form_owner_alerts(lead_id, customer_id=None):
+    lead = q("SELECT * FROM intake_submissions WHERE id=?", (lead_id,), one=True)
+    if not lead:
+        return {}
+    owner_email, owner_mobile = owner_contact_form_recipients()
+    subject = f"New customer contact form: {lead['name'] or 'Customer'}"
+    text_body = contact_form_alert_text(lead, customer_id=customer_id)
+    results = {}
+
+    if owner_email:
+        ok, msg = send_env_email(owner_email, subject, text_body, contact_form_alert_html(lead, customer_id=customer_id))
+        update_intake_delivery_status(lead_id, owner_email_status=status_text(ok, msg))
+        results["owner_email"] = (ok, msg)
+    else:
+        msg = "No owner email configured. Set OWNER_ALERT_EMAIL, Settings email, test email, or Gmail address."
+        update_intake_delivery_status(lead_id, owner_email_status=status_text(False, msg, skipped=True))
+        results["owner_email"] = (False, msg)
+
+    if owner_mobile:
+        ok, msg = send_clicksend_env_sms(owner_mobile, text_body, customer=None, category="Contact Form Alert")
+        update_intake_delivery_status(lead_id, owner_sms_status=status_text(ok, msg))
+        results["owner_sms"] = (ok, msg)
+    else:
+        msg = "No owner mobile configured. Set OWNER_ALERT_MOBILE, WEBSITE_FORM_SMS_TO, SMS test number, or business phone."
+        update_intake_delivery_status(lead_id, owner_sms_status=status_text(False, msg, skipped=True))
+        results["owner_sms"] = (False, msg)
+
+    if customer_id:
+        run("INSERT INTO customer_timeline(customer_id, note_text, photo_filename) VALUES (?,?,?)",
+            (customer_id, "Owner alert prepared for new contact form reply.", ""))
+    return results
+
+
 def run_website_enquiry_automation(lead_id, customer_id, data):
     lead = q("SELECT * FROM intake_submissions WHERE id=?", (lead_id,), one=True)
     customer = q("SELECT * FROM customers WHERE id=?", (customer_id,), one=True)
@@ -2782,9 +2879,38 @@ def follow_up_dashboard_summary(rows, days=60):
     return {'days': days, 'total': total, 'activity_count': activity_count, 'waiting_count': waiting_count, 'recent_waiting': [r for r in rows if not r.get('activity_at')][:8], 'recent_activity': [r for r in rows if r.get('activity_at')][:8]}
 
 
+def normalise_quote_line(line):
+    line = line or {}
+    item_name = clean_str(line.get("item_name") or line.get("name") or line.get("description") or "Carpet cleaning")
+    method = clean_str(line.get("method") or line.get("area_type") or line.get("type") or "")
+    group_name = clean_str(line.get("group_name") or line.get("group") or "")
+    try:
+        quantity = float(line.get("quantity") if line.get("quantity") not in (None, "") else line.get("qty") or 0)
+    except (TypeError, ValueError):
+        quantity = 0.0
+    try:
+        unit_price = float(line.get("unit_price") if line.get("unit_price") not in (None, "") else line.get("price") or 0)
+    except (TypeError, ValueError):
+        unit_price = 0.0
+    try:
+        line_total = float(line.get("line_total") if line.get("line_total") not in (None, "") else line.get("total") or 0)
+    except (TypeError, ValueError):
+        line_total = 0.0
+    if not line_total and quantity and unit_price:
+        line_total = quantity * unit_price
+    return {
+        "item_name": item_name,
+        "method": method,
+        "quantity": quantity,
+        "unit_price": unit_price,
+        "line_total": round(line_total, 2),
+        "group_name": group_name,
+    }
+
+
 def calc_from_payload(payload):
     payload = payload or {}
-    lines = list(payload.get('lines') or [])
+    lines = [normalise_quote_line(line) for line in list(payload.get('lines') or [])]
     subtotal = round(sum(float(line.get('line_total') or 0) for line in lines), 2)
     vat = round(float(payload.get('vat') or 0), 2)
     total = round(float(payload.get('total') or (subtotal + vat)), 2)
@@ -3416,8 +3542,8 @@ def row_get(row, key, default=""):
 
 def booking_form_url(customer=None):
     if customer:
-        return url_for("booking_form", customer_id=customer["id"], _external=True)
-    return url_for("booking_form", _external=True)
+        return crm_external_url("booking_form", customer_id=customer["id"])
+    return crm_external_url("booking_form")
 
 
 def booking_form_message(customer):
@@ -3754,6 +3880,7 @@ def build_follow_up_dashboard(days=90, limit=12):
 
 
 @app.route("/")
+@app.route("/dashboard")
 @login_required
 def dashboard():
     archive_counts = active_archived_counts()
@@ -3952,8 +4079,8 @@ def customers():
     params = []
     if search:
         like = f"%{search}%"
-        where_parts.append("(first_name LIKE ? OR last_name LIKE ? OR phone LIKE ? OR email LIKE ? OR town LIKE ? OR tags LIKE ?)")
-        params += [like, like, like, like, like, like]
+        where_parts.append("(first_name LIKE ? OR last_name LIKE ? OR (first_name || ' ' || last_name) LIKE ? OR phone LIKE ? OR email LIKE ? OR town LIKE ? OR tags LIKE ?)")
+        params += [like, like, like, like, like, like, like]
     if starts:
         where_parts.append("(UPPER(SUBSTR(first_name,1,1))=? OR UPPER(SUBSTR(last_name,1,1))=?)")
         params += [starts, starts]
@@ -4493,7 +4620,7 @@ def quotes_create_from_calculator():
     for line in calc["lines"]:
         run("""INSERT INTO quote_lines(quote_id, item_name, method, quantity, unit_price, line_total, group_name)
                VALUES (?,?,?,?,?,?,?)""", (
-            quote_id, line["item_name"], line["method"], line["quantity"], line["unit_price"], line["line_total"], line["group_name"]
+            quote_id, line.get("item_name", ""), line.get("method", ""), line.get("quantity", 0), line.get("unit_price", 0), line.get("line_total", 0), line.get("group_name", "")
         ))
     if customer_id:
         set_customer_workflow(int(customer_id), "quote_created", "Quote created from calculator.", "Quote created")
@@ -6317,7 +6444,7 @@ def quote_request_approve(request_id):
     for line in calc["lines"]:
         run("""INSERT INTO quote_lines(quote_id, item_name, method, quantity, unit_price, line_total, group_name)
                VALUES (?,?,?,?,?,?,?)""", (
-            quote_id, line["item_name"], line["method"], line["quantity"], line["unit_price"], line["line_total"], line["group_name"]
+            quote_id, line.get("item_name", ""), line.get("method", ""), line.get("quantity", 0), line.get("unit_price", 0), line.get("line_total", 0), line.get("group_name", "")
         ))
     run("UPDATE quote_requests SET status='Approved' WHERE id=?", (request_id,))
     flash("Request approved and added into customers and quotes." if not existing_customer_id else "Request approved and linked to the existing customer.")
@@ -6951,6 +7078,16 @@ def booking_form():
             flash("Please enter a valid email address.")
             return redirect(url_for("booking_form"))
         photo_filename = save_upload("photo")
+        whatsapp_number = clean_str(request.form.get("whatsapp_number"))
+        carpet_details = clean_str(request.form.get("carpet_details"))
+        job_details = clean_str(request.form.get("job_notes"))
+        access_info = clean_str(request.form.get("access_info") or request.form.get("parking"))
+        job_notes = "\n".join([part for part in [
+            job_details,
+            f"WhatsApp number: {whatsapp_number}" if whatsapp_number else "",
+            f"Carpet/upholstery details: {carpet_details}" if carpet_details else "",
+            f"Access information: {access_info}" if access_info else "",
+        ] if part])
         lead_id = run("""INSERT INTO intake_submissions
                (name, phone, email, full_address, postcode, google_maps_link, what3words, job_notes, rooms_areas,
                 what_cleaned, number_rooms, upholstery, rugs, stains, pets, parking, preferred_days_times, additional_notes,
@@ -6958,11 +7095,11 @@ def booking_form():
                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", (
             name, phone, email, clean_str(request.form.get("full_address")), clean_str(request.form.get("postcode")),
             clean_str(request.form.get("google_maps_link")), clean_str(request.form.get("what3words")),
-            clean_str(request.form.get("job_notes")), clean_str(request.form.get("rooms_areas")),
+            job_notes, clean_str(request.form.get("rooms_areas")),
             clean_str(request.form.get("what_cleaned")), clean_str(request.form.get("number_rooms")),
             clean_str(request.form.get("upholstery")), clean_str(request.form.get("rugs")),
             clean_str(request.form.get("stains")), clean_str(request.form.get("pets")),
-            clean_str(request.form.get("parking")), clean_str(request.form.get("preferred_days_times")),
+            access_info, clean_str(request.form.get("preferred_days_times")),
             clean_str(request.form.get("additional_notes")),
             clean_str(request.form.get("preferred_date")), clean_str(request.form.get("preferred_time")), photo_filename,
             linked_customer_id or None, "Waiting for review",
@@ -6970,6 +7107,7 @@ def booking_form():
         lead = q("SELECT * FROM intake_submissions WHERE id=?", (lead_id,), one=True)
         customer_id = create_customer_from_intake(lead)
         run("UPDATE intake_submissions SET customer_id=?, status='Waiting for review', updated_at=datetime('now') WHERE id=?", (customer_id, lead_id))
+        send_contact_form_owner_alerts(lead_id, customer_id)
         return render_template("customer_intake_thanks.html", biz=settings(), public_mode=True)
     return render_template("customer_intake.html", biz=settings(), linked_customer=linked_customer, public_mode=True)
 

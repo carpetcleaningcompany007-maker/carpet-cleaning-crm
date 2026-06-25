@@ -1,16 +1,25 @@
 {% extends "layout.html" %}
-{% block title %}Thanks{% endblock %}
+{% block title %}Details Received{% endblock %}
 {% block public_content %}
-<section class="public-page">
-  <div class="public-card">
+<section class="customer-form-page customer-thanks-page">
+  <div class="customer-thanks-card">
+    <div class="customer-form-brand">
+      <img src="{% if biz.logo_filename %}{{ url_for('uploaded_file', filename=biz.logo_filename) }}{% else %}{{ url_for('static', filename='site/logo.webp') }}{% endif %}" alt="{{ biz.business_name or 'The Carpet Cleaning Company' }}">
+      <div>
+        <span>Details received</span>
+        <strong>{{ biz.business_name or 'The Carpet Cleaning Company' }}</strong>
+      </div>
+    </div>
+    <div class="customer-thanks-icon">✓</div>
     <h1>{{ title or "Thanks, we have your details" }}</h1>
-    <p>{{ message or "Your request has been saved in the CRM for review." }}</p>
-    {% if formspree_message %}
-      <p>{{ formspree_message }}</p>
-    {% endif %}
-    {% if sms_message %}
-      <p>{{ sms_message }}</p>
-    {% endif %}
+    <p>{{ message or "Your information has been sent to our CRM for review. We will check everything before creating a quote, booking, invoice or follow-up." }}</p>
+    {% if formspree_message %}<p class="customer-thanks-note">{{ formspree_message }}</p>{% endif %}
+    {% if sms_message %}<p class="customer-thanks-note">{{ sms_message }}</p>{% endif %}
+    <div class="customer-thanks-steps">
+      <div><span>1</span><strong>Review details</strong><em>We check your form first.</em></div>
+      <div><span>2</span><strong>Confirm next step</strong><em>Quote, booking, or extra questions.</em></div>
+      <div><span>3</span><strong>Keep you updated</strong><em>We contact you with clear information.</em></div>
+    </div>
   </div>
 </section>
 {% endblock %}

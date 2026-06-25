@@ -27,7 +27,8 @@
         <div class="settings-card">
           <h4>Gmail sending</h4>
           <p>Use an app password from your Gmail account so Communications can send messages safely.</p>
-          <div class="cols"><div><label>Gmail address</label><input name="gmail_email" value="{{ app_settings.gmail_email or '' }}"></div><div><label>Gmail app password</label><input type="password" name="gmail_app_password" value="{{ app_settings.gmail_app_password or '' }}"></div></div>
+          <div class="cols"><div><label>Gmail address</label><input name="gmail_address" value="{{ app_settings.gmail_address or '' }}"></div><div><label>Gmail app password</label><input type="password" name="gmail_app_password" value="{{ app_settings.gmail_app_password or '' }}"></div></div>
+          <div class="cols"><div><label>Owner alert email</label><input name="test_email" value="{{ app_settings.test_email or '' }}" placeholder="Where new form alerts should be emailed"></div><div><label>From name</label><input name="smtp_from_name" value="{{ app_settings.smtp_from_name or '' }}" placeholder="The Carpet Cleaning Company"></div></div>
         </div>
         <div class="settings-card">
           <h4>Text alerts</h4>
@@ -48,7 +49,7 @@
           </div>
           <div class="cols"><div><label>Optional API key</label><input type="password" name="sms_api_key" value="{{ app_settings.sms_api_key or '' }}"></div><div><label>Zapier Catch Hook URL</label><input name="sms_gateway_url" value="{{ app_settings.sms_gateway_url or '' }}" placeholder="https://hooks.zapier.com/hooks/catch/..."></div></div>
           <div class="cols"><div><label>Account ID or username</label><input name="sms_account_id" value="{{ app_settings.sms_account_id or '' }}"></div><div><label>API secret or auth token</label><input type="password" name="sms_api_secret" value="{{ app_settings.sms_api_secret or '' }}"></div></div>
-          <div class="cols"><div><label>Test phone number</label><input name="sms_test_number" value="{{ app_settings.sms_test_number or '' }}"></div><div><label>Marketing STOP notice</label><input name="sms_marketing_stop_text" value="{{ app_settings.sms_marketing_stop_text or '' }}"></div></div>
+          <div class="cols"><div><label>Owner alert mobile / test phone number</label><input name="sms_test_number" value="{{ app_settings.sms_test_number or '' }}" placeholder="Where new form alerts should text"></div><div><label>Marketing STOP notice</label><input name="sms_marketing_opt_out_notice" value="{{ app_settings.sms_marketing_opt_out_notice or '' }}"></div></div>
         </div>
         <div class="settings-card">
           <h4>Login security</h4>

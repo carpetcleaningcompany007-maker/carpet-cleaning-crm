@@ -18,6 +18,7 @@
     </div>
   </div>
   <div class="row-actions">
+    <a class="btn primary" href="#send-customer-form">Send Contact Form</a>
     <a class="btn secondary" href="#customer-details">Details</a>
     <a class="btn secondary" href="#customer-sales">Sales and Work</a>
     <a class="btn secondary" href="#customer-comms">Communications</a>
@@ -81,16 +82,16 @@
   </div>
 
   <div class="workflow-message-grid">
-    <div class="workflow-message">
-      <strong>Booking form link</strong>
-      <p class="muted">Send this to customers who do not come through the website/Formspree route.</p>
-      <p><a class="btn secondary" href="{{ workflow_messages.booking_form_url }}" target="_blank">Open Booking Form</a></p>
+    <div class="workflow-message" id="send-customer-form">
+      <strong>Send Contact Form</strong>
+      <p class="muted">Send this branded mobile form to collect the customer's contact details, address, postcode and What3Words. Their reply comes back into Form Replies for review.</p>
+      <p><a class="btn primary" href="{{ workflow_messages.booking_form_url }}" target="_blank">Open Contact Form</a></p>
       <input id="bookingFormUrl" value="{{ workflow_messages.booking_form_url }}" readonly>
       <textarea id="bookingMessage" readonly>{{ workflow_messages.booking_form }}</textarea>
       <div class="row-actions">
-        <a class="btn secondary" href="sms:{{ customer.phone }}?body={{ workflow_messages.booking_form|urlencode }}">SMS</a>
-        <a class="btn secondary" href="mailto:{{ customer.email }}?subject=Booking form&body={{ workflow_messages.booking_form|urlencode }}">Email</a>
-        <a class="btn secondary" target="_blank" href="https://wa.me/{{ (customer.phone or '')|replace(' ', '') }}?text={{ workflow_messages.booking_form|urlencode }}">WhatsApp</a>
+        <a class="btn primary" href="sms:{{ customer.phone }}?body={{ workflow_messages.booking_form|urlencode }}">Send by SMS</a>
+        <a class="btn secondary" href="mailto:{{ customer.email }}?subject=Customer information form&body={{ workflow_messages.booking_form|urlencode }}">Send by Email</a>
+        <a class="btn secondary" target="_blank" href="https://wa.me/{{ (customer.phone or '')|replace(' ', '') }}?text={{ workflow_messages.booking_form|urlencode }}">Send by WhatsApp</a>
         <button class="btn secondary" type="button" data-copy-target="bookingFormUrl">Copy Link Only</button>
         <button class="btn primary" type="button" data-copy-target="bookingMessage">Copy Full Message</button>
       </div>

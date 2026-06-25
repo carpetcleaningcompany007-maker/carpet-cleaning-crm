@@ -4604,3 +4604,772 @@ input[type=submit],
     grid-template-columns: 1fr !important;
   }
 }
+
+@media (max-width: 760px) {
+  html,
+  body,
+  .shell,
+  .main {
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+  }
+
+  .customer-tabs,
+  .customer-command-strip,
+  .customer-tabs.row-actions,
+  .workflow-message .row-actions,
+  .customer-hero .row-actions {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    overflow: visible !important;
+  }
+
+  .customer-tabs .btn,
+  .customer-command-strip a,
+  .workflow-message .row-actions .btn,
+  .customer-hero .row-actions .btn {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+  }
+}
+
+.customer-form-page {
+  min-height: 100vh !important;
+  padding: 26px 16px 38px !important;
+  background:
+    linear-gradient(180deg, rgba(7,21,36,.72), rgba(7,21,36,.35)),
+    url("/static/site/hero-carpet-cleaning.webp") center/cover fixed !important;
+  color: #102033 !important;
+}
+
+.customer-form-shell {
+  width: min(1040px, 100%) !important;
+  margin: 0 auto !important;
+}
+
+.customer-form-hero,
+.customer-form-card,
+.customer-form-submit,
+.customer-thanks-card {
+  border: 1px solid rgba(216,229,224,.9) !important;
+  border-radius: 8px !important;
+  background: rgba(255,255,255,.96) !important;
+  box-shadow: 0 22px 70px rgba(3,12,24,.24) !important;
+}
+
+.customer-form-hero {
+  overflow: hidden !important;
+  margin-bottom: 18px !important;
+}
+
+.customer-form-brand {
+  display: flex !important;
+  align-items: center !important;
+  gap: 14px !important;
+  padding: 18px 20px !important;
+  background: #fff8ec !important;
+  border-bottom: 1px solid #ead8b8 !important;
+}
+
+.customer-form-brand img {
+  width: 72px !important;
+  height: 72px !important;
+  object-fit: contain !important;
+  border-radius: 999px !important;
+  background: #fff !important;
+  border: 1px solid #e0bf67 !important;
+  padding: 8px !important;
+}
+
+.customer-form-brand span,
+.customer-form-kicker,
+.customer-form-card-head span {
+  display: block !important;
+  color: #a47418 !important;
+  font-size: 12px !important;
+  font-weight: 900 !important;
+  letter-spacing: .08em !important;
+  text-transform: uppercase !important;
+}
+
+.customer-form-brand strong {
+  display: block !important;
+  color: #071524 !important;
+  font-size: clamp(20px, 4vw, 30px) !important;
+  line-height: 1.05 !important;
+}
+
+.customer-form-hero-grid {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) minmax(250px, 330px) !important;
+  gap: 22px !important;
+  align-items: stretch !important;
+  padding: 28px !important;
+  background: linear-gradient(135deg, #ffffff 0%, #f3faf6 100%) !important;
+}
+
+.customer-form-hero h1,
+.customer-thanks-card h1 {
+  margin: 8px 0 12px !important;
+  color: #071524 !important;
+  font-size: clamp(38px, 8vw, 68px) !important;
+  line-height: .95 !important;
+  letter-spacing: 0 !important;
+}
+
+.customer-form-lead,
+.customer-thanks-card > p {
+  max-width: 710px !important;
+  margin: 0 !important;
+  color: #41546a !important;
+  font-size: clamp(17px, 3vw, 21px) !important;
+  line-height: 1.55 !important;
+}
+
+.customer-form-trust {
+  display: grid !important;
+  grid-template-columns: auto 1fr !important;
+  gap: 12px 14px !important;
+  align-content: center !important;
+  padding: 20px !important;
+  border-radius: 8px !important;
+  background: #071524 !important;
+  color: #fff !important;
+}
+
+.customer-form-trust span,
+.customer-thanks-steps span {
+  width: 34px !important;
+  height: 34px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 999px !important;
+  background: #d8af55 !important;
+  color: #071524 !important;
+  font-weight: 900 !important;
+}
+
+.customer-form-trust strong {
+  align-self: center !important;
+  color: #fff !important;
+  font-size: 18px !important;
+}
+
+.customer-form {
+  display: grid !important;
+  gap: 18px !important;
+}
+
+.customer-form-card {
+  padding: clamp(18px, 4vw, 30px) !important;
+}
+
+.customer-form-card-head {
+  display: grid !important;
+  grid-template-columns: 76px minmax(0, 1fr) !important;
+  gap: 18px !important;
+  align-items: start !important;
+  margin-bottom: 20px !important;
+}
+
+.customer-form-card-head > span {
+  width: 58px !important;
+  height: 58px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 999px !important;
+  background: #0d5c4e !important;
+  color: #fff !important;
+  letter-spacing: 0 !important;
+}
+
+.customer-form-card h2,
+.customer-form-submit h2 {
+  margin: 0 0 6px !important;
+  color: #071524 !important;
+  font-size: clamp(24px, 5vw, 36px) !important;
+  line-height: 1.05 !important;
+}
+
+.customer-form-card p,
+.customer-form-submit p {
+  margin: 0 !important;
+  color: #5c6f82 !important;
+  font-size: 16px !important;
+  line-height: 1.5 !important;
+}
+
+.customer-form-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 16px !important;
+}
+
+.customer-form-grid label {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+  color: #1a2b3d !important;
+  font-size: 16px !important;
+  font-weight: 900 !important;
+}
+
+.customer-form-grid .wide {
+  grid-column: 1 / -1 !important;
+}
+
+.customer-form-grid input,
+.customer-form-grid textarea {
+  width: 100% !important;
+  min-height: 54px !important;
+  border: 1px solid #cbd9e2 !important;
+  border-radius: 8px !important;
+  background: #fbfdff !important;
+  color: #071524 !important;
+  font: inherit !important;
+  font-weight: 600 !important;
+  padding: 14px 15px !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.8) !important;
+}
+
+.customer-form-grid textarea {
+  min-height: 112px !important;
+  resize: vertical !important;
+}
+
+.customer-form-grid input:focus,
+.customer-form-grid textarea:focus {
+  outline: 3px solid rgba(13,92,78,.18) !important;
+  border-color: #0d5c4e !important;
+  background: #fff !important;
+}
+
+.customer-upload {
+  position: relative !important;
+  min-height: 168px !important;
+  justify-content: center !important;
+  align-items: center !important;
+  text-align: center !important;
+  padding: 28px !important;
+  border: 2px dashed #97b8ad !important;
+  border-radius: 8px !important;
+  background: linear-gradient(180deg, #f3faf6 0%, #ffffff 100%) !important;
+}
+
+.customer-upload input {
+  position: absolute !important;
+  inset: 0 !important;
+  opacity: 0 !important;
+  cursor: pointer !important;
+}
+
+.customer-upload strong {
+  color: #071524 !important;
+  font-size: 22px !important;
+}
+
+.customer-upload em {
+  color: #5c6f82 !important;
+  font-style: normal !important;
+  font-weight: 700 !important;
+}
+
+.customer-form-submit {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto !important;
+  gap: 18px !important;
+  align-items: center !important;
+  padding: 24px !important;
+  margin-bottom: 26px !important;
+}
+
+.customer-submit-btn {
+  min-height: 62px !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  padding: 16px 28px !important;
+  background: linear-gradient(135deg, #d8af55 0%, #f3d98a 100%) !important;
+  color: #071524 !important;
+  font-size: 20px !important;
+  font-weight: 1000 !important;
+  cursor: pointer !important;
+  box-shadow: 0 15px 34px rgba(116,78,10,.24) !important;
+}
+
+.customer-thanks-page {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.customer-thanks-card {
+  width: min(820px, 100%) !important;
+  overflow: hidden !important;
+  text-align: center !important;
+}
+
+.customer-thanks-card .customer-form-brand {
+  text-align: left !important;
+}
+
+.customer-thanks-icon {
+  width: 82px !important;
+  height: 82px !important;
+  margin: 34px auto 12px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 999px !important;
+  background: #0d5c4e !important;
+  color: #fff !important;
+  font-size: 42px !important;
+  font-weight: 900 !important;
+}
+
+.customer-thanks-card h1,
+.customer-thanks-card > p {
+  padding-left: 28px !important;
+  padding-right: 28px !important;
+}
+
+.customer-thanks-card > p {
+  margin: 0 auto 16px !important;
+}
+
+.customer-thanks-note {
+  color: #5c6f82 !important;
+  font-size: 15px !important;
+}
+
+.customer-thanks-steps {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 14px !important;
+  padding: 26px 28px 30px !important;
+}
+
+.customer-thanks-steps div {
+  display: grid !important;
+  gap: 8px !important;
+  justify-items: center !important;
+  padding: 18px !important;
+  border: 1px solid #d9e7df !important;
+  border-radius: 8px !important;
+  background: #f7fbf8 !important;
+}
+
+.customer-thanks-steps strong {
+  color: #071524 !important;
+  font-size: 17px !important;
+}
+
+.customer-thanks-steps em {
+  color: #5c6f82 !important;
+  font-style: normal !important;
+  font-size: 14px !important;
+}
+
+@media (max-width: 820px) {
+  .customer-form-page {
+    padding: 0 !important;
+    background-attachment: scroll !important;
+  }
+
+  .customer-form-shell {
+    width: 100% !important;
+  }
+
+  .customer-form-hero,
+  .customer-form-card,
+  .customer-form-submit,
+  .customer-thanks-card {
+    border-left: 0 !important;
+    border-right: 0 !important;
+    border-radius: 0 !important;
+  }
+
+  .customer-form-hero-grid,
+  .customer-form-grid,
+  .customer-form-submit,
+  .customer-thanks-steps {
+    grid-template-columns: 1fr !important;
+  }
+
+  .customer-form-card-head {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+
+  .customer-form-card-head > span {
+    width: auto !important;
+    height: auto !important;
+    justify-content: flex-start !important;
+    padding: 8px 12px !important;
+    border-radius: 8px !important;
+  }
+
+  .customer-form-brand {
+    padding: 15px 16px !important;
+  }
+
+  .customer-form-brand img {
+    width: 58px !important;
+    height: 58px !important;
+  }
+
+  .customer-form-hero-grid,
+  .customer-form-card,
+  .customer-form-submit {
+    padding: 22px 16px !important;
+  }
+
+  .customer-form-hero h1,
+  .customer-thanks-card h1 {
+    font-size: 42px !important;
+  }
+
+  .customer-submit-btn {
+    width: 100% !important;
+  }
+}
+
+/* Premium public contact form */
+.public-page .customer-form-page {
+  min-height: 100vh !important;
+  padding: clamp(18px, 3vw, 42px) 16px 44px !important;
+  background:
+    linear-gradient(180deg, rgba(8, 19, 31, .66) 0%, rgba(8, 19, 31, .38) 46%, rgba(238, 244, 241, .96) 46%, #f4f7f5 100%),
+    url("/static/site/hero-carpet-cleaning.webp") center top / cover fixed !important;
+}
+
+.public-page .customer-form-shell {
+  width: min(1120px, 100%) !important;
+}
+
+.public-page .customer-form-hero {
+  border: 1px solid rgba(255,255,255,.54) !important;
+  border-radius: 8px !important;
+  background: rgba(255,255,255,.96) !important;
+  box-shadow: 0 30px 90px rgba(5,16,30,.30) !important;
+}
+
+.public-page .customer-form-brand {
+  min-height: 96px !important;
+  padding: 18px clamp(18px, 3vw, 34px) !important;
+  background: linear-gradient(90deg, #ffffff 0%, #fff8ea 58%, #f2fbf7 100%) !important;
+  border-bottom: 1px solid rgba(218,190,123,.42) !important;
+}
+
+.public-page .customer-form-brand img {
+  width: 70px !important;
+  height: 70px !important;
+  padding: 7px !important;
+  border: 1px solid rgba(206,165,73,.64) !important;
+  background: #fff !important;
+  box-shadow: 0 10px 28px rgba(28, 45, 48, .12) !important;
+}
+
+.public-page .customer-form-brand span,
+.public-page .customer-form-kicker,
+.public-page .customer-form-card-head span {
+  color: #986f18 !important;
+  letter-spacing: .08em !important;
+}
+
+.public-page .customer-form-brand strong {
+  font-size: clamp(22px, 3vw, 34px) !important;
+  color: #071524 !important;
+}
+
+.public-page .customer-form-hero-grid {
+  grid-template-columns: minmax(0, 1.04fr) minmax(320px, .78fr) !important;
+  gap: clamp(20px, 3vw, 34px) !important;
+  padding: clamp(24px, 4vw, 42px) !important;
+  background:
+    radial-gradient(circle at 10% 12%, rgba(216,175,85,.18), transparent 28%),
+    linear-gradient(135deg, #ffffff 0%, #f4faf7 100%) !important;
+}
+
+.public-page .customer-form-hero-copy {
+  display: flex !important;
+  min-width: 0 !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+}
+
+.public-page .customer-form-hero h1 {
+  max-width: 680px !important;
+  margin: 8px 0 14px !important;
+  color: #071524 !important;
+  font-size: clamp(42px, 6.8vw, 74px) !important;
+  line-height: .96 !important;
+}
+
+.public-page .customer-form-lead {
+  color: #334a5f !important;
+  font-size: clamp(18px, 2.1vw, 22px) !important;
+}
+
+.public-page .customer-form-highlights {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 10px !important;
+  margin-top: 22px !important;
+}
+
+.public-page .customer-form-highlights span {
+  display: inline-flex !important;
+  align-items: center !important;
+  min-height: 38px !important;
+  padding: 8px 12px !important;
+  border: 1px solid rgba(13,92,78,.16) !important;
+  border-radius: 8px !important;
+  background: #f7fbf8 !important;
+  color: #0d5c4e !important;
+  font-size: 14px !important;
+  font-weight: 900 !important;
+}
+
+.public-page .customer-form-photo {
+  min-height: 320px !important;
+  display: flex !important;
+  align-items: flex-end !important;
+  overflow: hidden !important;
+  border-radius: 8px !important;
+  background:
+    linear-gradient(180deg, rgba(7,21,36,.06) 0%, rgba(7,21,36,.78) 100%),
+    url("/static/site/hero-carpet-cleaning.webp") center / cover !important;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.36), 0 24px 46px rgba(9,26,42,.16) !important;
+}
+
+.public-page .customer-form-photo div {
+  width: 100% !important;
+  padding: 22px !important;
+  color: #fff !important;
+}
+
+.public-page .customer-form-photo span {
+  display: block !important;
+  margin-bottom: 8px !important;
+  color: #f3d98a !important;
+  font-size: 12px !important;
+  font-weight: 900 !important;
+  letter-spacing: .08em !important;
+  text-transform: uppercase !important;
+}
+
+.public-page .customer-form-photo strong {
+  display: block !important;
+  max-width: 330px !important;
+  color: #fff !important;
+  font-size: 25px !important;
+  line-height: 1.12 !important;
+}
+
+.public-page .customer-form-trust {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 0 !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  background: #071524 !important;
+}
+
+.public-page .customer-form-trust div {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  min-width: 0 !important;
+  padding: 18px clamp(16px, 3vw, 28px) !important;
+  border-right: 1px solid rgba(255,255,255,.12) !important;
+}
+
+.public-page .customer-form-trust div:last-child {
+  border-right: 0 !important;
+}
+
+.public-page .customer-form-trust span,
+.public-page .customer-thanks-steps span {
+  flex: 0 0 auto !important;
+  background: linear-gradient(135deg, #d8af55 0%, #f7df95 100%) !important;
+}
+
+.public-page .customer-form {
+  gap: 20px !important;
+  margin-top: 20px !important;
+}
+
+.public-page .customer-form-card,
+.public-page .customer-form-submit,
+.public-page .customer-thanks-card {
+  border: 1px solid rgba(206, 221, 214, .82) !important;
+  border-radius: 8px !important;
+  background: rgba(255,255,255,.98) !important;
+  box-shadow: 0 18px 54px rgba(12,30,48,.13) !important;
+}
+
+.public-page .customer-form-card {
+  padding: clamp(22px, 4vw, 36px) !important;
+}
+
+.public-page .customer-form-card-head {
+  grid-template-columns: auto minmax(0, 1fr) !important;
+  align-items: center !important;
+  margin-bottom: 24px !important;
+}
+
+.public-page .customer-form-card-head > span {
+  width: auto !important;
+  height: auto !important;
+  min-height: 42px !important;
+  padding: 10px 14px !important;
+  border-radius: 8px !important;
+  background: #0d5c4e !important;
+  color: #fff !important;
+}
+
+.public-page .customer-form-card h2,
+.public-page .customer-form-submit h2 {
+  font-size: clamp(26px, 4vw, 38px) !important;
+}
+
+.public-page .customer-form-grid {
+  gap: 18px !important;
+}
+
+.public-page .customer-form-grid label {
+  padding: 15px !important;
+  border: 1px solid #e0ebe6 !important;
+  border-radius: 8px !important;
+  background: linear-gradient(180deg, #ffffff 0%, #f9fcfb 100%) !important;
+  color: #14283b !important;
+  box-shadow: 0 8px 22px rgba(15, 44, 64, .06) !important;
+}
+
+.public-page .customer-form-grid input,
+.public-page .customer-form-grid textarea {
+  min-height: 58px !important;
+  border: 0 !important;
+  border-bottom: 2px solid #c7d8d1 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  padding: 8px 0 10px !important;
+  color: #071524 !important;
+  box-shadow: none !important;
+}
+
+.public-page .customer-form-grid input::placeholder,
+.public-page .customer-form-grid textarea::placeholder {
+  color: #7d8d9a !important;
+}
+
+.public-page .customer-form-grid input:focus,
+.public-page .customer-form-grid textarea:focus {
+  outline: 0 !important;
+  border-color: #0d5c4e !important;
+  background: transparent !important;
+}
+
+.public-page .customer-form-submit {
+  padding: clamp(22px, 3vw, 30px) !important;
+  background: linear-gradient(135deg, #071524 0%, #103323 100%) !important;
+}
+
+.public-page .customer-form-submit h2,
+.public-page .customer-form-submit p {
+  color: #fff !important;
+}
+
+.public-page .customer-form-submit p {
+  color: rgba(255,255,255,.78) !important;
+}
+
+.public-page .customer-submit-btn {
+  min-height: 64px !important;
+  border-radius: 8px !important;
+  background: linear-gradient(135deg, #d8af55 0%, #ffe39b 100%) !important;
+  color: #071524 !important;
+  box-shadow: 0 18px 36px rgba(216,175,85,.28) !important;
+  transition: transform .16s ease, box-shadow .16s ease !important;
+}
+
+.public-page .customer-submit-btn:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 22px 42px rgba(216,175,85,.34) !important;
+}
+
+.public-page .customer-thanks-page {
+  background:
+    linear-gradient(180deg, rgba(8, 19, 31, .68), rgba(8, 19, 31, .42)),
+    url("/static/site/hero-carpet-cleaning.webp") center / cover fixed !important;
+}
+
+.public-page .customer-thanks-card {
+  border-color: rgba(255,255,255,.58) !important;
+}
+
+@media (max-width: 820px) {
+  .public-page .customer-form-page {
+    padding: 0 0 26px !important;
+    background:
+      linear-gradient(180deg, rgba(8, 19, 31, .55) 0%, rgba(244,247,245,.98) 290px, #f4f7f5 100%),
+      url("/static/site/hero-carpet-cleaning.webp") center top / auto 320px no-repeat !important;
+  }
+
+  .public-page .customer-form-hero,
+  .public-page .customer-form-card,
+  .public-page .customer-form-submit,
+  .public-page .customer-thanks-card {
+    border-radius: 0 !important;
+  }
+
+  .public-page .customer-form-brand {
+    min-height: 82px !important;
+  }
+
+  .public-page .customer-form-brand img {
+    width: 58px !important;
+    height: 58px !important;
+  }
+
+  .public-page .customer-form-hero-grid,
+  .public-page .customer-form-trust,
+  .public-page .customer-form-grid,
+  .public-page .customer-form-submit {
+    grid-template-columns: 1fr !important;
+  }
+
+  .public-page .customer-form-hero h1 {
+    font-size: 44px !important;
+  }
+
+  .public-page .customer-form-photo {
+    min-height: 220px !important;
+  }
+
+  .public-page .customer-form-trust div {
+    border-right: 0 !important;
+    border-bottom: 1px solid rgba(255,255,255,.12) !important;
+  }
+
+  .public-page .customer-form-trust div:last-child {
+    border-bottom: 0 !important;
+  }
+
+  .public-page .customer-form-card-head {
+    grid-template-columns: 1fr !important;
+    align-items: start !important;
+  }
+
+  .public-page .customer-form-grid label {
+    padding: 14px !important;
+  }
+}
