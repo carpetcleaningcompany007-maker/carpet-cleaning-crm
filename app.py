@@ -1821,6 +1821,43 @@ def send_contact_form_owner_alerts(lead_id, customer_id=None):
     return results
 
 
+def sync_xero_contact_for_intake(lead_id):
+    lead = q("SELECT * FROM intake_submissions WHERE id=?", (lead_id,), one=True)
+    if not lead:
+        raise RuntimeError("Intake form not found.")
+    customer_id = lead["customer_id"] or create_customer_from_intake(lead)
+    lead = q("SELECT * FROM intake_submissions WHERE id=?", (lead_id,), one=True)
+
+    contact_id = find_xero_contact_id_for_lead(lead)
+    payload = xero_contact_payload_from_lead(lead)
+    if contact_id:
+        payload["Contacts"][0]["ContactID"] = contact_id
+    result = xero_api_request(
+        XERO_CONTACTS_URL,
+        method="POST",
+        payload=payload,
+        idempotency_key=f"intake-contact-{lead_id}-{contact_id or 'new'}",
+    )
+    contact = (result.get("Contacts") or [{}])[0]
+    contact_id = contact.get("ContactID") or contact_id
+    if not contact_id:
+        raise RuntimeError("Xero did not return a ContactID.")
+
+    run("""UPDATE intake_submissions
+           SET xero_contact_id=?, xero_sent_at=datetime('now'), xero_error='',
+               xero_sync_status=?, status='Sent to Xero', updated_at=datetime('now')
+           WHERE id=?""", (contact_id, "Sent: Xero contact created or updated", lead_id))
+    if customer_id:
+        run("""UPDATE customers
+               SET xero_contact_id=?, xero_contact_synced_at=datetime('now'),
+                   xero_contact_error='', next_action='Create quote or booking from approved details'
+               WHERE id=?""", (contact_id, customer_id))
+        run("INSERT INTO customer_timeline(customer_id, note_text, created_at) VALUES (?,?,datetime('now'))",
+            (customer_id, "Xero contact created or updated from approved customer details form."))
+    log_xero_sync("customer", customer_id or 0, "sync_contact_from_intake", "ok", f"Xero contact ready: {contact_id}", result)
+    return contact_id
+
+
 def run_website_enquiry_automation(lead_id, customer_id, data):
     lead = q("SELECT * FROM intake_submissions WHERE id=?", (lead_id,), one=True)
     customer = q("SELECT * FROM customers WHERE id=?", (customer_id,), one=True)
@@ -7499,13 +7536,22 @@ def xero_dashboard():
 def xero_callback():
     if request.args.get("error"):
         flash(f"Xero connection failed: {request.args.get('error_description') or request.args.get('error')}")
+        pending_lead_id = session.get("pending_xero_intake_lead_id")
+        if pending_lead_id:
+            return redirect(url_for("intake_form_view", lead_id=pending_lead_id))
         return redirect(url_for("xero_dashboard"))
     if request.args.get("state") != session.get("xero_oauth_state"):
         flash("Xero connection failed because the security state did not match.")
+        pending_lead_id = session.get("pending_xero_intake_lead_id")
+        if pending_lead_id:
+            return redirect(url_for("intake_form_view", lead_id=pending_lead_id))
         return redirect(url_for("xero_dashboard"))
     code = request.args.get("code", "")
     if not code:
         flash("Xero did not return an authorisation code.")
+        pending_lead_id = session.get("pending_xero_intake_lead_id")
+        if pending_lead_id:
+            return redirect(url_for("intake_form_view", lead_id=pending_lead_id))
         return redirect(url_for("xero_dashboard"))
     try:
         _client_id, _client_secret, redirect_uri = xero_config()
@@ -7519,9 +7565,15 @@ def xero_callback():
         if access_token:
             choose_xero_tenant(access_token)
         flash("Xero connected.")
+        pending_lead_id = session.pop("pending_xero_intake_lead_id", None)
+        if pending_lead_id:
+            return redirect(url_for("xero_create_contact", lead_id=pending_lead_id))
     except Exception as exc:
         logger.exception("Xero callback failed")
         flash(str(exc))
+        pending_lead_id = session.get("pending_xero_intake_lead_id")
+        if pending_lead_id:
+            return redirect(url_for("intake_form_view", lead_id=pending_lead_id))
     return redirect(url_for("xero_dashboard"))
 
 
@@ -7693,20 +7745,18 @@ def xero_create_contact(lead_id):
         flash("Intake form not found.")
         return redirect(url_for("intake_forms"))
     try:
-        contact_id = find_xero_contact_id_for_lead(lead)
-        if not contact_id:
-            result = xero_api_request(XERO_CONTACTS_URL, method="POST", payload=xero_contact_payload_from_lead(lead))
-            contacts = result.get("Contacts") or []
-            contact_id = contacts[0].get("ContactID", "") if contacts else ""
-        if not contact_id:
-            raise RuntimeError("Xero did not return a ContactID.")
-        run("""UPDATE intake_submissions
-               SET xero_contact_id=?, xero_sent_at=datetime('now'), xero_error='', status='Sent to Xero', updated_at=datetime('now')
-               WHERE id=?""", (contact_id, lead_id))
-        flash("Contact sent to Xero.")
+        if not xero_is_configured():
+            raise RuntimeError("Xero is not configured. Set XERO_CLIENT_ID and XERO_CLIENT_SECRET in Render first.")
+        token = xero_token_row()
+        if not token or not token["refresh_token"]:
+            session["pending_xero_intake_lead_id"] = lead_id
+            flash("Connect Xero once. This customer will be sent automatically after Xero authorises.")
+            return redirect(url_for("xero_connect"))
+        contact_id = sync_xero_contact_for_intake(lead_id)
+        flash(f"Customer details approved and sent to Xero ContactID {contact_id}.")
     except Exception as exc:
         logger.exception("Xero contact creation failed for intake %s", lead_id)
-        run("""UPDATE intake_submissions SET xero_error=?, updated_at=datetime('now') WHERE id=?""", (str(exc), lead_id))
+        run("""UPDATE intake_submissions SET xero_error=?, xero_sync_status=?, updated_at=datetime('now') WHERE id=?""", (str(exc), f"Failed: {exc}", lead_id))
         flash(str(exc))
     return redirect(url_for("intake_form_view", lead_id=lead_id))
 
