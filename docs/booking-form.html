@@ -930,10 +930,7 @@
         }
 
         try {
-          var endpoints = [
-            form.action,
-            "https://carpet-cleaning-crm.onrender.com/api/website-form"
-          ];
+          var endpoints = [form.action];
           var saved = false;
           var lastError = null;
           for (var index = 0; index < endpoints.length; index += 1) {

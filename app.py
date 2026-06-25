@@ -1735,7 +1735,8 @@ def contact_form_alert_text(lead, customer_id=None):
     review_url = crm_external_url("intake_form_view", lead_id=lead["id"])
     customer_url = crm_external_url("customer_view", customer_id=customer_id) if customer_id else ""
     lines = [
-        "New customer contact form filled out",
+        "Customer details form completed",
+        "This is ready for you to check before Xero.",
         f"Name: {lead['name'] or ''}",
         f"Phone: {lead['phone'] or ''}",
         f"Email: {lead['email'] or ''}",
@@ -1755,8 +1756,8 @@ def contact_form_alert_html(lead, customer_id=None):
     safe = html_lib.escape
     customer_link = f'<p><a href="{safe(customer_url)}">Open customer record</a></p>' if customer_url else ""
     return f"""<div style="font-family:Arial,sans-serif;color:#071524;line-height:1.55">
-      <h2 style="margin:0 0 12px">New customer contact form filled out</h2>
-      <p>This form is waiting for review before Xero is updated.</p>
+      <h2 style="margin:0 0 12px">Customer details form completed</h2>
+      <p>The customer has filled out the form you sent them. It is ready for you to check before anything is uploaded to Xero.</p>
       <table style="border-collapse:collapse;width:100%;max-width:620px">
         <tr><td style="padding:8px;border-bottom:1px solid #dde7ef"><strong>Name</strong></td><td style="padding:8px;border-bottom:1px solid #dde7ef">{safe(lead['name'] or '')}</td></tr>
         <tr><td style="padding:8px;border-bottom:1px solid #dde7ef"><strong>Phone</strong></td><td style="padding:8px;border-bottom:1px solid #dde7ef">{safe(lead['phone'] or '')}</td></tr>
@@ -7136,6 +7137,20 @@ def customer_contact_form_submit():
     except ValueError as exc:
         return {"ok": False, "error": str(exc)}, 400
 
+    run("UPDATE customers SET source=?, next_action=? WHERE id=?", (
+        "Customer details form",
+        "Check customer details form before Xero",
+        customer_id,
+    ))
+    run("UPDATE intake_submissions SET source=?, status=?, updated_at=datetime('now') WHERE id=?", (
+        "Customer details form",
+        "Waiting for review",
+        lead_id,
+    ))
+    run("INSERT INTO customer_timeline(customer_id, note_text, created_at) VALUES (?,?,datetime('now'))", (
+        customer_id,
+        "Customer completed the sent details form. Check before Xero.",
+    ))
     alert_results = send_contact_form_owner_alerts(lead_id, customer_id)
     customer = q("SELECT * FROM customers WHERE id=?", (customer_id,), one=True)
     lead = q("SELECT * FROM intake_submissions WHERE id=?", (lead_id,), one=True)
