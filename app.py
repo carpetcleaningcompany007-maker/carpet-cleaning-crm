@@ -50,7 +50,7 @@ def uk_today():
 
 @app.after_request
 def add_website_form_cors_headers(response):
-    if request.path in ("/website-form", "/api/website-form"):
+    if request.path in ("/website-form", "/api/website-form", "/api/customer-contact-form"):
         response.headers["Access-Control-Allow-Origin"] = "*"
         response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
         response.headers["Access-Control-Allow-Headers"] = "Content-Type, Accept"
@@ -3596,6 +3596,8 @@ def create_intake_from_website_payload(data, source="Website form", photo_filena
     email = request_value(data, "email", "email_address")
     address = request_value(data, "address", "full_address", "street_address")
     postcode = request_value(data, "postcode", "post_code", "zip")
+    what3words = request_value(data, "what3words", "what_3_words", "w3w")
+    google_maps_link = request_value(data, "google_maps_link", "maps_link", "location_link")
     town = request_value(data, "town", "city")
     what_cleaned = request_value(data, "what_cleaned", "what_would_you_like_cleaned", "service", "service_required", "cleaning_required", "message")
     rooms_areas = request_value(data, "rooms_areas", "rooms_or_items", "rooms_items", "items_required", "areas", "room_areas")
@@ -3606,7 +3608,7 @@ def create_intake_from_website_payload(data, source="Website form", photo_filena
     pets = request_value(data, "pets", "pets_in_property")
     parking = request_value(data, "parking", "parking_information")
     preferred = request_value(data, "preferred_days_times", "preferred_days", "preferred_time", "preferred_times", "availability")
-    additional_notes = request_value(data, "additional_notes", "notes", "message", "comments")
+    additional_notes = request_value(data, "additional_notes", "notes", "message", "comments", "access_info", "job_notes")
     preferred_date = request_value(data, "preferred_date", "date")
     preferred_time = request_value(data, "preferred_time", "time")
     marketing_consent = request_value(data, "marketing_consent", "marketing", "consent")
@@ -3624,7 +3626,7 @@ def create_intake_from_website_payload(data, source="Website form", photo_filena
             preferred_date, preferred_time, photo_filename, status, source, marketing_consent,
             xero_sync_status, customer_email_status, customer_sms_status, owner_email_status, owner_sms_status, follow_up_status)
            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", (
-        name, phone, email, address, postcode, "", "", notes, rooms_areas,
+        name, phone, email, address, postcode, google_maps_link, what3words, notes, rooms_areas,
         what_cleaned, number_rooms, upholstery, rugs, stains, pets, parking, preferred, additional_notes,
         preferred_date, preferred_time, photo_filename, "Waiting for review", source, marketing_consent,
         "Pending", "Pending", "Pending", "Pending", "Pending", "Follow up required",
@@ -7117,6 +7119,37 @@ def customer_intake():
     if request.method == "POST":
         return booking_form()
     return redirect(url_for("booking_form", **request.args))
+
+
+@app.route("/api/customer-contact-form", methods=["POST", "OPTIONS"])
+def customer_contact_form_submit():
+    if request.method == "OPTIONS":
+        return ("", 204)
+    data = request.get_json(silent=True) if request.is_json else request.form
+    data = data or {}
+    try:
+        lead_id, customer_id = create_intake_from_website_payload(
+            data,
+            source=request_value(data, "source") or "GitHub customer contact form",
+            photo_filename=save_upload("photo"),
+        )
+    except ValueError as exc:
+        return {"ok": False, "error": str(exc)}, 400
+
+    alert_results = send_contact_form_owner_alerts(lead_id, customer_id)
+    customer = q("SELECT * FROM customers WHERE id=?", (customer_id,), one=True)
+    lead = q("SELECT * FROM intake_submissions WHERE id=?", (lead_id,), one=True)
+    return {
+        "ok": True,
+        "lead_id": lead_id,
+        "customer_id": customer_id,
+        "customer_url": crm_external_url("customer_view", customer_id=customer_id),
+        "review_url": crm_external_url("intake_form_view", lead_id=lead_id),
+        "next_action": customer["next_action"] if customer else "Review customer contact form",
+        "owner_email_status": lead["owner_email_status"] if lead else "",
+        "owner_sms_status": lead["owner_sms_status"] if lead else "",
+        "alerts": {key: {"ok": value[0], "message": value[1]} for key, value in alert_results.items()},
+    }
 
 
 @app.route("/website-form", methods=["GET", "POST", "OPTIONS"])
