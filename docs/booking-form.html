@@ -627,6 +627,168 @@
           url("https://carpet-cleaning-crm.onrender.com/static/site/hero-carpet-cleaning.webp") center top / auto 340px no-repeat;
       }
     }
+
+    .thanks-view {
+      display: none;
+      min-height: calc(100vh - 88px);
+      align-items: center;
+      justify-content: center;
+      padding: clamp(20px, 4vw, 46px) 0;
+    }
+
+    .thanks-panel {
+      width: min(880px, 100%);
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,.42);
+      border-radius: 14px;
+      background: rgba(255,255,255,.86);
+      box-shadow: 0 34px 96px rgba(6, 20, 38, .28);
+      backdrop-filter: blur(24px);
+    }
+
+    .thanks-visual {
+      min-height: 280px;
+      display: flex;
+      align-items: flex-end;
+      padding: clamp(24px, 5vw, 42px);
+      color: #fff;
+      background:
+        linear-gradient(180deg, rgba(6, 20, 38, .08) 0%, rgba(28, 78, 122, .48) 54%, rgba(6, 20, 38, .88) 100%),
+        url("https://carpet-cleaning-crm.onrender.com/static/site/hero-carpet-cleaning.webp") center / cover;
+    }
+
+    .thanks-mark {
+      width: 76px;
+      height: 76px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      background: rgba(255,255,255,.94);
+      color: #164774;
+      font-size: 40px;
+      font-weight: 900;
+      box-shadow: 0 18px 44px rgba(6, 20, 38, .24);
+    }
+
+    .thanks-copy {
+      padding: clamp(26px, 5vw, 46px);
+      background: linear-gradient(135deg, rgba(255,255,255,.96) 0%, rgba(241,248,255,.90) 100%);
+    }
+
+    .thanks-copy h1 {
+      max-width: 720px;
+      margin: 0 0 14px;
+      font-size: clamp(42px, 6vw, 72px);
+    }
+
+    .thanks-copy > p {
+      max-width: 700px;
+      margin: 0;
+      color: #334d64;
+      font-size: clamp(18px, 2.2vw, 22px);
+      line-height: 1.55;
+    }
+
+    .thanks-next {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 28px;
+    }
+
+    .thanks-next div {
+      min-height: 128px;
+      padding: 18px;
+      border: 1px solid rgba(43, 121, 194, .14);
+      border-radius: 10px;
+      background: rgba(255,255,255,.78);
+      box-shadow: 0 12px 30px rgba(18, 49, 75, .08);
+    }
+
+    .thanks-next span {
+      display: inline-flex;
+      width: 34px;
+      height: 34px;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 12px;
+      border-radius: 999px;
+      background: #eef7ff;
+      color: #164774;
+      font-weight: 900;
+    }
+
+    .thanks-next strong {
+      display: block;
+      margin-bottom: 6px;
+      color: #061426;
+      font-size: 17px;
+    }
+
+    .thanks-next em {
+      color: #5b7488;
+      font-style: normal;
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    .submitting-note {
+      display: none;
+      margin-top: 12px;
+      color: rgba(255,255,255,.78);
+      font-size: 14px;
+      font-weight: 800;
+    }
+
+    body.is-sending .submitting-note {
+      display: block;
+    }
+
+    body.is-sending button {
+      opacity: .72;
+      cursor: wait;
+    }
+
+    body.is-submitted .hero,
+    body.is-submitted form {
+      display: none;
+    }
+
+    body.is-submitted .thanks-view {
+      display: flex;
+    }
+
+    .crm-submit-frame {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      border: 0;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    @media (max-width: 820px) {
+      .thanks-view {
+        min-height: 100vh;
+        padding: 0;
+      }
+
+      .thanks-panel {
+        min-height: 100vh;
+        border-left: 0;
+        border-right: 0;
+        border-radius: 0;
+      }
+
+      .thanks-visual {
+        min-height: 240px;
+      }
+
+      .thanks-next {
+        grid-template-columns: 1fr;
+      }
+    }
   </style>
 </head>
 <body>
@@ -666,7 +828,7 @@
       </div>
     </section>
 
-    <form method="post" action="https://carpet-cleaning-crm.onrender.com/booking-form" enctype="multipart/form-data">
+    <form id="contactForm" method="post" action="https://carpet-cleaning-crm.onrender.com/booking-form" enctype="multipart/form-data" target="crmSubmitFrame">
       <section class="card">
         <div class="card-head">
           <span class="step">Step 1</span>
@@ -722,10 +884,61 @@
           <h2>Send to our CRM</h2>
           <p>We will review your details before using them for any quote, booking, invoice or follow-up.</p>
           <div class="small">This form is hosted from GitHub Pages and submits securely into The Carpet Cleaning Company CRM.</div>
+          <div class="submitting-note">Sending your details securely...</div>
         </div>
         <button type="submit">Send contact details</button>
       </section>
     </form>
+    <iframe class="crm-submit-frame" id="crmSubmitFrame" name="crmSubmitFrame" title="CRM submission"></iframe>
+
+    <section class="thanks-view" aria-live="polite">
+      <div class="thanks-panel">
+        <div class="thanks-visual">
+          <div class="thanks-mark">✓</div>
+        </div>
+        <div class="thanks-copy">
+          <p class="eyebrow">Details received</p>
+          <h1>Thanks, we have your details.</h1>
+          <p>Your contact information has been sent securely to The Carpet Cleaning Company CRM for review. We will check it before using it for a quote, booking, invoice or follow-up.</p>
+          <div class="thanks-next">
+            <div><span>1</span><strong>CRM review</strong><em>Your details are checked before anything is updated.</em></div>
+            <div><span>2</span><strong>Contact confirmed</strong><em>We use the details you supplied to get back to you clearly.</em></div>
+            <div><span>3</span><strong>Next step</strong><em>Quote, booking or follow-up happens after review.</em></div>
+          </div>
+        </div>
+      </div>
+    </section>
   </main>
+  <script>
+    (function () {
+      var form = document.getElementById("contactForm");
+      var frame = document.getElementById("crmSubmitFrame");
+      var submitted = false;
+
+      if (!form || !frame) return;
+
+      if (new URLSearchParams(window.location.search).get("thanks") === "1") {
+        document.body.classList.add("is-submitted");
+        return;
+      }
+
+      form.addEventListener("submit", function () {
+        submitted = true;
+        document.body.classList.add("is-sending");
+        var button = form.querySelector("button");
+        if (button) {
+          button.disabled = true;
+          button.textContent = "Sending...";
+        }
+      });
+
+      frame.addEventListener("load", function () {
+        if (!submitted) return;
+        document.body.classList.remove("is-sending");
+        document.body.classList.add("is-submitted");
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      });
+    })();
+  </script>
 </body>
 </html>
