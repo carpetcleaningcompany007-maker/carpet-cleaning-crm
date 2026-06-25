@@ -5373,3 +5373,261 @@ input[type=submit],
     padding: 14px !important;
   }
 }
+
+/* Brighter customer-facing colour refresh */
+.public-page .customer-form-page {
+  background:
+    linear-gradient(180deg, rgba(3, 12, 22, .62) 0%, rgba(0, 88, 92, .34) 42%, rgba(239, 250, 248, .97) 42%, #f7fbfa 100%),
+    url("/static/site/hero-carpet-cleaning.webp") center top / cover fixed !important;
+}
+
+.public-page .customer-form-hero {
+  border-color: rgba(255,255,255,.72) !important;
+  background: rgba(255,255,255,.98) !important;
+}
+
+.public-page .customer-form-brand {
+  background:
+    linear-gradient(90deg, #ffffff 0%, #eefcf9 46%, #fff4d8 100%) !important;
+  border-bottom-color: rgba(0, 166, 166, .22) !important;
+}
+
+.public-page .customer-form-brand img {
+  border-color: rgba(0, 166, 166, .36) !important;
+  box-shadow: 0 12px 30px rgba(0, 119, 122, .14) !important;
+}
+
+.public-page .customer-form-brand span,
+.public-page .customer-form-kicker,
+.public-page .customer-form-photo span,
+.public-page .customer-form-card-head span {
+  color: #008c8c !important;
+}
+
+.public-page .customer-form-brand strong,
+.public-page .customer-form-hero h1,
+.public-page .customer-form-card h2 {
+  color: #06111f !important;
+}
+
+.public-page .customer-form-hero-grid {
+  background:
+    linear-gradient(135deg, rgba(255,255,255,1) 0%, rgba(239,252,249,1) 48%, rgba(255,248,229,1) 100%) !important;
+}
+
+.public-page .customer-form-lead {
+  color: #28445a !important;
+}
+
+.public-page .customer-form-highlights span {
+  border-color: rgba(0, 166, 166, .24) !important;
+  background: #ecfbf8 !important;
+  color: #006f73 !important;
+}
+
+.public-page .customer-form-highlights span:nth-child(2) {
+  border-color: rgba(242, 184, 75, .32) !important;
+  background: #fff7df !important;
+  color: #8b6108 !important;
+}
+
+.public-page .customer-form-highlights span:nth-child(3) {
+  border-color: rgba(255, 111, 76, .22) !important;
+  background: #fff0ea !important;
+  color: #9d3d22 !important;
+}
+
+.public-page .customer-form-photo {
+  background:
+    linear-gradient(180deg, rgba(2, 14, 25, .03) 0%, rgba(0, 72, 76, .68) 62%, rgba(5, 17, 31, .88) 100%),
+    url("/static/site/hero-carpet-cleaning.webp") center / cover !important;
+}
+
+.public-page .customer-form-photo strong {
+  color: #ffffff !important;
+}
+
+.public-page .customer-form-trust,
+.public-page .customer-form-submit {
+  background: linear-gradient(135deg, #06111f 0%, #003f46 58%, #006f73 100%) !important;
+}
+
+.public-page .customer-form-trust span,
+.public-page .customer-thanks-steps span {
+  background: linear-gradient(135deg, #00a6a6 0%, #8ff2df 100%) !important;
+  color: #06111f !important;
+}
+
+.public-page .customer-form-card,
+.public-page .customer-thanks-card {
+  border-color: rgba(0, 166, 166, .18) !important;
+  background: rgba(255,255,255,.99) !important;
+}
+
+.public-page .customer-form-card-head > span {
+  background: linear-gradient(135deg, #008c8c 0%, #00b7a8 100%) !important;
+}
+
+.public-page .customer-form-grid label {
+  border-color: rgba(0, 166, 166, .16) !important;
+  background: linear-gradient(180deg, #ffffff 0%, #f4fffc 100%) !important;
+}
+
+.public-page .customer-form-grid label:nth-child(even) {
+  background: linear-gradient(180deg, #ffffff 0%, #fffaf0 100%) !important;
+}
+
+.public-page .customer-form-grid input,
+.public-page .customer-form-grid textarea {
+  border-bottom-color: #9ccfc9 !important;
+}
+
+.public-page .customer-form-grid input:focus,
+.public-page .customer-form-grid textarea:focus {
+  border-color: #00a6a6 !important;
+}
+
+.public-page .customer-submit-btn {
+  background: linear-gradient(135deg, #ffca4b 0%, #ffe9a6 52%, #ffffff 100%) !important;
+  color: #06111f !important;
+  box-shadow: 0 18px 38px rgba(255, 202, 75, .30) !important;
+}
+
+.public-page .customer-submit-btn:hover {
+  box-shadow: 0 22px 46px rgba(255, 202, 75, .40) !important;
+}
+
+.public-page .customer-thanks-icon {
+  background: linear-gradient(135deg, #008c8c 0%, #00b7a8 100%) !important;
+}
+
+@media (max-width: 820px) {
+  .public-page .customer-form-page {
+    background:
+      linear-gradient(180deg, rgba(3, 12, 22, .55) 0%, rgba(239,250,248,.98) 286px, #f7fbfa 100%),
+      url("/static/site/hero-carpet-cleaning.webp") center top / auto 320px no-repeat !important;
+  }
+}
+
+/* Revolut-inspired purple customer form palette */
+.public-page .customer-form-page {
+  background:
+    linear-gradient(180deg, rgba(10, 8, 31, .66) 0%, rgba(84, 43, 255, .28) 42%, rgba(247, 246, 255, .98) 42%, #fbfbff 100%),
+    url("/static/site/hero-carpet-cleaning.webp") center top / cover fixed !important;
+}
+
+.public-page .customer-form-brand {
+  background:
+    linear-gradient(90deg, #ffffff 0%, #f2efff 42%, #eef7ff 72%, #fff3fa 100%) !important;
+  border-bottom-color: rgba(111, 53, 255, .18) !important;
+}
+
+.public-page .customer-form-brand img {
+  border-color: rgba(111, 53, 255, .26) !important;
+  box-shadow: 0 12px 30px rgba(79, 44, 255, .14) !important;
+}
+
+.public-page .customer-form-brand span,
+.public-page .customer-form-kicker,
+.public-page .customer-form-photo span,
+.public-page .customer-form-card-head span {
+  color: #5b35ff !important;
+}
+
+.public-page .customer-form-hero-grid {
+  background:
+    linear-gradient(135deg, #ffffff 0%, #f4f1ff 44%, #eef7ff 74%, #fff4fb 100%) !important;
+}
+
+.public-page .customer-form-lead {
+  color: #33415f !important;
+}
+
+.public-page .customer-form-highlights span {
+  border-color: rgba(111, 53, 255, .20) !important;
+  background: #f3efff !important;
+  color: #4b2cff !important;
+}
+
+.public-page .customer-form-highlights span:nth-child(2) {
+  border-color: rgba(0, 118, 255, .20) !important;
+  background: #eef7ff !important;
+  color: #0057d8 !important;
+}
+
+.public-page .customer-form-highlights span:nth-child(3) {
+  border-color: rgba(255, 79, 172, .20) !important;
+  background: #fff0fa !important;
+  color: #b31473 !important;
+}
+
+.public-page .customer-form-photo {
+  background:
+    linear-gradient(180deg, rgba(10, 8, 31, .02) 0%, rgba(76, 42, 180, .58) 58%, rgba(10, 8, 31, .88) 100%),
+    url("/static/site/hero-carpet-cleaning.webp") center / cover !important;
+}
+
+.public-page .customer-form-photo span {
+  color: #b9a7ff !important;
+}
+
+.public-page .customer-form-trust,
+.public-page .customer-form-submit {
+  background: linear-gradient(135deg, #09061f 0%, #26106f 48%, #5b35ff 100%) !important;
+}
+
+.public-page .customer-form-trust span,
+.public-page .customer-thanks-steps span {
+  background: linear-gradient(135deg, #8c6cff 0%, #8fd8ff 100%) !important;
+  color: #09061f !important;
+}
+
+.public-page .customer-form-card,
+.public-page .customer-thanks-card {
+  border-color: rgba(111, 53, 255, .14) !important;
+}
+
+.public-page .customer-form-card-head > span {
+  background: linear-gradient(135deg, #5b35ff 0%, #8c6cff 100%) !important;
+}
+
+.public-page .customer-form-grid label {
+  border-color: rgba(111, 53, 255, .13) !important;
+  background: linear-gradient(180deg, #ffffff 0%, #f8f6ff 100%) !important;
+}
+
+.public-page .customer-form-grid label:nth-child(even) {
+  background: linear-gradient(180deg, #ffffff 0%, #f2f8ff 100%) !important;
+}
+
+.public-page .customer-form-grid input,
+.public-page .customer-form-grid textarea {
+  border-bottom-color: #c6b8ff !important;
+}
+
+.public-page .customer-form-grid input:focus,
+.public-page .customer-form-grid textarea:focus {
+  border-color: #5b35ff !important;
+}
+
+.public-page .customer-submit-btn {
+  background: linear-gradient(135deg, #ffffff 0%, #d9d0ff 45%, #8fd8ff 100%) !important;
+  color: #09061f !important;
+  box-shadow: 0 18px 38px rgba(91, 53, 255, .24) !important;
+}
+
+.public-page .customer-submit-btn:hover {
+  box-shadow: 0 22px 46px rgba(91, 53, 255, .32) !important;
+}
+
+.public-page .customer-thanks-icon {
+  background: linear-gradient(135deg, #5b35ff 0%, #8c6cff 100%) !important;
+}
+
+@media (max-width: 820px) {
+  .public-page .customer-form-page {
+    background:
+      linear-gradient(180deg, rgba(10, 8, 31, .55) 0%, rgba(247,246,255,.98) 286px, #fbfbff 100%),
+      url("/static/site/hero-carpet-cleaning.webp") center top / auto 320px no-repeat !important;
+  }
+}
