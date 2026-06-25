@@ -1,69 +1,113 @@
 {% extends "layout.html" %}
-{% block title %}Intake Form{% endblock %}
-{% block page_title %}Intake Form{% endblock %}
+{% block title %}Review Customer Details{% endblock %}
+{% block page_title %}Review Customer Details{% endblock %}
 {% block body_content %}
-<section class="panel">
-  <div class="panel-head">
+<style>
+  .review-shell{display:grid;gap:18px}
+  .review-hero{background:linear-gradient(135deg,#eaf6ff 0%,#f7fbff 48%,#ffffff 100%);border:1px solid #d8e9f6;border-radius:16px;padding:22px;display:flex;justify-content:space-between;gap:18px;align-items:flex-start}
+  .review-hero h3{margin:0 0 8px;font-size:28px;color:#071524}
+  .review-hero p{margin:0;color:#36516b;max-width:760px}
+  .review-pill{display:inline-flex;align-items:center;gap:8px;border:1px solid #b8d9f1;background:#fff;color:#155b8f;border-radius:999px;padding:8px 12px;font-weight:800;white-space:nowrap}
+  .review-card-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:16px}
+  .review-card{border:1px solid #dce8f1;border-radius:14px;background:#fff;padding:18px}
+  .review-card h4{margin:0 0 12px;font-size:20px;color:#071524}
+  .customer-preview{display:grid;gap:10px}
+  .preview-row{border:1px solid #e1ebf3;background:#f9fcff;border-radius:12px;padding:12px}
+  .preview-row strong{display:block;color:#64748b;font-size:12px;text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px}
+  .preview-row span{display:block;color:#132238;white-space:pre-wrap;font-weight:700}
+  .approval-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+  .status-line{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .status-line div{border:1px solid #e2ebf3;border-radius:12px;padding:11px;background:#fbfdff}
+  .status-line strong{display:block;color:#64748b;font-size:12px;text-transform:uppercase;margin-bottom:4px}
+  .edit-form .span-2{grid-column:1/-1}
+  @media (max-width:860px){
+    .review-hero{display:block}
+    .review-pill{margin-top:14px}
+    .review-card-grid,.status-line{grid-template-columns:1fr}
+  }
+</style>
+
+<section class="review-shell">
+  <div class="review-hero">
     <div>
-      <h3>{{ lead.name }}</h3>
-      <p>{{ lead.phone }}{% if lead.email %} · {{ lead.email }}{% endif %}</p>
+      <h3>{{ lead.name or 'Customer details form' }}</h3>
+      <p>This is the form reply the customer sent back. Check it, edit anything that needs tidying, then send the contact to Xero when you are happy.</p>
     </div>
-    <a class="btn" href="{{ url_for('intake_forms') }}">Back to intake forms</a>
+    <span class="review-pill">{{ lead.status or 'Waiting for review' }}</span>
   </div>
 
-  <div class="detail-grid">
-    <div><strong>Address</strong><span>{{ lead.full_address }}</span></div>
-    <div><strong>Postcode</strong><span>{{ lead.postcode }}</span></div>
-    <div><strong>Google Maps</strong><span>{% if lead.google_maps_link %}<a href="{{ lead.google_maps_link }}" target="_blank">Open map</a>{% endif %}</span></div>
-    <div><strong>What3Words</strong><span>{{ lead.what3words }}</span></div>
-    <div><strong>Preferred</strong><span>{{ lead.preferred_date }} {{ lead.preferred_time }}</span></div>
-    <div><strong>Status</strong><span>{{ lead.status }}</span></div>
-    <div class="span-2"><strong>Rooms or areas</strong><span>{{ lead.rooms_areas }}</span></div>
-    <div><strong>Service required</strong><span>{{ lead.what_cleaned }}</span></div>
-    <div><strong>Source</strong><span>{{ lead.source or 'Website form' }}</span></div>
-    <div><strong>Marketing consent</strong><span>{{ lead.marketing_consent }}</span></div>
-    <div><strong>Follow up</strong><span>{{ lead.follow_up_status or 'Follow up required' }}</span></div>
-    <div class="span-2"><strong>Job notes</strong><span>{{ lead.job_notes }}</span></div>
-    <div class="span-2"><strong>Automation status</strong>
-      <span>
-        Xero: {{ lead.xero_sync_status or 'Pending' }}<br>
-        Customer email: {{ lead.customer_email_status or 'Pending' }}<br>
-        Customer SMS: {{ lead.customer_sms_status or 'Pending' }}<br>
-        Owner email: {{ lead.owner_email_status or 'Pending' }}<br>
-        Owner SMS: {{ lead.owner_sms_status or 'Pending' }}
-      </span>
-    </div>
-    {% if lead.photo_filename %}
-      <div class="span-2"><strong>Photo</strong><span><a href="{{ url_for('uploaded_file', filename=lead.photo_filename) }}" target="_blank">{{ lead.photo_filename }}</a></span></div>
-    {% endif %}
-    {% if lead.xero_contact_id %}
-      <div><strong>Xero ContactID</strong><span>{{ lead.xero_contact_id }}</span></div>
-      <div><strong>Sent to Xero</strong><span>{{ lead.xero_sent_at }}</span></div>
-    {% endif %}
-    {% if lead.xero_error %}
-      <div class="span-2"><strong>Xero error</strong><span>{{ lead.xero_error }}</span></div>
-    {% endif %}
+  <div class="review-card-grid">
+    <section class="review-card">
+      <h4>What the customer sent</h4>
+      <div class="customer-preview">
+        <div class="preview-row"><strong>Name</strong><span>{{ lead.name or 'Not supplied' }}</span></div>
+        <div class="preview-row"><strong>Phone</strong><span>{{ lead.phone or 'Not supplied' }}</span></div>
+        <div class="preview-row"><strong>Email</strong><span>{{ lead.email or 'Not supplied' }}</span></div>
+        <div class="preview-row"><strong>Address</strong><span>{{ lead.full_address or 'Not supplied' }}</span></div>
+        <div class="preview-row"><strong>Postcode</strong><span>{{ lead.postcode or 'Not supplied' }}</span></div>
+        <div class="preview-row"><strong>What3Words</strong><span>{{ lead.what3words or 'Not supplied' }}</span></div>
+        <div class="preview-row"><strong>Rooms or areas</strong><span>{{ lead.rooms_areas or 'Not supplied' }}</span></div>
+        <div class="preview-row"><strong>Job details</strong><span>{{ lead.job_notes or lead.additional_notes or 'Not supplied' }}</span></div>
+        <div class="preview-row"><strong>Access / parking</strong><span>{{ lead.parking or 'Not supplied' }}</span></div>
+        <div class="preview-row"><strong>Preferred times</strong><span>{{ lead.preferred_days_times or lead.preferred_date ~ ' ' ~ lead.preferred_time }}</span></div>
+        {% if lead.google_maps_link %}
+          <div class="preview-row"><strong>Google Maps</strong><span><a href="{{ lead.google_maps_link }}" target="_blank">Open map</a></span></div>
+        {% endif %}
+        {% if lead.photo_filename %}
+          <div class="preview-row"><strong>Photo</strong><span><a href="{{ url_for('uploaded_file', filename=lead.photo_filename) }}" target="_blank">{{ lead.photo_filename }}</a></span></div>
+        {% endif %}
+      </div>
+    </section>
+
+    <section class="review-card">
+      <h4>Approval</h4>
+      <div class="status-line">
+        <div><strong>Xero</strong>{{ lead.xero_sync_status or ('Sent' if lead.xero_contact_id else ('Failed' if lead.xero_error else 'Waiting')) }}</div>
+        <div><strong>Owner email</strong>{{ lead.owner_email_status or 'Pending' }}</div>
+        <div><strong>Owner SMS</strong>{{ lead.owner_sms_status or 'Pending' }}</div>
+        <div><strong>Source</strong>{{ lead.source or 'Customer details form' }}</div>
+      </div>
+      {% if lead.xero_contact_id %}
+        <div class="notice">Xero contact saved: {{ lead.xero_contact_id }}</div>
+      {% endif %}
+      {% if lead.xero_error %}
+        <div class="notice danger-notice">{{ lead.xero_error }}</div>
+      {% endif %}
+      <div class="approval-actions">
+        <form method="post" action="{{ url_for('xero_create_contact', lead_id=lead.id) }}"><button class="btn primary" type="submit">Approve and send to Xero</button></form>
+        <form method="post" action="{{ url_for('intake_create_customer', lead_id=lead.id) }}"><button class="btn secondary" type="submit">Open customer record</button></form>
+        <form method="post" action="{{ url_for('intake_create_job', lead_id=lead.id) }}"><button class="btn secondary" type="submit">Create job</button></form>
+        <a class="btn secondary" href="{{ url_for('intake_forms') }}">Back to replies</a>
+      </div>
+    </section>
   </div>
 
-  <form method="post" action="{{ url_for('intake_form_review', lead_id=lead.id) }}" class="form-grid">
-    <label>Status
-      <select name="status">
-        {% for status in ['New','Reviewed','Booked','Sent to Xero','Closed'] %}
-          <option value="{{ status }}" {% if lead.status == status %}selected{% endif %}>{{ status }}</option>
-        {% endfor %}
-      </select>
-    </label>
-    <label class="span-2">Review notes<textarea name="review_notes" rows="4">{{ lead.review_notes }}</textarea></label>
-    <div class="span-2 actions">
-      <button class="btn" type="submit">Save review</button>
-    </div>
-  </form>
-
-  <div class="actions action-row">
-    <a class="btn" href="{{ url_for('intake_welcome_email_preview', lead_id=lead.id) }}" target="_blank">Preview Welcome Email</a>
-    <form method="post" action="{{ url_for('intake_create_customer', lead_id=lead.id) }}"><button class="btn" type="submit">Create customer</button></form>
-    <form method="post" action="{{ url_for('intake_create_job', lead_id=lead.id) }}"><button class="btn" type="submit">Create job</button></form>
-    <form method="post" action="{{ url_for('xero_create_contact', lead_id=lead.id) }}"><button class="btn primary" type="submit">Send to Xero</button></form>
-  </div>
+  <section class="review-card">
+    <h4>Edit before approval</h4>
+    <form method="post" action="{{ url_for('intake_form_update_details', lead_id=lead.id) }}" class="form-grid edit-form">
+      <label>Name<input name="name" value="{{ lead.name or '' }}"></label>
+      <label>Phone<input name="phone" value="{{ lead.phone or '' }}"></label>
+      <label>Email<input name="email" type="email" value="{{ lead.email or '' }}"></label>
+      <label>Postcode<input name="postcode" value="{{ lead.postcode or '' }}"></label>
+      <label class="span-2">Full address<textarea name="full_address" rows="3">{{ lead.full_address or '' }}</textarea></label>
+      <label>What3Words<input name="what3words" value="{{ lead.what3words or '' }}"></label>
+      <label>Service<input name="what_cleaned" value="{{ lead.what_cleaned or '' }}"></label>
+      <label class="span-2">Rooms or areas<textarea name="rooms_areas" rows="3">{{ lead.rooms_areas or '' }}</textarea></label>
+      <label class="span-2">Job details<textarea name="job_notes" rows="4">{{ lead.job_notes or '' }}</textarea></label>
+      <label class="span-2">Access / parking<textarea name="parking" rows="3">{{ lead.parking or '' }}</textarea></label>
+      <label class="span-2">Preferred dates or times<textarea name="preferred_days_times" rows="2">{{ lead.preferred_days_times or '' }}</textarea></label>
+      <label class="span-2">Extra notes<textarea name="additional_notes" rows="3">{{ lead.additional_notes or '' }}</textarea></label>
+      <label>Status
+        <select name="status">
+          {% for status in ['Waiting for review','Reviewed','Approved','Sent to Xero','Booked','Closed'] %}
+            <option value="{{ status }}" {% if lead.status == status %}selected{% endif %}>{{ status }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <div class="actions span-2">
+        <button class="btn primary" type="submit">Save changes</button>
+      </div>
+    </form>
+  </section>
 </section>
 {% endblock %}

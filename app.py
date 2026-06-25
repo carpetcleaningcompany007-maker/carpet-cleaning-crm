@@ -1740,8 +1740,10 @@ def contact_form_alert_text(lead, customer_id=None):
         f"Name: {lead['name'] or ''}",
         f"Phone: {lead['phone'] or ''}",
         f"Email: {lead['email'] or ''}",
+        f"Address: {lead['full_address'] or ''}",
         f"Postcode: {lead['postcode'] or ''}",
         f"What3Words: {lead['what3words'] or 'Not supplied'}",
+        f"Job details: {lead['job_notes'] or 'Not supplied'}",
         "Review before Xero:",
         review_url,
     ]
@@ -1765,8 +1767,9 @@ def contact_form_alert_html(lead, customer_id=None):
         <tr><td style="padding:8px;border-bottom:1px solid #dde7ef"><strong>Address</strong></td><td style="padding:8px;border-bottom:1px solid #dde7ef">{safe(lead['full_address'] or '')}</td></tr>
         <tr><td style="padding:8px;border-bottom:1px solid #dde7ef"><strong>Postcode</strong></td><td style="padding:8px;border-bottom:1px solid #dde7ef">{safe(lead['postcode'] or '')}</td></tr>
         <tr><td style="padding:8px;border-bottom:1px solid #dde7ef"><strong>What3Words</strong></td><td style="padding:8px;border-bottom:1px solid #dde7ef">{safe(lead['what3words'] or 'Not supplied')}</td></tr>
+        <tr><td style="padding:8px;border-bottom:1px solid #dde7ef"><strong>Job details</strong></td><td style="padding:8px;border-bottom:1px solid #dde7ef">{safe(lead['job_notes'] or 'Not supplied')}</td></tr>
       </table>
-      <p style="margin:22px 0"><a href="{safe(review_url)}" style="display:inline-block;background:#0d5c4e;color:#fff;padding:14px 18px;border-radius:8px;text-decoration:none;font-weight:700">Review form reply</a></p>
+      <p style="margin:22px 0"><a href="{safe(review_url)}" style="display:inline-block;background:#1677c8;color:#fff;padding:14px 18px;border-radius:8px;text-decoration:none;font-weight:700">Review and approve</a></p>
       {customer_link}
     </div>"""
 
@@ -7223,6 +7226,51 @@ def intake_forms():
     return render_template("intake_forms.html", leads=rows, xero_connected=bool(token and token["access_token"]), xero_configured=xero_is_configured())
 
 
+@app.route("/intake-forms/cleanup-tests", methods=["POST"])
+@login_required
+def intake_forms_cleanup_tests():
+    codex_like = "%codex%"
+    example_like = "%example.com%"
+    leads = q("""SELECT * FROM intake_submissions
+                  WHERE LOWER(IFNULL(name,'')) LIKE ?
+                     OR LOWER(IFNULL(email,'')) LIKE ?
+                     OR LOWER(IFNULL(job_notes,'')) LIKE ?
+                     OR LOWER(IFNULL(email,'')) LIKE ?
+                     OR (
+                         LOWER(IFNULL(name,'')) LIKE '%test%'
+                         AND LOWER(IFNULL(email,'')) LIKE '%test%'
+                     )""",
+              (codex_like, codex_like, codex_like, example_like))
+    lead_ids = [lead["id"] for lead in leads]
+    customer_ids = sorted({lead["customer_id"] for lead in leads if lead["customer_id"]})
+    deleted_customers = 0
+    if lead_ids:
+        placeholders = ",".join("?" for _ in lead_ids)
+        run(f"DELETE FROM intake_submissions WHERE id IN ({placeholders})", lead_ids)
+    for customer_id in customer_ids:
+        linked = q("""SELECT COUNT(*) AS c FROM intake_submissions WHERE customer_id=?""", (customer_id,), one=True)["c"]
+        jobs = q("""SELECT COUNT(*) AS c FROM jobs WHERE customer_id=?""", (customer_id,), one=True)["c"]
+        invoices = q("""SELECT COUNT(*) AS c FROM invoices WHERE customer_id=?""", (customer_id,), one=True)["c"]
+        quotes = q("""SELECT COUNT(*) AS c FROM quotes WHERE customer_id=?""", (customer_id,), one=True)["c"]
+        customer = q("SELECT * FROM customers WHERE id=?", (customer_id,), one=True)
+        looks_test = customer and (
+            "codex" in clean_str(customer["email"]).lower()
+            or "example.com" in clean_str(customer["email"]).lower()
+            or (
+                "test" in (clean_str(customer["first_name"]) + " " + clean_str(customer["last_name"])).lower()
+                and "test" in clean_str(customer["email"]).lower()
+            )
+        )
+        if looks_test and not linked and not jobs and not invoices and not quotes:
+            run("DELETE FROM customer_timeline WHERE customer_id=?", (customer_id,))
+            run("DELETE FROM communications WHERE customer_id=?", (customer_id,))
+            run("DELETE FROM sms_events WHERE customer_id=?", (customer_id,))
+            run("DELETE FROM customers WHERE id=?", (customer_id,))
+            deleted_customers += 1
+    flash(f"Deleted {len(lead_ids)} obvious test form replies and {deleted_customers} unlinked test customer records.")
+    return redirect(url_for("intake_forms"))
+
+
 @app.route("/intake-forms/<int:lead_id>")
 @login_required
 def intake_form_view(lead_id):
@@ -7231,6 +7279,50 @@ def intake_form_view(lead_id):
         flash("Intake form not found.")
         return redirect(url_for("intake_forms"))
     return render_template("intake_form_view.html", lead=lead, xero_configured=xero_is_configured(), xero_connected=bool(xero_token_row()))
+
+
+@app.route("/intake-forms/<int:lead_id>/update-details", methods=["POST"])
+@login_required
+def intake_form_update_details(lead_id):
+    lead = q("SELECT * FROM intake_submissions WHERE id=?", (lead_id,), one=True)
+    if not lead:
+        flash("Intake form not found.")
+        return redirect(url_for("intake_forms"))
+    name = clean_str(request.form.get("name"))
+    phone = clean_str(request.form.get("phone"))
+    email = clean_str(request.form.get("email"))
+    full_address = clean_str(request.form.get("full_address"))
+    postcode = clean_str(request.form.get("postcode"))
+    what3words = clean_str(request.form.get("what3words"))
+    job_notes = clean_str(request.form.get("job_notes"))
+    rooms_areas = clean_str(request.form.get("rooms_areas"))
+    what_cleaned = clean_str(request.form.get("what_cleaned"))
+    parking = clean_str(request.form.get("parking"))
+    preferred_days_times = clean_str(request.form.get("preferred_days_times"))
+    additional_notes = clean_str(request.form.get("additional_notes"))
+    status = clean_str(request.form.get("status")) or lead["status"]
+    run("""UPDATE intake_submissions
+           SET name=?, phone=?, email=?, full_address=?, postcode=?, what3words=?, job_notes=?,
+               rooms_areas=?, what_cleaned=?, parking=?, preferred_days_times=?, additional_notes=?,
+               status=?, updated_at=datetime('now')
+           WHERE id=?""", (
+        name, phone, email, full_address, postcode, what3words, job_notes,
+        rooms_areas, what_cleaned, parking, preferred_days_times, additional_notes,
+        status, lead_id
+    ))
+    updated = q("SELECT * FROM intake_submissions WHERE id=?", (lead_id,), one=True)
+    customer_id = updated["customer_id"] or create_customer_from_intake(updated)
+    run("UPDATE intake_submissions SET customer_id=? WHERE id=?", (customer_id, lead_id))
+    first_name, last_name = split_customer_name(name)
+    run("""UPDATE customers
+           SET first_name=?, last_name=?, phone=?, email=?, address=?, postcode=?,
+               next_action='Check customer details form before Xero',
+               last_updated=datetime('now')
+           WHERE id=?""", (first_name, last_name, phone, email, full_address, postcode, customer_id))
+    run("INSERT INTO customer_timeline(customer_id, note_text, created_at) VALUES (?,?,datetime('now'))",
+        (customer_id, "Customer details form edited in CRM review screen."))
+    flash("Customer details saved.")
+    return redirect(url_for("intake_form_view", lead_id=lead_id))
 
 
 @app.route("/intake-forms/<int:lead_id>/welcome-email-preview")

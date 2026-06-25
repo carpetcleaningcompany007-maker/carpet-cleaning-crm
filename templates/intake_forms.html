@@ -12,8 +12,12 @@
       <a class="btn" href="{{ url_for('booking_form') }}" target="_blank">Open public booking form</a>
       <a class="btn" href="{{ url_for('xero_connect') }}">Connect Xero</a>
       <a class="btn" href="{{ url_for('xero_test') }}">Test Xero</a>
+      <form method="post" action="{{ url_for('intake_forms_cleanup_tests') }}">
+        <button class="btn danger" type="submit">Delete obvious test replies</button>
+      </form>
     </div>
   </div>
+  <div class="notice">The cleanup button only removes form replies that look like Codex/example/test submissions. It does not bulk-delete normal customer records.</div>
   {% if not xero_configured %}
     <div class="notice">Set XERO_CLIENT_ID and XERO_CLIENT_SECRET in the environment before connecting Xero.</div>
   {% elif not xero_connected %}
