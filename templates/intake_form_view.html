@@ -68,7 +68,12 @@
         <div><strong>Source</strong>{{ lead.source or 'Customer details form' }}</div>
       </div>
       {% if lead.xero_contact_id %}
-        <div class="notice">Xero contact saved: {{ lead.xero_contact_id }}</div>
+        <div class="notice">
+          Xero contact saved: {{ lead.xero_contact_id }}
+          <div style="margin-top:10px">
+            <a class="btn secondary" href="{{ xero_contact_web_url(lead.xero_contact_id) }}" target="_blank" rel="noopener">Open in Xero</a>
+          </div>
+        </div>
       {% endif %}
       {% if not xero_configured %}
         <div class="notice">Xero credentials are not configured in Render yet. Add the Xero client ID and secret once, then this approve button can connect and update Xero.</div>

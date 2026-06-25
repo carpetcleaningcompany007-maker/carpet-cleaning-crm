@@ -1714,6 +1714,11 @@ def crm_external_url(endpoint, **values):
     return url_for(endpoint, _external=True, **values)
 
 
+def xero_contact_web_url(contact_id):
+    contact_id = clean_str(contact_id)
+    return f"https://go.xero.com/Contacts/View/{urllib.parse.quote(contact_id)}" if contact_id else ""
+
+
 def owner_contact_form_recipients():
     s = settings()
     owner_email = (
@@ -2097,7 +2102,7 @@ def inject_layout_globals():
         biz = settings()
     except Exception:
         biz = {}
-    return {'biz': biz, 'app_settings': biz}
+    return {'biz': biz, 'app_settings': biz, 'xero_contact_web_url': xero_contact_web_url}
 
 
 def sort_rows(rows, key, reverse=False):
