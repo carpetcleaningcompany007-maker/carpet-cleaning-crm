@@ -62,7 +62,7 @@
     <section class="review-card">
       <h4>Approval</h4>
       <div class="status-line">
-        <div><strong>Xero</strong>{{ lead.xero_sync_status or ('Sent' if lead.xero_contact_id else ('Failed' if lead.xero_error else 'Waiting')) }}</div>
+        <div><strong>Xero</strong>{% if lead.xero_contact_id %}Sent{% elif not xero_configured %}Needs Xero setup{% elif not xero_connected %}Ready to connect{% else %}{{ lead.xero_sync_status or 'Waiting' }}{% endif %}</div>
         <div><strong>Owner email</strong>{{ lead.owner_email_status or 'Pending' }}</div>
         <div><strong>Owner SMS</strong>{{ lead.owner_sms_status or 'Pending' }}</div>
         <div><strong>Source</strong>{{ lead.source or 'Customer details form' }}</div>
@@ -70,7 +70,9 @@
       {% if lead.xero_contact_id %}
         <div class="notice">Xero contact saved: {{ lead.xero_contact_id }}</div>
       {% endif %}
-      {% if not xero_connected %}
+      {% if not xero_configured %}
+        <div class="notice">Xero credentials are not configured in Render yet. Add the Xero client ID and secret once, then this approve button can connect and update Xero.</div>
+      {% elif not xero_connected %}
         <div class="notice">Xero is not connected in this browser yet. Press approve and the CRM will connect Xero, then return here and update the contact automatically.</div>
       {% elif lead.xero_error %}
         <div class="notice danger-notice">{{ lead.xero_error }}</div>
