@@ -390,6 +390,147 @@
 
       button { width: 100%; }
     }
+
+    /* Final customer-facing atmosphere: premium background first, quiet controls second. */
+    body {
+      position: relative;
+      overflow-x: hidden;
+      background:
+        linear-gradient(145deg, rgba(8, 6, 26, .92) 0%, rgba(28, 18, 84, .88) 35%, rgba(74, 45, 145, .66) 62%, rgba(239, 235, 255, .96) 100%),
+        url("https://carpet-cleaning-crm.onrender.com/static/site/hero-carpet-cleaning.webp") center top / cover fixed;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background:
+        conic-gradient(from 210deg at 18% 8%, rgba(126, 91, 255, .44), rgba(80, 189, 255, .20), rgba(255, 255, 255, 0), rgba(255, 104, 188, .20), rgba(126, 91, 255, .44)),
+        linear-gradient(110deg, rgba(255,255,255,.10) 0%, rgba(255,255,255,0) 34%, rgba(255,255,255,.10) 68%, rgba(255,255,255,0) 100%);
+      mix-blend-mode: screen;
+      opacity: .78;
+    }
+
+    body::after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background:
+        linear-gradient(180deg, rgba(5, 4, 17, .18) 0%, rgba(5, 4, 17, 0) 34%, rgba(250, 248, 255, .86) 74%, #fbfbff 100%);
+    }
+
+    .page {
+      position: relative;
+      z-index: 1;
+    }
+
+    .hero,
+    .card,
+    .submit {
+      border-color: rgba(255,255,255,.34);
+      background: rgba(255,255,255,.82);
+      box-shadow: 0 32px 92px rgba(5, 4, 20, .28);
+      backdrop-filter: blur(22px);
+    }
+
+    .brand {
+      background: rgba(255,255,255,.72);
+      border-bottom-color: rgba(255,255,255,.46);
+    }
+
+    .brand span,
+    .eyebrow,
+    .photo span,
+    .step {
+      color: #6b4dff;
+    }
+
+    .hero-grid {
+      background: linear-gradient(135deg, rgba(255,255,255,.84) 0%, rgba(248,246,255,.70) 48%, rgba(239,248,255,.62) 100%);
+    }
+
+    h1 {
+      color: #09061f;
+    }
+
+    .chips span,
+    .chips span:nth-child(2),
+    .chips span:nth-child(3) {
+      border-color: rgba(255,255,255,.62);
+      background: rgba(255,255,255,.62);
+      color: #35245f;
+      box-shadow: 0 10px 28px rgba(43, 28, 110, .08);
+    }
+
+    .photo {
+      background:
+        linear-gradient(180deg, rgba(8, 6, 26, .08) 0%, rgba(48, 26, 104, .44) 58%, rgba(8, 6, 26, .86) 100%),
+        url("https://carpet-cleaning-crm.onrender.com/static/site/hero-carpet-cleaning.webp") center / cover;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.40), 0 24px 46px rgba(22, 12, 70, .22);
+    }
+
+    .steps,
+    .submit {
+      background: linear-gradient(135deg, rgba(8, 6, 26, .96) 0%, rgba(35, 22, 88, .94) 50%, rgba(89, 66, 206, .88) 100%);
+    }
+
+    .steps span {
+      background: rgba(255,255,255,.88);
+      color: #25106d;
+    }
+
+    .card {
+      background: rgba(255,255,255,.90);
+    }
+
+    .step {
+      background: rgba(247, 244, 255, .92);
+      color: #5b35ff;
+      border: 1px solid rgba(91,53,255,.20);
+    }
+
+    label,
+    label:nth-child(even) {
+      border-color: rgba(91,53,255,.12);
+      background: rgba(255,255,255,.72);
+      box-shadow: 0 14px 32px rgba(31, 22, 84, .07);
+    }
+
+    input,
+    textarea {
+      border-bottom-color: rgba(91,53,255,.24);
+    }
+
+    button {
+      background: #ffffff;
+      color: #09061f;
+      box-shadow: 0 18px 38px rgba(12, 8, 35, .20);
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 22px 46px rgba(12, 8, 35, .26);
+    }
+
+    @media (max-width: 820px) {
+      body {
+        background:
+          linear-gradient(150deg, rgba(8, 6, 26, .90) 0%, rgba(66, 42, 155, .62) 270px, rgba(247,246,255,.98) 520px, #fbfbff 100%),
+          url("https://carpet-cleaning-crm.onrender.com/static/site/hero-carpet-cleaning.webp") center top / auto 340px no-repeat;
+      }
+
+      body::before {
+        opacity: .58;
+      }
+
+      .hero,
+      .card,
+      .submit {
+        backdrop-filter: blur(16px);
+      }
+    }
   </style>
 </head>
 <body>
