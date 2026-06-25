@@ -7750,6 +7750,9 @@ def xero_create_contact(lead_id):
         token = xero_token_row()
         if not token or not token["refresh_token"]:
             session["pending_xero_intake_lead_id"] = lead_id
+            run("""UPDATE intake_submissions
+                   SET xero_error='', xero_sync_status='Waiting for Xero connection', updated_at=datetime('now')
+                   WHERE id=?""", (lead_id,))
             flash("Connect Xero once. This customer will be sent automatically after Xero authorises.")
             return redirect(url_for("xero_connect"))
         contact_id = sync_xero_contact_for_intake(lead_id)

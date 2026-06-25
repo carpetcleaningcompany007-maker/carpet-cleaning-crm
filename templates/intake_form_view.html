@@ -70,7 +70,9 @@
       {% if lead.xero_contact_id %}
         <div class="notice">Xero contact saved: {{ lead.xero_contact_id }}</div>
       {% endif %}
-      {% if lead.xero_error %}
+      {% if not xero_connected %}
+        <div class="notice">Xero is not connected in this browser yet. Press approve and the CRM will connect Xero, then return here and update the contact automatically.</div>
+      {% elif lead.xero_error %}
         <div class="notice danger-notice">{{ lead.xero_error }}</div>
       {% endif %}
       <div class="approval-actions">
