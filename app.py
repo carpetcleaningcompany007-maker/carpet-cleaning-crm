@@ -23,6 +23,7 @@ import urllib.request
 import urllib.error
 import uuid
 import calendar as pycalendar
+from difflib import SequenceMatcher
 
 from flask import Flask, render_template, request, redirect, url_for, flash, session, g, Response, send_file, send_from_directory
 from werkzeug.utils import secure_filename
@@ -1828,7 +1829,8 @@ def sync_xero_contact_for_intake(lead_id):
     customer_id = lead["customer_id"] or create_customer_from_intake(lead)
     lead = q("SELECT * FROM intake_submissions WHERE id=?", (lead_id,), one=True)
 
-    contact_id = find_xero_contact_id_for_lead(lead)
+    match = find_xero_contact_match_for_lead(lead, block_possible_duplicates=True)
+    contact_id = match.get("contact_id", "")
     payload = xero_contact_payload_from_lead(lead)
     if contact_id:
         payload["Contacts"][0]["ContactID"] = contact_id
@@ -1854,7 +1856,7 @@ def sync_xero_contact_for_intake(lead_id):
                WHERE id=?""", (contact_id, customer_id))
         run("INSERT INTO customer_timeline(customer_id, note_text, created_at) VALUES (?,?,datetime('now'))",
             (customer_id, "Xero contact created or updated from approved customer details form."))
-    log_xero_sync("customer", customer_id or 0, "sync_contact_from_intake", "ok", f"Xero contact ready: {contact_id}", result)
+    log_xero_sync("customer", customer_id or 0, "sync_contact_from_intake", "ok", f"Xero contact ready: {contact_id}. {match.get('reason', '')}", result)
     return contact_id
 
 
@@ -1866,7 +1868,8 @@ def run_website_enquiry_automation(lead_id, customer_id, data):
     results = {}
 
     try:
-        contact_id = find_xero_contact_id_for_lead(lead)
+        match = find_xero_contact_match_for_lead(lead, block_possible_duplicates=True)
+        contact_id = match.get("contact_id", "")
         payload = xero_contact_payload_from_lead(lead)
         if contact_id:
             payload["Contacts"][0]["ContactID"] = contact_id
@@ -6914,16 +6917,124 @@ def xero_contact_payload_from_customer(customer):
     return {"Contacts": [contact]}
 
 
-def find_xero_contact_id_for_lead(lead):
-    if lead["xero_contact_id"]:
-        return lead["xero_contact_id"]
-    if not lead["email"]:
-        return ""
-    email = clean_str(lead["email"]).replace('"', '\\"')
-    where = urllib.parse.quote(f'EmailAddress=="{email}"')
+def normalise_match_text(value):
+    return re.sub(r"[^a-z0-9]+", " ", clean_str(value).lower()).strip()
+
+
+def xero_contact_display_name(contact):
+    return clean_str(contact.get("Name")) or clean_str(f"{contact.get('FirstName', '')} {contact.get('LastName', '')}")
+
+
+def xero_contact_postcode(contact):
+    address = xero_contact_address(contact)
+    return clean_str(address.get("postcode"))
+
+
+def xero_contact_summary(contact):
+    name = xero_contact_display_name(contact) or "Unnamed Xero contact"
+    email = clean_str(contact.get("EmailAddress")) or "no email"
+    phone = clean_str(xero_contact_phone(contact)) or "no phone"
+    postcode = xero_contact_postcode(contact) or "no postcode"
+    contact_id = clean_str(contact.get("ContactID"))
+    return f"{name} ({email}, {phone}, {postcode}, ContactID {contact_id})"
+
+
+def name_similarity(left, right):
+    left = normalise_match_text(left)
+    right = normalise_match_text(right)
+    if not left or not right:
+        return 0.0
+    if left == right:
+        return 1.0
+    return SequenceMatcher(None, left, right).ratio()
+
+
+def xero_get_contacts_by_email(email):
+    email = clean_str(email)
+    if not email:
+        return []
+    safe_email = email.replace('"', '\\"')
+    where = urllib.parse.quote(f'EmailAddress=="{safe_email}"')
     result = xero_api_request(f"{XERO_CONTACTS_URL}?where={where}")
-    contacts = result.get("Contacts") or []
-    return contacts[0].get("ContactID", "") if contacts else ""
+    return result.get("Contacts") or []
+
+
+def xero_search_contacts(search_term):
+    search_term = clean_str(search_term)
+    if not search_term:
+        return []
+    result = xero_api_request(f"{XERO_CONTACTS_URL}?searchTerm={urllib.parse.quote(search_term)}")
+    return result.get("Contacts") or []
+
+
+def find_xero_contact_match_for_lead(lead, block_possible_duplicates=False):
+    existing_id = clean_str(row_get(lead, "xero_contact_id"))
+    if existing_id:
+        return {"contact_id": existing_id, "match_type": "existing_link", "reason": "This intake form is already linked to a Xero contact."}
+
+    lead_name = clean_str(row_get(lead, "name"))
+    lead_email = clean_str(row_get(lead, "email")).lower()
+    lead_phone = normalize_phone(row_get(lead, "phone"))
+    lead_postcode = normalise_match_text(row_get(lead, "postcode")).replace(" ", "")
+
+    if lead_email:
+        email_contacts = xero_get_contacts_by_email(lead_email)
+        if len(email_contacts) == 1:
+            return {
+                "contact_id": clean_str(email_contacts[0].get("ContactID")),
+                "match_type": "email",
+                "reason": f"Matched Xero contact by exact email: {lead_email}.",
+            }
+        if len(email_contacts) > 1 and block_possible_duplicates:
+            choices = "; ".join(xero_contact_summary(contact) for contact in email_contacts[:5])
+            raise RuntimeError(f"Xero has more than one contact with email {lead_email}. I have not updated anything. Check Xero and choose the correct contact. Possible matches: {choices}")
+
+    candidates = []
+    seen_contact_ids = set()
+    for term in [lead_phone, lead_email, lead_name, row_get(lead, "postcode")]:
+        for contact in xero_search_contacts(term):
+            contact_id = clean_str(contact.get("ContactID"))
+            if contact_id and contact_id not in seen_contact_ids:
+                seen_contact_ids.add(contact_id)
+                candidates.append(contact)
+
+    strong_matches = []
+    possible_matches = []
+    for contact in candidates:
+        contact_phone = normalize_phone(xero_contact_phone(contact))
+        contact_email = clean_str(contact.get("EmailAddress")).lower()
+        contact_postcode = normalise_match_text(xero_contact_postcode(contact)).replace(" ", "")
+        contact_name = xero_contact_display_name(contact)
+        similarity = name_similarity(lead_name, contact_name)
+        exact_phone = bool(lead_phone and contact_phone and lead_phone == contact_phone)
+        exact_email = bool(lead_email and contact_email and lead_email == contact_email)
+        exact_name_postcode = bool(similarity == 1.0 and lead_postcode and contact_postcode and lead_postcode == contact_postcode)
+        same_postcode = bool(lead_postcode and contact_postcode and lead_postcode == contact_postcode)
+        phone_supported_by_details = bool(exact_phone and (similarity >= 0.82 or same_postcode))
+        similar_name_postcode = bool(similarity >= 0.82 and lead_postcode and contact_postcode and lead_postcode == contact_postcode)
+
+        if exact_email or phone_supported_by_details or exact_name_postcode:
+            strong_matches.append((contact, "exact email" if exact_email else "exact phone with matching name or postcode" if phone_supported_by_details else "exact name and postcode"))
+        elif exact_phone or similar_name_postcode or similarity >= 0.88:
+            possible_matches.append((contact, similarity))
+
+    if len(strong_matches) == 1:
+        contact, reason = strong_matches[0]
+        return {
+            "contact_id": clean_str(contact.get("ContactID")),
+            "match_type": reason,
+            "reason": f"Matched Xero contact by {reason}: {xero_contact_summary(contact)}.",
+        }
+    if block_possible_duplicates and (len(strong_matches) > 1 or possible_matches):
+        contacts = [match[0] for match in strong_matches] + [match[0] for match in possible_matches]
+        choices = "; ".join(xero_contact_summary(contact) for contact in contacts[:6])
+        raise RuntimeError(f"Possible existing Xero contact found. I have not created or updated a contact because the match is not certain. Check Xero first, then link or tidy the customer details. Possible matches: {choices}")
+
+    return {"contact_id": "", "match_type": "none", "reason": "No strong existing Xero match found."}
+
+
+def find_xero_contact_id_for_lead(lead):
+    return find_xero_contact_match_for_lead(lead).get("contact_id", "")
 
 
 def find_xero_contact_id_for_customer(customer):

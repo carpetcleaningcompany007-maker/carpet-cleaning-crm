@@ -78,7 +78,9 @@
         <div class="notice danger-notice">{{ lead.xero_error }}</div>
       {% endif %}
       <div class="approval-actions">
-        <form method="post" action="{{ url_for('xero_create_contact', lead_id=lead.id) }}"><button class="btn primary" type="submit">Approve and update Xero</button></form>
+        <form method="post" action="{{ url_for('xero_create_contact', lead_id=lead.id) }}">
+          <button class="btn primary" type="submit">{% if lead.xero_contact_id %}Update Xero contact again{% else %}Approve and update Xero{% endif %}</button>
+        </form>
         <form method="post" action="{{ url_for('intake_create_customer', lead_id=lead.id) }}"><button class="btn secondary" type="submit">Open customer record</button></form>
         <form method="post" action="{{ url_for('intake_create_job', lead_id=lead.id) }}"><button class="btn secondary" type="submit">Create job</button></form>
         <a class="btn secondary" href="{{ url_for('intake_forms') }}">Back to replies</a>
