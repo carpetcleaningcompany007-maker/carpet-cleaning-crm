@@ -30,13 +30,14 @@
       <a class="btn secondary" href="{{ url_for('xero_test') }}">Test Connection</a>
       {% if configured and connected %}
         <form method="post" action="{{ url_for('xero_pull_contacts') }}"><button class="btn primary">Pull All Xero Customers</button></form>
+        <form method="post" action="{{ url_for('xero_archive_non_customer_imports') }}"><button class="btn secondary">Archive Non-Customer Imports</button></form>
       {% else %}
         <button class="btn secondary" type="button" disabled title="Connect Xero before pulling customers">Pull All Xero Customers</button>
       {% endif %}
       <form method="post" action="{{ url_for('xero_refresh_open_invoices') }}"><button class="btn secondary">Refresh Open Invoice Statuses</button></form>
     </div>
     {% if configured and connected %}
-      <p class="muted inline-note">Pull All Xero Customers imports active Xero contacts into the CRM, links existing matches, and avoids duplicates using Xero ContactID, email, phone, and postcode.</p>
+      <p class="muted inline-note">Pull All Xero Customers now skips supplier/payee style Xero contacts unless they have customer contact details such as email, phone, address, town, or postcode.</p>
     {% elif configured %}
       <p class="muted inline-note">Next step: press Connect Xero, approve the CRM in Xero, then come back here and press Pull All Xero Customers.</p>
     {% else %}

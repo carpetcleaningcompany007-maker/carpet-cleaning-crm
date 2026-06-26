@@ -7187,6 +7187,22 @@ def xero_contact_address(contact):
     return {"address": "", "town": "", "postcode": ""}
 
 
+def xero_contact_is_customer_candidate(contact):
+    is_customer = bool(contact.get("IsCustomer"))
+    is_supplier = bool(contact.get("IsSupplier"))
+    email = clean_str(contact.get("EmailAddress"))
+    phone = xero_contact_phone(contact)
+    address = xero_contact_address(contact)
+    has_contact_details = bool(email or phone or address["address"] or address["town"] or address["postcode"])
+    if is_customer:
+        return True, "marked as customer in Xero"
+    if has_contact_details and not is_supplier:
+        return True, "has customer contact details"
+    if has_contact_details and is_supplier:
+        return True, "supplier contact kept because it has usable contact details"
+    return False, "skipped supplier/payee style contact with no customer details"
+
+
 def xero_contact_name_parts(contact):
     first_name = clean_str(contact.get("FirstName"))
     last_name = clean_str(contact.get("LastName"))
@@ -7215,6 +7231,11 @@ def pull_xero_contacts_into_crm(max_pages=20):
                 email = clean_str(contact.get("EmailAddress")).lower()
                 if not contact_id or status == "ARCHIVED" or not name:
                     skipped += 1
+                    continue
+                keep_contact, skip_reason = xero_contact_is_customer_candidate(contact)
+                if not keep_contact:
+                    skipped += 1
+                    log_xero_sync("customer", 0, "skip_contact", "ok", f"Skipped Xero contact {name}: {skip_reason}", {"ContactID": contact_id})
                     continue
                 first_name, last_name = xero_contact_name_parts(contact)
                 phone = xero_contact_phone(contact)
@@ -7270,6 +7291,33 @@ def pull_xero_contacts_into_crm(max_pages=20):
                 logger.exception("Xero pull contact failed")
                 log_xero_sync("customer", 0, "pull_contact", "error", str(exc), contact)
     return {"seen": seen, "created": created, "updated": updated, "skipped": skipped, "failed": failed}
+
+
+def archive_obvious_xero_non_customer_imports():
+    rows = q("""
+        SELECT c.id, c.first_name, c.last_name
+        FROM customers c
+        WHERE IFNULL(c.archived_at,'')=''
+          AND (
+            c.source='Xero'
+            OR c.tags LIKE '%Xero%'
+            OR c.notes LIKE 'Imported from Xero contact:%'
+          )
+          AND IFNULL(c.email,'')=''
+          AND IFNULL(c.phone,'')=''
+          AND IFNULL(c.address,'')=''
+          AND IFNULL(c.town,'')=''
+          AND IFNULL(c.postcode,'')=''
+          AND NOT EXISTS (SELECT 1 FROM jobs j WHERE j.customer_id=c.id AND IFNULL(j.status,'') <> 'Archived')
+          AND NOT EXISTS (SELECT 1 FROM quotes q2 WHERE q2.customer_id=c.id AND IFNULL(q2.status,'') <> 'Archived')
+          AND NOT EXISTS (SELECT 1 FROM invoices i WHERE i.customer_id=c.id AND IFNULL(i.status,'') <> 'Archived')
+          AND NOT EXISTS (SELECT 1 FROM intake_submissions s WHERE s.customer_id=c.id)
+    """)
+    for row in rows:
+        run("UPDATE customers SET archived_at=datetime('now') WHERE id=?", (row["id"],))
+        run("INSERT INTO customer_timeline(customer_id, note_text, created_at) VALUES (?,?,datetime('now'))",
+            (row["id"], "Archived by Xero cleanup: imported contact had no customer contact details."))
+    return {"archived": len(rows)}
 
 
 def ensure_xero_contact_for_customer(customer_id):
@@ -7959,6 +8007,18 @@ def xero_pull_contacts():
         logger.exception("Xero pull all contacts failed")
         log_xero_sync("customer", 0, "pull_all_contacts", "error", str(exc))
         flash(f"Xero customer pull failed: {exc}")
+    return redirect(url_for("xero_dashboard"))
+
+
+@app.route("/xero/archive-non-customer-imports", methods=["POST"])
+@login_required
+def xero_archive_non_customer_imports():
+    try:
+        result = archive_obvious_xero_non_customer_imports()
+        flash(f"Archived {result['archived']} obvious Xero payee/supplier imports with no customer contact details.")
+    except Exception as exc:
+        logger.exception("Xero non-customer cleanup failed")
+        flash(f"Xero cleanup failed: {exc}")
     return redirect(url_for("xero_dashboard"))
 
 
