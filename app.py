@@ -7863,36 +7863,6 @@ def xero_pull_contacts():
     return redirect(url_for("xero_dashboard"))
 
 
-@app.route("/xero/cleanup-codex-test-contacts", methods=["POST"])
-@login_required
-def xero_cleanup_codex_test_contacts():
-    test_contact_ids = [
-        "20d2d442-2711-4411-a735-ef111564d636",
-        "3e77b835-56f0-4698-9d5e-7a7b319a26da",
-        "721b835f-2005-4171-addd-3a8e7f3323d0",
-    ]
-    archived = []
-    failed = []
-    for contact_id in test_contact_ids:
-        try:
-            result = xero_api_request(
-                XERO_CONTACTS_URL,
-                method="POST",
-                payload={"Contacts": [{"ContactID": contact_id, "ContactStatus": "ARCHIVED"}]},
-                idempotency_key=f"archive-codex-test-contact-{contact_id}",
-            )
-            archived.append(contact_id)
-            log_xero_sync("customer", 0, "archive_codex_test_contact", "ok", f"Archived Codex test Xero contact {contact_id}", result)
-        except Exception as exc:
-            failed.append(f"{contact_id}: {exc}")
-            log_xero_sync("customer", 0, "archive_codex_test_contact", "error", f"{contact_id}: {exc}")
-    if failed:
-        flash(f"Archived {len(archived)} Codex test Xero contacts. Failed {len(failed)}: {'; '.join(failed)}")
-    else:
-        flash(f"Archived {len(archived)} Codex test Xero contacts.")
-    return redirect(url_for("xero_dashboard"))
-
-
 @app.route("/xero/create-contact/<int:lead_id>", methods=["POST", "GET"])
 @login_required
 def xero_create_contact(lead_id):
