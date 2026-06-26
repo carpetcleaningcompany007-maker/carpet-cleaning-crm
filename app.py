@@ -3632,6 +3632,42 @@ def booking_form_message(customer):
     )
 
 
+def booking_form_email_html(customer, form_link):
+    name = html_lib.escape(customer_name(customer))
+    link = html_lib.escape(form_link)
+    return f"""<!doctype html>
+<html>
+<body style="margin:0;background:#eef6ff;font-family:Arial,Helvetica,sans-serif;color:#102033">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#eef6ff;padding:24px 12px">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:620px;background:#ffffff;border-radius:18px;overflow:hidden;border:1px solid #d8e7f5">
+          <tr>
+            <td style="background:#0f5fbd;color:#ffffff;padding:26px 28px">
+              <div style="font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:uppercase">The Carpet Cleaning Company</div>
+              <h1 style="margin:8px 0 0;font-size:30px;line-height:1.15">Please complete your customer details</h1>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:28px">
+              <p style="font-size:18px;line-height:1.55;margin:0 0 18px">Hi {name},</p>
+              <p style="font-size:18px;line-height:1.55;margin:0 0 24px">Please use the secure form below so we have your correct contact details, full address, postcode and What3Words location before booking your clean.</p>
+              <p style="margin:0 0 26px">
+                <a href="{link}" style="display:inline-block;background:#0f5fbd;color:#ffffff;text-decoration:none;font-size:18px;font-weight:800;padding:15px 22px;border-radius:12px">Complete customer form</a>
+              </p>
+              <p style="font-size:15px;line-height:1.55;color:#4b6074;margin:0 0 18px">If the button does not open, copy this link into your browser:</p>
+              <p style="font-size:15px;line-height:1.55;word-break:break-all;margin:0 0 24px"><a href="{link}" style="color:#0f5fbd">{link}</a></p>
+              <p style="font-size:18px;line-height:1.55;margin:0">Thanks<br>Paul<br>The Carpet Cleaning Company</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>"""
+
+
 def reminder_message(customer):
     return (
         "Hi,\n\n"
@@ -4279,6 +4315,59 @@ def customer_view(customer_id):
         "review": review_request_message(customer),
     }
     return render_template("customer_view.html", customer=customer, timeline=timeline, quotes=quotes, jobs=jobs, invoices=invoices, feedback=feedback, reminders=reminders, subscription_summary=subscription_summary, is_archived=bool(customer and customer["archived_at"]), last_contacted_at=last_contacted_at, last_contacted_label=contact_badge_text(last_contacted_at), recent_contacts=recent_contacts, contact_summary=contact_summary, recent_sms=recent_sms, sms_summary=sms_summary, sms_thread=sms_thread, workflow=workflow, workflow_stages=WORKFLOW_STAGES, workflow_messages=workflow_messages)
+
+
+@app.route("/customers/<int:customer_id>/send-contact-form", methods=["POST"])
+@login_required
+def customer_send_contact_form(customer_id):
+    customer = q("SELECT * FROM customers WHERE id=?", (customer_id,), one=True)
+    if not customer:
+        flash("Customer not found.")
+        return redirect(url_for("customers"))
+
+    email_to = clean_str(request.form.get("email")) or clean_str(customer["email"])
+    sms_to = clean_str(request.form.get("phone")) or clean_str(customer["phone"])
+    send_email = request.form.get("send_email") == "1"
+    send_sms = request.form.get("send_sms") == "1"
+    if not send_email and not send_sms:
+        send_email = bool(email_to)
+        send_sms = bool(sms_to) and not customer["sms_opt_out"]
+    if customer["sms_opt_out"]:
+        send_sms = False
+
+    form_link = booking_form_url(customer)
+    message = booking_form_message(customer)
+    results = []
+    sent_any = False
+
+    if send_email:
+        subject = "Customer details form - The Carpet Cleaning Company"
+        ok, msg = send_env_email(email_to, subject, message, booking_form_email_html(customer, form_link), customer=customer)
+        results.append(("Email", ok, msg))
+        run("INSERT INTO communications (customer_id, channel, subject, body, created_at) VALUES (?,?,?,?,datetime('now'))",
+            (customer_id, "Email", subject, message))
+        sent_any = sent_any or ok
+
+    if send_sms:
+        ok, msg = send_clicksend_env_sms(sms_to, message, customer=customer, category="Customer Form")
+        results.append(("SMS", ok, msg))
+        run("INSERT INTO communications (customer_id, channel, subject, body, created_at) VALUES (?,?,?,?,datetime('now'))",
+            (customer_id, "SMS", "Customer details form", message))
+        sent_any = sent_any or ok
+
+    if not results:
+        flash("Choose email or SMS and add a valid email address or mobile number.")
+        return redirect(url_for("customer_view", customer_id=customer_id) + "#send-customer-form")
+
+    if sent_any:
+        set_customer_workflow(customer_id, "booking_form_sent", "Customer details form sent from the CRM.", "Customer form sent")
+        run("UPDATE customers SET next_action='Wait for customer details form' WHERE id=?", (customer_id,))
+        run("INSERT INTO customer_timeline(customer_id, note_text, created_at) VALUES (?,?,datetime('now'))",
+            (customer_id, "Customer details form sent by " + ", ".join(label for label, ok, _ in results if ok) + "."))
+
+    result_text = "; ".join(f"{label}: {'sent' if ok else 'failed'} - {msg}" for label, ok, msg in results)
+    flash(result_text)
+    return redirect(url_for("customer_view", customer_id=customer_id) + "#send-customer-form")
 
 
 @app.route("/customers/<int:customer_id>/workflow-action", methods=["POST"])
@@ -6898,13 +6987,17 @@ def create_customer_from_intake(lead):
 def xero_contact_payload_from_lead(lead):
     name = clean_str(lead["name"]) or "Customer"
     first_name, last_name = split_customer_name(name)
+    address = {"AddressType": "STREET", "AddressLine1": clean_str(lead["full_address"]), "PostalCode": clean_str(lead["postcode"])}
+    what3words = clean_str(row_get(lead, "what3words"))
+    if what3words:
+        address["AddressLine2"] = f"What3Words: {what3words}"
     contact = {
         "Name": name,
         "FirstName": first_name,
         "LastName": last_name,
         "ContactNumber": f"FORM-{lead['id']}",
         "Phones": [{"PhoneType": "MOBILE", "PhoneNumber": clean_str(lead["phone"])}] if lead["phone"] else [],
-        "Addresses": [{"AddressType": "STREET", "AddressLine1": clean_str(lead["full_address"]), "PostalCode": clean_str(lead["postcode"])}],
+        "Addresses": [address],
     }
     if lead["email"]:
         contact["EmailAddress"] = clean_str(lead["email"])

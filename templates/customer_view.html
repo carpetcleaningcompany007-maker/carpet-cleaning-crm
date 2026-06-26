@@ -43,10 +43,17 @@
   .workflow-message-grid{display:grid;grid-template-columns:1fr;gap:16px;margin-top:22px}
   .workflow-message{background:#f8fafc;border:1px solid #d7e0e9;border-radius:12px;padding:22px}
   .workflow-message strong{font-size:24px}
+  .customer-form-send-panel{margin:18px 0;padding:18px;border-radius:12px;background:#fff;border:1px solid #d7e0e9}
+  .customer-form-send-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+  .customer-form-send-fields label,.customer-form-send-options label{font-weight:800;color:#102033}
+  .customer-form-send-options{display:flex;flex-wrap:wrap;gap:12px;margin:16px 0}
+  .customer-form-send-options label{display:flex;align-items:center;gap:10px;border:1px solid #d7e0e9;border-radius:999px;padding:10px 14px;background:#eef6ff}
+  .customer-form-send-options input{width:auto}
+  .customer-form-send-panel .btn{font-size:20px;padding:15px 22px}
   .workflow-message textarea{width:100%;min-height:150px;margin:14px 0;border:1px solid #cbdfea;border-radius:10px;padding:14px;font-size:18px}
   .workflow-history{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-top:22px}
   .workflow-history-item{border:1px solid #d7e0e9;border-radius:10px;padding:18px;background:#f8fafc;font-size:18px}
-  @media(max-width:1000px){.workflow-main{grid-template-columns:1fr}.workflow-current{font-size:40px}.workflow-next{font-size:26px}}
+  @media(max-width:1000px){.workflow-main{grid-template-columns:1fr}.workflow-current{font-size:40px}.workflow-next{font-size:26px}.customer-form-send-fields{grid-template-columns:1fr}}
 </style>
 
 <section class="workflow-panel" id="workflow-panel">
@@ -85,7 +92,23 @@
     <div class="workflow-message" id="send-customer-form">
       <strong>Send Contact Form</strong>
       <p class="muted">Send this branded mobile form to collect the customer's contact details, address, postcode and What3Words. Their reply comes back into Form Replies for review.</p>
-      <p><a class="btn primary" href="{{ workflow_messages.booking_form_url }}" target="_blank">Open Contact Form</a></p>
+      <form class="customer-form-send-panel" method="post" action="{{ url_for('customer_send_contact_form', customer_id=customer.id) }}">
+        <div class="customer-form-send-fields">
+          <label>Email address
+            <input type="email" name="email" value="{{ customer.email or '' }}" placeholder="customer@email.com">
+          </label>
+          <label>Mobile number
+            <input name="phone" value="{{ customer.phone or '' }}" placeholder="07...">
+          </label>
+        </div>
+        <div class="customer-form-send-options">
+          <label><input type="checkbox" name="send_email" value="1" {% if customer.email %}checked{% endif %}> Send email</label>
+          <label><input type="checkbox" name="send_sms" value="1" {% if customer.phone and not customer.sms_opt_out %}checked{% endif %} {% if customer.sms_opt_out %}disabled{% endif %}> Send text</label>
+        </div>
+        <button class="btn primary" type="submit">Send Customer Form</button>
+        {% if customer.sms_opt_out %}<p class="muted">SMS is switched off for this customer.</p>{% endif %}
+      </form>
+      <p><a class="btn secondary" href="{{ workflow_messages.booking_form_url }}" target="_blank">Open Contact Form</a></p>
       <input id="bookingFormUrl" value="{{ workflow_messages.booking_form_url }}" readonly>
       <textarea id="bookingMessage" readonly>{{ workflow_messages.booking_form }}</textarea>
       <div class="row-actions">
