@@ -2370,3 +2370,71 @@ body.app-page .nav {
 body.app-page .nav {
   flex-wrap: wrap !important;
 }
+
+.send-form-intro {
+  background: linear-gradient(135deg, #edf7ff 0%, #ffffff 58%, #eef6ff 100%);
+}
+
+.send-contact-panel,
+.send-contact-preview {
+  max-width: 860px;
+}
+
+.send-contact-form {
+  display: grid;
+  gap: 18px;
+}
+
+.send-contact-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.send-contact-grid label {
+  color: #102033;
+  font-weight: 850;
+}
+
+.send-contact-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.send-contact-options label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border: 1px solid #d7e7f7;
+  border-radius: 999px;
+  background: #eef7ff;
+  color: #102033;
+  font-weight: 850;
+}
+
+.send-contact-options input {
+  width: auto;
+}
+
+.send-contact-submit {
+  width: min(100%, 360px);
+  min-height: 56px;
+  font-size: 20px;
+}
+
+.send-contact-preview textarea {
+  width: 100%;
+  min-height: 150px;
+}
+
+@media (max-width: 700px) {
+  .send-contact-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .send-contact-submit {
+    width: 100%;
+  }
+}

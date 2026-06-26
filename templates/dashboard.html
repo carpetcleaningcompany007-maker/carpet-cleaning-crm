@@ -9,6 +9,7 @@
     <h1>What needs doing next?</h1>
     <p>A clear daily view for enquiries, quotes, jobs, invoices and follow-ups.</p>
     <div class="cc-hero-actions">
+      <a class="cc-btn cc-btn-primary" href="{{ url_for('send_contact_form') }}">Send Contact Form</a>
       <a class="cc-btn cc-btn-primary" href="{{ url_for('workflow') }}">Open Workflow Board</a>
       <a class="cc-btn cc-btn-light" href="{{ url_for('customers') }}">Find Customer</a>
     </div>
@@ -21,6 +22,11 @@
 </section>
 
 <section class="cc-quick-grid">
+  <a class="cc-quick-card is-blue" href="{{ url_for('send_contact_form') }}">
+    <span>Email or text</span>
+    <strong>Send Form</strong>
+    <em>No customer needed</em>
+  </a>
   <a class="cc-quick-card is-gold" href="{{ url_for('intake_forms') }}">
     <span>New enquiry</span>
     <strong>Intake</strong>

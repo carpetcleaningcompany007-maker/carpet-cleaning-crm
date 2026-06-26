@@ -3633,7 +3633,7 @@ def booking_form_message(customer):
 
 
 def booking_form_email_html(customer, form_link):
-    name = html_lib.escape(customer_name(customer))
+    name = html_lib.escape(customer_name(customer) if customer else "there")
     link = html_lib.escape(form_link)
     return f"""<!doctype html>
 <html>
@@ -3666,6 +3666,18 @@ def booking_form_email_html(customer, form_link):
   </table>
 </body>
 </html>"""
+
+
+def send_standalone_contact_form_message():
+    form_link = booking_form_url()
+    return (
+        "Hi,\n\n"
+        "Please fill in this quick contact form so I have your correct details, address and What3Words location.\n\n"
+        f"{form_link}\n\n"
+        "Thanks\n\n"
+        "Paul\n"
+        "The Carpet Cleaning Company"
+    )
 
 
 def reminder_message(customer):
@@ -4027,6 +4039,47 @@ def dashboard():
     recent_enquiries = q("""SELECT * FROM intake_submissions
                             ORDER BY id DESC LIMIT 8""")
     return render_template("dashboard.html", stats=stats, recent_quotes=quotes, recent_jobs=jobs, archive_counts=archive_counts, report_summary=report_summary, invoice_alerts=invoice_alerts, app_settings=settings(), follow_up_summary=follow_up_summary, cashflow=cashflow, reminders_due=reminders_due, feedback_recent=feedback_recent, intake_new=intake_new["c"] if intake_new else 0, recent_enquiries=recent_enquiries)
+
+
+@app.route("/send-contact-form", methods=["GET", "POST"])
+@login_required
+def send_contact_form():
+    form_link = booking_form_url()
+    message = send_standalone_contact_form_message()
+    if request.method == "POST":
+        email_to = clean_str(request.form.get("email"))
+        sms_to = clean_str(request.form.get("phone"))
+        send_email = request.form.get("send_email") == "1"
+        send_sms = request.form.get("send_sms") == "1"
+        if not send_email and not send_sms:
+            send_email = bool(email_to)
+            send_sms = bool(sms_to)
+        if send_email and not email_to:
+            send_email = False
+        if send_sms and not sms_to:
+            send_sms = False
+
+        results = []
+        if send_email:
+            subject = "Customer details form - The Carpet Cleaning Company"
+            ok, msg = send_env_email(email_to, subject, message, booking_form_email_html(None, form_link))
+            results.append(("Email", ok, msg))
+            run("INSERT INTO communications (customer_id, channel, subject, body, created_at) VALUES (?,?,?,?,datetime('now'))",
+                (None, "Email", subject, message))
+        if send_sms:
+            ok, msg = send_clicksend_env_sms(sms_to, message, customer=None, category="Customer Form")
+            results.append(("SMS", ok, msg))
+            run("INSERT INTO communications (customer_id, channel, subject, body, created_at) VALUES (?,?,?,?,datetime('now'))",
+                (None, "SMS", "Customer details form", message))
+
+        if not results:
+            flash("Add an email address or mobile number, then choose email, text, or both.")
+            return redirect(url_for("send_contact_form"))
+
+        flash("; ".join(f"{label}: {'sent' if ok else 'failed'} - {msg}" for label, ok, msg in results))
+        return redirect(url_for("send_contact_form"))
+
+    return render_template("send_contact_form.html", form_link=form_link, message=message)
 
 
 

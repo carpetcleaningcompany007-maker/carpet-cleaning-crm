@@ -1,0 +1,44 @@
+{% extends "layout.html" %}
+{% block title %}Send Contact Form{% endblock %}
+{% block page_title %}Send Contact Form{% endblock %}
+{% block body_content %}
+<section class="page-intro-card send-form-intro">
+  <div class="section-kicker">Customer details</div>
+  <h3>Send the contact form</h3>
+  <p>Use this when you have spoken to someone but have not created a customer record yet. Send the form by email, text, or both. Their reply will come back into Form Replies for review.</p>
+</section>
+
+<section class="panel send-contact-panel">
+  <div class="panel-head">
+    <h3>Send form link</h3>
+  </div>
+  <form method="post" class="send-contact-form">
+    <div class="send-contact-grid">
+      <label>Email address
+        <input type="email" name="email" placeholder="customer@email.com" autocomplete="email">
+      </label>
+      <label>Mobile number
+        <input name="phone" placeholder="07..." autocomplete="tel">
+      </label>
+    </div>
+    <div class="send-contact-options">
+      <label><input type="checkbox" name="send_email" value="1"> Send email</label>
+      <label><input type="checkbox" name="send_sms" value="1"> Send text</label>
+    </div>
+    <button class="btn primary send-contact-submit" type="submit">Send Contact Form</button>
+  </form>
+</section>
+
+<section class="panel send-contact-preview">
+  <div class="panel-head">
+    <h3>Form link</h3>
+    <a class="btn secondary" href="{{ form_link }}" target="_blank" rel="noopener">Open form</a>
+  </div>
+  <input id="standaloneFormUrl" value="{{ form_link }}" readonly>
+  <textarea id="standaloneFormMessage" readonly>{{ message }}</textarea>
+  <div class="row-actions">
+    <button class="btn secondary" type="button" data-copy-target="standaloneFormUrl">Copy Link</button>
+    <button class="btn secondary" type="button" data-copy-target="standaloneFormMessage">Copy Message</button>
+  </div>
+</section>
+{% endblock %}

@@ -41,6 +41,7 @@
       <a class="nav-link {% if ep=='dashboard' %}active{% endif %}" href="{{ url_for('dashboard') }}"><span class="nav-icon"></span><span>Today</span></a>
       <a class="nav-link {% if ep=='today_run' %}active{% endif %}" href="{{ url_for('today_run') }}"><span class="nav-icon"></span><span>Today Run</span></a>
       <a class="nav-link {% if ep=='workflow' %}active{% endif %}" href="{{ url_for('workflow') }}"><span class="nav-icon"></span><span>Do Next</span></a>
+      <a class="nav-link {% if ep=='send_contact_form' %}active{% endif %}" href="{{ url_for('send_contact_form') }}"><span class="nav-icon"></span><span>Send Form</span></a>
       <a class="nav-link {% if ep in ['customers','customer_view','customer_edit'] %}active{% endif %}" href="{{ url_for('customers') }}"><span class="nav-icon"></span><span>Customers</span></a>
       <a class="nav-link {% if ep in ['intake_forms','intake_form_view'] %}active{% endif %}" href="{{ url_for('intake_forms') }}"><span class="nav-icon"></span><span>Form Replies</span></a>
       <a class="nav-link {% if ep in ['jobs','job_view','jobs_new'] %}active{% endif %}" href="{{ url_for('jobs') }}"><span class="nav-icon"></span><span>Jobs</span></a>
@@ -70,6 +71,7 @@
           <input type="text" name="q" placeholder="Quick find a customer">
         </form>
         <div class="top-actions">
+          <a class="pill action-pill" href="{{ url_for('send_contact_form') }}">Send Form</a>
           <a class="pill action-pill" href="{{ url_for('booking_form') }}" target="_blank">Booking Form</a>
           <a class="pill action-pill" href="{{ url_for('workflow') }}">Workflow</a>
           <a class="pill action-pill" href="{{ url_for('xero_dashboard') }}">Xero</a>
@@ -79,6 +81,7 @@
 
     {% if ep == 'dashboard' %}
       <nav class="quick-dock website-quick-dock" aria-label="Quick actions">
+        <a href="{{ url_for('send_contact_form') }}"><span>Text or email</span><strong>Send form</strong></a>
         <a href="{{ url_for('intake_forms') }}"><span>New enquiry</span><strong>Intake</strong></a>
         <a href="{{ url_for('customers') }}"><span>Find or add</span><strong>Customer</strong></a>
         <a href="{{ url_for('calculator') }}"><span>Price up</span><strong>Quote</strong></a>
@@ -99,6 +102,7 @@
 
     <div class="mobile-quick-nav">
       <a href="{{ url_for('dashboard') }}">Overview</a>
+      <a href="{{ url_for('send_contact_form') }}">Send Form</a>
       <a href="{{ url_for('today_run') }}">Today Run</a>
       <a href="{{ url_for('customers') }}">Customers</a>
       <a href="{{ url_for('quotes') }}">Quotes</a>
