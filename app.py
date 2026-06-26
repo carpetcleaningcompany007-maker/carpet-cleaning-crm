@@ -6976,6 +6976,16 @@ def find_xero_contact_match_for_lead(lead, block_possible_duplicates=False):
     existing_id = clean_str(row_get(lead, "xero_contact_id"))
     if existing_id:
         return {"contact_id": existing_id, "match_type": "existing_link", "reason": "This intake form is already linked to a Xero contact."}
+    customer_id = int(row_get(lead, "customer_id") or 0)
+    if customer_id:
+        customer = q("SELECT xero_contact_id FROM customers WHERE id=?", (customer_id,), one=True)
+        customer_contact_id = clean_str(row_get(customer, "xero_contact_id")) if customer else ""
+        if customer_contact_id:
+            return {
+                "contact_id": customer_contact_id,
+                "match_type": "linked_customer",
+                "reason": "Matched the Xero contact already saved on the linked CRM customer record.",
+            }
 
     lead_name = clean_str(row_get(lead, "name"))
     lead_email = clean_str(row_get(lead, "email")).lower()
