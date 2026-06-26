@@ -2438,3 +2438,60 @@ body.app-page .nav {
     width: 100%;
   }
 }
+
+/* Nav repair: keep the top CRM navigation dark, branded, and visibly icon-led. */
+body.app-page .sidebar {
+  background: linear-gradient(180deg, #081220 0%, #102744 100%) !important;
+  color: #fff !important;
+}
+
+body.app-page .nav,
+body.app-page .nav-tabler,
+body.app-page .simple-main-nav {
+  background: transparent !important;
+}
+
+body.app-page .nav-link,
+body.app-page .nav a {
+  gap: 8px !important;
+  color: #f8fbff !important;
+  background: rgba(255,255,255,.07) !important;
+  border: 1px solid rgba(255,255,255,.12) !important;
+  box-shadow: none !important;
+}
+
+body.app-page .nav-link:hover,
+body.app-page .nav-link.active,
+body.app-page .nav a:hover,
+body.app-page .nav a.active {
+  color: #081220 !important;
+  background: linear-gradient(135deg, #d8b36a, #f4dc92) !important;
+  border-color: rgba(255,255,255,.24) !important;
+}
+
+body.app-page .nav-icon {
+  width: 22px !important;
+  height: 22px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex: 0 0 22px !important;
+  border-radius: 8px !important;
+  color: #081220 !important;
+  background: #d8b36a !important;
+  font-size: 11px !important;
+  font-weight: 900 !important;
+  line-height: 1 !important;
+}
+
+body.app-page .nav-icon::before {
+  content: attr(data-icon);
+}
+
+body.app-page .nav-link.active .nav-icon,
+body.app-page .nav-link:hover .nav-icon,
+body.app-page .nav a.active .nav-icon,
+body.app-page .nav a:hover .nav-icon {
+  color: #fff !important;
+  background: #081220 !important;
+}
