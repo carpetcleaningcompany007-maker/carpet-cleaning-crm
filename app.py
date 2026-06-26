@@ -4165,7 +4165,13 @@ def customers():
     rows = q(sql, tuple(params))
     annotate_rows_with_last_contact(rows, key="id")
     letters = [chr(c) for c in range(ord('A'), ord('Z')+1)]
-    return render_template("customers.html", customers=rows, search=search, scope=scope, starts=starts, letters=letters)
+    customer_stats = {
+        "total": len(rows),
+        "xero_linked": sum(1 for row in rows if clean_str(row["xero_contact_id"])),
+        "missing_email": sum(1 for row in rows if not clean_str(row["email"])),
+        "missing_phone": sum(1 for row in rows if not clean_str(row["phone"])),
+    }
+    return render_template("customers.html", customers=rows, search=search, scope=scope, starts=starts, letters=letters, customer_stats=customer_stats)
 
 
 @app.route("/customers/import-library", methods=["GET", "POST"])
