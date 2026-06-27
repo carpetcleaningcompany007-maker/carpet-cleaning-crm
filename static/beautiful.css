@@ -2708,3 +2708,390 @@ body.app-page .contacts-workspace {
     overflow-y: auto !important;
   }
 }
+
+/* Mobile CRM repair: make the logged-in app feel designed for a phone. */
+@media (max-width: 820px) {
+  html,
+  body {
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+  }
+
+  body.app-page {
+    background: #edf5fb !important;
+  }
+
+  body.app-page .mobile-appbar {
+    min-height: 64px !important;
+    padding: 8px 14px !important;
+    gap: 10px !important;
+    background: #081220 !important;
+    color: #fff !important;
+  }
+
+  body.app-page .mobile-appbar-title {
+    min-width: 0 !important;
+    gap: 8px !important;
+  }
+
+  body.app-page .mobile-appbar-title span {
+    display: block !important;
+    min-width: 0 !important;
+    max-width: 230px !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    font-size: 14px !important;
+    line-height: 1.15 !important;
+  }
+
+  body.app-page .mobile-appbar-logo {
+    width: 30px !important;
+    height: 30px !important;
+    flex: 0 0 30px !important;
+  }
+
+  body.app-page .icon-btn {
+    width: 48px !important;
+    height: 48px !important;
+    flex: 0 0 48px !important;
+    border-radius: 12px !important;
+  }
+
+  body.app-page .shell,
+  body.app-page .shell-tabler,
+  body.app-page .main {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  body.app-page .main {
+    padding: 14px 10px 28px !important;
+  }
+
+  body.app-page .sidebar {
+    position: fixed !important;
+    z-index: 70 !important;
+    inset: 0 auto 0 0 !important;
+    width: min(88vw, 330px) !important;
+    max-width: 88vw !important;
+    height: 100vh !important;
+    min-height: 100vh !important;
+    padding: 16px !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    display: block !important;
+    transform: translateX(-105%) !important;
+  }
+
+  body.app-page.sidebar-open .sidebar {
+    transform: translateX(0) !important;
+  }
+
+  body.app-page .sidebar .brand {
+    display: flex !important;
+    width: 100% !important;
+    margin: 0 0 14px !important;
+    gap: 10px !important;
+  }
+
+  body.app-page .sidebar .brand h1 {
+    display: block !important;
+    color: #fff !important;
+    font-size: 16px !important;
+    line-height: 1.2 !important;
+    margin: 0 !important;
+  }
+
+  body.app-page .sidebar .brand p {
+    display: block !important;
+    color: rgba(255,255,255,.72) !important;
+    font-size: 12px !important;
+    margin: 2px 0 0 !important;
+  }
+
+  body.app-page .nav,
+  body.app-page .nav-tabler,
+  body.app-page .simple-main-nav {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    gap: 8px !important;
+    overflow: visible !important;
+  }
+
+  body.app-page .nav-link,
+  body.app-page .nav a {
+    width: 100% !important;
+    min-height: 46px !important;
+    height: auto !important;
+    justify-content: flex-start !important;
+    padding: 12px 14px !important;
+    border-radius: 12px !important;
+    white-space: normal !important;
+  }
+
+  body.app-page .topbar,
+  body.app-page .page-intro-card,
+  body.app-page .workflow-panel,
+  body.app-page .contacts-workspace {
+    margin-top: 12px !important;
+  }
+
+  body.app-page .topbar,
+  body.app-page .quick-dock,
+  body.app-page .mobile-quick-nav {
+    display: none !important;
+  }
+
+  body.app-page .panel,
+  body.app-page .page-intro-card,
+  body.app-page .contacts-workspace,
+  body.app-page .customer-hero,
+  body.app-page .workflow-panel,
+  body.app-page .timeline-item,
+  body.app-page .summary-card,
+  body.app-page .workflow-message,
+  body.app-page .message-action-panel {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    border-radius: 12px !important;
+    padding: 18px !important;
+  }
+
+  body.app-page .page-intro-card h3,
+  body.app-page .panel h3,
+  body.app-page .hero h3 {
+    font-size: 28px !important;
+    line-height: 1.1 !important;
+    letter-spacing: 0 !important;
+    overflow-wrap: anywhere !important;
+  }
+
+  body.app-page .hero.small-hero {
+    min-height: 0 !important;
+    padding: 22px !important;
+  }
+
+  body.app-page .hero.small-hero h3 {
+    color: #fff !important;
+    font-size: 28px !important;
+    line-height: 1.12 !important;
+    text-shadow: 0 1px 0 rgba(0,0,0,.12) !important;
+  }
+
+  body.app-page .customer-hero {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+    margin-bottom: 14px !important;
+  }
+
+  body.app-page .customer-hero > div:first-child {
+    display: grid !important;
+    grid-template-columns: 52px minmax(0, 1fr) !important;
+    gap: 12px !important;
+    align-items: start !important;
+  }
+
+  body.app-page .customer-hero .avatar {
+    width: 52px !important;
+    height: 52px !important;
+    min-width: 52px !important;
+    font-size: 20px !important;
+    line-height: 52px !important;
+  }
+
+  body.app-page .customer-hero h3 {
+    font-size: 34px !important;
+    line-height: 1.08 !important;
+    margin: 4px 0 10px !important;
+    overflow-wrap: anywhere !important;
+  }
+
+  body.app-page .customer-hero p {
+    font-size: 16px !important;
+    line-height: 1.45 !important;
+  }
+
+  body.app-page .badge-row {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+
+  body.app-page .badge-row span {
+    max-width: 100% !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere !important;
+  }
+
+  body.app-page .row-actions,
+  body.app-page .customer-hero .row-actions {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 10px !important;
+    width: 100% !important;
+  }
+
+  body.app-page .row-actions .btn,
+  body.app-page .customer-hero .row-actions .btn,
+  body.app-page button,
+  body.app-page .btn {
+    min-width: 0 !important;
+    max-width: 100% !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere !important;
+    text-align: center !important;
+  }
+
+  body.app-page .workflow-main,
+  body.app-page .customer-layout,
+  body.app-page .workspace-grid,
+  body.app-page .grid-2,
+  body.app-page .cols,
+  body.app-page .send-contact-grid,
+  body.app-page .studio-shell,
+  body.app-page .studio-send-grid {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+  }
+
+  body.app-page .workflow-stage-card,
+  body.app-page .workflow-action-box {
+    padding: 18px !important;
+    min-width: 0 !important;
+  }
+
+  body.app-page .workflow-current {
+    font-size: 34px !important;
+    line-height: 1.05 !important;
+  }
+
+  body.app-page .workflow-next {
+    font-size: 24px !important;
+    line-height: 1.15 !important;
+  }
+
+  body.app-page .workflow-action-box textarea,
+  body.app-page textarea,
+  body.app-page input,
+  body.app-page select {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    font-size: 16px !important;
+  }
+
+  body.app-page .customer-tabs,
+  body.app-page .scope-tabs,
+  body.app-page .contacts-tabs,
+  body.app-page .contacts-alpha {
+    display: flex !important;
+    overflow-x: auto !important;
+    max-width: 100% !important;
+    padding-bottom: 8px !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  body.app-page .customer-command-strip,
+  body.app-page .kpi-band,
+  body.app-page .customer-summary-grid,
+  body.app-page .workflow-grid-3,
+  body.app-page .message-action-grid {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+
+  body.app-page .contact-row {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+    padding: 14px !important;
+  }
+
+  body.app-page .contact-main,
+  body.app-page .contact-detail,
+  body.app-page .contact-badges,
+  body.app-page .contact-last {
+    min-width: 0 !important;
+    max-width: 100% !important;
+    overflow-wrap: anywhere !important;
+  }
+
+  body.app-page .message-action-head,
+  body.app-page .test-send-banner {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+
+  body.app-page .message-button-row {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+  }
+
+  body.app-page .message-button-row form,
+  body.app-page .message-button-row .btn {
+    width: 100% !important;
+  }
+
+  body.app-page .send-contact-panel,
+  body.app-page .send-contact-preview {
+    max-width: 100% !important;
+  }
+
+  body.app-page .send-contact-submit,
+  body.app-page .test-send-banner .btn {
+    width: 100% !important;
+    min-height: 54px !important;
+  }
+}
+
+@media (max-width: 430px) {
+  body.app-page .main {
+    padding-left: 6px !important;
+    padding-right: 6px !important;
+  }
+
+  body.app-page .mobile-appbar-title span {
+    max-width: 190px !important;
+  }
+
+  body.app-page .page-intro-card h3,
+  body.app-page .panel h3,
+  body.app-page .hero.small-hero h3 {
+    font-size: 26px !important;
+  }
+
+  body.app-page .customer-hero h3 {
+    font-size: 32px !important;
+  }
+
+  body.app-page .customer-hero > div:first-child {
+    grid-template-columns: 48px minmax(0, 1fr) !important;
+  }
+
+  body.app-page .customer-hero .avatar {
+    width: 48px !important;
+    height: 48px !important;
+    min-width: 48px !important;
+    line-height: 48px !important;
+  }
+}
+
+@media (max-width: 370px) {
+  body.app-page .row-actions,
+  body.app-page .customer-hero .row-actions,
+  body.app-page .message-button-row {
+    grid-template-columns: 1fr !important;
+  }
+}
