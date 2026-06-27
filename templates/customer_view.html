@@ -366,6 +366,65 @@ document.addEventListener('click', function(e){
         <a class="btn secondary" href="{{ url_for('customer_sms_link', customer_id=customer.id) }}">Open SMS App</a>
         <a class="btn secondary" href="{{ url_for('sms_thread_view', customer_id=customer.id) }}">SMS Thread</a>
       </div>
+      <div class="message-action-panel" id="customer-message-actions">
+        <div class="message-action-head">
+          <div>
+            <strong>Customer message actions</strong>
+            <p>Send these templates from the CRM, or test them on yourself first.</p>
+          </div>
+          <span>Test email: {{ app_settings.test_email or 'not set' }}</span>
+        </div>
+        <div class="message-action-grid">
+          {% for item in customer_action_templates %}
+          <div class="message-action-card">
+            <strong>{{ item.label }}</strong>
+            <p>{{ item.note }}</p>
+            {% if not item.has_job and item.key in ['booking_confirmation_email','today_run_reminder_email','today_run_coming_email'] %}
+              <p class="muted">No job is saved yet, so date and time placeholders will stay generic.</p>
+            {% endif %}
+            <div class="message-button-row">
+              <form method="post" action="{{ url_for('customer_send_message_template', customer_id=customer.id) }}">
+                <input type="hidden" name="template_key" value="{{ item.key }}">
+                <input type="hidden" name="channel" value="email">
+                <input type="hidden" name="test_mode" value="1">
+                <button class="btn secondary btn-small" type="submit">Test Email</button>
+              </form>
+              <form method="post" action="{{ url_for('customer_send_message_template', customer_id=customer.id) }}">
+                <input type="hidden" name="template_key" value="{{ item.key }}">
+                <input type="hidden" name="channel" value="email">
+                <button class="btn primary btn-small" type="submit" {% if not customer.email %}disabled{% endif %}>Send Email</button>
+              </form>
+              <form method="post" action="{{ url_for('customer_send_message_template', customer_id=customer.id) }}">
+                <input type="hidden" name="template_key" value="{{ item.key }}">
+                <input type="hidden" name="channel" value="sms">
+                <input type="hidden" name="test_mode" value="1">
+                <button class="btn secondary btn-small" type="submit">Test SMS</button>
+              </form>
+              <form method="post" action="{{ url_for('customer_send_message_template', customer_id=customer.id) }}">
+                <input type="hidden" name="template_key" value="{{ item.key }}">
+                <input type="hidden" name="channel" value="sms">
+                <button class="btn primary btn-small" type="submit" {% if not customer.phone or customer.sms_opt_out %}disabled{% endif %}>Send SMS</button>
+              </form>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% if saved_message_templates %}
+        <form method="post" action="{{ url_for('customer_send_message_template', customer_id=customer.id) }}" class="saved-template-send">
+          <label>Saved template
+            <select name="saved_template_id">
+              {% for template in saved_message_templates %}
+              <option value="{{ template.id }}">{{ template.name }} · {{ template.channel or 'Email' }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <div class="message-button-row">
+            <button class="btn secondary" name="test_mode" value="1" type="submit">Test Saved Template</button>
+            <button class="btn primary" type="submit">Send Saved Template</button>
+          </div>
+        </form>
+        {% endif %}
+      </div>
       <form method="post" action="{{ url_for('customer_send_review_sms', customer_id=customer.id) }}" class="form" style="margin-top:12px;">
         <input type="hidden" name="body" value="Hi {{ '{{first_name}}' }}, thanks again for choosing {{ '{{business_name}}' }}. We would really appreciate a review: {{ '{{review_link}}' }}">
         <button class="btn primary" {% if not customer.phone %}disabled{% endif %}>Send Review SMS</button>

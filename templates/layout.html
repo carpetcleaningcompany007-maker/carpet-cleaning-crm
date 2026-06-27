@@ -38,20 +38,18 @@
     </div>
 
     <nav class="nav nav-tabler redesigned-nav simple-main-nav">
-      <a class="nav-link {% if ep=='dashboard' %}active{% endif %}" href="{{ url_for('dashboard') }}"><span class="nav-icon" data-icon="T"></span><span>Today</span></a>
-      <a class="nav-link {% if ep=='today_run' %}active{% endif %}" href="{{ url_for('today_run') }}"><span class="nav-icon" data-icon="R"></span><span>Today Run</span></a>
-      <a class="nav-link {% if ep=='workflow' %}active{% endif %}" href="{{ url_for('workflow') }}"><span class="nav-icon" data-icon="D"></span><span>Do Next</span></a>
-      <a class="nav-link {% if ep=='send_contact_form' %}active{% endif %}" href="{{ url_for('send_contact_form') }}"><span class="nav-icon" data-icon="S"></span><span>Send Form</span></a>
-      <a class="nav-link {% if ep in ['customers','customer_view','customer_edit'] %}active{% endif %}" href="{{ url_for('customers') }}"><span class="nav-icon" data-icon="C"></span><span>Customers</span></a>
-      <a class="nav-link {% if ep in ['intake_forms','intake_form_view'] %}active{% endif %}" href="{{ url_for('intake_forms') }}"><span class="nav-icon" data-icon="F"></span><span>Form Replies</span></a>
-      <a class="nav-link {% if ep in ['jobs','job_view','jobs_new'] %}active{% endif %}" href="{{ url_for('jobs') }}"><span class="nav-icon" data-icon="J"></span><span>Jobs</span></a>
-      <a class="nav-link {% if ep in ['quotes','quote_view','calculator'] %}active{% endif %}" href="{{ url_for('calculator') }}"><span class="nav-icon" data-icon="Q"></span><span>Quotes</span></a>
-      <a class="nav-link {% if ep in ['invoices','invoice_view'] %}active{% endif %}" href="{{ url_for('invoices') }}"><span class="nav-icon" data-icon="I"></span><span>Invoices</span></a>
-      <a class="nav-link {% if ep=='full_calendar' or ep=='scheduler' %}active{% endif %}" href="{{ url_for('full_calendar') }}"><span class="nav-icon" data-icon="K"></span><span>Calendar</span></a>
-      <a class="nav-link public-booking-link" href="{{ url_for('booking_form') }}" target="_blank"><span class="nav-icon" data-icon="B"></span><span>Booking Form</span></a>
-      <a class="nav-link {% if ep=='message_settings' %}active{% endif %}" href="{{ url_for('message_settings') }}"><span class="nav-icon" data-icon="M"></span><span>Messages</span></a>
-      <a class="nav-link {% if ep=='settings_page' %}active{% endif %}" href="{{ url_for('settings_page') }}"><span class="nav-icon" data-icon="G"></span><span>Settings</span></a>
-      <a class="nav-link" href="{{ url_for('logout') }}"><span class="nav-icon" data-icon="L"></span><span>Logout</span></a>
+      <a class="nav-link {% if ep=='dashboard' %}active{% endif %}" href="{{ url_for('dashboard') }}"><span class="nav-icon" data-icon="home"></span><span>Today</span></a>
+      <a class="nav-link {% if ep=='send_contact_form' %}active{% endif %}" href="{{ url_for('send_contact_form') }}"><span class="nav-icon" data-icon="send"></span><span>Send Form</span></a>
+      <a class="nav-link {% if ep in ['customers','customer_view','customer_edit'] %}active{% endif %}" href="{{ url_for('customers') }}"><span class="nav-icon" data-icon="user"></span><span>Customers</span></a>
+      <a class="nav-link {% if ep in ['intake_forms','intake_form_view'] %}active{% endif %}" href="{{ url_for('intake_forms') }}"><span class="nav-icon" data-icon="inbox"></span><span>Replies</span></a>
+      <a class="nav-link {% if ep=='today_run' %}active{% endif %}" href="{{ url_for('today_run') }}"><span class="nav-icon" data-icon="route"></span><span>Today Run</span></a>
+      <a class="nav-link {% if ep in ['jobs','job_view','jobs_new'] %}active{% endif %}" href="{{ url_for('jobs') }}"><span class="nav-icon" data-icon="briefcase"></span><span>Jobs</span></a>
+      <a class="nav-link {% if ep in ['quotes','quote_view','calculator'] %}active{% endif %}" href="{{ url_for('calculator') }}"><span class="nav-icon" data-icon="quote"></span><span>Quotes</span></a>
+      <a class="nav-link {% if ep in ['invoices','invoice_view'] %}active{% endif %}" href="{{ url_for('invoices') }}"><span class="nav-icon" data-icon="invoice"></span><span>Invoices</span></a>
+      <a class="nav-link {% if ep=='full_calendar' or ep=='scheduler' %}active{% endif %}" href="{{ url_for('full_calendar') }}"><span class="nav-icon" data-icon="calendar"></span><span>Calendar</span></a>
+      <a class="nav-link {% if ep=='workflow' %}active{% endif %}" href="{{ url_for('workflow') }}"><span class="nav-icon" data-icon="workflow"></span><span>Workflow</span></a>
+      <a class="nav-link {% if ep=='message_settings' %}active{% endif %}" href="{{ url_for('message_settings') }}"><span class="nav-icon" data-icon="message"></span><span>Messages</span></a>
+      <a class="nav-link {% if ep=='settings_page' %}active{% endif %}" href="{{ url_for('settings_page') }}"><span class="nav-icon" data-icon="settings"></span><span>Settings</span></a>
     </nav>
 
     <div class="side-note side-note-tabler">

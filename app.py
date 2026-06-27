@@ -2287,6 +2287,75 @@ def day_run_rendered_message(kind, job, channel="sms"):
     return "", day_run_message(kind, job)
 
 
+CUSTOMER_ACTION_TEMPLATES = [
+    {"key": "booking_confirmation_email", "sms_key": "booking_confirmation_sms", "label": "Booking confirmation", "note": "Send when the job is agreed and booked."},
+    {"key": "today_run_reminder_email", "sms_key": "today_run_reminder_sms", "label": "Appointment reminder", "note": "Use before the visit, or test the reminder flow."},
+    {"key": "today_run_coming_email", "sms_key": "today_run_coming_sms", "label": "We are on our way", "note": "Send manually on the day."},
+    {"key": "thank_you_message", "sms_key": "thank_you_message", "label": "Thank you after job", "note": "Send once the work is finished."},
+    {"key": "review_request_message", "sms_key": "review_request_message", "label": "Review request", "note": "Send after the customer is happy."},
+]
+
+
+def latest_customer_job(customer_id):
+    return q("""SELECT jobs.*, customers.first_name, customers.last_name, customers.phone, customers.email,
+                       customers.address, customers.town, customers.postcode, customers.sms_opt_out
+                FROM jobs
+                LEFT JOIN customers ON customers.id = jobs.customer_id
+                WHERE jobs.customer_id=? AND IFNULL(jobs.status,'') <> 'Archived'
+                ORDER BY COALESCE(jobs.job_date,'9999-12-31') DESC, jobs.id DESC
+                LIMIT 1""", (customer_id,), one=True)
+
+
+def customer_message_replacements(customer, job=None):
+    replacements = comms_replacements(customer)
+    if job:
+        replacements.update(template_context_for_job(job))
+    else:
+        replacements["{{name}}"] = customer_full_name(customer) or "there"
+        replacements["{{first_name}}"] = clean_str(row_value(customer, "first_name")) or "there"
+        replacements["{{address}}"] = customer_address_text(customer)
+        replacements["{{postcode}}"] = clean_str(row_value(customer, "postcode"))
+    return replacements
+
+
+def customer_action_template_cards(customer_id):
+    job = latest_customer_job(customer_id)
+    cards = []
+    for item in CUSTOMER_ACTION_TEMPLATES:
+        email_template = message_template(item["key"])
+        sms_template = message_template(item["sms_key"])
+        cards.append({
+            **item,
+            "email_subject": email_template.get("subject") or item["label"],
+            "email_body": email_template.get("body") or "",
+            "sms_body": sms_template.get("body") or email_template.get("body") or "",
+            "has_job": bool(job),
+        })
+    return cards
+
+
+def send_rendered_customer_message(customer, channel, subject, body, test_mode=False):
+    s = settings()
+    channel = clean_str(channel).lower()
+    customer_id = row_value(customer, "id")
+    if channel == "email":
+        recipient = clean_str(row_value(s, "test_email")) if test_mode else clean_str(row_value(customer, "email"))
+        if not recipient:
+            return False, "No email address is available for this send.", ""
+        html_body = "<div style='font-family:Arial,sans-serif;line-height:1.55;color:#102033;white-space:pre-wrap'>" + html_lib.escape(body or "") + "</div>"
+        ok, msg = send_env_email(recipient, ("TEST - " if test_mode else "") + (subject or "Customer message"), body, html_body, customer=customer)
+        return ok, msg, recipient
+    if channel == "sms":
+        recipient = clean_str(row_value(s, "sms_test_number")) if test_mode else clean_str(row_value(customer, "phone"))
+        if not recipient:
+            return False, "No mobile number is available for this send.", ""
+        if not test_mode and row_value(customer, "sms_opt_out"):
+            return False, "SMS is switched off for this customer.", recipient
+        ok, msg = send_clicksend_env_sms(recipient, body, customer=customer, category="Customer Message")
+        return ok, msg, recipient
+    return False, "Choose Email or SMS.", ""
+
+
 def day_run_message(kind, job):
     name = clean_str(job["first_name"]) or "there"
     business = settings()["business_name"] or "The Carpet Cleaning Company"
@@ -4046,9 +4115,13 @@ def dashboard():
 def send_contact_form():
     form_link = booking_form_url()
     message = send_standalone_contact_form_message()
+    s = settings()
     if request.method == "POST":
         email_to = clean_str(request.form.get("email"))
         sms_to = clean_str(request.form.get("phone"))
+        if request.form.get("use_test_details") == "1":
+            email_to = clean_str(row_value(s, "test_email"))
+            sms_to = clean_str(row_value(s, "sms_test_number"))
         send_email = request.form.get("send_email") == "1"
         send_sms = request.form.get("send_sms") == "1"
         if not send_email and not send_sms:
@@ -4079,7 +4152,7 @@ def send_contact_form():
         flash("; ".join(f"{label}: {'sent' if ok else 'failed'} - {msg}" for label, ok, msg in results))
         return redirect(url_for("send_contact_form"))
 
-    return render_template("send_contact_form.html", form_link=form_link, message=message)
+    return render_template("send_contact_form.html", form_link=form_link, message=message, app_settings=s)
 
 
 
@@ -4367,7 +4440,9 @@ def customer_view(customer_id):
         "reminder": reminder_message(customer),
         "review": review_request_message(customer),
     }
-    return render_template("customer_view.html", customer=customer, timeline=timeline, quotes=quotes, jobs=jobs, invoices=invoices, feedback=feedback, reminders=reminders, subscription_summary=subscription_summary, is_archived=bool(customer and customer["archived_at"]), last_contacted_at=last_contacted_at, last_contacted_label=contact_badge_text(last_contacted_at), recent_contacts=recent_contacts, contact_summary=contact_summary, recent_sms=recent_sms, sms_summary=sms_summary, sms_thread=sms_thread, workflow=workflow, workflow_stages=WORKFLOW_STAGES, workflow_messages=workflow_messages)
+    customer_action_templates = customer_action_template_cards(customer_id)
+    saved_message_templates = q("SELECT * FROM communication_templates ORDER BY name COLLATE NOCASE ASC, id DESC")
+    return render_template("customer_view.html", customer=customer, timeline=timeline, quotes=quotes, jobs=jobs, invoices=invoices, feedback=feedback, reminders=reminders, subscription_summary=subscription_summary, is_archived=bool(customer and customer["archived_at"]), last_contacted_at=last_contacted_at, last_contacted_label=contact_badge_text(last_contacted_at), recent_contacts=recent_contacts, contact_summary=contact_summary, recent_sms=recent_sms, sms_summary=sms_summary, sms_thread=sms_thread, workflow=workflow, workflow_stages=WORKFLOW_STAGES, workflow_messages=workflow_messages, customer_action_templates=customer_action_templates, saved_message_templates=saved_message_templates, app_settings=settings())
 
 
 @app.route("/customers/<int:customer_id>/send-contact-form", methods=["POST"])
@@ -4421,6 +4496,50 @@ def customer_send_contact_form(customer_id):
     result_text = "; ".join(f"{label}: {'sent' if ok else 'failed'} - {msg}" for label, ok, msg in results)
     flash(result_text)
     return redirect(url_for("customer_view", customer_id=customer_id) + "#send-customer-form")
+
+
+@app.route("/customers/<int:customer_id>/send-message-template", methods=["POST"])
+@login_required
+def customer_send_message_template(customer_id):
+    customer = q("SELECT * FROM customers WHERE id=?", (customer_id,), one=True)
+    if not customer:
+        flash("Customer not found.")
+        return redirect(url_for("customers"))
+
+    channel = clean_str(request.form.get("channel") or "email").lower()
+    test_mode = request.form.get("test_mode") == "1"
+    template_key = clean_str(request.form.get("template_key"))
+    saved_template_id = int(request.form.get("saved_template_id") or 0)
+    latest_job = latest_customer_job(customer_id)
+    replacements = customer_message_replacements(customer, latest_job)
+
+    if saved_template_id:
+        saved_template = q("SELECT * FROM communication_templates WHERE id=?", (saved_template_id,), one=True)
+        if not saved_template:
+            flash("Saved template not found.")
+            return redirect(url_for("customer_view", customer_id=customer_id) + "#customer-message-actions")
+        subject_raw = saved_template["subject"] or saved_template["name"] or "Customer message"
+        body_raw = saved_template["body"] or ""
+        channel = clean_str(saved_template["channel"] or channel).lower()
+    else:
+        if channel == "sms":
+            mapped = next((item for item in CUSTOMER_ACTION_TEMPLATES if item["key"] == template_key), None)
+            template_key = mapped["sms_key"] if mapped else template_key
+        template = message_template(template_key)
+        subject_raw = template.get("subject") or template.get("name") or "Customer message"
+        body_raw = template.get("body") or ""
+
+    subject = render_simple_template(subject_raw, replacements)
+    body = render_simple_template(body_raw, replacements)
+    ok, msg, recipient = send_rendered_customer_message(customer, channel, subject, body, test_mode=test_mode)
+    if ok:
+        log_channel = ("Test " if test_mode else "") + ("Email" if channel == "email" else "SMS")
+        run("INSERT INTO communications (customer_id, channel, subject, body, created_at) VALUES (?,?,?,?,datetime('now'))",
+            (customer_id, log_channel, subject, body))
+        run("INSERT INTO customer_timeline(customer_id, note_text, created_at) VALUES (?,?,datetime('now'))",
+            (customer_id, f"{log_channel} template sent to {recipient}: {subject}"))
+    flash(("Sent: " if ok else "Failed: ") + msg)
+    return redirect(url_for("customer_view", customer_id=customer_id) + "#customer-message-actions")
 
 
 @app.route("/customers/<int:customer_id>/workflow-action", methods=["POST"])

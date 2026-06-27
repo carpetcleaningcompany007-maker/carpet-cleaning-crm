@@ -13,6 +13,13 @@
     <h3>Send form link</h3>
   </div>
   <form method="post" class="send-contact-form">
+    <div class="test-send-banner">
+      <div>
+        <strong>Test it on yourself first</strong>
+        <span>Email: {{ app_settings.test_email or 'not set' }} · SMS: {{ app_settings.sms_test_number or 'not set' }}</span>
+      </div>
+      <button class="btn secondary" name="use_test_details" value="1" type="submit">Send Test To Me</button>
+    </div>
     <div class="send-contact-grid">
       <label>Email address
         <input type="email" name="email" placeholder="customer@email.com" autocomplete="email">
