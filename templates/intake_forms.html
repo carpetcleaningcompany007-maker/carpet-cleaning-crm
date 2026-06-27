@@ -51,5 +51,28 @@
       </tbody>
     </table>
   </div>
+  <div class="mobile-record-list">
+    {% for lead in leads %}
+      <article class="mobile-record-card">
+        <div class="mobile-record-head">
+          <div>
+            <span class="mobile-record-kicker">Form reply</span>
+            <strong>{{ lead.name or 'Customer' }}</strong>
+          </div>
+          <a class="mobile-record-action" href="{{ url_for('intake_form_view', lead_id=lead.id) }}">View</a>
+        </div>
+        <dl class="mobile-record-details">
+          <div><dt>Received</dt><dd>{{ lead.created_at }}</dd></div>
+          <div><dt>Contact</dt><dd>{{ lead.phone or 'No phone' }}{% if lead.email %}<br>{{ lead.email }}{% endif %}</dd></div>
+          <div><dt>Service</dt><dd>{{ lead.what_cleaned or lead.rooms_areas or 'Contact form' }}{% if lead.preferred_date or lead.preferred_time %}<br>{{ lead.preferred_date }} {{ lead.preferred_time }}{% endif %}</dd></div>
+          <div><dt>Status</dt><dd>{{ lead.status or 'Waiting for review' }}</dd></div>
+          <div><dt>Xero</dt><dd>{{ lead.xero_sync_status or ('Sent' if lead.xero_contact_id else ('Failed' if lead.xero_error else 'Pending')) }}</dd></div>
+          <div><dt>Alerts</dt><dd>Email: {{ lead.owner_email_status or 'Pending' }}<br>SMS: {{ lead.owner_sms_status or 'Pending' }}</dd></div>
+        </dl>
+      </article>
+    {% else %}
+      <div class="mobile-empty-card">No intake forms yet.</div>
+    {% endfor %}
+  </div>
 </section>
 {% endblock %}

@@ -112,6 +112,28 @@
       {% endfor %}
     </table>
   </div>
+  <div class="mobile-record-list">
+    {% for lead in recent_enquiries %}
+      <article class="mobile-record-card">
+        <div class="mobile-record-head">
+          <div>
+            <span class="mobile-record-kicker">New enquiry</span>
+            <strong>{{ lead.name or 'Customer' }}</strong>
+          </div>
+          <a class="mobile-record-action" href="{{ url_for('intake_form_view', lead_id=lead.id) }}">Open</a>
+        </div>
+        <dl class="mobile-record-details">
+          <div><dt>Contact</dt><dd>{{ lead.phone or 'No phone' }}{% if lead.email %}<br>{{ lead.email }}{% endif %}</dd></div>
+          <div><dt>Service</dt><dd>{{ lead.what_cleaned or lead.rooms_areas or 'Website enquiry' }}</dd></div>
+          <div><dt>Received</dt><dd>{{ lead.created_at }}</dd></div>
+          <div><dt>Xero</dt><dd>{{ lead.xero_sync_status or ('Sent' if lead.xero_contact_id else ('Failed: ' ~ lead.xero_error if lead.xero_error else 'Pending')) }}</dd></div>
+          <div><dt>Follow up</dt><dd>{{ lead.follow_up_status or 'Follow up required' }}</dd></div>
+        </dl>
+      </article>
+    {% else %}
+      <div class="mobile-empty-card">No website enquiries yet.</div>
+    {% endfor %}
+  </div>
 </section>
 
 <section class="cc-two-col">

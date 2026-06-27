@@ -53,6 +53,26 @@
     <tr><td colspan="5" class="empty-cell">No jobs found for this view.</td></tr>
     {% endfor %}
   </table>
+  <div class="mobile-record-list">
+    {% for r in jobs %}
+      <article class="mobile-record-card">
+        <div class="mobile-record-head">
+          <div>
+            <span class="mobile-record-kicker">{{ r.job_date or 'No date' }}</span>
+            <strong>{{ r.title or 'Job' }}</strong>
+          </div>
+          <a class="mobile-record-action" href="{{ url_for('job_view', job_id=r.id) }}">Open</a>
+        </div>
+        <dl class="mobile-record-details">
+          <div><dt>Customer</dt><dd>{{ r.customer_name or 'No customer' }}</dd></div>
+          <div><dt>Status</dt><dd><span class="status-pill {{ (r.status or 'booked')|lower|replace(' ','-') }}">{{ r.status or 'Booked' }}</span></dd></div>
+          {% if r.assigned_to %}<div><dt>Assigned</dt><dd>{{ r.assigned_to }}</dd></div>{% endif %}
+        </dl>
+      </article>
+    {% else %}
+      <div class="mobile-empty-card">No jobs found for this view.</div>
+    {% endfor %}
+  </div>
 </section>
 
 <div class="modal-shell" id="jobModal" aria-hidden="true">
