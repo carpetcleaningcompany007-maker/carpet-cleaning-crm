@@ -480,10 +480,10 @@ document.addEventListener('click', function(e){
           <strong>{{ s.created_at }} · {{ s.provider or 'SMS' }}</strong>
           <p>
             <span class="pill">{{ s.direction or 'outbound' }}</span>
-            <span class="status-pill {% if status_lower in ['delivered','sent','queued','accepted'] %}sent{% elif status_lower in ['failed','undelivered'] or s.error_text %}danger{% else %}draft{% endif %}">{{ status_text }}</span>
+            <span class="status-pill {% if status_lower in ['delivered','sent','queued','accepted','success'] %}sent{% elif status_lower in ['failed','undelivered'] or s.event_type == 'send_failed' %}danger{% else %}draft{% endif %}">{{ status_text }}</span>
           </p>
           <p>{{ (s.body or '')[:180] }}{% if s.body and s.body|length > 180 %}...{% endif %}</p>
-          {% if s.error_text %}<p class="muted">Failure reason: {{ s.error_text }}</p>{% endif %}
+          {% if s.error_text and (status_lower in ['failed','undelivered'] or s.event_type == 'send_failed') %}<p class="muted">Failure reason: {{ s.error_text }}</p>{% endif %}
         </div>
         {% else %}
         <div class="empty-state">No SMS events logged yet for this customer.</div>

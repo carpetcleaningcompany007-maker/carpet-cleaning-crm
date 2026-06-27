@@ -55,13 +55,13 @@
           </td>
           <td><span class="pill">{{ row.direction or 'outbound' }}</span></td>
           <td>
-            <span class="pill {% if status_lower in ['delivered','sent','queued','accepted'] %}sent{% elif status_lower in ['failed','undelivered'] or row.error_text %}danger{% else %}draft{% endif %}">{{ status_text }}</span>
+            <span class="pill {% if status_lower in ['delivered','sent','queued','accepted','success'] %}sent{% elif status_lower in ['failed','undelivered'] or row.event_type == 'send_failed' %}danger{% else %}draft{% endif %}">{{ status_text }}</span>
             {% if row.external_id %}<div class="muted" style="font-size:12px;">{{ row.external_id }}</div>{% endif %}
           </td>
           <td>{{ row.provider or '' }}</td>
           <td>{{ row.to_phone or row.from_phone or '' }}</td>
           <td style="max-width:360px;white-space:normal;">{{ row.body or '' }}</td>
-          <td style="max-width:260px;white-space:normal;">{{ row.error_text or '—' }}</td>
+          <td style="max-width:260px;white-space:normal;">{% if row.error_text and (status_lower in ['failed','undelivered'] or row.event_type == 'send_failed') %}{{ row.error_text }}{% else %}—{% endif %}</td>
           <td>
             {% if row.customer_id %}
             <a class="btn btn-small secondary" href="{{ url_for('sms_thread_view', customer_id=row.customer_id) }}">Open Thread</a>

@@ -1673,11 +1673,16 @@ def send_clicksend_env_sms(to_phone, body, customer=None, category="Website Enqu
         status = str(msg_data.get("status") or msg_data.get("status_text") or data.get("response_code") or "queued")
         response_code = str(data.get("response_code") or "").upper()
         status_upper = status.upper()
-        error_text = str(msg_data.get("error_text") or data.get("response_msg") or "")
+        response_msg = str(data.get("response_msg") or "")
+        error_text = str(msg_data.get("error_text") or "")
         accepted = bool(ext) and response_code in ("SUCCESS", "200", "")
         failed = any(word in status_upper for word in ("FAIL", "ERROR", "REJECT", "INVALID")) or response_code in ("FAILED", "ERROR")
         event_type = "send" if accepted and not failed else "send_failed"
         event_status = status.title() if status else ("Accepted" if accepted else "Failed")
+        if not failed:
+            error_text = ""
+        elif not error_text:
+            error_text = response_msg
         log_sms_event(customer["id"] if customer else None, None, "ClickSend", event_type, phone, from_name, body, ext, event_status, "outbound", data, error_text)
         if accepted and not failed:
             return True, f"SMS accepted by ClickSend for {phone}. Message ID: {ext}. Status: {status or response_code}."
@@ -4431,7 +4436,7 @@ def customer_view(customer_id):
         SUM(CASE WHEN lower(IFNULL(direction,''))='outbound' THEN 1 ELSE 0 END) AS outbound_count,
         SUM(CASE WHEN lower(IFNULL(direction,''))='inbound' THEN 1 ELSE 0 END) AS inbound_count,
         SUM(CASE WHEN lower(IFNULL(status,'')) IN ('delivered','sent','queued','accepted') THEN 1 ELSE 0 END) AS ok_count,
-        SUM(CASE WHEN lower(IFNULL(status,'')) IN ('failed','undelivered') OR IFNULL(error_text,'')<>'' THEN 1 ELSE 0 END) AS failed_count
+        SUM(CASE WHEN lower(IFNULL(status,'')) IN ('failed','undelivered') OR lower(IFNULL(event_type,'')) LIKE '%fail%' THEN 1 ELSE 0 END) AS failed_count
         FROM sms_events WHERE customer_id=?""", (customer_id,), one=True)
     workflow = workflow_context(customer)
     workflow_messages = {
