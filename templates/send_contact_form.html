@@ -8,6 +8,13 @@
   <p>Use this when you have spoken to someone but have not created a customer record yet. Send the form by email, text, or both. Their reply will come back into Form Replies for review.</p>
 </section>
 
+{% if sent_confirmation %}
+<section class="send-form-success">
+  <strong>Contact form sent</strong>
+  <span>The customer has been sent their personal form link. Their name, phone and email will be pre-filled where you entered them, and they can edit them before submitting.</span>
+</section>
+{% endif %}
+
 <section class="panel send-contact-panel">
   <div class="panel-head">
     <h3>Send form link</h3>
@@ -21,6 +28,9 @@
       <button class="btn secondary" name="use_test_details" value="1" type="submit">Send Test To Me</button>
     </div>
     <div class="send-contact-grid">
+      <label>Customer name
+        <input name="name" placeholder="Customer name" autocomplete="name">
+      </label>
       <label>Email address
         <input type="email" name="email" placeholder="customer@email.com" autocomplete="email">
       </label>

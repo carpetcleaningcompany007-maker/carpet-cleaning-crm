@@ -98,8 +98,17 @@
     <div class="workflow-message" id="send-customer-form">
       <strong>Send Contact Form</strong>
       <p class="muted">Send this branded mobile form to collect the customer's contact details, address, postcode and What3Words. Their reply comes back into Form Replies for review.</p>
+      {% if request.args.get('form_sent') == '1' %}
+        <div class="send-form-inline-success">
+          <strong>Customer form sent</strong>
+          <span>The personal form link has been sent. The name, phone and email fields will be pre-filled, but the customer can edit them before submitting.</span>
+        </div>
+      {% endif %}
       <form class="customer-form-send-panel" method="post" action="{{ url_for('customer_send_contact_form', customer_id=customer.id) }}">
         <div class="customer-form-send-fields">
+          <label>Customer name
+            <input name="name" value="{{ (customer.first_name ~ ' ' ~ customer.last_name).strip() }}" placeholder="Customer name">
+          </label>
           <label>Email address
             <input type="email" name="email" value="{{ customer.email or '' }}" placeholder="customer@email.com">
           </label>

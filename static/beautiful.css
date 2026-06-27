@@ -2412,6 +2412,41 @@ body.app-page .nav {
   background: linear-gradient(135deg, #edf7ff 0%, #ffffff 58%, #eef6ff 100%);
 }
 
+.send-form-success,
+.send-form-inline-success {
+  display: grid;
+  gap: 6px;
+  border: 1px solid #bfe6d2;
+  background: linear-gradient(135deg, #ecfff5, #ffffff);
+  color: #123425;
+  box-shadow: 0 14px 30px rgba(26, 127, 75, .12);
+}
+
+.send-form-success {
+  max-width: 860px;
+  margin: 0 0 18px;
+  padding: 18px 20px;
+  border-radius: 8px;
+}
+
+.send-form-inline-success {
+  margin: 12px 0;
+  padding: 14px 16px;
+  border-radius: 8px;
+}
+
+.send-form-success strong,
+.send-form-inline-success strong {
+  font-size: 18px;
+  font-weight: 950;
+}
+
+.send-form-success span,
+.send-form-inline-success span {
+  color: #37564a;
+  line-height: 1.45;
+}
+
 .send-contact-panel,
 .send-contact-preview {
   max-width: 860px;
@@ -2424,7 +2459,7 @@ body.app-page .nav {
 
 .send-contact-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
 }
 

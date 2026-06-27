@@ -49,13 +49,13 @@
         </div>
         <div class="customer-form-grid">
           <label>Full name
-            <input name="name" autocomplete="name" value="{% if linked_customer %}{{ linked_customer.first_name }} {{ linked_customer.last_name }}{% endif %}" required>
+            <input name="name" autocomplete="name" value="{% if prefill.name %}{{ prefill.name }}{% elif linked_customer %}{{ linked_customer.first_name }} {{ linked_customer.last_name }}{% endif %}" required>
           </label>
           <label>Phone number
-            <input name="phone" autocomplete="tel" value="{% if linked_customer %}{{ linked_customer.phone or '' }}{% endif %}" required>
+            <input name="phone" autocomplete="tel" value="{% if prefill.phone %}{{ prefill.phone }}{% elif linked_customer %}{{ linked_customer.phone or '' }}{% endif %}" required>
           </label>
           <label>Email address
-            <input type="email" name="email" autocomplete="email" value="{% if linked_customer %}{{ linked_customer.email or '' }}{% endif %}">
+            <input type="email" name="email" autocomplete="email" value="{% if prefill.email %}{{ prefill.email }}{% elif linked_customer %}{{ linked_customer.email or '' }}{% endif %}">
           </label>
         </div>
       </section>

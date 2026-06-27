@@ -3729,17 +3729,25 @@ def row_get(row, key, default=""):
         return default
 
 
-def booking_form_url(customer=None):
+def booking_form_url(customer=None, prefill=None):
+    params = {}
     if customer:
-        return crm_external_url("booking_form", customer_id=customer["id"])
-    return crm_external_url("booking_form")
+        params["customer_id"] = customer["id"]
+    for key in ("name", "phone", "email"):
+        value = clean_str((prefill or {}).get(key))
+        if value:
+            params[key] = value
+    return crm_external_url("booking_form", **params)
 
 
-def booking_form_message(customer):
-    form_link = booking_form_url(customer)
+def booking_form_message(customer, form_link=None, recipient_name=""):
+    form_link = form_link or booking_form_url(customer)
+    greeting_name = clean_str(recipient_name) or (customer_name(customer) if customer else "")
+    greeting = f"Hi {greeting_name}," if greeting_name else "Hi,"
     return (
-        "Hi,\n\n"
-        "Please fill in this quick booking form so I have the correct information for your quote and booking.\n\n"
+        f"{greeting}\n\n"
+        "Please fill in this quick contact form so I have the correct information for your quote and booking. "
+        "I have filled in the details I already have, but you can edit them before sending it back.\n\n"
         f"{form_link}\n\n"
         "Thanks\n\n"
         "Paul\n"
@@ -3747,8 +3755,8 @@ def booking_form_message(customer):
     )
 
 
-def booking_form_email_html(customer, form_link):
-    name = html_lib.escape(customer_name(customer) if customer else "there")
+def booking_form_email_html(customer, form_link, recipient_name=""):
+    name = html_lib.escape(clean_str(recipient_name) or (customer_name(customer) if customer else "there"))
     link = html_lib.escape(form_link)
     return f"""<!doctype html>
 <html>
@@ -3783,11 +3791,14 @@ def booking_form_email_html(customer, form_link):
 </html>"""
 
 
-def send_standalone_contact_form_message():
-    form_link = booking_form_url()
+def send_standalone_contact_form_message(form_link=None, recipient_name=""):
+    form_link = form_link or booking_form_url()
+    greeting_name = clean_str(recipient_name)
+    greeting = f"Hi {greeting_name}," if greeting_name else "Hi,"
     return (
-        "Hi,\n\n"
-        "Please fill in this quick contact form so I have your correct details, address and What3Words location.\n\n"
+        f"{greeting}\n\n"
+        "Please fill in this quick contact form so I have your correct details, address and What3Words location. "
+        "I have filled in the details I already have, but you can edit them before sending it back.\n\n"
         f"{form_link}\n\n"
         "Thanks\n\n"
         "Paul\n"
@@ -4163,11 +4174,16 @@ def send_contact_form():
     message = send_standalone_contact_form_message()
     s = settings()
     if request.method == "POST":
+        recipient_name = clean_str(request.form.get("name"))
         email_to = clean_str(request.form.get("email"))
         sms_to = clean_str(request.form.get("phone"))
         if request.form.get("use_test_details") == "1":
+            recipient_name = recipient_name or "Paul"
             email_to = clean_str(row_value(s, "test_email"))
             sms_to = clean_str(row_value(s, "sms_test_number"))
+        prefill = {"name": recipient_name, "phone": sms_to, "email": email_to}
+        form_link = booking_form_url(prefill=prefill)
+        message = send_standalone_contact_form_message(form_link, recipient_name)
         send_email = request.form.get("send_email") == "1"
         send_sms = request.form.get("send_sms") == "1"
         if not send_email and not send_sms:
@@ -4181,7 +4197,7 @@ def send_contact_form():
         results = []
         if send_email:
             subject = "Customer details form - The Carpet Cleaning Company"
-            ok, msg = send_env_email(email_to, subject, message, booking_form_email_html(None, form_link))
+            ok, msg = send_env_email(email_to, subject, message, booking_form_email_html(None, form_link, recipient_name=recipient_name))
             results.append(("Email", ok, msg))
             run("INSERT INTO communications (customer_id, channel, subject, body, created_at) VALUES (?,?,?,?,datetime('now'))",
                 (None, "Email", subject, message))
@@ -4196,9 +4212,9 @@ def send_contact_form():
             return redirect(url_for("send_contact_form"))
 
         flash("; ".join(f"{label}: {'sent' if ok else 'failed'} - {msg}" for label, ok, msg in results))
-        return redirect(url_for("send_contact_form"))
+        return redirect(url_for("send_contact_form", sent=1))
 
-    return render_template("send_contact_form.html", form_link=form_link, message=message, app_settings=s)
+    return render_template("send_contact_form.html", form_link=form_link, message=message, app_settings=s, sent_confirmation=request.args.get("sent") == "1")
 
 
 
@@ -4499,6 +4515,7 @@ def customer_send_contact_form(customer_id):
         flash("Customer not found.")
         return redirect(url_for("customers"))
 
+    recipient_name = clean_str(request.form.get("name")) or customer_name(customer)
     email_to = clean_str(request.form.get("email")) or clean_str(customer["email"])
     sms_to = clean_str(request.form.get("phone")) or clean_str(customer["phone"])
     send_email = request.form.get("send_email") == "1"
@@ -4509,14 +4526,15 @@ def customer_send_contact_form(customer_id):
     if customer["sms_opt_out"]:
         send_sms = False
 
-    form_link = booking_form_url(customer)
-    message = booking_form_message(customer)
+    prefill = {"name": recipient_name, "phone": sms_to, "email": email_to}
+    form_link = booking_form_url(customer, prefill=prefill)
+    message = booking_form_message(customer, form_link=form_link, recipient_name=recipient_name)
     results = []
     sent_any = False
 
     if send_email:
         subject = "Customer details form - The Carpet Cleaning Company"
-        ok, msg = send_env_email(email_to, subject, message, booking_form_email_html(customer, form_link), customer=customer)
+        ok, msg = send_env_email(email_to, subject, message, booking_form_email_html(customer, form_link, recipient_name=recipient_name), customer=customer)
         results.append(("Email", ok, msg))
         run("INSERT INTO communications (customer_id, channel, subject, body, created_at) VALUES (?,?,?,?,datetime('now'))",
             (customer_id, "Email", subject, message))
@@ -4541,7 +4559,7 @@ def customer_send_contact_form(customer_id):
 
     result_text = "; ".join(f"{label}: {'sent' if ok else 'failed'} - {msg}" for label, ok, msg in results)
     flash(result_text)
-    return redirect(url_for("customer_view", customer_id=customer_id) + "#send-customer-form")
+    return redirect(url_for("customer_view", customer_id=customer_id, form_sent=1) + "#send-customer-form")
 
 
 @app.route("/customers/<int:customer_id>/send-message-template", methods=["POST"])
@@ -7634,6 +7652,11 @@ def update_invoice_from_xero(invoice_id, xero_invoice):
 def booking_form():
     linked_customer_id = int(request.values.get("customer_id") or 0)
     linked_customer = q("SELECT * FROM customers WHERE id=?", (linked_customer_id,), one=True) if linked_customer_id else None
+    prefill = {
+        "name": clean_str(request.values.get("name")),
+        "phone": clean_str(request.values.get("phone")),
+        "email": clean_str(request.values.get("email")),
+    }
     if request.method == "POST":
         name = clean_str(request.form.get("name"))
         phone = clean_str(request.form.get("phone"))
@@ -7676,7 +7699,7 @@ def booking_form():
         run("UPDATE intake_submissions SET customer_id=?, status='Waiting for review', updated_at=datetime('now') WHERE id=?", (customer_id, lead_id))
         send_contact_form_owner_alerts(lead_id, customer_id)
         return render_template("customer_intake_thanks.html", biz=settings(), public_mode=True)
-    return render_template("customer_intake.html", biz=settings(), linked_customer=linked_customer, public_mode=True)
+    return render_template("customer_intake.html", biz=settings(), linked_customer=linked_customer, prefill=prefill, public_mode=True)
 
 
 @app.route("/customer-intake", methods=["GET", "POST"])
