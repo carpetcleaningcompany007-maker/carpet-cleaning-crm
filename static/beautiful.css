@@ -2171,9 +2171,13 @@ body.app-page .contacts-list {
 body.app-page .contacts-list-head,
 body.app-page .contact-row {
   display: grid !important;
-  grid-template-columns: minmax(230px, 1.25fr) minmax(230px, 1.15fr) minmax(150px, .8fr) minmax(150px, .78fr) minmax(145px, .75fr) 72px !important;
+  grid-template-columns: minmax(230px, 1.25fr) minmax(230px, 1.15fr) minmax(150px, .8fr) minmax(150px, .78fr) minmax(145px, .75fr) minmax(210px, .9fr) !important;
   gap: 14px !important;
   align-items: center !important;
+}
+
+body.app-page .customer-mobile-actions {
+  display: none !important;
 }
 
 body.app-page .contacts-list-head {
@@ -2259,6 +2263,29 @@ body.app-page .contact-open {
   font-weight: 900 !important;
 }
 
+body.app-page .contact-quick-actions {
+  display: flex !important;
+  justify-content: flex-end !important;
+  gap: 6px !important;
+  flex-wrap: wrap !important;
+}
+
+body.app-page .contact-action,
+body.app-page .contact-open {
+  min-height: 36px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 8px 10px !important;
+  border: 1px solid var(--cc-line) !important;
+  border-radius: 8px !important;
+  background: #fff !important;
+  color: var(--cc-blue) !important;
+  font-size: 13px !important;
+  font-weight: 900 !important;
+  text-decoration: none !important;
+}
+
 body.app-page .contacts-empty {
   padding: 22px !important;
   color: var(--cc-muted) !important;
@@ -2335,11 +2362,14 @@ body.app-page .contacts-empty {
   }
 
   body.app-page .contact-detail,
-  body.app-page .contact-badges,
-  body.app-page .contact-last {
+  body.app-page .contact-badges {
     display: flex !important;
     flex-wrap: wrap !important;
     gap: 8px !important;
+  }
+
+  body.app-page .contact-last {
+    display: none !important;
   }
 
   body.app-page .contact-detail span,
@@ -2349,13 +2379,20 @@ body.app-page .contacts-empty {
     overflow-wrap: anywhere !important;
   }
 
-  body.app-page .contact-open {
-    justify-self: stretch !important;
-    min-height: 42px !important;
+  body.app-page .contact-quick-actions {
     display: grid !important;
-    place-items: center !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    justify-content: stretch !important;
+    gap: 8px !important;
+  }
+
+  body.app-page .contact-action,
+  body.app-page .contact-open {
+    width: 100% !important;
+    min-height: 44px !important;
     color: #fff !important;
     background: linear-gradient(135deg, var(--cc-blue), #17446f) !important;
+    border-color: transparent !important;
     border-radius: 8px !important;
   }
 }
@@ -2932,6 +2969,19 @@ body.app-page .contacts-workspace {
     overflow-wrap: anywhere !important;
   }
 
+  body.app-page .customer-mobile-actions {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+    margin-top: 12px !important;
+  }
+
+  body.app-page .customer-mobile-actions .btn {
+    padding-inline: 8px !important;
+    font-size: 13px !important;
+    white-space: nowrap !important;
+  }
+
   body.app-page .row-actions,
   body.app-page .customer-hero .row-actions {
     display: grid !important;
@@ -3019,8 +3069,7 @@ body.app-page .contacts-workspace {
 
   body.app-page .contact-main,
   body.app-page .contact-detail,
-  body.app-page .contact-badges,
-  body.app-page .contact-last {
+  body.app-page .contact-badges {
     min-width: 0 !important;
     max-width: 100% !important;
     overflow-wrap: anywhere !important;

@@ -62,7 +62,7 @@
     </div>
     {% for c in customers %}
       {% set full_name = (c.first_name ~ ' ' ~ c.last_name).strip() %}
-      <a class="contact-row" role="row" href="{{ url_for('customer_view', customer_id=c.id) }}">
+      <div class="contact-row" role="row">
         <span class="contact-main" role="cell">
           <span class="contact-avatar">{{ (c.first_name or c.last_name or 'C')[:1] }}</span>
           <span>
@@ -88,10 +88,15 @@
           {% if c.xero_contact_id %}<span class="status-pill sent">Xero</span>{% else %}<span class="status-pill draft">CRM only</span>{% endif %}
         </span>
         <span class="contact-last" role="cell">
-          <span class="status-pill {% if c.last_contacted_at %}sent{% else %}draft{% endif %}">{{ c.last_contacted_label }}</span>
+          <span class="status-pill {% if c.last_contact %}sent{% else %}draft{% endif %}">{{ c.last_contact_badge or 'Not contacted' }}</span>
         </span>
-        <span class="contact-open" role="cell">Open</span>
-      </a>
+        <span class="contact-quick-actions" role="cell">
+          {% if c.phone %}<a class="contact-action" href="tel:{{ c.phone|replace(' ', '') }}">Call</a>{% endif %}
+          {% if c.phone %}<a class="contact-action" href="sms:{{ c.phone|replace(' ', '') }}">Text</a>{% endif %}
+          {% if c.email %}<a class="contact-action" href="mailto:{{ c.email }}">Email</a>{% endif %}
+          <a class="contact-open" href="{{ url_for('customer_view', customer_id=c.id) }}">Open</a>
+        </span>
+      </div>
     {% else %}
       <div class="contacts-empty">No contacts found for this view.</div>
     {% endfor %}

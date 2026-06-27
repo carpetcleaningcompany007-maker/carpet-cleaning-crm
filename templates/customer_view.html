@@ -15,6 +15,12 @@
         <span>{{ customer.town or 'No town saved' }}</span>
         <span>{% if customer.sms_opt_out %}SMS opted out{% else %}SMS allowed{% endif %}</span>
       </div>
+      <div class="customer-mobile-actions">
+        {% if customer.phone %}<a class="btn primary" href="tel:{{ customer.phone|replace(' ', '') }}">Call</a>{% endif %}
+        {% if customer.phone %}<a class="btn secondary" href="sms:{{ customer.phone|replace(' ', '') }}">Text</a>{% endif %}
+        {% if customer.email %}<a class="btn secondary" href="mailto:{{ customer.email }}">Email</a>{% endif %}
+        <a class="btn secondary" href="#customer-message-actions">Templates</a>
+      </div>
     </div>
   </div>
   <div class="row-actions">
