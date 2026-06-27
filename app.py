@@ -2339,7 +2339,47 @@ def customer_action_template_cards(customer_id):
     return cards
 
 
-def send_rendered_customer_message(customer, channel, subject, body, test_mode=False):
+def customer_email_job_context(customer, job=None):
+    context = dict(job) if isinstance(job, dict) else {}
+    if job and not isinstance(job, dict):
+        try:
+            context = {key: job[key] for key in job.keys()}
+        except Exception:
+            context = {}
+    for key in ("id", "first_name", "last_name", "phone", "email", "address", "town", "postcode", "sms_opt_out"):
+        if not clean_str(context.get(key)):
+            context[key] = row_value(customer, key)
+    context.setdefault("customer_id", row_value(customer, "id"))
+    context.setdefault("title", "Carpet cleaning")
+    context.setdefault("service_type", "Carpet cleaning")
+    context.setdefault("job_date", "")
+    context.setdefault("job_time", "")
+    context.setdefault("amount", 0)
+    context.setdefault("notes", "")
+    return context
+
+
+def visual_customer_email_html(template_key, customer, job, plain_body):
+    job_context = customer_email_job_context(customer, job)
+    if template_key == "booking_confirmation_email":
+        return booking_confirmation_email_html(job_context)
+    day_kind = {
+        "today_run_reminder_email": "reminder",
+        "today_run_coming_email": "coming",
+        "thank_you_message": "finished",
+        "review_request_message": "review",
+    }.get(template_key)
+    if day_kind:
+        return day_run_email_html(day_kind, job_context, plain_body)
+    return ""
+
+
+def is_html_email_body(body):
+    value = clean_str(body).lower()
+    return value.startswith("<!doctype") or value.startswith("<html") or "<body" in value or "<table" in value
+
+
+def send_rendered_customer_message(customer, channel, subject, body, test_mode=False, html_body=""):
     s = settings()
     channel = clean_str(channel).lower()
     customer_id = row_value(customer, "id")
@@ -2347,8 +2387,9 @@ def send_rendered_customer_message(customer, channel, subject, body, test_mode=F
         recipient = clean_str(row_value(s, "test_email")) if test_mode else clean_str(row_value(customer, "email"))
         if not recipient:
             return False, "No email address is available for this send.", ""
-        html_body = "<div style='font-family:Arial,sans-serif;line-height:1.55;color:#102033;white-space:pre-wrap'>" + html_lib.escape(body or "") + "</div>"
-        ok, msg = send_env_email(recipient, ("TEST - " if test_mode else "") + (subject or "Customer message"), body, html_body, customer=customer)
+        email_html = html_body or ("<div style='font-family:Arial,sans-serif;line-height:1.55;color:#102033;white-space:pre-wrap'>" + html_lib.escape(body or "") + "</div>")
+        text_body = strip_html_for_sms(body) if is_html_email_body(body) else body
+        ok, msg = send_env_email(recipient, ("TEST - " if test_mode else "") + (subject or "Customer message"), text_body, email_html, customer=customer)
         return ok, msg, recipient
     if channel == "sms":
         recipient = clean_str(row_value(s, "sms_test_number")) if test_mode else clean_str(row_value(customer, "phone"))
@@ -4536,7 +4577,14 @@ def customer_send_message_template(customer_id):
 
     subject = render_simple_template(subject_raw, replacements)
     body = render_simple_template(body_raw, replacements)
-    ok, msg, recipient = send_rendered_customer_message(customer, channel, subject, body, test_mode=test_mode)
+    html_body = ""
+    if channel == "email":
+        if saved_template_id and is_html_email_body(body):
+            html_body = body
+            body = strip_html_for_sms(body)
+        else:
+            html_body = visual_customer_email_html(template_key, customer, latest_job, body)
+    ok, msg, recipient = send_rendered_customer_message(customer, channel, subject, body, test_mode=test_mode, html_body=html_body)
     if ok:
         log_channel = ("Test " if test_mode else "") + ("Email" if channel == "email" else "SMS")
         run("INSERT INTO communications (customer_id, channel, subject, body, created_at) VALUES (?,?,?,?,datetime('now'))",
