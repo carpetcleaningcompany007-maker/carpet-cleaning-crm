@@ -6158,3 +6158,53 @@ input[type=submit],
 .public-page .customer-map-preview-link[hidden] {
   display: none !important;
 }
+
+/* Final polished map visual for the customer contact form. */
+.public-page .customer-form-photo {
+  border: 1px solid rgba(255, 255, 255, .9) !important;
+  border-radius: 18px !important;
+  box-shadow: 0 24px 46px rgba(19, 57, 84, .16) !important;
+  background:
+    radial-gradient(circle at 54% 42%, rgba(255,255,255,.96) 0 8px, transparent 9px),
+    radial-gradient(circle at 54% 42%, rgba(37,152,141,.95) 0 22px, transparent 23px),
+    radial-gradient(circle at 54% 42%, rgba(37,152,141,.22) 0 40px, transparent 42px),
+    radial-gradient(circle at 62% 58%, rgba(29,115,183,.20) 0 18px, transparent 19px),
+    linear-gradient(34deg, transparent 0 44%, rgba(55,142,201,.22) 44% 50%, transparent 50% 100%),
+    linear-gradient(125deg, transparent 0 40%, rgba(45,178,160,.20) 40% 46%, transparent 46% 100%),
+    linear-gradient(18deg, transparent 0 60%, rgba(246,214,122,.18) 60% 63%, transparent 63% 100%),
+    linear-gradient(90deg, rgba(255,255,255,.72) 0 1px, transparent 1px 42px),
+    linear-gradient(0deg, rgba(255,255,255,.72) 0 1px, transparent 1px 42px),
+    linear-gradient(135deg, #dff2ff 0%, #f9fcff 46%, #e8f7f4 100%) !important;
+  background-size:
+    auto,
+    auto,
+    auto,
+    auto,
+    auto,
+    auto,
+    auto,
+    42px 42px,
+    42px 42px,
+    auto !important;
+}
+
+.public-page .customer-form-photo::before {
+  left: 54% !important;
+  top: 42% !important;
+  width: 48px !important;
+  height: 48px !important;
+  background: linear-gradient(135deg, #168f86 0%, #37c4a6 100%) !important;
+  box-shadow: 0 16px 34px rgba(22,143,134,.28) !important;
+}
+
+.public-page .customer-form-photo::after {
+  left: 54% !important;
+  top: 42% !important;
+  width: 16px !important;
+  height: 16px !important;
+}
+
+.public-page .customer-form-photo div {
+  background:
+    linear-gradient(180deg, rgba(7,23,39,0) 0%, rgba(7,23,39,.08) 38%, rgba(7,23,39,.86) 100%) !important;
+}
