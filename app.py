@@ -7681,6 +7681,9 @@ def booking_form():
         if email and not is_valid_email(email):
             flash("Please enter a valid email address.")
             return redirect(url_for("booking_form"))
+        if request.form.get("privacy_acknowledgement") != "1":
+            flash("Please confirm you understand how your details will be used before sending the form.")
+            return redirect(url_for("booking_form", **request.args))
         photo_filename = save_uploads("photos") or save_upload("photo")
         whatsapp_number = clean_str(request.form.get("whatsapp_number"))
         carpet_details = clean_str(request.form.get("carpet_details"))
@@ -7689,6 +7692,9 @@ def booking_form():
         steps_access = clean_str(request.form.get("steps_access"))
         property_access = clean_str(request.form.get("property_access"))
         access_info = clean_str(request.form.get("access_info") or request.form.get("parking"))
+        marketing_consent = "yes" if request.form.get("marketing_consent") == "yes" else "no"
+        privacy_line = "Privacy acknowledgement: accepted by customer on submission."
+        marketing_line = "Marketing consent: yes - customer opted in to occasional rebooking reminders/offers." if marketing_consent == "yes" else "Marketing consent: no - service messages only."
         parking_summary = "\n".join([part for part in [
             f"Parking: {parking_issues}" if parking_issues else "",
             f"Steps/access: {steps_access}" if steps_access else "",
@@ -7703,9 +7709,9 @@ def booking_form():
         ] if part])
         lead_id = run("""INSERT INTO intake_submissions
                (name, phone, email, full_address, postcode, google_maps_link, what3words, job_notes, rooms_areas,
-                what_cleaned, number_rooms, upholstery, rugs, stains, pets, parking, preferred_days_times, additional_notes,
-                preferred_date, preferred_time, photo_filename, customer_id, status)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", (
+            what_cleaned, number_rooms, upholstery, rugs, stains, pets, parking, preferred_days_times, additional_notes,
+                preferred_date, preferred_time, photo_filename, customer_id, status, source, marketing_consent)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", (
             name, phone, email, clean_str(request.form.get("full_address")), clean_str(request.form.get("postcode")),
             clean_str(request.form.get("google_maps_link")), clean_str(request.form.get("what3words")),
             job_notes, clean_str(request.form.get("rooms_areas")),
@@ -7713,9 +7719,9 @@ def booking_form():
             clean_str(request.form.get("upholstery")), clean_str(request.form.get("rugs")),
             clean_str(request.form.get("stains")), clean_str(request.form.get("pets")),
             parking_summary, clean_str(request.form.get("preferred_days_times")),
-            clean_str(request.form.get("additional_notes")),
+            "\n".join([part for part in [clean_str(request.form.get("additional_notes")), privacy_line, marketing_line] if part]),
             clean_str(request.form.get("preferred_date")), clean_str(request.form.get("preferred_time")), photo_filename,
-            linked_customer_id or None, "Waiting for review",
+            linked_customer_id or None, "Waiting for review", "Customer contact form", marketing_consent,
         ))
         lead = q("SELECT * FROM intake_submissions WHERE id=?", (lead_id,), one=True)
         customer_id = create_customer_from_intake(lead)

@@ -5866,6 +5866,64 @@ input[type=submit],
   line-height: 1.45 !important;
 }
 
+.public-page .customer-privacy-note {
+  margin: 14px 0 0 !important;
+  padding: 12px 14px !important;
+  border: 1px solid rgba(213, 163, 58, .24) !important;
+  border-radius: 12px !important;
+  background: #fff8e3 !important;
+  color: #6d5516 !important;
+  line-height: 1.45 !important;
+  font-weight: 750 !important;
+}
+
+.public-page .customer-privacy-card {
+  background: linear-gradient(135deg, #ffffff 0%, #f7fbff 100%) !important;
+}
+
+.public-page .customer-privacy-panel {
+  display: grid !important;
+  gap: 10px !important;
+  margin-top: 14px !important;
+  padding: 16px !important;
+  border: 1px solid rgba(74, 132, 186, .16) !important;
+  border-radius: 14px !important;
+  background: #f8fcff !important;
+}
+
+.public-page .customer-privacy-panel p {
+  margin: 0 !important;
+  color: #31516c !important;
+  line-height: 1.55 !important;
+}
+
+.public-page .customer-consent-list {
+  display: grid !important;
+  gap: 12px !important;
+  margin-top: 16px !important;
+}
+
+.public-page .customer-consent-list label {
+  display: grid !important;
+  grid-template-columns: 24px minmax(0, 1fr) !important;
+  gap: 12px !important;
+  align-items: start !important;
+  padding: 14px !important;
+  border: 1px solid rgba(29, 115, 183, .18) !important;
+  border-radius: 14px !important;
+  background: #ffffff !important;
+  color: #13283a !important;
+  font-weight: 800 !important;
+  line-height: 1.45 !important;
+}
+
+.public-page .customer-consent-list input {
+  width: 22px !important;
+  height: 22px !important;
+  margin: 2px 0 0 !important;
+  accent-color: #1d73b7 !important;
+}
+
 .public-page .customer-submit-btn {
   background: linear-gradient(135deg, #f6d67a 0%, #fff3c2 44%, #ffffff 100%) !important;
   color: #071727 !important;

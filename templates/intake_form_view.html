@@ -49,6 +49,7 @@
         <div class="preview-row"><strong>Rooms or areas</strong><span>{{ lead.rooms_areas or 'Not supplied' }}</span></div>
         <div class="preview-row"><strong>Job details</strong><span>{{ lead.job_notes or lead.additional_notes or 'Not supplied' }}</span></div>
         <div class="preview-row"><strong>Access / parking</strong><span>{{ lead.parking or 'Not supplied' }}</span></div>
+        <div class="preview-row"><strong>Privacy / marketing</strong><span>Privacy acknowledgement: accepted on submission{% if lead.marketing_consent %}<br>Marketing consent: {{ lead.marketing_consent }}{% endif %}</span></div>
         <div class="preview-row"><strong>Preferred times</strong><span>{{ lead.preferred_days_times or lead.preferred_date ~ ' ' ~ lead.preferred_time }}</span></div>
         {% if lead.google_maps_link %}
           <div class="preview-row"><strong>Google Maps</strong><span><a href="{{ lead.google_maps_link }}" target="_blank">Open map</a></span></div>
