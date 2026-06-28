@@ -6026,3 +6026,61 @@ input[type=submit],
   z-index: 2 !important;
   background: linear-gradient(180deg, rgba(7,23,39,.02) 0%, rgba(7,23,39,.82) 100%) !important;
 }
+
+.public-page .customer-thanks-card-polished {
+  max-width: 760px !important;
+  overflow: hidden !important;
+  text-align: left !important;
+}
+
+.public-page .customer-thanks-map {
+  position: relative !important;
+  min-height: 190px !important;
+  margin: 0 0 24px !important;
+  border: 1px solid rgba(29, 115, 183, .16) !important;
+  border-radius: 18px !important;
+  overflow: hidden !important;
+  background:
+    radial-gradient(circle at 50% 46%, rgba(29,115,183,.22) 0 3px, transparent 4px),
+    radial-gradient(circle at 50% 46%, rgba(29,115,183,.18) 0 24px, transparent 25px),
+    linear-gradient(35deg, transparent 0 45%, rgba(29,115,183,.18) 45% 48%, transparent 48% 100%),
+    linear-gradient(125deg, transparent 0 36%, rgba(38,157,142,.16) 36% 39%, transparent 39% 100%),
+    linear-gradient(90deg, rgba(255,255,255,.78) 0 1px, transparent 1px 42px),
+    linear-gradient(0deg, rgba(255,255,255,.78) 0 1px, transparent 1px 42px),
+    linear-gradient(135deg, #dff1ff 0%, #f7fbff 54%, #e7f8f2 100%) !important;
+  background-size: auto, auto, auto, auto, 42px 42px, 42px 42px, auto !important;
+}
+
+.public-page .customer-thanks-map .customer-thanks-icon {
+  position: absolute !important;
+  left: 50% !important;
+  top: 50% !important;
+  width: 76px !important;
+  height: 76px !important;
+  display: grid !important;
+  place-items: center !important;
+  border-radius: 999px !important;
+  background: linear-gradient(135deg, #18b85f 0%, #25d366 100%) !important;
+  color: #ffffff !important;
+  font-size: 42px !important;
+  font-weight: 950 !important;
+  transform: translate(-50%, -50%) !important;
+  box-shadow: 0 20px 46px rgba(24,184,95,.28) !important;
+}
+
+.public-page .customer-thanks-card-polished h1 {
+  margin-top: 6px !important;
+}
+
+.public-page .customer-thanks-card-polished > p {
+  text-align: left !important;
+}
+
+.public-page .customer-thanks-close {
+  margin-top: 18px !important;
+  padding: 16px !important;
+  border-radius: 14px !important;
+  background: #f7fbff !important;
+  color: #31516c !important;
+  font-weight: 850 !important;
+}

@@ -7801,7 +7801,7 @@ def website_form_submit():
             biz=settings(),
             public_mode=True,
             title="Website form endpoint",
-            message="This page receives website forms. Please submit the quote form on the website so the enquiry can be saved to the CRM.",
+            message="This page receives website forms. Please submit the quote form on the website so your enquiry can be sent to The Carpet Cleaning Company.",
         )
     data = request.get_json(silent=True) if request.is_json else request.form
     data = data or {}

@@ -2,24 +2,27 @@
 {% block title %}Details Received{% endblock %}
 {% block public_content %}
 <section class="customer-form-page customer-thanks-page">
-  <div class="customer-thanks-card">
+  <div class="customer-thanks-card customer-thanks-card-polished">
     <div class="customer-form-brand">
       <img src="{% if biz.logo_filename %}{{ url_for('uploaded_file', filename=biz.logo_filename) }}{% else %}{{ url_for('static', filename='site/logo.webp') }}{% endif %}" alt="{{ biz.business_name or 'The Carpet Cleaning Company' }}">
       <div>
-        <span>Details received</span>
         <strong>{{ biz.business_name or 'The Carpet Cleaning Company' }}</strong>
       </div>
     </div>
-    <div class="customer-thanks-icon">✓</div>
+    <div class="customer-thanks-map" aria-hidden="true">
+      <div class="customer-thanks-icon">✓</div>
+    </div>
+    <p class="customer-form-kicker">Details received</p>
     <h1>{{ title or "Thanks, we have your details" }}</h1>
-    <p>{{ message or "Your information has been sent to our CRM for review. We will check everything before creating a quote, booking, invoice or follow-up." }}</p>
+    <p>{{ message or "If you have not already booked in, we will be in touch as soon as possible to confirm the next step. The details and photos you have sent help us prepare an accurate quote and respond quickly." }}</p>
     {% if formspree_message %}<p class="customer-thanks-note">{{ formspree_message }}</p>{% endif %}
     {% if sms_message %}<p class="customer-thanks-note">{{ sms_message }}</p>{% endif %}
     <div class="customer-thanks-steps">
-      <div><span>1</span><strong>Review details</strong><em>We check your form first.</em></div>
-      <div><span>2</span><strong>Confirm next step</strong><em>Quote, booking, or extra questions.</em></div>
-      <div><span>3</span><strong>Keep you updated</strong><em>We contact you with clear information.</em></div>
+      <div><span>1</span><strong>We check your details</strong><em>Address, access, photos and cleaning notes.</em></div>
+      <div><span>2</span><strong>We prepare the next step</strong><em>Quote, booking confirmation or any quick questions.</em></div>
+      <div><span>3</span><strong>We get back to you</strong><em>If you are not already booked in, we will contact you shortly.</em></div>
     </div>
+    <p class="customer-thanks-close">Thanks, Paul<br>The Carpet Cleaning Company</p>
   </div>
 </section>
 {% endblock %}
