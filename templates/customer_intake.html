@@ -216,30 +216,41 @@
       }
     }
 
-    function addGoogleMapsLocation() {
-      if (!navigator.geolocation) {
+    function addGoogleMapsLocation(event) {
+      if (event) event.preventDefault();
+      var geolocation = window.navigator && window.navigator.geolocation;
+      if (!geolocation) {
         help.textContent = "Your phone or browser cannot send location automatically. Please paste a shared map pin link.";
         return;
       }
+      if (preview) preview.hidden = true;
       setButtons(true, "Finding location...");
-      navigator.geolocation.getCurrentPosition(function (position) {
+      help.textContent = "Please allow location access when your browser asks. This can take a few seconds on phones.";
+      geolocation.getCurrentPosition(function (position) {
         var lat = position.coords.latitude.toFixed(6);
         var lng = position.coords.longitude.toFixed(6);
-        var mapUrl = "https://maps.google.com/?q=" + encodeURIComponent(lat + "," + lng);
+        var accuracy = Math.round(position.coords.accuracy || 0);
+        var mapUrl = "https://www.google.com/maps?q=" + encodeURIComponent(lat + "," + lng) + "&z=18";
         input.value = mapUrl;
         if (preview) {
           preview.href = mapUrl;
           preview.hidden = false;
         }
-        help.textContent = "Location added from this device. Please check it opens the correct property before sending.";
+        help.textContent = "Google Maps location added from this device" + (accuracy ? " (accuracy about " + accuracy + " metres)" : "") + ". Please check it opens the correct property before sending.";
         setButtons(false, "Location added");
-      }, function () {
+      }, function (error) {
         setButtons(false, "Add Google Maps location");
-        help.textContent = "Location was not added. Please allow location access or paste a shared Google or Apple Maps pin link instead.";
+        if (error && error.code === 1) {
+          help.textContent = "Location permission was blocked. Please allow location access in your browser, or paste a shared Google or Apple Maps pin link instead.";
+        } else if (error && error.code === 3) {
+          help.textContent = "Your phone or browser took too long to find the location. Please try again outside/near a window, or paste a shared map pin link.";
+        } else {
+          help.textContent = "Location was not added. Please try again, or paste a shared Google or Apple Maps pin link instead.";
+        }
       }, {
         enableHighAccuracy: true,
-        timeout: 12000,
-        maximumAge: 0
+        timeout: 30000,
+        maximumAge: 60000
       });
     }
 
