@@ -69,8 +69,9 @@
             <input name="what3words" placeholder="example: filled.count.soap">
           </label>
           <label class="wide customer-map-link-field" id="map-pin-link">Map pin link
-            <input name="google_maps_link" inputmode="url" placeholder="Paste your shared map pin link here">
-            <span class="customer-field-help">Optional: open Google Maps, Apple Maps or your preferred map app, drop or select the pin, tap Share, then paste the link here.</span>
+            <input id="map-pin-input" name="google_maps_link" inputmode="url" placeholder="Paste your shared map pin link here">
+            <button class="customer-location-btn" type="button" id="use-location-btn">Use my current location</button>
+            <span class="customer-field-help" id="map-pin-help">If you are at the property, tap the button and allow location access. Otherwise paste a shared Google or Apple Maps pin link here.</span>
           </label>
         </div>
       </section>
@@ -198,4 +199,36 @@
     </form>
   </div>
 </section>
+<script>
+  (function () {
+    var button = document.getElementById("use-location-btn");
+    var input = document.getElementById("map-pin-input");
+    var help = document.getElementById("map-pin-help");
+    if (!button || !input || !help) return;
+
+    button.addEventListener("click", function () {
+      if (!navigator.geolocation) {
+        help.textContent = "Your phone or browser cannot send location automatically. Please paste a shared map pin link.";
+        return;
+      }
+      button.disabled = true;
+      button.textContent = "Finding location...";
+      navigator.geolocation.getCurrentPosition(function (position) {
+        var lat = position.coords.latitude.toFixed(6);
+        var lng = position.coords.longitude.toFixed(6);
+        input.value = "https://www.google.com/maps/search/?api=1&query=" + lat + "," + lng;
+        help.textContent = "Location added. Please check this is the property address before sending.";
+        button.textContent = "Location added";
+      }, function () {
+        button.disabled = false;
+        button.textContent = "Use my current location";
+        help.textContent = "Location was not added. Please paste a shared Google or Apple Maps pin link instead.";
+      }, {
+        enableHighAccuracy: true,
+        timeout: 12000,
+        maximumAge: 0
+      });
+    });
+  })();
+</script>
 {% endblock %}
