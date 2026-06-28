@@ -1779,12 +1779,38 @@ def clean_intake_job_notes(lead):
     return "\n".join(lines).strip()
 
 
+def format_intake_access_text(lead):
+    raw_access = row_get(lead, "parking") or ""
+    if not raw_access.strip():
+        return "Not supplied"
+    labels = {
+        "parking:": "Parking:",
+        "steps/access:": "Steps to access:",
+        "property type and access:": "Property/access:",
+        "access notes:": "Access notes:",
+    }
+    lines = []
+    for line in raw_access.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        lower = stripped.lower()
+        replacement = None
+        for prefix, label in labels.items():
+            if lower.startswith(prefix):
+                replacement = f"{label} {stripped[len(prefix):].strip()}"
+                break
+        lines.append(replacement or stripped)
+    return "\n".join(lines) or "Not supplied"
+
+
 def intake_calendar_note_text(lead, customer_id=None):
     review_url = crm_external_url("intake_form_view", lead_id=lead["id"])
     note_url = crm_external_url("intake_form_calendar_note", lead_id=lead["id"])
     customer_url = crm_external_url("customer_view", customer_id=customer_id) if customer_id else ""
     message_actions_url = f"{customer_url}#customer-message-actions" if customer_url else ""
     job_details = clean_intake_job_notes(lead) or "Not supplied"
+    access_details = format_intake_access_text(lead)
     action_lines = [
         f"Review and approve for Xero: {review_url}",
         f"Calendar/email note: {note_url}",
@@ -1817,7 +1843,7 @@ def intake_calendar_note_text(lead, customer_id=None):
         f"Description: {job_details}",
         "",
         "ACCESS",
-        f"Parking, steps and access: {row_get(lead, 'parking') or 'Not supplied'}",
+        access_details,
         "",
         "TIMING AND NOTES",
         f"Preferred dates/times: {row_get(lead, 'preferred_days_times') or 'Not supplied'}",
@@ -1832,6 +1858,7 @@ def contact_form_alert_text(lead, customer_id=None):
     customer_url = crm_external_url("customer_view", customer_id=customer_id) if customer_id else ""
     message_actions_url = f"{customer_url}#customer-message-actions" if customer_url else ""
     job_details = clean_intake_job_notes(lead) or "Not supplied"
+    access_details = format_intake_access_text(lead)
     lines = [
         "Customer details form completed",
         "",
@@ -1862,7 +1889,7 @@ def contact_form_alert_text(lead, customer_id=None):
         f"Details: {job_details}",
         "",
         "ACCESS",
-        row_get(lead, "parking") or "Not supplied",
+        access_details,
         "",
         "NOTES",
         f"Preferred: {row_get(lead, 'preferred_days_times') or 'Not supplied'}",
