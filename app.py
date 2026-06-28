@@ -1760,9 +1760,28 @@ def owner_contact_form_recipients():
     return owner_email, owner_mobile
 
 
+def clean_intake_job_notes(lead):
+    raw_notes = row_get(lead, "job_notes") or ""
+    access_prefixes = (
+        "parking:",
+        "steps/access:",
+        "property type and access:",
+        "access notes:",
+        "access / parking:",
+    )
+    lines = []
+    for line in raw_notes.splitlines():
+        stripped = line.strip()
+        if stripped.lower().startswith(access_prefixes):
+            continue
+        lines.append(line)
+    return "\n".join(lines).strip()
+
+
 def contact_form_alert_text(lead, customer_id=None):
     review_url = crm_external_url("intake_form_view", lead_id=lead["id"])
     customer_url = crm_external_url("customer_view", customer_id=customer_id) if customer_id else ""
+    job_details = clean_intake_job_notes(lead) or "Not supplied"
     lines = [
         "Customer details form completed",
         "This is ready for you to check before Xero.",
@@ -1774,8 +1793,9 @@ def contact_form_alert_text(lead, customer_id=None):
         f"What3Words: {lead['what3words'] or 'Not supplied'}",
         f"Rooms or areas: {row_get(lead, 'rooms_areas') or 'Not supplied'}",
         f"Service: {row_get(lead, 'what_cleaned') or 'Not supplied'}",
-        f"Job details: {lead['job_notes'] or 'Not supplied'}",
-        f"Access / parking: {row_get(lead, 'parking') or 'Not supplied'}",
+        f"Job details: {job_details}",
+        "Access and parking:",
+        row_get(lead, "parking") or "Not supplied",
         f"Preferred dates or times: {row_get(lead, 'preferred_days_times') or 'Not supplied'}",
         f"Extra notes: {row_get(lead, 'additional_notes') or 'Not supplied'}",
         "Review before Xero:",
@@ -1790,6 +1810,7 @@ def contact_form_alert_html(lead, customer_id=None):
     review_url = crm_external_url("intake_form_view", lead_id=lead["id"])
     customer_url = crm_external_url("customer_view", customer_id=customer_id) if customer_id else ""
     safe = html_lib.escape
+    job_details = clean_intake_job_notes(lead) or "Not supplied"
     customer_link = f'<p><a href="{safe(customer_url)}">Open customer record</a></p>' if customer_url else ""
     return f"""<div style="margin:0;background:#eef6ff;padding:18px;font-family:Arial,sans-serif;color:#071524;line-height:1.55">
       <div style="max-width:680px;margin:0 auto;background:#ffffff;border:1px solid #d8e7f2;border-radius:14px;padding:20px">
@@ -1807,7 +1828,7 @@ def contact_form_alert_html(lead, customer_id=None):
         <tr><td style="padding:9px;border-bottom:1px solid #dde7ef"><strong>What3Words</strong></td><td style="padding:9px;border-bottom:1px solid #dde7ef">{safe(lead['what3words'] or 'Not supplied')}</td></tr>
         <tr><td style="padding:9px;border-bottom:1px solid #dde7ef"><strong>Rooms or areas</strong></td><td style="padding:9px;border-bottom:1px solid #dde7ef">{safe(row_get(lead, 'rooms_areas') or 'Not supplied')}</td></tr>
         <tr><td style="padding:9px;border-bottom:1px solid #dde7ef"><strong>Service</strong></td><td style="padding:9px;border-bottom:1px solid #dde7ef">{safe(row_get(lead, 'what_cleaned') or 'Not supplied')}</td></tr>
-        <tr><td style="padding:9px;border-bottom:1px solid #dde7ef"><strong>Job details</strong></td><td style="padding:9px;border-bottom:1px solid #dde7ef">{safe(lead['job_notes'] or 'Not supplied')}</td></tr>
+        <tr><td style="padding:9px;border-bottom:1px solid #dde7ef"><strong>Job details</strong></td><td style="padding:9px;border-bottom:1px solid #dde7ef">{safe(job_details)}</td></tr>
         <tr><td style="padding:9px;border-bottom:1px solid #dde7ef"><strong>Access / parking</strong></td><td style="padding:9px;border-bottom:1px solid #dde7ef">{safe(row_get(lead, 'parking') or 'Not supplied')}</td></tr>
         <tr><td style="padding:9px;border-bottom:1px solid #dde7ef"><strong>Preferred dates or times</strong></td><td style="padding:9px;border-bottom:1px solid #dde7ef">{safe(row_get(lead, 'preferred_days_times') or 'Not supplied')}</td></tr>
         <tr><td style="padding:9px;border-bottom:1px solid #dde7ef"><strong>Extra notes</strong></td><td style="padding:9px;border-bottom:1px solid #dde7ef">{safe(row_get(lead, 'additional_notes') or 'Not supplied')}</td></tr>
@@ -7230,7 +7251,7 @@ def create_customer_from_intake(lead):
         f"Preferred days/times: {row_get(lead, 'preferred_days_times')}" if row_get(lead, "preferred_days_times") else "",
         f"Additional notes: {row_get(lead, 'additional_notes')}" if row_get(lead, "additional_notes") else "",
         f"Preferred: {lead['preferred_date']} {lead['preferred_time']}".strip() if (lead["preferred_date"] or lead["preferred_time"]) else "",
-        lead["job_notes"] or "",
+        clean_intake_job_notes(lead),
     ] if x])
     customer_id = run("""INSERT INTO customers(first_name,last_name,phone,email,address,town,postcode,source,tags,notes)
                          VALUES (?,?,?,?,?,?,?,?,?,?)""", (
@@ -7712,7 +7733,6 @@ def booking_form():
             job_details,
             f"WhatsApp number: {whatsapp_number}" if whatsapp_number else "",
             f"Carpet/upholstery details: {carpet_details}" if carpet_details else "",
-            parking_summary,
         ] if part])
         lead_id = run("""INSERT INTO intake_submissions
                (name, phone, email, full_address, postcode, google_maps_link, what3words, job_notes, rooms_areas,
@@ -7898,7 +7918,7 @@ def intake_form_view(lead_id):
     if not lead:
         flash("Intake form not found.")
         return redirect(url_for("intake_forms"))
-    return render_template("intake_form_view.html", lead=lead, xero_configured=xero_is_configured(), xero_connected=bool(xero_token_row()))
+    return render_template("intake_form_view.html", lead=lead, display_job_notes=clean_intake_job_notes(lead), xero_configured=xero_is_configured(), xero_connected=bool(xero_token_row()))
 
 
 @app.route("/intake-forms/<int:lead_id>/update-details", methods=["POST"])
@@ -8011,7 +8031,7 @@ def intake_create_job(lead_id):
     service_type = clean_str(row_get(lead, "what_cleaned")) or clean_str(lead["rooms_areas"]) or "Carpet cleaning"
     title = clean_str(request.form.get("title")) or f"{service_type} - {lead['name']}"
     notes = "\n".join([x for x in [
-        lead["job_notes"] or "",
+        clean_intake_job_notes(lead),
         f"Service required: {row_get(lead, 'what_cleaned')}" if row_get(lead, "what_cleaned") else "",
         f"Rooms/areas: {lead['rooms_areas']}" if lead["rooms_areas"] else "",
         f"Number of rooms: {row_get(lead, 'number_rooms')}" if row_get(lead, "number_rooms") else "",
