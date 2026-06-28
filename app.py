@@ -1768,6 +1768,7 @@ def clean_intake_job_notes(lead):
         "property type and access:",
         "access notes:",
         "access / parking:",
+        "access information:",
     )
     lines = []
     for line in raw_notes.splitlines():
@@ -1784,38 +1785,90 @@ def intake_calendar_note_text(lead, customer_id=None):
     customer_url = crm_external_url("customer_view", customer_id=customer_id) if customer_id else ""
     message_actions_url = f"{customer_url}#customer-message-actions" if customer_url else ""
     job_details = clean_intake_job_notes(lead) or "Not supplied"
-    lines = [
-        "Customer details form completed",
-        f"Name: {lead['name'] or ''}",
-        f"Phone: {lead['phone'] or ''}",
-        f"Email: {lead['email'] or ''}",
-        f"Address: {lead['full_address'] or ''}",
-        f"Postcode: {lead['postcode'] or ''}",
-        f"Map pin: {lead['google_maps_link'] or 'Not supplied'}",
-        f"What3Words: {lead['what3words'] or 'Not supplied'}",
-        f"Rooms or areas: {row_get(lead, 'rooms_areas') or 'Not supplied'}",
-        f"Service: {row_get(lead, 'what_cleaned') or 'Not supplied'}",
-        f"Job details: {job_details}",
-        "Access and parking:",
-        row_get(lead, "parking") or "Not supplied",
-        f"Preferred dates or times: {row_get(lead, 'preferred_days_times') or 'Not supplied'}",
-        f"Extra notes: {row_get(lead, 'additional_notes') or 'Not supplied'}",
-        "",
-        "Next action links:",
-        f"Calendar/email note: {note_url}",
+    action_lines = [
         f"Review and approve for Xero: {review_url}",
-        f"Create job or quote: {review_url}",
+        f"Calendar/email note: {note_url}",
     ]
     if customer_url:
-        lines.extend([
+        action_lines.extend([
             f"Customer record: {customer_url}",
-            f"Send booking confirmation / thank you / review request: {message_actions_url}",
+            f"Send customer messages: {message_actions_url}",
         ])
+    lines = [
+        "Customer details form completed",
+        "",
+        "ACTIONS",
+        *action_lines,
+        "",
+        "CUSTOMER",
+        f"Name: {lead['name'] or 'Not supplied'}",
+        f"Phone: {lead['phone'] or 'Not supplied'}",
+        f"Email: {lead['email'] or 'Not supplied'}",
+        "",
+        "ADDRESS",
+        f"Address: {lead['full_address'] or 'Not supplied'}",
+        f"Postcode: {lead['postcode'] or 'Not supplied'}",
+        f"What3Words: {lead['what3words'] or 'Not supplied'}",
+        f"Map pin: {lead['google_maps_link'] or 'Not supplied'}",
+        "",
+        "CLEANING DETAILS",
+        f"Call and quote: {row_get(lead, 'what_cleaned') or 'Not supplied'}",
+        f"Rooms or areas: {row_get(lead, 'rooms_areas') or 'Not supplied'}",
+        f"Description: {job_details}",
+        "",
+        "ACCESS",
+        f"Parking, steps and access: {row_get(lead, 'parking') or 'Not supplied'}",
+        "",
+        "TIMING AND NOTES",
+        f"Preferred dates/times: {row_get(lead, 'preferred_days_times') or 'Not supplied'}",
+        f"Extra notes: {row_get(lead, 'additional_notes') or 'Not supplied'}",
+    ]
     return "\n".join(lines)
 
 
 def contact_form_alert_text(lead, customer_id=None):
-    return "This is ready for you to check before Xero.\n" + intake_calendar_note_text(lead, customer_id=customer_id)
+    review_url = crm_external_url("intake_form_view", lead_id=lead["id"])
+    note_url = crm_external_url("intake_form_calendar_note", lead_id=lead["id"])
+    customer_url = crm_external_url("customer_view", customer_id=customer_id) if customer_id else ""
+    message_actions_url = f"{customer_url}#customer-message-actions" if customer_url else ""
+    job_details = clean_intake_job_notes(lead) or "Not supplied"
+    lines = [
+        "Customer details form completed",
+        "",
+        "CHECK FIRST",
+        f"Review / approve for Xero: {review_url}",
+        f"Copyable calendar note: {note_url}",
+    ]
+    if customer_url:
+        lines.extend([
+            f"Customer record: {customer_url}",
+            f"Send messages: {message_actions_url}",
+        ])
+    lines.extend([
+        "",
+        "CUSTOMER",
+        f"{lead['name'] or 'Not supplied'}",
+        f"Phone: {lead['phone'] or 'Not supplied'}",
+        f"Email: {lead['email'] or 'Not supplied'}",
+        "",
+        "ADDRESS",
+        lead["full_address"] or "Not supplied",
+        f"Postcode: {lead['postcode'] or 'Not supplied'}",
+        f"What3Words: {lead['what3words'] or 'Not supplied'}",
+        "",
+        "JOB",
+        f"Call and quote: {row_get(lead, 'what_cleaned') or 'Not supplied'}",
+        f"Rooms/areas: {row_get(lead, 'rooms_areas') or 'Not supplied'}",
+        f"Details: {job_details}",
+        "",
+        "ACCESS",
+        row_get(lead, "parking") or "Not supplied",
+        "",
+        "NOTES",
+        f"Preferred: {row_get(lead, 'preferred_days_times') or 'Not supplied'}",
+        f"Extra: {row_get(lead, 'additional_notes') or 'Not supplied'}",
+    ])
+    return "\n".join(lines)
 
 
 def contact_form_alert_html(lead, customer_id=None):
