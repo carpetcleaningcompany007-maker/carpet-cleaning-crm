@@ -7920,9 +7920,9 @@ def booking_form():
             linked_customer_id or None, "Waiting for review", "Customer contact form", marketing_consent,
         ))
         lead = q("SELECT * FROM intake_submissions WHERE id=?", (lead_id,), one=True)
-        if linked_customer_id:
-            run("UPDATE intake_submissions SET customer_id=?, status='Waiting for review', updated_at=datetime('now') WHERE id=?", (linked_customer_id, lead_id))
-        send_contact_form_owner_alerts(lead_id, linked_customer_id or None)
+        customer_id = create_customer_from_intake(lead)
+        run("UPDATE intake_submissions SET customer_id=?, status='Waiting for review', updated_at=datetime('now') WHERE id=?", (customer_id, lead_id))
+        send_contact_form_owner_alerts(lead_id, customer_id)
         return render_template("customer_intake_thanks.html", biz=settings(), public_mode=True)
     return render_template("customer_intake.html", biz=settings(), linked_customer=linked_customer, prefill=prefill, public_mode=True)
 
