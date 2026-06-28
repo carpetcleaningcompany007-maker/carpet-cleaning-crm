@@ -1938,10 +1938,12 @@ def run_website_enquiry_automation(lead_id, customer_id, data):
         run("INSERT INTO customer_timeline(customer_id, note_text, created_at) VALUES (?,?,datetime('now'))", (customer_id, "Xero contact created or updated from website enquiry."))
         results["xero"] = (True, f"Xero contact ready: {contact_id}")
     except Exception as exc:
-        run("""UPDATE intake_submissions SET xero_error=?, xero_sync_status=?, updated_at=datetime('now') WHERE id=?""", (str(exc), f"Failed: {exc}", lead_id))
-        run("UPDATE customers SET xero_contact_error=? WHERE id=?", (str(exc), customer_id))
-        run("INSERT INTO customer_timeline(customer_id, note_text, created_at) VALUES (?,?,datetime('now'))", (customer_id, f"Xero sync failed: {exc}"))
-        results["xero"] = (False, str(exc))
+        friendly = friendly_xero_error(exc)
+        run("""UPDATE intake_submissions SET xero_error=?, xero_sync_status=?, updated_at=datetime('now') WHERE id=?""", (friendly, f"Failed: {friendly}", lead_id))
+        run("UPDATE customers SET xero_contact_error=? WHERE id=?", (friendly, customer_id))
+        run("INSERT INTO customer_timeline(customer_id, note_text, created_at) VALUES (?,?,datetime('now'))", (customer_id, f"Xero sync failed: {friendly}"))
+        log_xero_sync("customer", customer_id, "sync_contact_from_enquiry", "error", str(exc))
+        results["xero"] = (False, friendly)
 
     customer_email = request_value(data, "email", "email_address")
     if customer_email:
@@ -2152,7 +2154,7 @@ def inject_layout_globals():
         biz = settings()
     except Exception:
         biz = {}
-    return {'biz': biz, 'app_settings': biz, 'xero_contact_web_url': xero_contact_web_url, 'whatsapp_phone': whatsapp_phone}
+    return {'biz': biz, 'app_settings': biz, 'xero_contact_web_url': xero_contact_web_url, 'whatsapp_phone': whatsapp_phone, 'friendly_xero_error': friendly_xero_error}
 
 
 def sort_rows(rows, key, reverse=False):
@@ -7162,6 +7164,25 @@ def xero_api_request(url, method="GET", payload=None, idempotency_key=None):
         raise RuntimeError(f"Xero API request failed: {body_text}") from exc
 
 
+def friendly_xero_error(error):
+    text = clean_str(error)
+    if not text:
+        return ""
+    lowered = text.lower()
+    if "archived contact" in lowered:
+        return (
+            "Xero found a matching archived contact. Xero does not allow archived contacts to be updated from the CRM. "
+            "Open Xero, restore or permanently tidy that archived contact, then press approve again."
+        )
+    if "more than one contact" in lowered or "possible existing xero contact" in lowered:
+        return text
+    if "validationexception" in lowered or "validation exception" in lowered:
+        return "Xero rejected the contact details. Please check the name, email, phone and address, then try again."
+    if text.startswith("Xero API request failed:"):
+        return "Xero could not update the contact. Please check the customer details and try again."
+    return text
+
+
 def xero_sales_account_code():
     return clean_str(os.environ.get("XERO_SALES_ACCOUNT_CODE")) or "200"
 
@@ -8355,8 +8376,10 @@ def xero_create_contact(lead_id):
         flash(f"Customer details approved and sent to Xero ContactID {contact_id}.")
     except Exception as exc:
         logger.exception("Xero contact creation failed for intake %s", lead_id)
-        run("""UPDATE intake_submissions SET xero_error=?, xero_sync_status=?, updated_at=datetime('now') WHERE id=?""", (str(exc), f"Failed: {exc}", lead_id))
-        flash(str(exc))
+        friendly = friendly_xero_error(exc)
+        run("""UPDATE intake_submissions SET xero_error=?, xero_sync_status=?, updated_at=datetime('now') WHERE id=?""", (friendly, f"Failed: {friendly}", lead_id))
+        log_xero_sync("customer", row_get(lead, "customer_id") or 0, "sync_contact_from_intake", "error", str(exc))
+        flash(friendly)
     return redirect(url_for("intake_form_view", lead_id=lead_id))
 
 init_db()

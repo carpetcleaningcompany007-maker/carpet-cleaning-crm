@@ -67,7 +67,7 @@
     <section class="review-card">
       <h4>Approval</h4>
       <div class="status-line">
-        <div><strong>Xero</strong>{% if lead.xero_contact_id %}Sent{% elif not xero_configured %}Needs Xero setup{% elif not xero_connected %}Ready to connect{% else %}{{ lead.xero_sync_status or 'Waiting' }}{% endif %}</div>
+        <div><strong>Xero</strong>{% if lead.xero_contact_id %}Sent{% elif not xero_configured %}Needs Xero setup{% elif not xero_connected %}Ready to connect{% elif lead.xero_error %}Failed: {{ friendly_xero_error(lead.xero_error) }}{% else %}{{ lead.xero_sync_status or 'Waiting' }}{% endif %}</div>
         <div><strong>Owner email</strong>{{ lead.owner_email_status or 'Pending' }}</div>
         <div><strong>Owner SMS</strong>{{ lead.owner_sms_status or 'Pending' }}</div>
         <div><strong>Source</strong>{{ lead.source or 'Customer details form' }}</div>
@@ -85,7 +85,14 @@
       {% elif not xero_connected %}
         <div class="notice">Xero is not connected in this browser yet. Press approve and the CRM will connect Xero, then return here and update the contact automatically.</div>
       {% elif lead.xero_error %}
-        <div class="notice danger-notice">{{ lead.xero_error }}</div>
+        <div class="notice danger-notice">
+          {{ friendly_xero_error(lead.xero_error) }}
+          {% if 'archived contact' in (lead.xero_error or '')|lower %}
+            <div style="margin-top:10px">
+              <a class="btn secondary" href="https://go.xero.com/Contacts/Search" target="_blank" rel="noopener">Open Xero contacts</a>
+            </div>
+          {% endif %}
+        </div>
       {% endif %}
       <div class="approval-actions">
         <form method="post" action="{{ url_for('xero_create_contact', lead_id=lead.id) }}">
