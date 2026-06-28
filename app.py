@@ -1893,42 +1893,40 @@ def contact_form_alert_text(lead, customer_id=None):
     job_details = clean_intake_job_notes(lead) or "Not supplied"
     access_details = format_intake_access_text(lead)
     lines = [
-        "Customer details form completed",
+        "CUSTOMER FORM COMPLETED",
         "",
-        "CHECK FIRST",
-        f"Review / approve for Xero: {review_url}",
-        f"Copyable calendar note: {note_url}",
+        "1. CHECK FIRST",
+        f"Review / approve: {review_url}",
+        f"Copy / calendar note: {note_url}",
     ]
     if customer_url:
         lines.extend([
-            f"Customer record: {customer_url}",
-            f"Booking confirmation email/text: {message_actions_url}",
-            f"Reminder / on-my-way message: {message_actions_url}",
-            f"Thank-you / review request: {message_actions_url}",
+            f"Customer hub: {customer_url}",
+            f"Send booking/reminder/on-way/thank-you/review: {message_actions_url}",
         ])
     else:
-        lines.append("Send messages: approve/create the customer first, then use the customer hub message buttons.")
+        lines.append("Message buttons: approve/create the customer first, then use the customer hub.")
     lines.extend([
         "",
-        "CUSTOMER",
+        "2. CUSTOMER",
         f"{lead['name'] or 'Not supplied'}",
         f"Phone: {lead['phone'] or 'Not supplied'}",
         f"Email: {lead['email'] or 'Not supplied'}",
         "",
-        "ADDRESS",
+        "3. ADDRESS",
         lead["full_address"] or "Not supplied",
         f"Postcode: {lead['postcode'] or 'Not supplied'}",
         f"What3Words: {lead['what3words'] or 'Not supplied'}",
         "",
-        "JOB",
+        "4. JOB",
         f"Call and quote: {row_get(lead, 'what_cleaned') or 'Not supplied'}",
         f"Rooms/areas: {row_get(lead, 'rooms_areas') or 'Not supplied'}",
         f"Details: {job_details}",
         "",
-        "ACCESS",
+        "5. ACCESS",
         access_details,
         "",
-        "NOTES",
+        "6. NOTES",
         f"Preferred: {row_get(lead, 'preferred_days_times') or 'Not supplied'}",
         f"Extra: {row_get(lead, 'additional_notes') or 'Not supplied'}",
     ])
