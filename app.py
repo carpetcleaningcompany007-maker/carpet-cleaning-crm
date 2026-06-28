@@ -7684,13 +7684,16 @@ def booking_form():
         if request.form.get("privacy_acknowledgement") != "1":
             flash("Please confirm you understand how your details will be used before sending the form.")
             return redirect(url_for("booking_form", **request.args))
+        parking_issues = clean_str(request.form.get("parking_issues"))
+        steps_access = clean_str(request.form.get("steps_access"))
+        property_access = clean_str(request.form.get("property_access"))
+        if not parking_issues or not steps_access or not property_access:
+            flash("Please complete the access and parking questions before sending the form.")
+            return redirect(url_for("booking_form", **request.args))
         photo_filename = save_uploads("photos") or save_upload("photo")
         whatsapp_number = clean_str(request.form.get("whatsapp_number"))
         carpet_details = clean_str(request.form.get("carpet_details"))
         job_details = clean_str(request.form.get("job_notes"))
-        parking_issues = clean_str(request.form.get("parking_issues"))
-        steps_access = clean_str(request.form.get("steps_access"))
-        property_access = clean_str(request.form.get("property_access"))
         access_info = clean_str(request.form.get("access_info") or request.form.get("parking"))
         marketing_consent = "yes" if request.form.get("marketing_consent") == "yes" else "no"
         privacy_line = "Privacy acknowledgement: accepted by customer on submission."
@@ -7698,7 +7701,7 @@ def booking_form():
         parking_summary = "\n".join([part for part in [
             f"Parking: {parking_issues}" if parking_issues else "",
             f"Steps/access: {steps_access}" if steps_access else "",
-            f"Property/access type: {property_access}" if property_access else "",
+            f"Property type and access: {property_access}" if property_access else "",
             f"Access notes: {access_info}" if access_info else "",
         ] if part])
         job_notes = "\n".join([part for part in [

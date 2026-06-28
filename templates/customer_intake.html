@@ -76,12 +76,12 @@
           <span>Step 3</span>
           <div>
             <h2>Access and parking</h2>
-            <p>Anything that helps us arrive prepared, park safely and bring the right equipment.</p>
+            <p>Please complete this section. We need these details so we can arrive prepared, park safely and bring the right equipment to your door.</p>
           </div>
         </div>
         <div class="customer-form-grid">
           <label>Parking near the property
-            <select name="parking_issues">
+            <select name="parking_issues" required>
               <option value="">Please choose</option>
               <option>No parking issues</option>
               <option>Street parking nearby</option>
@@ -91,7 +91,7 @@
             </select>
           </label>
           <label>Steps up or down?
-            <select name="steps_access">
+            <select name="steps_access" required>
               <option value="">Please choose</option>
               <option>No steps</option>
               <option>A few steps</option>
@@ -100,8 +100,8 @@
               <option>Lift available</option>
             </select>
           </label>
-          <label>Property access
-            <select name="property_access">
+          <label>Property type and access
+            <select name="property_access" required>
               <option value="">Please choose</option>
               <option>House</option>
               <option>Flat or apartment</option>
