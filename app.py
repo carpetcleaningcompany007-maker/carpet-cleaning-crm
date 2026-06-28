@@ -1778,14 +1778,14 @@ def clean_intake_job_notes(lead):
     return "\n".join(lines).strip()
 
 
-def contact_form_alert_text(lead, customer_id=None):
+def intake_calendar_note_text(lead, customer_id=None):
     review_url = crm_external_url("intake_form_view", lead_id=lead["id"])
+    note_url = crm_external_url("intake_form_calendar_note", lead_id=lead["id"])
     customer_url = crm_external_url("customer_view", customer_id=customer_id) if customer_id else ""
     message_actions_url = f"{customer_url}#customer-message-actions" if customer_url else ""
     job_details = clean_intake_job_notes(lead) or "Not supplied"
     lines = [
         "Customer details form completed",
-        "This is ready for you to check before Xero.",
         f"Name: {lead['name'] or ''}",
         f"Phone: {lead['phone'] or ''}",
         f"Email: {lead['email'] or ''}",
@@ -1800,7 +1800,9 @@ def contact_form_alert_text(lead, customer_id=None):
         row_get(lead, "parking") or "Not supplied",
         f"Preferred dates or times: {row_get(lead, 'preferred_days_times') or 'Not supplied'}",
         f"Extra notes: {row_get(lead, 'additional_notes') or 'Not supplied'}",
+        "",
         "Next action links:",
+        f"Calendar/email note: {note_url}",
         f"Review and approve for Xero: {review_url}",
         f"Create job or quote: {review_url}",
     ]
@@ -1810,6 +1812,10 @@ def contact_form_alert_text(lead, customer_id=None):
             f"Send booking confirmation / thank you / review request: {message_actions_url}",
         ])
     return "\n".join(lines)
+
+
+def contact_form_alert_text(lead, customer_id=None):
+    return "This is ready for you to check before Xero.\n" + intake_calendar_note_text(lead, customer_id=customer_id)
 
 
 def contact_form_alert_html(lead, customer_id=None):
@@ -7960,6 +7966,20 @@ def intake_form_view(lead_id):
         flash("Intake form not found.")
         return redirect(url_for("intake_forms"))
     return render_template("intake_form_view.html", lead=lead, display_job_notes=clean_intake_job_notes(lead), xero_configured=xero_is_configured(), xero_connected=bool(xero_token_row()))
+
+
+@app.route("/intake-forms/<int:lead_id>/calendar-note")
+@login_required
+def intake_form_calendar_note(lead_id):
+    lead = q("SELECT * FROM intake_submissions WHERE id=?", (lead_id,), one=True)
+    if not lead:
+        flash("Intake form not found.")
+        return redirect(url_for("intake_forms"))
+    customer_id = row_get(lead, "customer_id")
+    note_text = intake_calendar_note_text(lead, customer_id=customer_id)
+    subject = f"Customer details form - {lead['name'] or 'Customer'}"
+    mailto_url = "mailto:?subject=" + urllib.parse.quote(subject) + "&body=" + urllib.parse.quote(note_text)
+    return render_template("intake_calendar_note.html", lead=lead, note_text=note_text, mailto_url=mailto_url)
 
 
 @app.route("/intake-forms/<int:lead_id>/update-details", methods=["POST"])

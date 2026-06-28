@@ -1,0 +1,43 @@
+{% extends "layout.html" %}
+{% block title %}Calendar Note{% endblock %}
+{% block page_title %}Calendar Note{% endblock %}
+{% block body_content %}
+<style>
+  .note-shell{display:grid;gap:16px;max-width:920px;margin:0 auto}
+  .note-card{background:#fff;border:1px solid #dce8f1;border-radius:14px;padding:18px}
+  .note-card h3{margin:0 0 8px;color:#071524}
+  .note-card p{margin:0;color:#49647d}
+  .note-actions{display:flex;gap:10px;flex-wrap:wrap}
+  .note-text{width:100%;min-height:520px;border:1px solid #d8e7f2;border-radius:12px;padding:14px;font:15px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#071524;background:#f8fcff;white-space:pre-wrap}
+  @media(max-width:640px){.note-card{padding:14px}.note-actions .btn{width:100%;justify-content:center}.note-text{min-height:620px;font-size:14px}}
+</style>
+<section class="note-shell">
+  <div class="note-card">
+    <h3>{{ lead.name or 'Customer details' }}</h3>
+    <p>Use this for your calendar notes or email it to yourself. It includes the customer details and your CRM action links.</p>
+  </div>
+  <div class="note-actions">
+    <button class="btn primary" type="button" id="copyNoteBtn">Copy all</button>
+    <a class="btn secondary" href="{{ mailto_url }}">Email this to myself</a>
+    <a class="btn secondary" href="{{ url_for('intake_form_view', lead_id=lead.id) }}">Back to review</a>
+  </div>
+  <textarea class="note-text" id="calendarNoteText" readonly>{{ note_text }}</textarea>
+</section>
+<script>
+  (function(){
+    var btn = document.getElementById("copyNoteBtn");
+    var text = document.getElementById("calendarNoteText");
+    if (!btn || !text) return;
+    btn.addEventListener("click", function(){
+      text.focus();
+      text.select();
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(text.value).then(function(){ btn.textContent = "Copied"; });
+      } else {
+        document.execCommand("copy");
+        btn.textContent = "Copied";
+      }
+    });
+  })();
+</script>
+{% endblock %}
