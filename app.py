@@ -1790,6 +1790,7 @@ def contact_form_alert_text(lead, customer_id=None):
         f"Email: {lead['email'] or ''}",
         f"Address: {lead['full_address'] or ''}",
         f"Postcode: {lead['postcode'] or ''}",
+        f"Map pin: {lead['google_maps_link'] or 'Not supplied'}",
         f"What3Words: {lead['what3words'] or 'Not supplied'}",
         f"Rooms or areas: {row_get(lead, 'rooms_areas') or 'Not supplied'}",
         f"Service: {row_get(lead, 'what_cleaned') or 'Not supplied'}",
@@ -1811,6 +1812,10 @@ def contact_form_alert_html(lead, customer_id=None):
     customer_url = crm_external_url("customer_view", customer_id=customer_id) if customer_id else ""
     safe = html_lib.escape
     job_details = clean_intake_job_notes(lead) or "Not supplied"
+    map_pin_html = (
+        f'<a href="{safe(lead["google_maps_link"])}">Open map pin</a><br><span style="font-size:13px;color:#58708a">{safe(lead["google_maps_link"])}</span>'
+        if lead["google_maps_link"] else "Not supplied"
+    )
     customer_link = f'<p><a href="{safe(customer_url)}">Open customer record</a></p>' if customer_url else ""
     return f"""<div style="margin:0;background:#eef6ff;padding:18px;font-family:Arial,sans-serif;color:#071524;line-height:1.55">
       <div style="max-width:680px;margin:0 auto;background:#ffffff;border:1px solid #d8e7f2;border-radius:14px;padding:20px">
@@ -1825,6 +1830,7 @@ def contact_form_alert_html(lead, customer_id=None):
         <tr><td style="padding:9px;border-bottom:1px solid #dde7ef"><strong>Email</strong></td><td style="padding:9px;border-bottom:1px solid #dde7ef">{safe(lead['email'] or '')}</td></tr>
         <tr><td style="padding:9px;border-bottom:1px solid #dde7ef"><strong>Address</strong></td><td style="padding:9px;border-bottom:1px solid #dde7ef">{safe(lead['full_address'] or '')}</td></tr>
         <tr><td style="padding:9px;border-bottom:1px solid #dde7ef"><strong>Postcode</strong></td><td style="padding:9px;border-bottom:1px solid #dde7ef">{safe(lead['postcode'] or '')}</td></tr>
+        <tr><td style="padding:9px;border-bottom:1px solid #dde7ef"><strong>Map pin</strong></td><td style="padding:9px;border-bottom:1px solid #dde7ef">{map_pin_html}</td></tr>
         <tr><td style="padding:9px;border-bottom:1px solid #dde7ef"><strong>What3Words</strong></td><td style="padding:9px;border-bottom:1px solid #dde7ef">{safe(lead['what3words'] or 'Not supplied')}</td></tr>
         <tr><td style="padding:9px;border-bottom:1px solid #dde7ef"><strong>Rooms or areas</strong></td><td style="padding:9px;border-bottom:1px solid #dde7ef">{safe(row_get(lead, 'rooms_areas') or 'Not supplied')}</td></tr>
         <tr><td style="padding:9px;border-bottom:1px solid #dde7ef"><strong>Service</strong></td><td style="padding:9px;border-bottom:1px solid #dde7ef">{safe(row_get(lead, 'what_cleaned') or 'Not supplied')}</td></tr>
@@ -7238,7 +7244,7 @@ def create_customer_from_intake(lead):
         return existing_customer_id
     notes = "\n".join([x for x in [
         "Created from customer intake form.",
-        f"Google Maps: {lead['google_maps_link']}" if lead["google_maps_link"] else "",
+        f"Map pin: {lead['google_maps_link']}" if lead["google_maps_link"] else "",
         f"What3Words: {lead['what3words']}" if lead["what3words"] else "",
         f"Rooms/areas: {lead['rooms_areas']}" if lead["rooms_areas"] else "",
         f"What cleaned: {row_get(lead, 'what_cleaned')}" if row_get(lead, "what_cleaned") else "",
@@ -7934,6 +7940,7 @@ def intake_form_update_details(lead_id):
     full_address = clean_str(request.form.get("full_address"))
     postcode = clean_str(request.form.get("postcode"))
     what3words = clean_str(request.form.get("what3words"))
+    google_maps_link = clean_str(request.form.get("google_maps_link"))
     job_notes = clean_str(request.form.get("job_notes"))
     rooms_areas = clean_str(request.form.get("rooms_areas"))
     what_cleaned = clean_str(request.form.get("what_cleaned"))
@@ -7942,11 +7949,11 @@ def intake_form_update_details(lead_id):
     additional_notes = clean_str(request.form.get("additional_notes"))
     status = clean_str(request.form.get("status")) or lead["status"]
     run("""UPDATE intake_submissions
-           SET name=?, phone=?, email=?, full_address=?, postcode=?, what3words=?, job_notes=?,
+           SET name=?, phone=?, email=?, full_address=?, postcode=?, what3words=?, google_maps_link=?, job_notes=?,
                rooms_areas=?, what_cleaned=?, parking=?, preferred_days_times=?, additional_notes=?,
                status=?, updated_at=datetime('now')
            WHERE id=?""", (
-        name, phone, email, full_address, postcode, what3words, job_notes,
+        name, phone, email, full_address, postcode, what3words, google_maps_link, job_notes,
         rooms_areas, what_cleaned, parking, preferred_days_times, additional_notes,
         status, lead_id
     ))
@@ -8044,7 +8051,7 @@ def intake_create_job(lead_id):
         f"Additional notes: {row_get(lead, 'additional_notes')}" if row_get(lead, "additional_notes") else "",
         f"Address: {lead['full_address']}" if lead["full_address"] else "",
         f"Postcode: {lead['postcode']}" if lead["postcode"] else "",
-        f"Google Maps: {lead['google_maps_link']}" if lead["google_maps_link"] else "",
+        f"Map pin: {lead['google_maps_link']}" if lead["google_maps_link"] else "",
         f"What3Words: {lead['what3words']}" if lead["what3words"] else "",
         f"Photo: {lead['photo_filename']}" if lead["photo_filename"] else "",
     ] if x])

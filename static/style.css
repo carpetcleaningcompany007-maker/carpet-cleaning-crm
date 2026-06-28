@@ -5821,6 +5821,15 @@ input[type=submit],
   border-bottom-color: #1d73b7 !important;
 }
 
+.public-page .customer-field-help {
+  display: block !important;
+  margin-top: 8px !important;
+  color: #51718d !important;
+  font-size: 13px !important;
+  line-height: 1.45 !important;
+  font-weight: 750 !important;
+}
+
 .public-page .customer-photo-card {
   background: linear-gradient(135deg, #ffffff 0%, #eef8ff 100%) !important;
 }

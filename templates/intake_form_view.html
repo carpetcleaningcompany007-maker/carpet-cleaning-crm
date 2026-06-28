@@ -52,7 +52,7 @@
         <div class="preview-row"><strong>Privacy / marketing</strong><span>Privacy acknowledgement: accepted on submission{% if lead.marketing_consent %}<br>Marketing consent: {{ lead.marketing_consent }}{% endif %}</span></div>
         <div class="preview-row"><strong>Preferred times</strong><span>{{ lead.preferred_days_times or lead.preferred_date ~ ' ' ~ lead.preferred_time }}</span></div>
         {% if lead.google_maps_link %}
-          <div class="preview-row"><strong>Google Maps</strong><span><a href="{{ lead.google_maps_link }}" target="_blank">Open map</a></span></div>
+          <div class="preview-row"><strong>Map pin</strong><span><a href="{{ lead.google_maps_link }}" target="_blank">Open map</a></span></div>
         {% endif %}
         {% if lead.photo_filename %}
           <div class="preview-row"><strong>Photos</strong><span>
@@ -107,6 +107,7 @@
       <label>Postcode<input name="postcode" value="{{ lead.postcode or '' }}"></label>
       <label class="span-2">Full address<textarea name="full_address" rows="3">{{ lead.full_address or '' }}</textarea></label>
       <label>What3Words<input name="what3words" value="{{ lead.what3words or '' }}"></label>
+      <label>Map pin<input name="google_maps_link" value="{{ lead.google_maps_link or '' }}"></label>
       <label>Service<input name="what_cleaned" value="{{ lead.what_cleaned or '' }}"></label>
       <label class="span-2">Rooms or areas<textarea name="rooms_areas" rows="3">{{ lead.rooms_areas or '' }}</textarea></label>
       <label class="span-2">Job details<textarea name="job_notes" rows="4">{{ lead.job_notes or '' }}</textarea></label>
