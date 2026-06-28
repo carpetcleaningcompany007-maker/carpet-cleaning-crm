@@ -5825,6 +5825,21 @@ input[type=submit],
   background: linear-gradient(135deg, #ffffff 0%, #eef8ff 100%) !important;
 }
 
+.public-page .customer-whatsapp-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-height: 48px !important;
+  margin-top: 14px !important;
+  padding: 12px 18px !important;
+  border-radius: 12px !important;
+  background: linear-gradient(135deg, #18b85f 0%, #25d366 100%) !important;
+  color: #ffffff !important;
+  font-weight: 950 !important;
+  text-decoration: none !important;
+  box-shadow: 0 14px 30px rgba(37, 211, 102, .24) !important;
+}
+
 .public-page .customer-upload-box {
   display: grid !important;
   gap: 8px !important;

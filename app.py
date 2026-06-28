@@ -280,6 +280,10 @@ def normalize_phone(value):
     return phone
 
 
+def whatsapp_phone(value):
+    return normalize_phone(value).replace("+", "")
+
+
 def parse_sms_keywords(value, defaults=''):
     raw = str(value or defaults or '')
     parts = [x.strip().upper() for x in raw.replace(';', ',').split(',') if x.strip()]
@@ -2121,7 +2125,7 @@ def inject_layout_globals():
         biz = settings()
     except Exception:
         biz = {}
-    return {'biz': biz, 'app_settings': biz, 'xero_contact_web_url': xero_contact_web_url}
+    return {'biz': biz, 'app_settings': biz, 'xero_contact_web_url': xero_contact_web_url, 'whatsapp_phone': whatsapp_phone}
 
 
 def sort_rows(rows, key, reverse=False):

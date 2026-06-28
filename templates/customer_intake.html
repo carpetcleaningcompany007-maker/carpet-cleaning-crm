@@ -143,6 +143,8 @@
           <div>
             <h2>A few photos would be useful</h2>
             <p>Please add photos of the areas, stains, upholstery, stairs or access where you can. They help us quote more accurately and prepare properly.</p>
+            {% set wa_number = whatsapp_phone(biz.phone or '07802 563213') %}
+            <a class="customer-whatsapp-btn" href="https://wa.me/{{ wa_number }}?text={{ 'Hi Paul, I would like to send photos for my carpet cleaning quote.'|urlencode }}" target="_blank" rel="noopener">Send via WhatsApp</a>
           </div>
         </div>
         <label class="customer-upload-box">
