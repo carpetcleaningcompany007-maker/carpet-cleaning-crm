@@ -16,12 +16,13 @@
           <h1>Help us quote and find you first time.</h1>
           <p class="customer-form-lead">Photos would be useful. Please share your contact details, address, access notes and as much helpful information as you can so we can prepare an accurate quotation and respond as quickly as possible.</p>
         </div>
-        <div class="customer-form-photo" aria-hidden="true">
+        <a class="customer-form-photo customer-map-prompt" href="#map-pin-link">
           <div>
             <span>Location and access</span>
-            <strong>Address, parking and photos help us quote accurately.</strong>
+            <strong>Send a Google Maps or Apple Maps pin if useful.</strong>
+            <em>Add map pin</em>
           </div>
-        </div>
+        </a>
       </div>
     </header>
 
@@ -67,8 +68,8 @@
           <label>What3Words location
             <input name="what3words" placeholder="example: filled.count.soap">
           </label>
-          <label class="wide">Map pin link
-            <input name="google_maps_link" inputmode="url" placeholder="Paste a shared Google Maps or Apple Maps link if useful">
+          <label class="wide customer-map-link-field" id="map-pin-link">Map pin link
+            <input name="google_maps_link" inputmode="url" placeholder="Paste your shared map pin link here">
             <span class="customer-field-help">Optional: open Google Maps, Apple Maps or your preferred map app, drop or select the pin, tap Share, then paste the link here.</span>
           </label>
         </div>
