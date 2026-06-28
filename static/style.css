@@ -6155,10 +6155,24 @@ input[type=submit],
 }
 
 .public-page .customer-map-link-field {
+  padding: 16px !important;
+  border: 1px solid rgba(29, 115, 183, .32) !important;
+  border-radius: 14px !important;
   border-color: rgba(29, 115, 183, .32) !important;
   background: linear-gradient(180deg, #eff8ff 0%, #ffffff 100%) !important;
   box-shadow: 0 16px 34px rgba(29, 115, 183, .10) !important;
   scroll-margin-top: 24px !important;
+}
+
+.public-page .customer-map-link-field > label {
+  display: block !important;
+  margin: 0 0 8px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: #13283a !important;
+  font-weight: 850 !important;
 }
 
 .public-page .customer-map-link-field:target {
