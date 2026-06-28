@@ -6060,16 +6060,32 @@ input[type=submit],
   display: grid !important;
   place-items: center !important;
   border-radius: 999px !important;
-  background: linear-gradient(135deg, #18b85f 0%, #25d366 100%) !important;
+  background: linear-gradient(135deg, #1d73b7 0%, #5db8e8 100%) !important;
   color: #ffffff !important;
   font-size: 42px !important;
   font-weight: 950 !important;
   transform: translate(-50%, -50%) !important;
-  box-shadow: 0 20px 46px rgba(24,184,95,.28) !important;
+  box-shadow: 0 20px 46px rgba(29,115,183,.28) !important;
 }
 
 .public-page .customer-thanks-card-polished h1 {
   margin-top: 6px !important;
+}
+
+.public-page .customer-thanks-next-pill {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-height: 46px !important;
+  margin: 10px 0 14px !important;
+  padding: 0 22px !important;
+  border: 1px solid rgba(29, 115, 183, .2) !important;
+  border-radius: 999px !important;
+  background: linear-gradient(135deg, #1d73b7 0%, #5db8e8 100%) !important;
+  color: #ffffff !important;
+  font-weight: 950 !important;
+  letter-spacing: 0 !important;
+  box-shadow: 0 14px 28px rgba(29, 115, 183, .18) !important;
 }
 
 .public-page .customer-thanks-card-polished > p {

@@ -14,13 +14,14 @@
     </div>
     <p class="customer-form-kicker">Details received</p>
     <h1>{{ title or "Thanks, we have your details" }}</h1>
-    <p>{{ message or "If you have not already booked in, we will be in touch as soon as possible to confirm the next step. The details and photos you have sent help us prepare an accurate quote and respond quickly." }}</p>
+    <p>{{ message or "Our team is on it. If you have not already booked in, we will be in touch soon to confirm the next step. The details and photos you have sent help us prepare an accurate quote and respond quickly." }}</p>
     {% if formspree_message %}<p class="customer-thanks-note">{{ formspree_message }}</p>{% endif %}
     {% if sms_message %}<p class="customer-thanks-note">{{ sms_message }}</p>{% endif %}
+    <div class="customer-thanks-next-pill">What happens next</div>
     <div class="customer-thanks-steps">
       <div><span>1</span><strong>We check your details</strong><em>Address, access, photos and cleaning notes.</em></div>
       <div><span>2</span><strong>We prepare the next step</strong><em>Quote, booking confirmation or any quick questions.</em></div>
-      <div><span>3</span><strong>We get back to you</strong><em>If you are not already booked in, we will contact you shortly.</em></div>
+      <div><span>3</span><strong>We get back to you</strong><em>Our team will let you know the next step soon.</em></div>
     </div>
     <p class="customer-thanks-close">Thanks, Paul<br>The Carpet Cleaning Company</p>
   </div>
