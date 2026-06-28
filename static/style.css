@@ -5884,12 +5884,13 @@ input[type=submit],
 .public-page .customer-privacy-note {
   margin: 14px 0 0 !important;
   padding: 12px 14px !important;
-  border: 1px solid rgba(213, 163, 58, .24) !important;
+  border: 1px solid rgba(29, 115, 183, .16) !important;
   border-radius: 12px !important;
-  background: #fff8e3 !important;
-  color: #6d5516 !important;
+  background: linear-gradient(135deg, #f2f9ff 0%, #ffffff 60%, #edf9f5 100%) !important;
+  color: #31516c !important;
   line-height: 1.45 !important;
   font-weight: 750 !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.9) !important;
 }
 
 .public-page .customer-privacy-card {
