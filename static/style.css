@@ -6168,15 +6168,13 @@ input[type=submit],
     radial-gradient(circle at 54% 42%, rgba(255,255,255,.96) 0 8px, transparent 9px),
     radial-gradient(circle at 54% 42%, rgba(12,150,130,.98) 0 23px, transparent 24px),
     radial-gradient(circle at 54% 42%, rgba(12,150,130,.22) 0 46px, transparent 48px),
-    radial-gradient(circle at 26% 22%, rgba(108,205,128,.48) 0 58px, transparent 60px),
-    radial-gradient(circle at 80% 24%, rgba(93,184,232,.34) 0 70px, transparent 72px),
-    radial-gradient(circle at 76% 70%, rgba(246,214,122,.42) 0 76px, transparent 78px),
-    linear-gradient(34deg, transparent 0 42%, #64b5e8 42% 48%, #ffffff 48% 50%, transparent 50% 100%),
-    linear-gradient(124deg, transparent 0 38%, #48c2aa 38% 44%, #ffffff 44% 46%, transparent 46% 100%),
-    linear-gradient(78deg, transparent 0 58%, #f5c84c 58% 62%, #ffffff 62% 64%, transparent 64% 100%),
-    linear-gradient(90deg, rgba(255,255,255,.62) 0 1px, transparent 1px 42px),
-    linear-gradient(0deg, rgba(255,255,255,.62) 0 1px, transparent 1px 42px),
-    linear-gradient(135deg, #d8f1ff 0%, #f9fdff 38%, #dcf7ea 64%, #fff1b9 100%) !important;
+    radial-gradient(circle at 24% 26%, rgba(108,205,128,.36) 0 74px, transparent 76px),
+    radial-gradient(circle at 78% 30%, rgba(93,184,232,.30) 0 82px, transparent 84px),
+    radial-gradient(circle at 82% 78%, rgba(246,214,122,.34) 0 88px, transparent 90px),
+    linear-gradient(35deg, transparent 0 42%, rgba(100,181,232,.92) 42% 48%, rgba(255,255,255,.88) 48% 51%, transparent 51% 100%),
+    linear-gradient(124deg, transparent 0 39%, rgba(72,194,170,.72) 39% 44%, rgba(255,255,255,.82) 44% 46%, transparent 46% 100%),
+    linear-gradient(88deg, transparent 0 63%, rgba(245,200,76,.70) 63% 66%, rgba(255,255,255,.80) 66% 68%, transparent 68% 100%),
+    linear-gradient(135deg, #d8f1ff 0%, #f9fdff 42%, #e4f8ef 68%, #fff5cf 100%) !important;
   background-size:
     auto,
     auto,
@@ -6185,8 +6183,6 @@ input[type=submit],
     auto,
     auto,
     auto,
-    42px 42px,
-    42px 42px,
     auto !important;
 }
 
