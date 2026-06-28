@@ -1781,6 +1781,7 @@ def clean_intake_job_notes(lead):
 def contact_form_alert_text(lead, customer_id=None):
     review_url = crm_external_url("intake_form_view", lead_id=lead["id"])
     customer_url = crm_external_url("customer_view", customer_id=customer_id) if customer_id else ""
+    message_actions_url = f"{customer_url}#customer-message-actions" if customer_url else ""
     job_details = clean_intake_job_notes(lead) or "Not supplied"
     lines = [
         "Customer details form completed",
@@ -1799,24 +1800,37 @@ def contact_form_alert_text(lead, customer_id=None):
         row_get(lead, "parking") or "Not supplied",
         f"Preferred dates or times: {row_get(lead, 'preferred_days_times') or 'Not supplied'}",
         f"Extra notes: {row_get(lead, 'additional_notes') or 'Not supplied'}",
-        "Review before Xero:",
-        review_url,
+        "Next action links:",
+        f"Review and approve for Xero: {review_url}",
+        f"Create job or quote: {review_url}",
     ]
     if customer_url:
-        lines.extend(["Customer record:", customer_url])
+        lines.extend([
+            f"Customer record: {customer_url}",
+            f"Send booking confirmation / thank you / review request: {message_actions_url}",
+        ])
     return "\n".join(lines)
 
 
 def contact_form_alert_html(lead, customer_id=None):
     review_url = crm_external_url("intake_form_view", lead_id=lead["id"])
     customer_url = crm_external_url("customer_view", customer_id=customer_id) if customer_id else ""
+    message_actions_url = f"{customer_url}#customer-message-actions" if customer_url else ""
     safe = html_lib.escape
     job_details = clean_intake_job_notes(lead) or "Not supplied"
     map_pin_html = (
         f'<a href="{safe(lead["google_maps_link"])}">Open map pin</a><br><span style="font-size:13px;color:#58708a">{safe(lead["google_maps_link"])}</span>'
         if lead["google_maps_link"] else "Not supplied"
     )
-    customer_link = f'<p><a href="{safe(customer_url)}">Open customer record</a></p>' if customer_url else ""
+    customer_link = ""
+    if customer_url:
+        customer_link = f"""
+        <p style="margin:18px 0 8px"><strong>Next action links</strong></p>
+        <p><a href="{safe(review_url)}">Review and approve for Xero</a></p>
+        <p><a href="{safe(review_url)}">Create job or quote</a></p>
+        <p><a href="{safe(customer_url)}">Open customer record</a></p>
+        <p><a href="{safe(message_actions_url)}">Send booking confirmation, thank you, or review request</a></p>
+        """
     return f"""<div style="margin:0;background:#eef6ff;padding:18px;font-family:Arial,sans-serif;color:#071524;line-height:1.55">
       <div style="max-width:680px;margin:0 auto;background:#ffffff;border:1px solid #d8e7f2;border-radius:14px;padding:20px">
       <p style="margin:0 0 8px;color:#1677c8;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.05em">The Carpet Cleaning Company</p>
