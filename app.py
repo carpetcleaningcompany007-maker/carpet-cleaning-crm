@@ -1804,9 +1804,37 @@ def format_intake_access_text(lead):
     return "\n".join(lines) or "Not supplied"
 
 
+def customer_name_matches_intake(lead, customer):
+    if not lead or not customer:
+        return False
+    lead_first, lead_last = split_customer_name(row_get(lead, "name"))
+    customer_first = clean_str(row_get(customer, "first_name"))
+    customer_last = clean_str(row_get(customer, "last_name"))
+    if not lead_first and not lead_last:
+        return True
+    if lead_first and customer_first and lead_first.lower() != customer_first.lower():
+        return False
+    if lead_last and customer_last and lead_last.lower() != customer_last.lower():
+        return False
+    return bool((lead_first and customer_first) or (lead_last and customer_last))
+
+
+def safe_intake_customer_id(lead, customer_id=None):
+    customer_id = customer_id if customer_id is not None else row_get(lead, "customer_id")
+    try:
+        customer_id = int(customer_id or 0)
+    except (TypeError, ValueError):
+        customer_id = 0
+    if not customer_id:
+        return None
+    customer = q("SELECT * FROM customers WHERE id=?", (customer_id,), one=True)
+    return customer_id if customer_name_matches_intake(lead, customer) else None
+
+
 def intake_calendar_note_text(lead, customer_id=None):
     review_url = crm_external_url("intake_form_view", lead_id=lead["id"])
     note_url = crm_external_url("intake_form_calendar_note", lead_id=lead["id"])
+    customer_id = safe_intake_customer_id(lead, customer_id)
     customer_url = crm_external_url("customer_view", customer_id=customer_id) if customer_id else ""
     message_actions_url = f"{customer_url}#customer-message-actions" if customer_url else ""
     job_details = clean_intake_job_notes(lead) or "Not supplied"
@@ -1818,8 +1846,12 @@ def intake_calendar_note_text(lead, customer_id=None):
     if customer_url:
         action_lines.extend([
             f"Customer record: {customer_url}",
-            f"Send customer messages: {message_actions_url}",
+            f"Send booking confirmation email/text: {message_actions_url}",
+            f"Send reminder or on-my-way message: {message_actions_url}",
+            f"Send thank-you or review request: {message_actions_url}",
         ])
+    else:
+        action_lines.append("Customer message links: approve/create the customer first, then the customer hub will show the email and SMS buttons.")
     lines = [
         "Customer details form completed",
         "",
@@ -1855,6 +1887,7 @@ def intake_calendar_note_text(lead, customer_id=None):
 def contact_form_alert_text(lead, customer_id=None):
     review_url = crm_external_url("intake_form_view", lead_id=lead["id"])
     note_url = crm_external_url("intake_form_calendar_note", lead_id=lead["id"])
+    customer_id = safe_intake_customer_id(lead, customer_id)
     customer_url = crm_external_url("customer_view", customer_id=customer_id) if customer_id else ""
     message_actions_url = f"{customer_url}#customer-message-actions" if customer_url else ""
     job_details = clean_intake_job_notes(lead) or "Not supplied"
@@ -1869,8 +1902,12 @@ def contact_form_alert_text(lead, customer_id=None):
     if customer_url:
         lines.extend([
             f"Customer record: {customer_url}",
-            f"Send messages: {message_actions_url}",
+            f"Booking confirmation email/text: {message_actions_url}",
+            f"Reminder / on-my-way message: {message_actions_url}",
+            f"Thank-you / review request: {message_actions_url}",
         ])
+    else:
+        lines.append("Send messages: approve/create the customer first, then use the customer hub message buttons.")
     lines.extend([
         "",
         "CUSTOMER",
@@ -1900,6 +1937,7 @@ def contact_form_alert_text(lead, customer_id=None):
 
 def contact_form_alert_html(lead, customer_id=None):
     review_url = crm_external_url("intake_form_view", lead_id=lead["id"])
+    customer_id = safe_intake_customer_id(lead, customer_id)
     customer_url = crm_external_url("customer_view", customer_id=customer_id) if customer_id else ""
     message_actions_url = f"{customer_url}#customer-message-actions" if customer_url else ""
     safe = html_lib.escape
@@ -7343,11 +7381,13 @@ def split_customer_name(name):
 
 
 def create_customer_from_intake(lead):
-    if lead["customer_id"]:
+    if lead["customer_id"] and safe_intake_customer_id(lead, lead["customer_id"]):
         set_customer_workflow(lead["customer_id"], "waiting_for_review", "Booking form attached to existing customer.", "Booking form completed")
         run("INSERT INTO customer_timeline(customer_id, note_text, photo_filename) VALUES (?,?,?)",
             (lead["customer_id"], "Task: Review customer details from the submitted booking form.", row_get(lead, "photo_filename", "")))
         return lead["customer_id"]
+    if lead["customer_id"]:
+        run("UPDATE intake_submissions SET customer_id=NULL WHERE id=?", (lead["id"],))
     first_name, last_name = split_customer_name(lead["name"])
     existing_customer_id = find_existing_customer_id(
         first_name=first_name,
@@ -7356,6 +7396,10 @@ def create_customer_from_intake(lead):
         phone=lead["phone"],
         postcode=lead["postcode"],
     )
+    if existing_customer_id:
+        existing_customer = q("SELECT * FROM customers WHERE id=?", (existing_customer_id,), one=True)
+        if not customer_name_matches_intake(lead, existing_customer):
+            existing_customer_id = None
     if existing_customer_id:
         run("""UPDATE intake_submissions SET customer_id=?, status='Reviewed', updated_at=datetime('now') WHERE id=?""",
             (existing_customer_id, lead["id"]))
@@ -7878,9 +7922,9 @@ def booking_form():
             linked_customer_id or None, "Waiting for review", "Customer contact form", marketing_consent,
         ))
         lead = q("SELECT * FROM intake_submissions WHERE id=?", (lead_id,), one=True)
-        customer_id = create_customer_from_intake(lead)
-        run("UPDATE intake_submissions SET customer_id=?, status='Waiting for review', updated_at=datetime('now') WHERE id=?", (customer_id, lead_id))
-        send_contact_form_owner_alerts(lead_id, customer_id)
+        if linked_customer_id:
+            run("UPDATE intake_submissions SET customer_id=?, status='Waiting for review', updated_at=datetime('now') WHERE id=?", (linked_customer_id, lead_id))
+        send_contact_form_owner_alerts(lead_id, linked_customer_id or None)
         return render_template("customer_intake_thanks.html", biz=settings(), public_mode=True)
     return render_template("customer_intake.html", biz=settings(), linked_customer=linked_customer, prefill=prefill, public_mode=True)
 
