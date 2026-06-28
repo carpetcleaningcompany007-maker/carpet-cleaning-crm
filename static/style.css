@@ -5972,3 +5972,57 @@ input[type=submit],
     line-height: 1.02 !important;
   }
 }
+
+/* Replace the old cleaning image with a map-style location visual on the customer form. */
+.public-page .customer-form-photo {
+  position: relative !important;
+  overflow: hidden !important;
+  background:
+    radial-gradient(circle at 50% 48%, rgba(29,115,183,.22) 0 3px, transparent 4px),
+    radial-gradient(circle at 50% 48%, rgba(29,115,183,.18) 0 18px, transparent 19px),
+    linear-gradient(35deg, transparent 0 45%, rgba(29,115,183,.18) 45% 48%, transparent 48% 100%),
+    linear-gradient(125deg, transparent 0 36%, rgba(38,157,142,.16) 36% 39%, transparent 39% 100%),
+    linear-gradient(90deg, rgba(255,255,255,.78) 0 1px, transparent 1px 42px),
+    linear-gradient(0deg, rgba(255,255,255,.78) 0 1px, transparent 1px 42px),
+    linear-gradient(135deg, #dff1ff 0%, #f7fbff 54%, #e7f8f2 100%) !important;
+  background-size:
+    auto,
+    auto,
+    auto,
+    auto,
+    42px 42px,
+    42px 42px,
+    auto !important;
+}
+
+.public-page .customer-form-photo::before {
+  content: "" !important;
+  position: absolute !important;
+  left: 50% !important;
+  top: 34% !important;
+  width: 46px !important;
+  height: 46px !important;
+  border-radius: 50% 50% 50% 0 !important;
+  background: linear-gradient(135deg, #1d73b7 0%, #25d366 100%) !important;
+  transform: translate(-50%, -50%) rotate(-45deg) !important;
+  box-shadow: 0 14px 34px rgba(29,115,183,.28) !important;
+}
+
+.public-page .customer-form-photo::after {
+  content: "" !important;
+  position: absolute !important;
+  left: 50% !important;
+  top: 34% !important;
+  width: 16px !important;
+  height: 16px !important;
+  border-radius: 50% !important;
+  background: #ffffff !important;
+  transform: translate(-50%, -50%) !important;
+  box-shadow: 0 0 0 5px rgba(255,255,255,.28) !important;
+}
+
+.public-page .customer-form-photo div {
+  position: relative !important;
+  z-index: 2 !important;
+  background: linear-gradient(180deg, rgba(7,23,39,.02) 0%, rgba(7,23,39,.82) 100%) !important;
+}
