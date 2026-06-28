@@ -55,7 +55,7 @@
           <span>Step 2</span>
           <div>
             <h2>Your address</h2>
-            <p>Please include the full address. What3Words is optional, but useful for hard-to-find properties.</p>
+            <p>Please include the full address. What3Words or a map pin is optional, but useful for hard-to-find properties.</p>
           </div>
         </div>
         <div class="customer-form-grid">
@@ -73,7 +73,7 @@
             <input id="map-pin-input" name="google_maps_link" inputmode="url" placeholder="Paste your shared map pin link here">
             <button class="customer-location-btn" type="button" id="use-location-btn">Add Google Maps location</button>
             <a class="customer-map-preview-link" id="map-pin-preview" href="" target="_blank" rel="noopener" hidden>Check location in Google Maps</a>
-            <span class="customer-field-help" id="map-pin-help">If you are at the property, tap the button and allow location access. We will add a Google Maps link automatically.</span>
+            <span class="customer-field-help" id="map-pin-help">Best used on a mobile phone while you are at the property. If location does not work, we can use the address instead.</span>
           </div>
         </div>
       </section>
@@ -203,6 +203,8 @@
     var button = document.getElementById("use-location-btn");
     var heroButton = document.getElementById("hero-location-btn");
     var input = document.getElementById("map-pin-input");
+    var addressInput = document.querySelector("[name='full_address']");
+    var postcodeInput = document.querySelector("[name='postcode']");
     var help = document.getElementById("map-pin-help");
     var preview = document.getElementById("map-pin-preview");
     if (!button || !input || !help) return;
@@ -217,42 +219,78 @@
       }
     }
 
-    function addGoogleMapsLocation(event) {
-      if (event) event.preventDefault();
-      var geolocation = window.navigator && window.navigator.geolocation;
-      if (!geolocation) {
-        help.textContent = "Your phone or browser cannot send location automatically. Please paste a shared map pin link.";
+    function setMapUrl(mapUrl, message) {
+      input.value = mapUrl;
+      if (preview) {
+        preview.href = mapUrl;
+        preview.hidden = false;
+      }
+      help.textContent = message;
+      setButtons(false, "Location added");
+    }
+
+    function addressMapUrl() {
+      var address = addressInput ? addressInput.value.trim() : "";
+      var postcode = postcodeInput ? postcodeInput.value.trim() : "";
+      var query = [address, postcode].filter(Boolean).join(", ");
+      return query ? "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(query) : "";
+    }
+
+    function addAddressMapLocation(message) {
+      var mapUrl = addressMapUrl();
+      if (mapUrl) {
+        setMapUrl(mapUrl, message || "Location added from the address you entered. Please check it opens the correct property before sending.");
+        return true;
+      }
+      return false;
+    }
+
+    function handleLocationError(error, allowFallback) {
+      if (allowFallback && error && error.code === 3) {
+        help.textContent = "Phone GPS is taking too long. Trying a quicker location check...";
+        requestLocation(false);
         return;
       }
-      if (preview) preview.hidden = true;
-      setButtons(true, "Finding location...");
-      help.textContent = "Please allow location access when your browser asks. This can take a few seconds on phones.";
+      setButtons(false, "Add Google Maps location");
+      if (addAddressMapLocation("GPS location was not available, so we added a Google Maps link from the address instead. Please check it before sending.")) return;
+      if (error && error.code === 1) {
+        help.textContent = "Location permission was blocked. Please allow location access in your browser, or paste a shared Google or Apple Maps pin link instead.";
+      } else if (error && error.code === 3) {
+        help.textContent = "Your phone or browser took too long to find the location. Please try again outside/near a window, or paste a shared map pin link.";
+      } else {
+        help.textContent = "Location was not added. Please try again, or paste a shared Google or Apple Maps pin link instead.";
+      }
+    }
+
+    function requestLocation(highAccuracy) {
+      var geolocation = window.navigator && window.navigator.geolocation;
       geolocation.getCurrentPosition(function (position) {
         var lat = position.coords.latitude.toFixed(6);
         var lng = position.coords.longitude.toFixed(6);
         var accuracy = Math.round(position.coords.accuracy || 0);
         var mapUrl = "https://www.google.com/maps?q=" + encodeURIComponent(lat + "," + lng) + "&z=18";
-        input.value = mapUrl;
-        if (preview) {
-          preview.href = mapUrl;
-          preview.hidden = false;
-        }
-        help.textContent = "Google Maps location added from this device" + (accuracy ? " (accuracy about " + accuracy + " metres)" : "") + ". Please check it opens the correct property before sending.";
-        setButtons(false, "Location added");
+        setMapUrl(mapUrl, "Google Maps location added from this device" + (accuracy ? " (accuracy about " + accuracy + " metres)" : "") + ". Please check it opens the correct property before sending.");
       }, function (error) {
-        setButtons(false, "Add Google Maps location");
-        if (error && error.code === 1) {
-          help.textContent = "Location permission was blocked. Please allow location access in your browser, or paste a shared Google or Apple Maps pin link instead.";
-        } else if (error && error.code === 3) {
-          help.textContent = "Your phone or browser took too long to find the location. Please try again outside/near a window, or paste a shared map pin link.";
-        } else {
-          help.textContent = "Location was not added. Please try again, or paste a shared Google or Apple Maps pin link instead.";
-        }
+        handleLocationError(error, highAccuracy);
       }, {
-        enableHighAccuracy: true,
-        timeout: 30000,
-        maximumAge: 60000
+        enableHighAccuracy: highAccuracy,
+        timeout: highAccuracy ? 30000 : 15000,
+        maximumAge: highAccuracy ? 60000 : 300000
       });
+    }
+
+    function addGoogleMapsLocation(event) {
+      if (event) event.preventDefault();
+      var geolocation = window.navigator && window.navigator.geolocation;
+      if (!geolocation) {
+        if (addAddressMapLocation()) return;
+        help.textContent = "Your phone or browser cannot send location automatically. Please paste a shared map pin link.";
+        return;
+      }
+      if (preview) preview.hidden = true;
+      setButtons(true, "Finding location...");
+      help.textContent = "Please allow location access when your phone asks. If GPS fails, we will try the address instead.";
+      requestLocation(true);
     }
 
     input.addEventListener("input", function () {
