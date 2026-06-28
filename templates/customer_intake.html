@@ -14,12 +14,12 @@
       <div class="customer-form-hero-grid">
         <div class="customer-form-hero-copy">
           <p class="customer-form-kicker">Quick contact form</p>
-          <h1>Send your details securely.</h1>
-          <p class="customer-form-lead">Please share your best contact details, full address and What3Words location if you have it. It goes straight into our CRM for review before we update your customer record.</p>
+          <h1>Help us quote and find you first time.</h1>
+          <p class="customer-form-lead">Share your contact details, address, access notes and a few photos if useful. It comes straight back to our CRM for review before we update your customer record.</p>
           <div class="customer-form-highlights">
-            <span>Mobile friendly</span>
-            <span>Reviewed by our team</span>
-            <span>No account needed</span>
+            <span>Fast on mobile</span>
+            <span>Photos welcome</span>
+            <span>Checked before Xero</span>
           </div>
         </div>
         <div class="customer-form-photo" aria-hidden="true">
@@ -31,8 +31,8 @@
       </div>
       <div class="customer-form-trust">
         <div><span>1</span><strong>Your details</strong></div>
-        <div><span>2</span><strong>Address</strong></div>
-        <div><span>3</span><strong>CRM review</strong></div>
+        <div><span>2</span><strong>Access</strong></div>
+        <div><span>3</span><strong>Photos</strong></div>
       </div>
     </header>
 
@@ -78,15 +78,92 @@
           <label>What3Words location
             <input name="what3words" placeholder="example: filled.count.soap">
           </label>
-          <label class="wide">Notes or access information
-            <textarea name="access_info" rows="3" placeholder="Parking, gates, flats, stairs, key safe, or anything useful"></textarea>
+        </div>
+      </section>
+
+      <section class="customer-form-card">
+        <div class="customer-form-card-head">
+          <span>Step 3</span>
+          <div>
+            <h2>Access and parking</h2>
+            <p>Anything that helps us arrive prepared, park safely and bring the right equipment.</p>
+          </div>
+        </div>
+        <div class="customer-form-grid">
+          <label>Parking near the property
+            <select name="parking_issues">
+              <option value="">Please choose</option>
+              <option>No parking issues</option>
+              <option>Street parking nearby</option>
+              <option>Permit or restricted parking</option>
+              <option>Driveway available</option>
+              <option>Parking may be difficult</option>
+            </select>
+          </label>
+          <label>Steps up or down?
+            <select name="steps_access">
+              <option value="">Please choose</option>
+              <option>No steps</option>
+              <option>A few steps</option>
+              <option>One flight of stairs</option>
+              <option>Two or more flights of stairs</option>
+              <option>Lift available</option>
+            </select>
+          </label>
+          <label>Property access
+            <select name="property_access">
+              <option value="">Please choose</option>
+              <option>House</option>
+              <option>Flat or apartment</option>
+              <option>Commercial premises</option>
+              <option>Gated access</option>
+              <option>Key safe or arranged access</option>
+            </select>
+          </label>
+          <label class="wide">Access notes
+            <textarea name="access_info" rows="3" placeholder="Gates, flats, lift, stairs, key safe, narrow access, pets, parking permits, or anything useful"></textarea>
           </label>
         </div>
       </section>
 
+      <section class="customer-form-card">
+        <div class="customer-form-card-head">
+          <span>Step 4</span>
+          <div>
+            <h2>Cleaning details</h2>
+            <p>A quick description helps us understand what you need before we call or quote.</p>
+          </div>
+        </div>
+        <div class="customer-form-grid">
+          <label class="wide">Rooms or areas to be cleaned
+            <textarea name="rooms_areas" rows="3" placeholder="Example: lounge, hall stairs landing, 3 bedrooms, sofa, rug"></textarea>
+          </label>
+          <label class="wide">Stains or problem areas
+            <textarea name="stains" rows="3" placeholder="Pet stains, drink spills, traffic lanes, heavy soiling, odours, marks, anything we should know"></textarea>
+          </label>
+          <label class="wide">Anything else you would like us to know?
+            <textarea name="additional_notes" rows="3" placeholder="Preferred times, urgency, special instructions, or any questions"></textarea>
+          </label>
+        </div>
+      </section>
+
+      <section class="customer-form-card customer-photo-card">
+        <div class="customer-form-card-head">
+          <span>Step 5</span>
+          <div>
+            <h2>Photos if possible</h2>
+            <p>Photos are optional, but they help us quote more accurately and spot access or stain issues.</p>
+          </div>
+        </div>
+        <label class="customer-upload-box">
+          <input type="file" name="photos" accept="image/*" multiple>
+          <strong>Tap to add photos</strong>
+          <span>Carpets, stairs, upholstery, stains, parking/access, or anything useful.</span>
+        </label>
+      </section>
+
       <input type="hidden" name="what_cleaned" value="Customer contact form">
       <input type="hidden" name="job_notes" value="Customer submitted contact/address details.">
-      <input type="hidden" name="rooms_areas" value="">
       <input type="hidden" name="google_maps_link" value="">
 
       <section class="customer-form-submit">

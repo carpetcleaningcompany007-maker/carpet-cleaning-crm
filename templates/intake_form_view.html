@@ -54,7 +54,11 @@
           <div class="preview-row"><strong>Google Maps</strong><span><a href="{{ lead.google_maps_link }}" target="_blank">Open map</a></span></div>
         {% endif %}
         {% if lead.photo_filename %}
-          <div class="preview-row"><strong>Photo</strong><span><a href="{{ url_for('uploaded_file', filename=lead.photo_filename) }}" target="_blank">{{ lead.photo_filename }}</a></span></div>
+          <div class="preview-row"><strong>Photos</strong><span>
+            {% for filename in lead.photo_filename.split(',') %}
+              {% if filename %}<a href="{{ url_for('uploaded_file', filename=filename) }}" target="_blank">{{ filename }}</a>{% if not loop.last %}<br>{% endif %}{% endif %}
+            {% endfor %}
+          </span></div>
         {% endif %}
       </div>
     </section>

@@ -159,6 +159,20 @@ def save_upload(field):
     return name
 
 
+def save_uploads(field):
+    files = [f for f in request.files.getlist(field) if f and f.filename]
+    if not files:
+        return ""
+    os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
+    saved = []
+    stamp = datetime.now().strftime("%Y%m%d%H%M%S_")
+    for idx, f in enumerate(files[:8], start=1):
+        name = f"{stamp}{idx}_" + secure_filename(f.filename)
+        f.save(os.path.join(app.config["UPLOAD_FOLDER"], name))
+        saved.append(name)
+    return ",".join(saved)
+
+
 def is_password_hash(value):
     value = (value or "").strip()
     return value.startswith("pbkdf2:") or value.startswith("scrypt:")
@@ -7667,16 +7681,25 @@ def booking_form():
         if email and not is_valid_email(email):
             flash("Please enter a valid email address.")
             return redirect(url_for("booking_form"))
-        photo_filename = save_upload("photo")
+        photo_filename = save_uploads("photos") or save_upload("photo")
         whatsapp_number = clean_str(request.form.get("whatsapp_number"))
         carpet_details = clean_str(request.form.get("carpet_details"))
         job_details = clean_str(request.form.get("job_notes"))
+        parking_issues = clean_str(request.form.get("parking_issues"))
+        steps_access = clean_str(request.form.get("steps_access"))
+        property_access = clean_str(request.form.get("property_access"))
         access_info = clean_str(request.form.get("access_info") or request.form.get("parking"))
+        parking_summary = "\n".join([part for part in [
+            f"Parking: {parking_issues}" if parking_issues else "",
+            f"Steps/access: {steps_access}" if steps_access else "",
+            f"Property/access type: {property_access}" if property_access else "",
+            f"Access notes: {access_info}" if access_info else "",
+        ] if part])
         job_notes = "\n".join([part for part in [
             job_details,
             f"WhatsApp number: {whatsapp_number}" if whatsapp_number else "",
             f"Carpet/upholstery details: {carpet_details}" if carpet_details else "",
-            f"Access information: {access_info}" if access_info else "",
+            parking_summary,
         ] if part])
         lead_id = run("""INSERT INTO intake_submissions
                (name, phone, email, full_address, postcode, google_maps_link, what3words, job_notes, rooms_areas,
@@ -7689,7 +7712,7 @@ def booking_form():
             clean_str(request.form.get("what_cleaned")), clean_str(request.form.get("number_rooms")),
             clean_str(request.form.get("upholstery")), clean_str(request.form.get("rugs")),
             clean_str(request.form.get("stains")), clean_str(request.form.get("pets")),
-            access_info, clean_str(request.form.get("preferred_days_times")),
+            parking_summary, clean_str(request.form.get("preferred_days_times")),
             clean_str(request.form.get("additional_notes")),
             clean_str(request.form.get("preferred_date")), clean_str(request.form.get("preferred_time")), photo_filename,
             linked_customer_id or None, "Waiting for review",
