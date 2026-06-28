@@ -6163,18 +6163,20 @@ input[type=submit],
 .public-page .customer-form-photo {
   border: 1px solid rgba(255, 255, 255, .9) !important;
   border-radius: 18px !important;
-  box-shadow: 0 24px 46px rgba(19, 57, 84, .16) !important;
+  box-shadow: 0 24px 46px rgba(19, 57, 84, .18) !important;
   background:
     radial-gradient(circle at 54% 42%, rgba(255,255,255,.96) 0 8px, transparent 9px),
-    radial-gradient(circle at 54% 42%, rgba(37,152,141,.95) 0 22px, transparent 23px),
-    radial-gradient(circle at 54% 42%, rgba(37,152,141,.22) 0 40px, transparent 42px),
-    radial-gradient(circle at 62% 58%, rgba(29,115,183,.20) 0 18px, transparent 19px),
-    linear-gradient(34deg, transparent 0 44%, rgba(55,142,201,.22) 44% 50%, transparent 50% 100%),
-    linear-gradient(125deg, transparent 0 40%, rgba(45,178,160,.20) 40% 46%, transparent 46% 100%),
-    linear-gradient(18deg, transparent 0 60%, rgba(246,214,122,.18) 60% 63%, transparent 63% 100%),
-    linear-gradient(90deg, rgba(255,255,255,.72) 0 1px, transparent 1px 42px),
-    linear-gradient(0deg, rgba(255,255,255,.72) 0 1px, transparent 1px 42px),
-    linear-gradient(135deg, #dff2ff 0%, #f9fcff 46%, #e8f7f4 100%) !important;
+    radial-gradient(circle at 54% 42%, rgba(12,150,130,.98) 0 23px, transparent 24px),
+    radial-gradient(circle at 54% 42%, rgba(12,150,130,.22) 0 46px, transparent 48px),
+    radial-gradient(circle at 26% 22%, rgba(108,205,128,.48) 0 58px, transparent 60px),
+    radial-gradient(circle at 80% 24%, rgba(93,184,232,.34) 0 70px, transparent 72px),
+    radial-gradient(circle at 76% 70%, rgba(246,214,122,.42) 0 76px, transparent 78px),
+    linear-gradient(34deg, transparent 0 42%, #64b5e8 42% 48%, #ffffff 48% 50%, transparent 50% 100%),
+    linear-gradient(124deg, transparent 0 38%, #48c2aa 38% 44%, #ffffff 44% 46%, transparent 46% 100%),
+    linear-gradient(78deg, transparent 0 58%, #f5c84c 58% 62%, #ffffff 62% 64%, transparent 64% 100%),
+    linear-gradient(90deg, rgba(255,255,255,.62) 0 1px, transparent 1px 42px),
+    linear-gradient(0deg, rgba(255,255,255,.62) 0 1px, transparent 1px 42px),
+    linear-gradient(135deg, #d8f1ff 0%, #f9fdff 38%, #dcf7ea 64%, #fff1b9 100%) !important;
   background-size:
     auto,
     auto,
