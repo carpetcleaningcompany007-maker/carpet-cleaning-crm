@@ -6186,3 +6186,22 @@ input[type=submit],
   cursor: wait !important;
   opacity: .78 !important;
 }
+
+.public-page .customer-map-preview-link {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 100% !important;
+  min-height: 46px !important;
+  margin-top: 10px !important;
+  border: 1px solid rgba(29, 115, 183, .28) !important;
+  border-radius: 12px !important;
+  background: #ffffff !important;
+  color: #155d94 !important;
+  font-weight: 950 !important;
+  text-decoration: none !important;
+}
+
+.public-page .customer-map-preview-link[hidden] {
+  display: none !important;
+}
