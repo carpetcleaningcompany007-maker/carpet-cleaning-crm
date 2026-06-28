@@ -6081,20 +6081,24 @@ input[type=submit],
   margin-top: 6px !important;
 }
 
-.public-page .customer-thanks-next-pill {
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  min-height: 46px !important;
-  margin: 10px 0 14px !important;
-  padding: 0 22px !important;
-  border: 1px solid rgba(29, 115, 183, .2) !important;
+.public-page .customer-thanks-next-heading {
+  position: relative !important;
+  margin: 26px 0 18px !important;
+  text-align: center !important;
+  color: #071727 !important;
+  font-size: 26px !important;
+  line-height: 1.15 !important;
+  font-weight: 950 !important;
+}
+
+.public-page .customer-thanks-next-heading::after {
+  content: "" !important;
+  display: block !important;
+  width: 72px !important;
+  height: 4px !important;
+  margin: 12px auto 0 !important;
   border-radius: 999px !important;
   background: linear-gradient(135deg, #1d73b7 0%, #5db8e8 100%) !important;
-  color: #ffffff !important;
-  font-weight: 950 !important;
-  letter-spacing: 0 !important;
-  box-shadow: 0 14px 28px rgba(29, 115, 183, .18) !important;
 }
 
 .public-page .customer-thanks-card-polished > p {
