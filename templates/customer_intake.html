@@ -7,7 +7,6 @@
       <div class="customer-form-brand">
         <img src="{% if biz.logo_filename %}{{ url_for('uploaded_file', filename=biz.logo_filename) }}{% else %}{{ url_for('static', filename='site/logo.webp') }}{% endif %}" alt="{{ biz.business_name or 'The Carpet Cleaning Company' }}">
         <div>
-          <span>Secure customer details</span>
           <strong>{{ biz.business_name or 'The Carpet Cleaning Company' }}</strong>
         </div>
       </div>
