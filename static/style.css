@@ -6115,6 +6115,8 @@ input[type=submit],
 }
 
 .public-page .customer-map-prompt {
+  appearance: none !important;
+  -webkit-appearance: none !important;
   display: block !important;
   width: 100% !important;
   min-height: 220px !important;
@@ -6124,6 +6126,7 @@ input[type=submit],
   text-decoration: none !important;
   color: inherit !important;
   cursor: pointer !important;
+  font: inherit !important;
   text-align: left !important;
 }
 
