@@ -2465,6 +2465,99 @@ def template_context_for_job(job):
     }
 
 
+def job_ready_checklist(job):
+    if not job:
+        return {"items": [], "ready": False, "missing": ["Job not found."]}
+    amount = 0
+    try:
+        amount = float(row_value(job, "amount", 0) or 0)
+    except (TypeError, ValueError):
+        amount = 0
+    name = customer_full_name(job)
+    checks = [
+        {
+            "label": "Customer details added",
+            "ok": bool(row_value(job, "customer_id") and name != "Customer"),
+            "help": "Add or link the customer record.",
+        },
+        {
+            "label": "Job details added",
+            "ok": bool(clean_str(row_value(job, "service_type")) or clean_str(row_value(job, "title"))),
+            "help": "Add the service type or job title.",
+        },
+        {
+            "label": "Price added",
+            "ok": amount > 0,
+            "help": "Add the agreed quote price.",
+        },
+        {
+            "label": "Date and time added",
+            "ok": bool(clean_str(row_value(job, "job_date")) and clean_str(row_value(job, "job_time"))),
+            "help": "Add the job date and start time.",
+        },
+        {
+            "label": "Address added",
+            "ok": bool(clean_str(row_value(job, "address")) and clean_str(row_value(job, "postcode"))),
+            "help": "Add the full address and postcode.",
+        },
+        {
+            "label": "Email and phone number added",
+            "ok": bool(clean_str(row_value(job, "email")) and clean_str(row_value(job, "phone"))),
+            "help": "Add the customer email address and mobile number.",
+        },
+        {
+            "label": "Quote/job notes added",
+            "ok": bool(clean_str(row_value(job, "notes"))),
+            "help": "Add notes such as rooms, access, parking, stains or agreed work.",
+        },
+    ]
+    missing = [item["help"] for item in checks if not item["ok"]]
+    return {
+        "checks": checks,
+        "ready": not missing,
+        "missing": missing,
+    }
+
+
+def job_calendar_note_text(job):
+    if not job:
+        return ""
+    job_url = crm_external_url("job_view", job_id=row_value(job, "id"))
+    customer_id = row_value(job, "customer_id")
+    customer_url = crm_external_url("customer_view", customer_id=customer_id) if customer_id else ""
+    service = clean_str(row_value(job, "service_type")) or clean_str(row_value(job, "title")) or "Not supplied"
+    try:
+        amount = float(row_value(job, "amount", 0) or 0)
+    except (TypeError, ValueError):
+        amount = 0
+    lines = [
+        "BOOKED JOB DETAILS",
+        "",
+        "CUSTOMER",
+        f"Name: {customer_full_name(job)}",
+        f"Phone: {row_value(job, 'phone') or 'Not supplied'}",
+        f"Email: {row_value(job, 'email') or 'Not supplied'}",
+        "",
+        "APPOINTMENT",
+        f"Date: {row_value(job, 'job_date') or 'Not supplied'}",
+        f"Arrival time: {row_value(job, 'job_time') or 'Not supplied'}",
+        f"Service: {service}",
+        f"Price: £{amount:.2f}" if amount > 0 else "Price: Not supplied",
+        "",
+        "ADDRESS",
+        customer_address_text(job) or "Not supplied",
+        "",
+        "JOB NOTES",
+        row_value(job, "notes") or "Not supplied",
+        "",
+        "CRM LINKS",
+        f"Job page: {job_url}",
+    ]
+    if customer_url:
+        lines.append(f"Customer record: {customer_url}")
+    return "\n".join(lines)
+
+
 def day_run_template_key(kind, channel):
     mapped = {
         ("coming", "email"): "today_run_coming_email",
@@ -5455,7 +5548,18 @@ def job_view(job_id):
     existing_invoice = q("SELECT id FROM invoices WHERE job_id=? AND IFNULL(status,'') <> 'Archived' ORDER BY id DESC LIMIT 1", (job_id,), one=True)
     recent_contacts = recent_customer_contacts(job["customer_id"] if job else None, 6)
     contact_summary = customer_contact_summary(job["customer_id"] if job else None, 30)
-    return render_template("job_view.html", job=job, is_archived=((job["status"] or "") == "Archived"), existing_invoice_id=(existing_invoice["id"] if existing_invoice else None), recent_contacts=recent_contacts, contact_summary=contact_summary)
+    ready_check = job_ready_checklist(job)
+    calendar_note = job_calendar_note_text(job)
+    return render_template(
+        "job_view.html",
+        job=job,
+        is_archived=((job["status"] or "") == "Archived"),
+        existing_invoice_id=(existing_invoice["id"] if existing_invoice else None),
+        recent_contacts=recent_contacts,
+        contact_summary=contact_summary,
+        ready_check=ready_check,
+        calendar_note=calendar_note,
+    )
 
 
 @app.route("/jobs/<int:job_id>/booking-email-preview")
@@ -5483,6 +5587,10 @@ def job_send_booking_confirmation(job_id):
         return redirect(url_for("jobs"))
     channel = clean_str(request.form.get("channel") or "email").lower()
     customer_id = row_value(job, "customer_id")
+    ready_check = job_ready_checklist(job)
+    if channel in {"email", "sms"} and not ready_check["ready"]:
+        flash("Booking confirmation not sent. Complete the required fields first: " + "; ".join(ready_check["missing"]))
+        return redirect(url_for("job_view", job_id=job_id))
     subject = message_template("booking_confirmation_email").get("subject") or "Your carpet cleaning booking is confirmed"
     text_body = booking_confirmation_text(job)
     if channel == "test_email":

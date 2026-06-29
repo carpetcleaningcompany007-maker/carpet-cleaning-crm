@@ -16,7 +16,9 @@
   </div>
   <div class="row-actions">
     <span class="price-pill">Price: £{{ '%.2f'|format(job.amount or 0) }}</span>
+    {% if job.customer_id %}
     <a class="btn secondary" href="{{ url_for('customer_view', customer_id=job.customer_id) }}">Customer Record</a>
+    {% endif %}
     <a class="btn secondary" href="{{ url_for('full_calendar') }}">Calendar</a>
   </div>
 </section>
@@ -53,6 +55,32 @@
       <strong>Booking confirmation</strong>
       <p>After you confirm the price and book the job, send the customer the proper confirmation email with date, arrival, total, prep notes and payment details.</p>
     </div>
+    <div class="ready-card {{ 'is-ready' if ready_check.ready else 'needs-work' }}" style="margin-bottom:16px;">
+      <div class="ready-card-head">
+        <div>
+          <strong>Job readiness checklist</strong>
+          {% if ready_check.ready %}
+          <p>All required fields have been added. This job is ready to confirm.</p>
+          {% else %}
+          <p>Complete the missing items below before sending the customer confirmation.</p>
+          {% endif %}
+        </div>
+      </div>
+      <div class="ready-list">
+        {% for item in ready_check.checks %}
+        <div class="ready-row {{ 'done' if item.ok else 'missing' }}">
+          <span>{{ 'Yes' if item.ok else 'No' }}</span>
+          <strong>{{ item.label }}</strong>
+          {% if not item.ok %}<em>{{ item.help }}</em>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% if ready_check.ready %}
+      <div class="confirm-prompt">
+        <strong>Would you like to send the booking confirmation now?</strong>
+      </div>
+      {% endif %}
+    </div>
     <div class="row-actions" style="margin-bottom:16px;">
       <a class="btn secondary" href="{{ url_for('job_booking_email_preview', job_id=job.id) }}" target="_blank">Preview Booking Email</a>
       <form method="post" action="{{ url_for('job_send_booking_confirmation', job_id=job.id) }}">
@@ -61,13 +89,17 @@
       </form>
       <form method="post" action="{{ url_for('job_send_booking_confirmation', job_id=job.id) }}">
         <input type="hidden" name="channel" value="email">
-        <button class="btn primary">Send Email To Customer</button>
+        <button class="btn primary" {% if not ready_check.ready %}disabled title="Complete the checklist first"{% endif %}>Send Email To Customer</button>
       </form>
       <form method="post" action="{{ url_for('job_send_booking_confirmation', job_id=job.id) }}">
         <input type="hidden" name="channel" value="sms">
-        <button class="btn secondary">Send SMS To Customer</button>
+        <button class="btn secondary" {% if not ready_check.ready %}disabled title="Complete the checklist first"{% endif %}>Send SMS To Customer</button>
       </form>
     </div>
+    <details class="copy-note" style="margin-bottom:16px;">
+      <summary>Copy job details for calendar</summary>
+      <textarea readonly>{{ calendar_note }}</textarea>
+    </details>
     {% if existing_invoice_id %}
     <p>This job already has a live invoice.</p>
     <a class="btn secondary" href="{{ url_for('invoice_view', invoice_id=existing_invoice_id) }}">Open Existing Invoice</a>
