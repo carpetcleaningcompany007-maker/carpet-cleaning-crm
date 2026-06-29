@@ -1344,8 +1344,8 @@ DEFAULT_MESSAGE_TEMPLATES = {
         "subject": "",
         "body": "New enquiry\nName: {{name}}\nPhone: {{phone}}\nEmail: {{email}}\nPostcode: {{postcode}}\nService: {{service}}\nMessage: {{message}}",
     },
-    "booking_confirmation_email": {"name": "Booking confirmation email", "subject": "Your clean is booked", "body": "Hi {{name}},\n\nYour clean is booked.\n\nDate: {{date}}\nArrival: {{time}}\nPrice: {{total}}\nAddress: {{address}}\n\nThanks\nPaul\n{{business_name}}"},
-    "booking_confirmation_sms": {"name": "Booking confirmation SMS", "subject": "", "body": "Hi {{name}}, your clean is booked for {{date}} at {{time}}. Total: {{total}}. Please clear small items and save parking if possible. Thanks, Paul - {{business_name}}"},
+    "booking_confirmation_email": {"name": "Booking confirmation email", "subject": "Your carpet clean is booked in", "body": "Hi {{name}},\n\nYour carpet clean is booked in.\n\nDate: {{date}}\nArrival: {{time}}\nPrice: {{total}}\nAddress: {{address}}\n\nThanks\nPaul\n{{business_name}}"},
+    "booking_confirmation_sms": {"name": "Booking confirmation SMS", "subject": "", "body": "Hi {{name}}, your carpet clean is booked in for {{date}} at {{time}}. Total: {{total}}. Please clear small items and save parking if possible. Thanks, Paul - {{business_name}}"},
     "today_run_coming_email": {
         "name": "Today Run - we are on our way email",
         "subject": "We are on our way",
@@ -2759,7 +2759,7 @@ def booking_confirmation_text(job):
     notes = clean_str(row_value(job, "notes")) or "Your booking has been confirmed. Please let us know if anything changes before we arrive."
     return (
         f"Hi {first_name},\n\n"
-        f"Your clean is booked with {business}.\n\n"
+        f"Your carpet clean is booked in with {business}.\n\n"
         f"Date: {job_date}\n"
         f"Arrival: {job_time}\n"
         f"Total: £{amount:.2f}\n"
@@ -2798,7 +2798,7 @@ def booking_confirmation_email_html(job):
 <html>
 <head><meta charset="utf-8"></head>
 <body style="margin:0;background:#edf5f2;font-family:Arial,Helvetica,sans-serif;color:#0b1f33">
-  <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent">Your clean is booked. Below is your appointment summary, preparation checklist and payment information.</div>
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent">Your carpet clean is booked in. Below is your appointment summary, preparation checklist and payment information.</div>
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#edf5f2;margin:0;padding:0">
     <tr>
       <td align="center" style="padding:28px 14px">
@@ -2818,7 +2818,7 @@ def booking_confirmation_email_html(job):
                     </table>
                     <div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#967024;font-weight:800">{html_lib.escape(business)}</div>
                     <div style="display:inline-block;background:#d8af55;color:#071524;border-radius:999px;padding:6px 12px;font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.04em;margin-top:12px">Booking confirmed</div>
-                    <h1 style="margin:12px 0 0;font-size:30px;line-height:1.16;color:#071524">{html_lib.escape(first_name)},<br>your clean is booked.</h1>
+                    <h1 style="margin:12px 0 0;font-size:30px;line-height:1.16;color:#071524">{html_lib.escape(first_name)},<br>your carpet clean is booked in.</h1>
                     <p style="margin:9px auto 0;max-width:510px;font-size:16px;line-height:1.55;color:#385066">Thanks for choosing <strong>{html_lib.escape(business)}</strong>. Below is your appointment summary, preparation checklist and payment information.</p>
                   </td>
                 </tr>
@@ -3805,15 +3805,29 @@ def init_db():
         """UPDATE message_templates
               SET body=?, updated_at=datetime('now')
             WHERE template_key='booking_confirmation_email'
-              AND body NOT LIKE '%{{total}}%'""",
+              AND (
+                    body NOT LIKE '%{{total}}%'
+                 OR body LIKE '%Your clean is booked%'
+                 OR body LIKE '%your clean is booked%'
+              )""",
         (DEFAULT_MESSAGE_TEMPLATES["booking_confirmation_email"]["body"],),
     )
     conn.execute(
         """UPDATE message_templates
               SET body=?, updated_at=datetime('now')
             WHERE template_key='booking_confirmation_sms'
-              AND body NOT LIKE '%{{total}}%'""",
+              AND (
+                    body NOT LIKE '%{{total}}%'
+                 OR body LIKE '%your clean is booked%'
+              )""",
         (DEFAULT_MESSAGE_TEMPLATES["booking_confirmation_sms"]["body"],),
+    )
+    conn.execute(
+        """UPDATE message_templates
+              SET subject=?, updated_at=datetime('now')
+            WHERE template_key='booking_confirmation_email'
+              AND subject IN ('Your clean is booked', 'Booking confirmation')""",
+        (DEFAULT_MESSAGE_TEMPLATES["booking_confirmation_email"]["subject"],),
     )
     conn.execute(
         """UPDATE message_templates
