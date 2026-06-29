@@ -15,6 +15,7 @@
     <p>{{ job.first_name or '' }} {{ job.last_name or '' }}</p>
   </div>
   <div class="row-actions">
+    <span class="price-pill">Price: £{{ '%.2f'|format(job.amount or 0) }}</span>
     <a class="btn secondary" href="{{ url_for('customer_view', customer_id=job.customer_id) }}">Customer Record</a>
     <a class="btn secondary" href="{{ url_for('full_calendar') }}">Calendar</a>
   </div>
@@ -24,10 +25,16 @@
   <section class="panel">
     <div class="panel-head"><h3>Edit Job</h3></div>
     <form method="post" action="{{ url_for('job_edit', job_id=job.id) }}" class="form">
-      <input name="title" value="{{ job.title }}">
-      <div class="cols"><input name="service_type" value="{{ job.service_type or '' }}" placeholder="Service type"><input type="date" name="job_date" value="{{ job.job_date or '' }}"></div>
-      <div class="cols"><input type="time" name="job_time" value="{{ job.job_time or '' }}"><input name="amount" type="number" step="0.01" value="{{ job.amount or 0 }}"></div>
-      <input name="assigned_to" value="{{ job.assigned_to or '' }}" placeholder="Assigned to">
+      <label>Job title<input name="title" value="{{ job.title }}"></label>
+      <div class="cols">
+        <label>Service type<input name="service_type" value="{{ job.service_type or '' }}" placeholder="Service type"></label>
+        <label>Job date<input type="date" name="job_date" value="{{ job.job_date or '' }}"></label>
+      </div>
+      <div class="cols">
+        <label>Start time<input type="time" name="job_time" value="{{ job.job_time or '' }}"></label>
+        <label>Price / agreed quote<input name="amount" type="number" min="0" step="0.01" value="{{ job.amount or 0 }}" placeholder="0.00"></label>
+      </div>
+      <label>Assigned to<input name="assigned_to" value="{{ job.assigned_to or '' }}" placeholder="Assigned to"></label>
       <select name="status">{% for s in ['Lead','Quoted','Booked','Reminder Sent','In Progress','Completed','Invoiced','Paid'] %}<option {% if job.status==s %}selected{% endif %}>{{ s }}</option>{% endfor %}</select>
       <textarea name="notes" placeholder="Arrival notes, access, stains, rooms, parking">{{ job.notes or '' }}</textarea>
       <button class="btn primary">Save Job</button>

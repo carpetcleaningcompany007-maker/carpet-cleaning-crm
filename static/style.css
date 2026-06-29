@@ -1361,6 +1361,7 @@ input:focus, select:focus, textarea:focus { outline:none; border-color:color-mix
 .customer-hero, .doc-hero { padding:22px; display:flex; justify-content:space-between; gap:16px; margin-bottom:18px; }
 .avatar { width:72px; height:72px; display:grid; place-items:center; border-radius:18px; background:linear-gradient(135deg, color-mix(in srgb, var(--accent) 70%, white), color-mix(in srgb, var(--accent) 95%, #111)); color:#fff; font-size:24px; font-weight:800; }
 .badge-row, .row-actions, .top-actions, .quick-actions, .stack-inline, .appearance-actions, .theme-presets, .studio-top-actions, .studio-mini-actions { display:flex; gap:8px; flex-wrap:wrap; }
+.price-pill { display:inline-flex; align-items:center; justify-content:center; min-height:40px; padding:0 14px; border-radius:999px; background:#e8f5ff; border:1px solid #b9dff6; color:#0f4f7c; font-weight:900; white-space:nowrap; }
 .badge-row span { padding:7px 10px; border-radius:999px; background:#f6f7f8; border:1px solid var(--line); font-size:12px; }
 .timeline { display:grid; gap:12px; }
 .timeline-item { padding:14px; border-left:4px solid color-mix(in srgb, var(--accent) 75%, #666); }

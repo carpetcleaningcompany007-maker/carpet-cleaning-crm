@@ -1344,7 +1344,7 @@ DEFAULT_MESSAGE_TEMPLATES = {
         "subject": "",
         "body": "New enquiry\nName: {{name}}\nPhone: {{phone}}\nEmail: {{email}}\nPostcode: {{postcode}}\nService: {{service}}\nMessage: {{message}}",
     },
-    "booking_confirmation_email": {"name": "Booking confirmation email", "subject": "Your clean is booked", "body": "Hi {{name}},\n\nYour clean is booked.\n\nDate: {{date}}\nArrival: {{time}}\nAddress: {{address}}\n\nThanks\nPaul\n{{business_name}}"},
+    "booking_confirmation_email": {"name": "Booking confirmation email", "subject": "Your clean is booked", "body": "Hi {{name}},\n\nYour clean is booked.\n\nDate: {{date}}\nArrival: {{time}}\nPrice: {{total}}\nAddress: {{address}}\n\nThanks\nPaul\n{{business_name}}"},
     "booking_confirmation_sms": {"name": "Booking confirmation SMS", "subject": "", "body": "Hi {{name}}, your clean is booked for {{date}} at {{time}}. Total: {{total}}. Please clear small items and save parking if possible. Thanks, Paul - {{business_name}}"},
     "today_run_coming_email": {
         "name": "Today Run - we are on our way email",
@@ -3800,6 +3800,20 @@ def init_db():
             "Thank you for contacting The Carpet Cleaning Company. We have received your enquiry and Paul will call you from 07802 563213. Please follow us on Facebook to see our work: https://www.facebook.com/profile.php?id=61559013150413 Google reviews: https://share.google/XHQjHHLwpmlugHP0c",
             "Thank you for contacting The Carpet Cleaning Company. We have received your enquiry. Please follow us on Facebook to see our work: https://www.facebook.com/profile.php?id=61559013150413 Google reviews: https://share.google/XHQjHHLwpmlugHP0c",
         ),
+    )
+    conn.execute(
+        """UPDATE message_templates
+              SET body=?, updated_at=datetime('now')
+            WHERE template_key='booking_confirmation_email'
+              AND body NOT LIKE '%{{total}}%'""",
+        (DEFAULT_MESSAGE_TEMPLATES["booking_confirmation_email"]["body"],),
+    )
+    conn.execute(
+        """UPDATE message_templates
+              SET body=?, updated_at=datetime('now')
+            WHERE template_key='booking_confirmation_sms'
+              AND body NOT LIKE '%{{total}}%'""",
+        (DEFAULT_MESSAGE_TEMPLATES["booking_confirmation_sms"]["body"],),
     )
     conn.execute(
         """UPDATE message_templates
