@@ -3916,7 +3916,7 @@ def booking_form_url(customer=None, prefill=None):
     params = {}
     if customer:
         params["customer_id"] = customer["id"]
-    for key in ("name", "phone", "email"):
+    for key in ("name", "phone", "email", "preferred_date", "preferred_time", "preferred_days_times"):
         value = clean_str((prefill or {}).get(key))
         if value:
             params[key] = value
@@ -4360,11 +4360,21 @@ def send_contact_form():
         recipient_name = clean_str(request.form.get("name"))
         email_to = clean_str(request.form.get("email"))
         sms_to = clean_str(request.form.get("phone"))
+        preferred_date = clean_str(request.form.get("preferred_date"))
+        preferred_time = clean_str(request.form.get("preferred_time"))
+        preferred_days_times = clean_str(request.form.get("preferred_days_times"))
         if request.form.get("use_test_details") == "1":
             recipient_name = recipient_name or "Paul"
             email_to = clean_str(row_value(s, "test_email"))
             sms_to = clean_str(row_value(s, "sms_test_number"))
-        prefill = {"name": recipient_name, "phone": sms_to, "email": email_to}
+        prefill = {
+            "name": recipient_name,
+            "phone": sms_to,
+            "email": email_to,
+            "preferred_date": preferred_date,
+            "preferred_time": preferred_time,
+            "preferred_days_times": preferred_days_times,
+        }
         form_link = booking_form_url(prefill=prefill)
         message = send_standalone_contact_form_message(form_link, recipient_name)
         send_email = request.form.get("send_email") == "1"
@@ -4701,6 +4711,9 @@ def customer_send_contact_form(customer_id):
     recipient_name = clean_str(request.form.get("name")) or customer_name(customer)
     email_to = clean_str(request.form.get("email")) or clean_str(customer["email"])
     sms_to = clean_str(request.form.get("phone")) or clean_str(customer["phone"])
+    preferred_date = clean_str(request.form.get("preferred_date"))
+    preferred_time = clean_str(request.form.get("preferred_time"))
+    preferred_days_times = clean_str(request.form.get("preferred_days_times"))
     send_email = request.form.get("send_email") == "1"
     send_sms = request.form.get("send_sms") == "1"
     if not send_email and not send_sms:
@@ -4709,7 +4722,14 @@ def customer_send_contact_form(customer_id):
     if customer["sms_opt_out"]:
         send_sms = False
 
-    prefill = {"name": recipient_name, "phone": sms_to, "email": email_to}
+    prefill = {
+        "name": recipient_name,
+        "phone": sms_to,
+        "email": email_to,
+        "preferred_date": preferred_date,
+        "preferred_time": preferred_time,
+        "preferred_days_times": preferred_days_times,
+    }
     form_link = booking_form_url(customer, prefill=prefill)
     message = booking_form_message(customer, form_link=form_link, recipient_name=recipient_name)
     results = []
@@ -7864,6 +7884,9 @@ def booking_form():
         "name": clean_str(request.values.get("name")),
         "phone": clean_str(request.values.get("phone")),
         "email": clean_str(request.values.get("email")),
+        "preferred_date": clean_str(request.values.get("preferred_date")),
+        "preferred_time": clean_str(request.values.get("preferred_time")),
+        "preferred_days_times": clean_str(request.values.get("preferred_days_times")),
     }
     if request.method == "POST":
         name = clean_str(request.form.get("name"))

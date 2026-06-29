@@ -125,6 +125,27 @@
         <div class="customer-form-card-head">
           <span>Step 4</span>
           <div>
+            <h2>Booking date and time</h2>
+            <p>If we have suggested a booking slot, it will appear here. Please check it and edit or add anything useful.</p>
+          </div>
+        </div>
+        <div class="customer-form-grid">
+          <label>Proposed booking date
+            <input type="date" name="preferred_date" value="{{ prefill.preferred_date or '' }}">
+          </label>
+          <label>Proposed booking time
+            <input type="time" name="preferred_time" value="{{ prefill.preferred_time or '' }}">
+          </label>
+          <label class="wide">Preferred dates or times
+            <textarea name="preferred_days_times" rows="3" placeholder="Add anything useful about dates, times or availability">{{ prefill.preferred_days_times or '' }}</textarea>
+          </label>
+        </div>
+      </section>
+
+      <section class="customer-form-card">
+        <div class="customer-form-card-head">
+          <span>Step 5</span>
+          <div>
             <h2>Cleaning details</h2>
             <p>A quick description helps us understand what you need before we call and quote.</p>
           </div>
@@ -147,7 +168,7 @@
 
       <section class="customer-form-card customer-photo-card">
         <div class="customer-form-card-head">
-          <span>Step 5</span>
+          <span>Step 6</span>
           <div>
             <h2>A few photos would be useful</h2>
             <p>Please add photos of the areas, stains, upholstery, stairs or access where you can. They help us quote more accurately and prepare properly.</p>
