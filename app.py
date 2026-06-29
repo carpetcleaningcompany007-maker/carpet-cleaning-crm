@@ -2778,7 +2778,7 @@ def booking_confirmation_email_html(job):
     business = settings()["business_name"] or "The Carpet Cleaning Company"
     logo_url = public_static_or_live_url("site/email-logo-white.png")
     hero_url = public_static_or_live_url("site/hero-carpet-cleaning.webp")
-    technician_url = public_static_or_live_url("site/paul-technician.jpg")
+    technician_url = public_static_or_live_url("site/paul-technician-v2.jpg")
     website_url = enquiry_public_site_url()
     reviews_url = settings()["review_link"] or "https://share.google/XHQjHHLwpmlugHP0c"
     service = clean_str(row_value(job, "service_type")) or clean_str(row_value(job, "title")) or "Carpet cleaning"
