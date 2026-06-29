@@ -2778,6 +2778,7 @@ def booking_confirmation_email_html(job):
     business = settings()["business_name"] or "The Carpet Cleaning Company"
     logo_url = public_static_or_live_url("site/email-logo-white.png")
     hero_url = public_static_or_live_url("site/hero-carpet-cleaning.webp")
+    technician_url = public_static_or_live_url("site/paul-technician.jpg")
     website_url = enquiry_public_site_url()
     reviews_url = settings()["review_link"] or "https://share.google/XHQjHHLwpmlugHP0c"
     service = clean_str(row_value(job, "service_type")) or clean_str(row_value(job, "title")) or "Carpet cleaning"
@@ -2843,7 +2844,7 @@ def booking_confirmation_email_html(job):
                 <tr>
                   <td width="50%" valign="top" style="padding:0 6px 0 0">
                     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f7fbf8;border:1px solid #d8e8df;border-radius:18px">
-                      <tr><td style="padding:18px"><div style="font-size:11px;font-weight:900;text-transform:uppercase;color:#0d6b58;letter-spacing:.04em">Your technician</div><table role="presentation" cellspacing="0" cellpadding="0" style="margin-top:10px"><tr><td style="padding-right:12px"><span style="display:inline-block;width:48px;height:48px;border-radius:999px;background:#071524;color:#ffffff;font-size:15px;font-weight:900;line-height:48px;text-align:center">PN</span></td><td><strong style="font-size:16px;color:#071524">Paul Nicholas</strong><br><span style="font-size:13px;line-height:1.45;color:#54677a">Owner operator<br>The Carpet Cleaning Company</span></td></tr></table><p style="margin:12px 0 0;font-size:14px;line-height:1.55;color:#54677a">I'll be carrying out your clean and will call ahead if traffic or access causes a delay.</p></td></tr>
+                      <tr><td style="padding:18px"><div style="font-size:11px;font-weight:900;text-transform:uppercase;color:#0d6b58;letter-spacing:.04em">Your technician</div><table role="presentation" cellspacing="0" cellpadding="0" style="margin-top:10px"><tr><td style="padding-right:12px"><img src="{html_lib.escape(technician_url)}" alt="Paul Nicholas" width="54" height="54" style="display:block;width:54px;height:54px;border-radius:999px;border:2px solid #d8af55;object-fit:cover"></td><td><strong style="font-size:16px;color:#071524">Paul Nicholas</strong><br><span style="font-size:13px;line-height:1.45;color:#54677a">Owner operator<br>The Carpet Cleaning Company</span></td></tr></table><p style="margin:12px 0 0;font-size:14px;line-height:1.55;color:#54677a">I'll be carrying out your clean and will call ahead if traffic or access causes a delay.</p></td></tr>
                     </table>
                   </td>
                   <td width="50%" valign="top" style="padding:0 0 0 6px">
