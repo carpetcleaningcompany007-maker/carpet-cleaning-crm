@@ -1804,6 +1804,14 @@ def format_intake_access_text(lead):
     return "\n".join(lines) or "Not supplied"
 
 
+def format_intake_quote_price(lead):
+    try:
+        amount = float(row_get(lead, "agreed_quote_price") or 0)
+    except (TypeError, ValueError):
+        amount = 0
+    return f"£{amount:.2f}" if amount > 0 else "Not supplied"
+
+
 def customer_name_matches_intake(lead, customer):
     if not lead or not customer:
         return False
@@ -1839,6 +1847,7 @@ def intake_calendar_note_text(lead, customer_id=None):
     message_actions_url = f"{customer_url}#customer-message-actions" if customer_url else ""
     job_details = clean_intake_job_notes(lead) or "Not supplied"
     access_details = format_intake_access_text(lead)
+    quote_price = format_intake_quote_price(lead)
     action_lines = [
         f"Review and approve for Xero: {review_url}",
         f"Calendar/email note: {note_url}",
@@ -1871,6 +1880,7 @@ def intake_calendar_note_text(lead, customer_id=None):
         "",
         "CLEANING DETAILS",
         f"Call and quote: {row_get(lead, 'what_cleaned') or 'Not supplied'}",
+        f"Agreed quote price: {quote_price}",
         f"Rooms or areas: {row_get(lead, 'rooms_areas') or 'Not supplied'}",
         f"Description: {job_details}",
         "",
@@ -1892,6 +1902,7 @@ def contact_form_alert_text(lead, customer_id=None):
     message_actions_url = f"{customer_url}#customer-message-actions" if customer_url else ""
     job_details = clean_intake_job_notes(lead) or "Not supplied"
     access_details = format_intake_access_text(lead)
+    quote_price = format_intake_quote_price(lead)
     lines = [
         "CUSTOMER FORM COMPLETED",
         "",
@@ -1920,6 +1931,7 @@ def contact_form_alert_text(lead, customer_id=None):
         "",
         "4. JOB",
         f"Call and quote: {row_get(lead, 'what_cleaned') or 'Not supplied'}",
+        f"Agreed price: {quote_price}",
         f"Rooms/areas: {row_get(lead, 'rooms_areas') or 'Not supplied'}",
         f"Details: {job_details}",
         "",
@@ -1940,6 +1952,7 @@ def contact_form_alert_html(lead, customer_id=None):
     message_actions_url = f"{customer_url}#customer-message-actions" if customer_url else ""
     safe = html_lib.escape
     job_details = clean_intake_job_notes(lead) or "Not supplied"
+    quote_price = format_intake_quote_price(lead)
     map_pin_html = (
         f'<a href="{safe(lead["google_maps_link"])}">Open map pin</a><br><span style="font-size:13px;color:#58708a">{safe(lead["google_maps_link"])}</span>'
         if lead["google_maps_link"] else "Not supplied"
@@ -1970,6 +1983,7 @@ def contact_form_alert_html(lead, customer_id=None):
         <tr><td style="padding:9px;border-bottom:1px solid #dde7ef"><strong>What3Words</strong></td><td style="padding:9px;border-bottom:1px solid #dde7ef">{safe(lead['what3words'] or 'Not supplied')}</td></tr>
         <tr><td style="padding:9px;border-bottom:1px solid #dde7ef"><strong>Rooms or areas</strong></td><td style="padding:9px;border-bottom:1px solid #dde7ef">{safe(row_get(lead, 'rooms_areas') or 'Not supplied')}</td></tr>
         <tr><td style="padding:9px;border-bottom:1px solid #dde7ef"><strong>Service</strong></td><td style="padding:9px;border-bottom:1px solid #dde7ef">{safe(row_get(lead, 'what_cleaned') or 'Not supplied')}</td></tr>
+        <tr><td style="padding:9px;border-bottom:1px solid #dde7ef"><strong>Agreed quote price</strong></td><td style="padding:9px;border-bottom:1px solid #dde7ef">{safe(quote_price)}</td></tr>
         <tr><td style="padding:9px;border-bottom:1px solid #dde7ef"><strong>Job details</strong></td><td style="padding:9px;border-bottom:1px solid #dde7ef">{safe(job_details)}</td></tr>
         <tr><td style="padding:9px;border-bottom:1px solid #dde7ef"><strong>Access / parking</strong></td><td style="padding:9px;border-bottom:1px solid #dde7ef">{safe(row_get(lead, 'parking') or 'Not supplied')}</td></tr>
         <tr><td style="padding:9px;border-bottom:1px solid #dde7ef"><strong>Preferred dates or times</strong></td><td style="padding:9px;border-bottom:1px solid #dde7ef">{safe(row_get(lead, 'preferred_days_times') or 'Not supplied')}</td></tr>
@@ -3561,6 +3575,7 @@ def init_db():
         email TEXT,
         full_address TEXT,
         postcode TEXT,
+        agreed_quote_price REAL DEFAULT 0,
         google_maps_link TEXT,
         what3words TEXT,
         job_notes TEXT,
@@ -3734,6 +3749,7 @@ def init_db():
         ("intake_submissions", "review_notes", "TEXT DEFAULT ''"),
         ("intake_submissions", "customer_id", "INTEGER"),
         ("intake_submissions", "job_id", "INTEGER"),
+        ("intake_submissions", "agreed_quote_price", "REAL DEFAULT 0"),
         ("intake_submissions", "xero_contact_id", "TEXT DEFAULT ''"),
         ("intake_submissions", "xero_sent_at", "TEXT DEFAULT ''"),
         ("intake_submissions", "xero_error", "TEXT DEFAULT ''"),
@@ -3916,7 +3932,7 @@ def booking_form_url(customer=None, prefill=None):
     params = {}
     if customer:
         params["customer_id"] = customer["id"]
-    for key in ("name", "phone", "email", "preferred_date", "preferred_time", "preferred_days_times"):
+    for key in ("name", "phone", "email", "preferred_date", "preferred_time", "preferred_days_times", "agreed_quote_price"):
         value = clean_str((prefill or {}).get(key))
         if value:
             params[key] = value
@@ -4042,6 +4058,7 @@ def create_intake_from_website_payload(data, source="Website form", photo_filena
     additional_notes = request_value(data, "additional_notes", "notes", "message", "comments", "access_info", "job_notes")
     preferred_date = request_value(data, "preferred_date", "date")
     preferred_time = request_value(data, "preferred_time", "time")
+    agreed_quote_price = parse_money(request_value(data, "agreed_quote_price", "quote_price", "price"), 0)
     marketing_consent = request_value(data, "marketing_consent", "marketing", "consent")
     if not name:
         name = "Website Customer"
@@ -4052,12 +4069,12 @@ def create_intake_from_website_payload(data, source="Website form", photo_filena
         additional_notes,
     ] if part])
     lead_id = run("""INSERT INTO intake_submissions
-           (name, phone, email, full_address, postcode, google_maps_link, what3words, job_notes, rooms_areas,
+           (name, phone, email, full_address, postcode, agreed_quote_price, google_maps_link, what3words, job_notes, rooms_areas,
             what_cleaned, number_rooms, upholstery, rugs, stains, pets, parking, preferred_days_times, additional_notes,
             preferred_date, preferred_time, photo_filename, status, source, marketing_consent,
             xero_sync_status, customer_email_status, customer_sms_status, owner_email_status, owner_sms_status, follow_up_status)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", (
-        name, phone, email, address, postcode, google_maps_link, what3words, notes, rooms_areas,
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", (
+        name, phone, email, address, postcode, agreed_quote_price, google_maps_link, what3words, notes, rooms_areas,
         what_cleaned, number_rooms, upholstery, rugs, stains, pets, parking, preferred, additional_notes,
         preferred_date, preferred_time, photo_filename, "Waiting for review", source, marketing_consent,
         "Pending", "Pending", "Pending", "Pending", "Pending", "Follow up required",
@@ -4363,6 +4380,7 @@ def send_contact_form():
         preferred_date = clean_str(request.form.get("preferred_date"))
         preferred_time = clean_str(request.form.get("preferred_time"))
         preferred_days_times = clean_str(request.form.get("preferred_days_times"))
+        agreed_quote_price = clean_str(request.form.get("agreed_quote_price"))
         if request.form.get("use_test_details") == "1":
             recipient_name = recipient_name or "Paul"
             email_to = clean_str(row_value(s, "test_email"))
@@ -4374,6 +4392,7 @@ def send_contact_form():
             "preferred_date": preferred_date,
             "preferred_time": preferred_time,
             "preferred_days_times": preferred_days_times,
+            "agreed_quote_price": agreed_quote_price,
         }
         form_link = booking_form_url(prefill=prefill)
         message = send_standalone_contact_form_message(form_link, recipient_name)
@@ -4714,6 +4733,7 @@ def customer_send_contact_form(customer_id):
     preferred_date = clean_str(request.form.get("preferred_date"))
     preferred_time = clean_str(request.form.get("preferred_time"))
     preferred_days_times = clean_str(request.form.get("preferred_days_times"))
+    agreed_quote_price = clean_str(request.form.get("agreed_quote_price"))
     send_email = request.form.get("send_email") == "1"
     send_sms = request.form.get("send_sms") == "1"
     if not send_email and not send_sms:
@@ -4729,6 +4749,7 @@ def customer_send_contact_form(customer_id):
         "preferred_date": preferred_date,
         "preferred_time": preferred_time,
         "preferred_days_times": preferred_days_times,
+        "agreed_quote_price": agreed_quote_price,
     }
     form_link = booking_form_url(customer, prefill=prefill)
     message = booking_form_message(customer, form_link=form_link, recipient_name=recipient_name)
@@ -7887,6 +7908,7 @@ def booking_form():
         "preferred_date": clean_str(request.values.get("preferred_date")),
         "preferred_time": clean_str(request.values.get("preferred_time")),
         "preferred_days_times": clean_str(request.values.get("preferred_days_times")),
+        "agreed_quote_price": clean_str(request.values.get("agreed_quote_price")),
     }
     if request.method == "POST":
         name = clean_str(request.form.get("name"))
@@ -7927,11 +7949,12 @@ def booking_form():
             f"Carpet/upholstery details: {carpet_details}" if carpet_details else "",
         ] if part])
         lead_id = run("""INSERT INTO intake_submissions
-               (name, phone, email, full_address, postcode, google_maps_link, what3words, job_notes, rooms_areas,
+               (name, phone, email, full_address, postcode, agreed_quote_price, google_maps_link, what3words, job_notes, rooms_areas,
             what_cleaned, number_rooms, upholstery, rugs, stains, pets, parking, preferred_days_times, additional_notes,
                 preferred_date, preferred_time, photo_filename, customer_id, status, source, marketing_consent)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", (
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", (
             name, phone, email, clean_str(request.form.get("full_address")), clean_str(request.form.get("postcode")),
+            parse_money(request.form.get("agreed_quote_price"), 0),
             clean_str(request.form.get("google_maps_link")), clean_str(request.form.get("what3words")),
             job_notes, clean_str(request.form.get("rooms_areas")),
             clean_str(request.form.get("what_cleaned")), clean_str(request.form.get("number_rooms")),
@@ -8144,17 +8167,18 @@ def intake_form_update_details(lead_id):
     job_notes = clean_str(request.form.get("job_notes"))
     rooms_areas = clean_str(request.form.get("rooms_areas"))
     what_cleaned = clean_str(request.form.get("what_cleaned"))
+    agreed_quote_price = parse_money(request.form.get("agreed_quote_price"), 0)
     parking = clean_str(request.form.get("parking"))
     preferred_days_times = clean_str(request.form.get("preferred_days_times"))
     additional_notes = clean_str(request.form.get("additional_notes"))
     status = clean_str(request.form.get("status")) or lead["status"]
     run("""UPDATE intake_submissions
            SET name=?, phone=?, email=?, full_address=?, postcode=?, what3words=?, google_maps_link=?, job_notes=?,
-               rooms_areas=?, what_cleaned=?, parking=?, preferred_days_times=?, additional_notes=?,
+               rooms_areas=?, what_cleaned=?, agreed_quote_price=?, parking=?, preferred_days_times=?, additional_notes=?,
                status=?, updated_at=datetime('now')
            WHERE id=?""", (
         name, phone, email, full_address, postcode, what3words, google_maps_link, job_notes,
-        rooms_areas, what_cleaned, parking, preferred_days_times, additional_notes,
+        rooms_areas, what_cleaned, agreed_quote_price, parking, preferred_days_times, additional_notes,
         status, lead_id
     ))
     updated = q("SELECT * FROM intake_submissions WHERE id=?", (lead_id,), one=True)
@@ -8237,9 +8261,11 @@ def intake_create_job(lead_id):
         return redirect(url_for("job_view", job_id=lead["job_id"]))
     service_type = clean_str(row_get(lead, "what_cleaned")) or clean_str(lead["rooms_areas"]) or "Carpet cleaning"
     title = clean_str(request.form.get("title")) or f"{service_type} - {lead['name']}"
+    agreed_quote_price = float(row_get(lead, "agreed_quote_price") or 0)
     notes = "\n".join([x for x in [
         clean_intake_job_notes(lead),
         f"Service required: {row_get(lead, 'what_cleaned')}" if row_get(lead, "what_cleaned") else "",
+        f"Agreed quote price: £{agreed_quote_price:.2f}" if agreed_quote_price > 0 else "",
         f"Rooms/areas: {lead['rooms_areas']}" if lead["rooms_areas"] else "",
         f"Number of rooms: {row_get(lead, 'number_rooms')}" if row_get(lead, "number_rooms") else "",
         f"Upholstery: {row_get(lead, 'upholstery')}" if row_get(lead, "upholstery") else "",
@@ -8257,7 +8283,7 @@ def intake_create_job(lead_id):
     ] if x])
     job_id = run("""INSERT INTO jobs(customer_id, title, service_type, job_date, job_time, status, amount, assigned_to, notes)
                     VALUES (?,?,?,?,?,?,?,?,?)""", (
-        customer_id, title, service_type, lead["preferred_date"], lead["preferred_time"] or "", "Booked", 0, "", notes,
+        customer_id, title, service_type, lead["preferred_date"], lead["preferred_time"] or "", "Booked", agreed_quote_price, "", notes,
     ))
     run("""UPDATE intake_submissions SET job_id=?, status='Booked', updated_at=datetime('now') WHERE id=?""", (job_id, lead_id))
     set_customer_workflow(customer_id, "job_booked", f"Job created from website enquiry #{lead_id}.", "Send booking confirmation")

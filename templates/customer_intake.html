@@ -136,6 +136,9 @@
           <label>Proposed booking time
             <input type="time" name="preferred_time" value="{{ prefill.preferred_time or '' }}">
           </label>
+          <label>Agreed quote price
+            <input type="number" name="agreed_quote_price" min="0" step="0.01" value="{{ prefill.agreed_quote_price or '' }}" placeholder="Example: 120.00">
+          </label>
           <label class="wide">Preferred dates or times
             <textarea name="preferred_days_times" rows="3" placeholder="Add anything useful about dates, times or availability">{{ prefill.preferred_days_times or '' }}</textarea>
           </label>

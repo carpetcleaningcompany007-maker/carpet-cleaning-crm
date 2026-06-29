@@ -46,6 +46,7 @@
         <div class="preview-row"><strong>Address</strong><span>{{ lead.full_address or 'Not supplied' }}</span></div>
         <div class="preview-row"><strong>Postcode</strong><span>{{ lead.postcode or 'Not supplied' }}</span></div>
         <div class="preview-row"><strong>What3Words</strong><span>{{ lead.what3words or 'Not supplied' }}</span></div>
+        <div class="preview-row"><strong>Agreed quote price</strong><span>{% if lead.agreed_quote_price %}£{{ '%.2f'|format(lead.agreed_quote_price or 0) }}{% else %}Not supplied{% endif %}</span></div>
         <div class="preview-row"><strong>Rooms or areas</strong><span>{{ lead.rooms_areas or 'Not supplied' }}</span></div>
         <div class="preview-row"><strong>Job details</strong><span>{{ display_job_notes or lead.additional_notes or 'Not supplied' }}</span></div>
         <div class="preview-row"><strong>Access / parking</strong><span>{{ lead.parking or 'Not supplied' }}</span></div>
@@ -116,6 +117,7 @@
       <label>What3Words<input name="what3words" value="{{ lead.what3words or '' }}"></label>
       <label>Map pin<input name="google_maps_link" value="{{ lead.google_maps_link or '' }}"></label>
       <label>Service<input name="what_cleaned" value="{{ lead.what_cleaned or '' }}"></label>
+      <label>Agreed quote price<input type="number" step="0.01" min="0" name="agreed_quote_price" value="{{ lead.agreed_quote_price or '' }}"></label>
       <label class="span-2">Rooms or areas<textarea name="rooms_areas" rows="3">{{ lead.rooms_areas or '' }}</textarea></label>
       <label class="span-2">Job details<textarea name="job_notes" rows="4">{{ lead.job_notes or '' }}</textarea></label>
       <label class="span-2">Access / parking<textarea name="parking" rows="3">{{ lead.parking or '' }}</textarea></label>
