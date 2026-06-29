@@ -1344,7 +1344,7 @@ DEFAULT_MESSAGE_TEMPLATES = {
         "subject": "",
         "body": "New enquiry\nName: {{name}}\nPhone: {{phone}}\nEmail: {{email}}\nPostcode: {{postcode}}\nService: {{service}}\nMessage: {{message}}",
     },
-    "booking_confirmation_email": {"name": "Booking confirmation email", "subject": "Your carpet clean is booked in", "body": "Hi {{name}},\n\nYour carpet clean is booked in.\n\nDate: {{date}}\nArrival: {{time}}\nPrice: {{total}}\nAddress: {{address}}\n\nThanks\nPaul\n{{business_name}}"},
+    "booking_confirmation_email": {"name": "Booking confirmation email", "subject": "Your carpet clean is booked in", "body": "Hi {{name}},\n\nYour carpet clean is booked in.\n\nDate: {{date}}\nArrival: {{time}}\nPrice: {{total}}\nAddress: {{address}}\n\nWhile you wait, please follow us on Facebook to see our videos, recent cleans and before-and-after photos:\n{{facebook}}\n\nThanks\nPaul\n{{business_name}}"},
     "booking_confirmation_sms": {"name": "Booking confirmation SMS", "subject": "", "body": "Hi {{name}}, your carpet clean is booked in for {{date}} at {{time}}. Total: {{total}}. Please clear small items and save parking if possible. Thanks, Paul - {{business_name}}"},
     "today_run_coming_email": {
         "name": "Today Run - we are on our way email",
@@ -2779,6 +2779,7 @@ def booking_confirmation_email_html(job):
     logo_url = public_static_or_live_url("site/email-logo-white.png")
     hero_url = public_static_or_live_url("site/hero-carpet-cleaning.webp")
     technician_url = public_static_or_live_url("site/paul-technician-portrait.jpg")
+    facebook_url = "https://www.facebook.com/profile.php?id=61559013150413"
     website_url = enquiry_public_site_url()
     reviews_url = settings()["review_link"] or "https://share.google/XHQjHHLwpmlugHP0c"
     service = clean_str(row_value(job, "service_type")) or clean_str(row_value(job, "title")) or "Carpet cleaning"
@@ -2889,6 +2890,13 @@ def booking_confirmation_email_html(job):
             <td style="padding:0 30px 14px">
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#fff8e8;border:1px solid #e3c36f;border-radius:18px;border-left:5px solid #d8af55">
                 <tr><td style="padding:18px"><strong style="font-size:17px;color:#071524">Payment</strong><p style="margin:6px 0 0;font-size:15px;line-height:1.55;color:#5a4b2a">Cash, card, or bank transfer on the day.</p></td></tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0 30px 18px">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#eef5ff;border:1px solid #cbdff8;border-radius:18px">
+                <tr><td style="padding:18px"><strong style="font-size:17px;color:#071524">See our work</strong><p style="margin:6px 0 13px;font-size:15px;line-height:1.55;color:#42566c">Please follow us on Facebook to see our videos, recent cleans and before-and-after photos. It is a good way to see the kind of results we get.</p><table role="presentation" width="100%" cellspacing="0" cellpadding="0">{email_action_button("Follow us on Facebook", facebook_url, "#1457a8", "#ffffff")}</table></td></tr>
               </table>
             </td>
           </tr>
@@ -3810,6 +3818,7 @@ def init_db():
                     body NOT LIKE '%{{total}}%'
                  OR body LIKE '%Your clean is booked%'
                  OR body LIKE '%your clean is booked%'
+                 OR body NOT LIKE '%Facebook%'
               )""",
         (DEFAULT_MESSAGE_TEMPLATES["booking_confirmation_email"]["body"],),
     )
