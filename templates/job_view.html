@@ -23,6 +23,40 @@
   </div>
 </section>
 
+<section class="panel job-stage-panel">
+  <div class="panel-head">
+    <div>
+      <h3>Job stages</h3>
+      <p>Step-by-step view of what has been done and what still needs doing for this job.</p>
+    </div>
+  </div>
+  <div class="next-action-strip">
+    <span>Next action</span>
+    <strong>{{ job_next_action }}</strong>
+  </div>
+  <div class="job-stage-grid">
+    {% for section in job_stage_sections %}
+    <div class="job-stage-card">
+      <h4>{{ section.title }}</h4>
+      <p>{{ section.summary }}</p>
+      <div class="job-stage-list">
+        {% for item in section.steps %}
+        <div class="job-stage-item {{ 'done' if item.done else 'todo' }} {{ 'current' if item.current else '' }}">
+          <span>{{ 'Done' if item.done else 'To do' }}</span>
+          <div>
+            <strong>{{ item.label }}</strong>
+            {% if not item.done %}
+            <em>{{ item.next }}</em>
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
 <div class="grid-2">
   <section class="panel">
     <div class="panel-head"><h3>Edit Job</h3></div>
