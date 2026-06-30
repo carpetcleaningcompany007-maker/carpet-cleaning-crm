@@ -2629,6 +2629,22 @@ def customer_action_template_cards(customer_id):
     return cards
 
 
+def job_action_template_cards(job):
+    cards = []
+    has_job = bool(job)
+    for item in CUSTOMER_ACTION_TEMPLATES:
+        email_template = message_template(item["key"])
+        sms_template = message_template(item["sms_key"])
+        cards.append({
+            **item,
+            "email_subject": email_template.get("subject") or item["label"],
+            "email_body": email_template.get("body") or "",
+            "sms_body": sms_template.get("body") or email_template.get("body") or "",
+            "has_job": has_job,
+        })
+    return cards
+
+
 def customer_email_job_context(customer, job=None):
     context = dict(job) if isinstance(job, dict) else {}
     if job and not isinstance(job, dict):
@@ -5550,6 +5566,8 @@ def job_view(job_id):
     contact_summary = customer_contact_summary(job["customer_id"] if job else None, 30)
     ready_check = job_ready_checklist(job)
     calendar_note = job_calendar_note_text(job)
+    job_action_templates = job_action_template_cards(job)
+    saved_message_templates = q("SELECT * FROM communication_templates ORDER BY name COLLATE NOCASE ASC, id DESC")
     return render_template(
         "job_view.html",
         job=job,
@@ -5559,6 +5577,8 @@ def job_view(job_id):
         contact_summary=contact_summary,
         ready_check=ready_check,
         calendar_note=calendar_note,
+        job_action_templates=job_action_templates,
+        saved_message_templates=saved_message_templates,
     )
 
 
@@ -5630,6 +5650,64 @@ def job_send_booking_confirmation(job_id):
                 (customer_id, "Booking confirmation email sent.", ""))
     flash(msg)
     return redirect(url_for("job_view", job_id=job_id))
+
+
+@app.route("/jobs/<int:job_id>/send-message-template", methods=["POST"])
+@login_required
+def job_send_message_template(job_id):
+    job = q("""SELECT jobs.*, customers.id AS customer_id, customers.first_name, customers.last_name, customers.phone, customers.email,
+                      customers.address, customers.town, customers.postcode, customers.sms_opt_out
+               FROM jobs LEFT JOIN customers ON customers.id = jobs.customer_id
+               WHERE jobs.id=?""", (job_id,), one=True)
+    if not job:
+        flash("Job not found.")
+        return redirect(url_for("jobs"))
+    customer_id = row_value(job, "customer_id")
+    if not customer_id:
+        flash("This job is not linked to a customer yet.")
+        return redirect(url_for("job_view", job_id=job_id) + "#job-message-actions")
+
+    channel = clean_str(request.form.get("channel") or "email").lower()
+    test_mode = request.form.get("test_mode") == "1"
+    template_key = clean_str(request.form.get("template_key"))
+    saved_template_id = int(request.form.get("saved_template_id") or 0)
+    replacements = customer_message_replacements(job, job)
+
+    if saved_template_id:
+        saved_template = q("SELECT * FROM communication_templates WHERE id=?", (saved_template_id,), one=True)
+        if not saved_template:
+            flash("Saved template not found.")
+            return redirect(url_for("job_view", job_id=job_id) + "#job-message-actions")
+        subject_raw = saved_template["subject"] or saved_template["name"] or "Customer message"
+        body_raw = saved_template["body"] or ""
+        channel = clean_str(saved_template["channel"] or channel).lower()
+    else:
+        if channel == "sms":
+            mapped = next((item for item in CUSTOMER_ACTION_TEMPLATES if item["key"] == template_key), None)
+            template_key = mapped["sms_key"] if mapped else template_key
+        template = message_template(template_key)
+        subject_raw = template.get("subject") or template.get("name") or "Customer message"
+        body_raw = template.get("body") or ""
+
+    subject = render_simple_template(subject_raw, replacements)
+    body = render_simple_template(body_raw, replacements)
+    html_body = ""
+    if channel == "email":
+        if saved_template_id and is_html_email_body(body):
+            html_body = body
+            body = strip_html_for_sms(body)
+        else:
+            html_body = visual_customer_email_html(template_key, job, job, body)
+    ok, msg, recipient = send_rendered_customer_message(job, channel, subject, body, test_mode=test_mode, html_body=html_body)
+    if ok:
+        log_channel = ("Test " if test_mode else "") + ("Email" if channel == "email" else "SMS")
+        run("INSERT INTO communications (customer_id, channel, subject, body, created_at) VALUES (?,?,?,?,datetime('now'))",
+            (customer_id, log_channel, subject, body))
+        run("INSERT INTO customer_timeline(customer_id, note_text, created_at) VALUES (?,?,datetime('now'))",
+            (customer_id, f"{log_channel} sent from job #{job_id} to {recipient}: {subject}"))
+    flash(("Sent: " if ok else "Failed: ") + msg)
+    return redirect(url_for("job_view", job_id=job_id) + "#job-message-actions")
+
 
 @app.route("/jobs/<int:job_id>/edit", methods=["POST"])
 @login_required

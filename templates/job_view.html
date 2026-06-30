@@ -115,6 +115,74 @@
   </section>
 </div>
 
+<section class="panel" id="job-message-actions">
+  <div class="panel-head">
+    <div>
+      <h3>Job emails and texts</h3>
+      <p>View or send the customer messages for this job. These use this job's date, time, price, address and notes.</p>
+    </div>
+  </div>
+  <div class="message-action-grid">
+    {% for item in job_action_templates %}
+    <div class="message-action-card">
+      <strong>{{ item.label }}</strong>
+      <p>{{ item.note }}</p>
+      <details class="template-preview">
+        <summary>View template text</summary>
+        <div class="template-preview-body">
+          <strong>Email</strong>
+          <pre>{{ item.email_body }}</pre>
+          <strong>SMS</strong>
+          <pre>{{ item.sms_body }}</pre>
+        </div>
+      </details>
+      <div class="message-button-row">
+        <form method="post" action="{{ url_for('job_send_message_template', job_id=job.id) }}">
+          <input type="hidden" name="template_key" value="{{ item.key }}">
+          <input type="hidden" name="channel" value="email">
+          <input type="hidden" name="test_mode" value="1">
+          <button class="btn secondary btn-small" type="submit">Test Email</button>
+        </form>
+        <form method="post" action="{{ url_for('job_send_message_template', job_id=job.id) }}">
+          <input type="hidden" name="template_key" value="{{ item.key }}">
+          <input type="hidden" name="channel" value="email">
+          <button class="btn primary btn-small" type="submit" {% if not job.email %}disabled{% endif %}>Send Email</button>
+        </form>
+        <form method="post" action="{{ url_for('job_send_message_template', job_id=job.id) }}">
+          <input type="hidden" name="template_key" value="{{ item.key }}">
+          <input type="hidden" name="channel" value="sms">
+          <input type="hidden" name="test_mode" value="1">
+          <button class="btn secondary btn-small" type="submit">Test SMS</button>
+        </form>
+        <form method="post" action="{{ url_for('job_send_message_template', job_id=job.id) }}">
+          <input type="hidden" name="template_key" value="{{ item.key }}">
+          <input type="hidden" name="channel" value="sms">
+          <button class="btn primary btn-small" type="submit" {% if not job.phone or job.sms_opt_out %}disabled{% endif %}>Send SMS</button>
+        </form>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% if saved_message_templates %}
+  <details class="saved-template-collapse">
+    <summary>Saved templates</summary>
+    <form method="post" action="{{ url_for('job_send_message_template', job_id=job.id) }}" class="saved-template-send">
+      <label>Saved template
+        <select name="saved_template_id">
+          {% for template in saved_message_templates %}
+          <option value="{{ template.id }}">{{ template.name }} · {{ template.channel or 'Email' }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <div class="message-button-row">
+        <button class="btn secondary" name="test_mode" value="1" type="submit">Test Saved Template</button>
+        <button class="btn primary" type="submit">Send Saved Template</button>
+      </div>
+    </form>
+  </details>
+  {% endif %}
+</section>
+
 <section class="panel">
   <div class="panel-head"><h3>Contact Timeline</h3></div>
   <div class="stats-grid" style="margin-bottom:12px;">
