@@ -1907,10 +1907,20 @@ def contact_form_alert_text(lead, customer_id=None):
     job_details = clean_intake_job_notes(lead) or "Not supplied"
     access_details = format_intake_access_text(lead)
     quote_price = format_intake_quote_price(lead)
+    preferred_date = row_get(lead, "preferred_date") or "Not supplied"
+    preferred_time = row_get(lead, "preferred_time") or "Not supplied"
+    preferred_dates_times = row_get(lead, "preferred_days_times") or "Not supplied"
     lines = [
         "CUSTOMER FORM COMPLETED",
+        "Ready for you to check.",
         "",
-        "1. CHECK FIRST",
+        "BOOKING / QUOTE",
+        f"Date: {preferred_date}",
+        f"Time: {preferred_time}",
+        f"Agreed price: {quote_price}",
+        f"Preferred notes: {preferred_dates_times}",
+        "",
+        "CHECK FIRST",
         f"Review / approve: {review_url}",
         f"Copy / calendar note: {note_url}",
     ]
@@ -1923,27 +1933,26 @@ def contact_form_alert_text(lead, customer_id=None):
         lines.append("Message buttons: approve/create the customer first, then use the customer hub.")
     lines.extend([
         "",
-        "2. CUSTOMER",
-        f"{lead['name'] or 'Not supplied'}",
+        "CUSTOMER",
+        f"Name: {lead['name'] or 'Not supplied'}",
         f"Phone: {lead['phone'] or 'Not supplied'}",
         f"Email: {lead['email'] or 'Not supplied'}",
         "",
-        "3. ADDRESS",
-        lead["full_address"] or "Not supplied",
+        "ADDRESS",
+        f"Address: {lead['full_address'] or 'Not supplied'}",
         f"Postcode: {lead['postcode'] or 'Not supplied'}",
         f"What3Words: {lead['what3words'] or 'Not supplied'}",
+        f"Map pin: {lead['google_maps_link'] or 'Not supplied'}",
         "",
-        "4. JOB",
+        "JOB DETAILS",
         f"Call and quote: {row_get(lead, 'what_cleaned') or 'Not supplied'}",
-        f"Agreed price: {quote_price}",
         f"Rooms/areas: {row_get(lead, 'rooms_areas') or 'Not supplied'}",
         f"Details: {job_details}",
         "",
-        "5. ACCESS",
+        "ACCESS / PARKING",
         access_details,
         "",
-        "6. NOTES",
-        f"Preferred: {row_get(lead, 'preferred_days_times') or 'Not supplied'}",
+        "EXTRA NOTES",
         f"Extra: {row_get(lead, 'additional_notes') or 'Not supplied'}",
     ])
     return "\n".join(lines)
@@ -1957,6 +1966,9 @@ def contact_form_alert_html(lead, customer_id=None):
     safe = html_lib.escape
     job_details = clean_intake_job_notes(lead) or "Not supplied"
     quote_price = format_intake_quote_price(lead)
+    preferred_date = row_get(lead, "preferred_date") or "Not supplied"
+    preferred_time = row_get(lead, "preferred_time") or "Not supplied"
+    preferred_dates_times = row_get(lead, "preferred_days_times") or "Not supplied"
     map_pin_html = (
         f'<a href="{safe(lead["google_maps_link"])}">Open map pin</a><br><span style="font-size:13px;color:#58708a">{safe(lead["google_maps_link"])}</span>'
         if lead["google_maps_link"] else "Not supplied"
@@ -1970,6 +1982,22 @@ def contact_form_alert_html(lead, customer_id=None):
         <p><a href="{safe(customer_url)}">Open customer record</a></p>
         <p><a href="{safe(message_actions_url)}">Send booking confirmation, thank you, or review request</a></p>
         """
+    def alert_card(title, rows, accent="#1677c8"):
+        body = "".join(
+            f"""<tr>
+              <td style="padding:10px 12px;border-top:1px solid #dde7ef;width:36%;vertical-align:top;color:#36516b"><strong>{safe(label)}</strong></td>
+              <td style="padding:10px 12px;border-top:1px solid #dde7ef;vertical-align:top;color:#071524">{value}</td>
+            </tr>"""
+            for label, value in rows
+        )
+        return f"""
+        <div style="margin:16px 0;background:#ffffff;border:1px solid #d8e7f2;border-radius:14px;overflow:hidden">
+          <div style="padding:12px 14px;background:#f3f9ff;border-left:5px solid {accent}">
+            <strong style="font-size:17px;color:#071524">{safe(title)}</strong>
+          </div>
+          <table style="border-collapse:collapse;width:100%">{body}</table>
+        </div>
+        """
     return f"""<div style="margin:0;background:#eef6ff;padding:18px;font-family:Arial,sans-serif;color:#071524;line-height:1.55">
       <div style="max-width:680px;margin:0 auto;background:#ffffff;border:1px solid #d8e7f2;border-radius:14px;padding:20px">
       <p style="margin:0 0 8px;color:#1677c8;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.05em">The Carpet Cleaning Company</p>
@@ -1977,22 +2005,34 @@ def contact_form_alert_html(lead, customer_id=None):
       <p style="margin:0 0 18px">The customer has filled out the form you sent them. Check the details below, then approve it before anything is uploaded to Xero.</p>
       <p style="margin:20px 0"><a href="{safe(review_url)}" style="display:inline-block;background:#1677c8;color:#fff;padding:14px 18px;border-radius:8px;text-decoration:none;font-weight:700">Review and approve in CRM</a></p>
       <p style="margin:0 0 18px;font-size:14px;color:#36516b">Review link:<br><a href="{safe(review_url)}">{safe(review_url)}</a></p>
-      <table style="border-collapse:collapse;width:100%;max-width:680px">
-        <tr><td style="padding:9px;border-bottom:1px solid #dde7ef;width:34%"><strong>Name</strong></td><td style="padding:9px;border-bottom:1px solid #dde7ef">{safe(lead['name'] or '')}</td></tr>
-        <tr><td style="padding:9px;border-bottom:1px solid #dde7ef"><strong>Phone</strong></td><td style="padding:9px;border-bottom:1px solid #dde7ef">{safe(lead['phone'] or '')}</td></tr>
-        <tr><td style="padding:9px;border-bottom:1px solid #dde7ef"><strong>Email</strong></td><td style="padding:9px;border-bottom:1px solid #dde7ef">{safe(lead['email'] or '')}</td></tr>
-        <tr><td style="padding:9px;border-bottom:1px solid #dde7ef"><strong>Address</strong></td><td style="padding:9px;border-bottom:1px solid #dde7ef">{safe(lead['full_address'] or '')}</td></tr>
-        <tr><td style="padding:9px;border-bottom:1px solid #dde7ef"><strong>Postcode</strong></td><td style="padding:9px;border-bottom:1px solid #dde7ef">{safe(lead['postcode'] or '')}</td></tr>
-        <tr><td style="padding:9px;border-bottom:1px solid #dde7ef"><strong>Map pin</strong></td><td style="padding:9px;border-bottom:1px solid #dde7ef">{map_pin_html}</td></tr>
-        <tr><td style="padding:9px;border-bottom:1px solid #dde7ef"><strong>What3Words</strong></td><td style="padding:9px;border-bottom:1px solid #dde7ef">{safe(lead['what3words'] or 'Not supplied')}</td></tr>
-        <tr><td style="padding:9px;border-bottom:1px solid #dde7ef"><strong>Rooms or areas</strong></td><td style="padding:9px;border-bottom:1px solid #dde7ef">{safe(row_get(lead, 'rooms_areas') or 'Not supplied')}</td></tr>
-        <tr><td style="padding:9px;border-bottom:1px solid #dde7ef"><strong>Service</strong></td><td style="padding:9px;border-bottom:1px solid #dde7ef">{safe(row_get(lead, 'what_cleaned') or 'Not supplied')}</td></tr>
-        <tr><td style="padding:9px;border-bottom:1px solid #dde7ef"><strong>Agreed quote price</strong></td><td style="padding:9px;border-bottom:1px solid #dde7ef">{safe(quote_price)}</td></tr>
-        <tr><td style="padding:9px;border-bottom:1px solid #dde7ef"><strong>Job details</strong></td><td style="padding:9px;border-bottom:1px solid #dde7ef">{safe(job_details)}</td></tr>
-        <tr><td style="padding:9px;border-bottom:1px solid #dde7ef"><strong>Access / parking</strong></td><td style="padding:9px;border-bottom:1px solid #dde7ef">{safe(row_get(lead, 'parking') or 'Not supplied')}</td></tr>
-        <tr><td style="padding:9px;border-bottom:1px solid #dde7ef"><strong>Preferred dates or times</strong></td><td style="padding:9px;border-bottom:1px solid #dde7ef">{safe(row_get(lead, 'preferred_days_times') or 'Not supplied')}</td></tr>
-        <tr><td style="padding:9px;border-bottom:1px solid #dde7ef"><strong>Extra notes</strong></td><td style="padding:9px;border-bottom:1px solid #dde7ef">{safe(row_get(lead, 'additional_notes') or 'Not supplied')}</td></tr>
-      </table>
+      {alert_card("Booking / quote", [
+        ("Date", safe(preferred_date)),
+        ("Time", safe(preferred_time)),
+        ("Agreed quote price", safe(quote_price)),
+        ("Preferred notes", safe(preferred_dates_times)),
+      ], "#0d6b58")}
+      {alert_card("Customer", [
+        ("Name", safe(lead['name'] or 'Not supplied')),
+        ("Phone", safe(lead['phone'] or 'Not supplied')),
+        ("Email", safe(lead['email'] or 'Not supplied')),
+      ], "#1677c8")}
+      {alert_card("Address", [
+        ("Address", safe(lead['full_address'] or 'Not supplied')),
+        ("Postcode", safe(lead['postcode'] or 'Not supplied')),
+        ("What3Words", safe(lead['what3words'] or 'Not supplied')),
+        ("Map pin", map_pin_html),
+      ], "#d8af55")}
+      {alert_card("Job details", [
+        ("Call and quote", safe(row_get(lead, 'what_cleaned') or 'Not supplied')),
+        ("Rooms or areas", safe(row_get(lead, 'rooms_areas') or 'Not supplied')),
+        ("Description", safe(job_details)),
+      ], "#0f7b63")}
+      {alert_card("Access / parking", [
+        ("Details", safe(row_get(lead, 'parking') or 'Not supplied').replace(chr(10), "<br>")),
+      ], "#1457a8")}
+      {alert_card("Extra notes", [
+        ("Notes", safe(row_get(lead, 'additional_notes') or 'Not supplied').replace(chr(10), "<br>")),
+      ], "#7c5fb8")}
       {customer_link}
       </div>
     </div>"""
