@@ -1373,6 +1373,8 @@ DEFAULT_MESSAGE_TEMPLATES = {
     "appointment_reminder_sms": {"name": "Appointment reminder SMS", "subject": "", "body": "Hi {{name}}, just a quick reminder that your carpet clean is booked in for {{date}} at {{time}}. Thanks, Paul."},
     "thank_you_message": {"name": "Thank you message", "subject": "Thank you", "body": "Hi {{name}},\n\nThank you for choosing The Carpet Cleaning Company today. I hope you are happy with the clean.\n\nIf you notice anything you are unsure about, please message me and I will be happy to help.\n\nThanks\nPaul"},
     "review_request_message": {"name": "Review request message", "subject": "Review request", "body": "Hi {{name}},\n\nThank you again for choosing The Carpet Cleaning Company.\n\nIf you are happy with the work, I would really appreciate a quick Google review. It helps a small local business and helps new customers see the results we achieve.\n\nGoogle review link:\n{{review_link}}\n\nThanks\nPaul"},
+    "payment_received_email": {"name": "Payment received email", "subject": "Thank you for your payment", "body": "Hi {{name}},\n\nThank you very much for your payment. It's greatly appreciated.\n\nThank you for choosing The Carpet Cleaning Company. We really appreciate your business and your continued support.\n\nIf you were happy with the service, we'd be very grateful if you could leave us a Google review. You can also follow us on Facebook to see our latest work, videos and cleaning tips.\n\nGoogle Reviews:\n{{review_link}}\n\nFacebook:\n{{facebook}}\n\nThanks\nPaul\n{{business_name}}"},
+    "payment_received_sms": {"name": "Payment received SMS", "subject": "", "body": "Hi {{name}}, thank you very much for your payment. It's greatly appreciated. If you were happy with the service, a Google review would really help: {{review_link}} Thanks, Paul - {{business_name}}"},
 }
 
 
@@ -2759,6 +2761,7 @@ CUSTOMER_ACTION_TEMPLATES = [
     {"key": "today_run_coming_email", "sms_key": "today_run_coming_sms", "label": "We are on our way", "note": "Send manually on the day."},
     {"key": "thank_you_message", "sms_key": "thank_you_message", "label": "Thank you after job", "note": "Send once the work is finished."},
     {"key": "review_request_message", "sms_key": "review_request_message", "label": "Review request", "note": "Send after the customer is happy."},
+    {"key": "payment_received_email", "sms_key": "payment_received_sms", "label": "Payment received", "note": "Send after the customer has paid."},
 ]
 
 
@@ -2845,6 +2848,7 @@ def visual_customer_email_html(template_key, customer, job, plain_body):
         "today_run_coming_email": "coming",
         "thank_you_message": "finished",
         "review_request_message": "review",
+        "payment_received_email": "payment",
     }.get(template_key)
     if day_kind:
         return day_run_email_html(day_kind, job_context, plain_body)
@@ -2935,12 +2939,14 @@ def day_run_email_html(kind, job, plain_body):
         "reminder": "Your appointment reminder",
         "finished": "Your clean is complete",
         "review": "Thank you for choosing us",
+        "payment": "Thank you for your payment",
     }
     strap_map = {
         "coming": "We are heading to your carpet cleaning appointment today.",
         "reminder": "A quick reminder about your upcoming carpet cleaning appointment.",
         "finished": "Thank you for using us today.",
         "review": "If you are happy with the result, a Google review really helps.",
+        "payment": "Your payment has been received. Thank you for your continued support.",
     }
     title = title_map.get(kind, "Message from The Carpet Cleaning Company")
     strap = strap_map.get(kind, "A quick update from The Carpet Cleaning Company.")
@@ -5199,6 +5205,26 @@ def customer_send_message_template(customer_id):
             (customer_id, f"{log_channel} template sent to {recipient}: {subject}"))
     flash(("Sent: " if ok else "Failed: ") + msg)
     return redirect(url_for("customer_view", customer_id=customer_id) + "#customer-message-actions")
+
+
+@app.route("/customers/<int:customer_id>/email-template-preview/<template_key>")
+@login_required
+def customer_email_template_preview(customer_id, template_key):
+    customer = q("SELECT * FROM customers WHERE id=?", (customer_id,), one=True)
+    if not customer:
+        flash("Customer not found.")
+        return redirect(url_for("customers"))
+    allowed_keys = {item["key"] for item in CUSTOMER_ACTION_TEMPLATES}
+    if template_key not in allowed_keys:
+        flash("Email template not found.")
+        return redirect(url_for("customer_view", customer_id=customer_id) + "#customer-message-actions")
+    latest_job = latest_customer_job(customer_id)
+    template = message_template(template_key)
+    body = render_simple_template(template.get("body") or "", customer_message_replacements(customer, latest_job))
+    html_body = visual_customer_email_html(template_key, customer, latest_job, body)
+    if not html_body:
+        html_body = "<div style='font-family:Arial,sans-serif;line-height:1.55;color:#102033;white-space:pre-wrap'>" + html_lib.escape(body or "") + "</div>"
+    return Response(html_body, mimetype="text/html")
 
 
 @app.route("/customers/<int:customer_id>/workflow-action", methods=["POST"])

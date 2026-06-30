@@ -85,6 +85,15 @@
           <p class="muted">No job is saved yet, so date and time placeholders will stay generic.</p>
         {% endif %}
         <div class="message-button-row">
+          <a class="btn secondary btn-small" href="{{ url_for('customer_email_template_preview', customer_id=customer.id, template_key=item.key) }}" target="_blank">View Email Template</a>
+        </div>
+        <details class="template-preview">
+          <summary>View SMS wording</summary>
+          <div class="template-preview-body">
+            <pre>{{ item.sms_body }}</pre>
+          </div>
+        </details>
+        <div class="message-button-row">
           <form method="post" action="{{ url_for('customer_send_message_template', customer_id=customer.id) }}">
             <input type="hidden" name="template_key" value="{{ item.key }}">
             <input type="hidden" name="channel" value="email">
@@ -214,20 +223,6 @@
         <a class="btn secondary" target="_blank" href="https://wa.me/{{ (customer.phone or '')|replace(' ', '') }}?text={{ workflow_messages.booking_form|urlencode }}">Send by WhatsApp</a>
         <button class="btn secondary" type="button" data-copy-target="bookingFormUrl">Copy Link Only</button>
         <button class="btn primary" type="button" data-copy-target="bookingMessage">Copy Full Message</button>
-      </div>
-    </div>
-    <div class="workflow-message">
-      <strong>Reminder message</strong>
-      <textarea id="reminderMessage" readonly>{{ workflow_messages.reminder }}</textarea>
-      <div class="row-actions">
-        <button class="btn primary" type="button" data-copy-target="reminderMessage">Copy Message</button>
-      </div>
-    </div>
-    <div class="workflow-message">
-      <strong>Review request</strong>
-      <textarea id="reviewMessage" readonly>{{ workflow_messages.review }}</textarea>
-      <div class="row-actions">
-        <button class="btn primary" type="button" data-copy-target="reviewMessage">Copy Message</button>
       </div>
     </div>
   </div>
