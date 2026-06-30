@@ -42,6 +42,7 @@
       <div class="job-stage-list">
         {% for item in section.steps %}
         <div class="job-stage-item {{ 'done' if item.done else 'todo' }} {{ 'current' if item.current else '' }}">
+          {% if item.href %}<a class="job-stage-link" href="{{ item.href }}" aria-label="Open {{ item.label }}">{% endif %}
           <span>{{ 'Done' if item.done else 'To do' }}</span>
           <div>
             <strong>{{ item.label }}</strong>
@@ -49,6 +50,8 @@
             <em>{{ item.next }}</em>
             {% endif %}
           </div>
+          <b>Open</b>
+          {% if item.href %}</a>{% endif %}
         </div>
         {% endfor %}
       </div>
@@ -58,7 +61,7 @@
 </section>
 
 <div class="grid-2">
-  <section class="panel">
+  <section class="panel" id="job-edit-details">
     <div class="panel-head"><h3>Edit Job</h3></div>
     <form method="post" action="{{ url_for('job_edit', job_id=job.id) }}" class="form">
       <label>Job title<input name="title" value="{{ job.title }}"></label>
@@ -83,13 +86,13 @@
     {% endif %}
   </section>
 
-  <section class="panel">
+  <section class="panel" id="job-invoice-actions">
     <div class="panel-head"><h3>Complete and invoice</h3></div>
     <div class="notice" style="margin-bottom:14px;">
       <strong>Booking confirmation</strong>
       <p>After you confirm the price and book the job, send the customer the proper confirmation email with date, arrival, total, prep notes and payment details.</p>
     </div>
-    <div class="ready-card {{ 'is-ready' if ready_check.ready else 'needs-work' }}" style="margin-bottom:16px;">
+    <div class="ready-card {{ 'is-ready' if ready_check.ready else 'needs-work' }}" id="job-readiness-checklist" style="margin-bottom:16px;">
       <div class="ready-card-head">
         <div>
           <strong>Job readiness checklist</strong>
@@ -103,9 +106,12 @@
       <div class="ready-list">
         {% for item in ready_check.checks %}
         <div class="ready-row {{ 'done' if item.ok else 'missing' }}">
+          {% if item.href %}<a class="ready-row-link" href="{{ item.href }}" aria-label="Open {{ item.label }}">{% endif %}
           <span>{{ 'Yes' if item.ok else 'No' }}</span>
           <strong>{{ item.label }}</strong>
           {% if not item.ok %}<em>{{ item.help }}</em>{% endif %}
+          <b>Open</b>
+          {% if item.href %}</a>{% endif %}
         </div>
         {% endfor %}
       </div>
@@ -115,7 +121,7 @@
       </div>
       {% endif %}
     </div>
-    <div class="row-actions" style="margin-bottom:16px;">
+    <div class="row-actions" id="job-booking-actions" style="margin-bottom:16px;">
       <a class="btn secondary" href="{{ url_for('job_booking_email_preview', job_id=job.id) }}" target="_blank">Preview Booking Email</a>
       <form method="post" action="{{ url_for('job_send_booking_confirmation', job_id=job.id) }}">
         <input type="hidden" name="channel" value="test_email">

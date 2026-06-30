@@ -2483,36 +2483,43 @@ def job_ready_checklist(job):
             "label": "Customer details added",
             "ok": bool(row_value(job, "customer_id") and name != "Customer"),
             "help": "Add or link the customer record.",
+            "href": url_for("customer_view", customer_id=row_value(job, "customer_id")) if row_value(job, "customer_id") else "#job-edit-details",
         },
         {
             "label": "Job details added",
             "ok": bool(clean_str(row_value(job, "service_type")) or clean_str(row_value(job, "title"))),
             "help": "Add the service type or job title.",
+            "href": "#job-edit-details",
         },
         {
             "label": "Price added",
             "ok": amount > 0,
             "help": "Add the agreed quote price.",
+            "href": "#job-edit-details",
         },
         {
             "label": "Date and time added",
             "ok": bool(clean_str(row_value(job, "job_date")) and clean_str(row_value(job, "job_time"))),
             "help": "Add the job date and start time.",
+            "href": "#job-edit-details",
         },
         {
             "label": "Address added",
             "ok": bool(clean_str(row_value(job, "address")) and clean_str(row_value(job, "postcode"))),
             "help": "Add the full address and postcode.",
+            "href": url_for("customer_view", customer_id=row_value(job, "customer_id")) if row_value(job, "customer_id") else "#job-edit-details",
         },
         {
             "label": "Email and phone number added",
             "ok": bool(clean_str(row_value(job, "email")) and clean_str(row_value(job, "phone"))),
             "help": "Add the customer email address and mobile number.",
+            "href": url_for("customer_view", customer_id=row_value(job, "customer_id")) if row_value(job, "customer_id") else "#job-edit-details",
         },
         {
             "label": "Quote/job notes added",
             "ok": bool(clean_str(row_value(job, "notes"))),
             "help": "Add notes such as rooms, access, parking, stains or agreed work.",
+            "href": "#job-edit-details",
         },
     ]
     missing = [item["help"] for item in checks if not item["ok"]]
@@ -2595,23 +2602,25 @@ def job_workflow_sections(job, invoice=None, communications=None, ready_check=No
     invoice_synced = bool(clean_str(row_value(invoice, "xero_invoice_id"))) if invoice else False
     invoice_paid = invoice_status == "paid" or clean_str(row_value(invoice, "xero_status")).upper() == "PAID" if invoice else False
     job_done = status in {"completed", "invoiced", "paid"}
+    customer_href = url_for("customer_view", customer_id=row_value(job, "customer_id")) if row_value(job, "customer_id") else "#job-edit-details"
+    invoice_href = url_for("invoice_view", invoice_id=row_value(invoice, "id")) if invoice else "#job-invoice-actions"
 
     sections = [
         {
             "title": "1. Customer and contact details",
             "summary": "Make sure the correct customer is linked before anything is sent.",
             "steps": [
-                {"label": "Customer record linked", "done": customer_ready, "next": "Link or create the customer record."},
-                {"label": "Email and phone added", "done": contact_ready, "next": "Add the customer email address and mobile number."},
-                {"label": "Address and postcode added", "done": address_ready, "next": "Add the full address and postcode."},
-                {"label": "Xero contact ready", "done": xero_contact_ready, "next": "Approve/sync the customer contact to Xero when ready."},
+                {"label": "Customer record linked", "done": customer_ready, "next": "Link or create the customer record.", "href": customer_href},
+                {"label": "Email and phone added", "done": contact_ready, "next": "Add the customer email address and mobile number.", "href": customer_href},
+                {"label": "Address and postcode added", "done": address_ready, "next": "Add the full address and postcode.", "href": customer_href},
+                {"label": "Xero contact ready", "done": xero_contact_ready, "next": "Approve/sync the customer contact to Xero when ready.", "href": customer_href},
             ],
         },
         {
             "title": "2. Job details",
             "summary": "Check the agreed work, date, arrival time, price and notes.",
             "steps": [
-                {"label": item["label"], "done": item["ok"], "next": item.get("help", "")}
+                {"label": item["label"], "done": item["ok"], "next": item.get("help", ""), "href": item.get("href", "#job-edit-details")}
                 for item in ready_check["checks"]
             ],
         },
@@ -2619,34 +2628,34 @@ def job_workflow_sections(job, invoice=None, communications=None, ready_check=No
             "title": "3. Booking confirmation",
             "summary": "Send this once the job is complete enough to confirm.",
             "steps": [
-                {"label": "Required fields complete", "done": ready_check["ready"], "next": "Complete the missing required fields."},
-                {"label": "Booking confirmation sent", "done": booking_sent, "next": "Send the booking confirmation email or SMS."},
+                {"label": "Required fields complete", "done": ready_check["ready"], "next": "Complete the missing required fields.", "href": "#job-readiness-checklist"},
+                {"label": "Booking confirmation sent", "done": booking_sent, "next": "Send the booking confirmation email or SMS.", "href": "#job-booking-actions"},
             ],
         },
         {
             "title": "4. Before the visit",
             "summary": "Useful messages for the day before or the day of the job.",
             "steps": [
-                {"label": "Reminder sent", "done": reminder_sent, "next": "Send the appointment reminder if needed."},
-                {"label": "On-my-way message sent", "done": on_way_sent, "next": "Send the on-my-way message on the day."},
+                {"label": "Reminder sent", "done": reminder_sent, "next": "Send the appointment reminder if needed.", "href": "#job-message-actions"},
+                {"label": "On-my-way message sent", "done": on_way_sent, "next": "Send the on-my-way message on the day.", "href": "#job-message-actions"},
             ],
         },
         {
             "title": "5. Job completion",
             "summary": "Mark the job complete, then follow up properly.",
             "steps": [
-                {"label": "Job marked completed", "done": job_done, "next": "Mark the job as completed when the work is finished."},
-                {"label": "Thank-you message sent", "done": thank_you_sent, "next": "Send the thank-you message after the job."},
-                {"label": "Review request sent", "done": review_sent, "next": "Send the review request once the customer is happy."},
+                {"label": "Job marked completed", "done": job_done, "next": "Mark the job as completed when the work is finished.", "href": "#job-edit-details"},
+                {"label": "Thank-you message sent", "done": thank_you_sent, "next": "Send the thank-you message after the job.", "href": "#job-message-actions"},
+                {"label": "Review request sent", "done": review_sent, "next": "Send the review request once the customer is happy.", "href": "#job-message-actions"},
             ],
         },
         {
             "title": "6. Invoice and payment",
             "summary": "Create the invoice, sync it if needed, then track payment.",
             "steps": [
-                {"label": "Invoice created", "done": invoice_created, "next": "Convert this job to an invoice."},
-                {"label": "Invoice synced to Xero", "done": invoice_synced, "next": "Sync the invoice to Xero from the invoice page."},
-                {"label": "Payment received", "done": invoice_paid, "next": "Mark the invoice paid once payment is received."},
+                {"label": "Invoice created", "done": invoice_created, "next": "Convert this job to an invoice.", "href": invoice_href},
+                {"label": "Invoice synced to Xero", "done": invoice_synced, "next": "Sync the invoice to Xero from the invoice page.", "href": invoice_href},
+                {"label": "Payment received", "done": invoice_paid, "next": "Mark the invoice paid once payment is received.", "href": invoice_href},
             ],
         },
     ]
