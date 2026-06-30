@@ -1375,6 +1375,8 @@ DEFAULT_MESSAGE_TEMPLATES = {
     "review_request_message": {"name": "Review request message", "subject": "Review request", "body": "Hi {{name}},\n\nThank you again for choosing The Carpet Cleaning Company.\n\nIf you are happy with the work, I would really appreciate a quick Google review. It helps a small local business and helps new customers see the results we achieve.\n\nGoogle review link:\n{{review_link}}\n\nThanks\nPaul"},
     "payment_received_email": {"name": "Payment received email", "subject": "Thank you for your payment", "body": "Hi {{name}},\n\nThank you very much for your payment. It's greatly appreciated.\n\nThank you for choosing The Carpet Cleaning Company. We really appreciate your business and your continued support.\n\nIf you were happy with the service, we'd be very grateful if you could leave us a Google review. You can also follow us on Facebook to see our latest work, videos and cleaning tips.\n\nGoogle Reviews:\n{{review_link}}\n\nFacebook:\n{{facebook}}\n\nThanks\nPaul\n{{business_name}}"},
     "payment_received_sms": {"name": "Payment received SMS", "subject": "", "body": "Hi {{name}}, thank you very much for your payment. It's greatly appreciated. If you were happy with the service, a Google review would really help: {{review_link}} Thanks, Paul - {{business_name}}"},
+    "maintenance_reminder_email": {"name": "Maintenance reminder email", "subject": "It has been a while since your last clean", "body": "Hi {{name}},\n\nI hope you are well.\n\nIt has been a while since your last carpet or upholstery clean, so I just wanted to check whether you would like to book in again.\n\nRegular cleaning helps keep carpets and upholstery looking better for longer, especially in busy areas, homes with pets, or rooms used every day.\n\nIf you would like another clean, just reply to this email and I will be happy to help.\n\nYou can also follow us on Facebook to see our latest work and cleaning tips:\n{{facebook}}\n\nThanks\nPaul\n{{business_name}}"},
+    "maintenance_reminder_sms": {"name": "Maintenance reminder SMS", "subject": "", "body": "Hi {{name}}, it has been a while since your last clean. Would you like to book in again? Just reply and I will be happy to help. Thanks, Paul - {{business_name}}"},
 }
 
 
@@ -2765,6 +2767,124 @@ CUSTOMER_ACTION_TEMPLATES = [
 ]
 
 
+AUTOMATION_RULE_DEFAULTS = [
+    {
+        "rule_key": "booking_confirmation_at_booking",
+        "label": "Booking confirmation immediately after booking",
+        "description": "Send when a job is booked.",
+        "template_key": "booking_confirmation_email",
+        "sms_template_key": "booking_confirmation_sms",
+        "timing_type": "at_booking",
+        "timing_value": "0",
+        "send_time": "",
+        "send_email": 0,
+        "send_sms": 0,
+        "owner_email_copy": 0,
+    },
+    {
+        "rule_key": "appointment_reminder_7_days",
+        "label": "Appointment reminder 7 days before",
+        "description": "Send before the appointment date.",
+        "template_key": "today_run_reminder_email",
+        "sms_template_key": "today_run_reminder_sms",
+        "timing_type": "days_before",
+        "timing_value": "7",
+        "send_time": "09:00",
+        "send_email": 0,
+        "send_sms": 0,
+        "owner_email_copy": 0,
+    },
+    {
+        "rule_key": "appointment_reminder_2_days",
+        "label": "Appointment reminder 2 days before",
+        "description": "Send a closer reminder shortly before the appointment.",
+        "template_key": "today_run_reminder_email",
+        "sms_template_key": "today_run_reminder_sms",
+        "timing_type": "days_before",
+        "timing_value": "2",
+        "send_time": "09:00",
+        "send_email": 0,
+        "send_sms": 0,
+        "owner_email_copy": 0,
+    },
+    {
+        "rule_key": "on_way_day_at_time",
+        "label": "We're on our way on the day",
+        "description": "Send on the appointment day at the configured time.",
+        "template_key": "today_run_coming_email",
+        "sms_template_key": "today_run_coming_sms",
+        "timing_type": "day_at_time",
+        "timing_value": "0",
+        "send_time": "09:00",
+        "send_email": 0,
+        "send_sms": 0,
+        "owner_email_copy": 1,
+    },
+    {
+        "rule_key": "thank_you_after_completion",
+        "label": "Thank you after job completed",
+        "description": "Send after a job is marked completed, invoiced or paid.",
+        "template_key": "thank_you_message",
+        "sms_template_key": "thank_you_message",
+        "timing_type": "days_after_completion",
+        "timing_value": "0",
+        "send_time": "17:00",
+        "send_email": 0,
+        "send_sms": 0,
+        "owner_email_copy": 0,
+    },
+    {
+        "rule_key": "review_request_after_completion",
+        "label": "Review request after completion",
+        "description": "Send a review request a set number of days after completion.",
+        "template_key": "review_request_message",
+        "sms_template_key": "review_request_message",
+        "timing_type": "days_after_completion",
+        "timing_value": "2",
+        "send_time": "10:00",
+        "send_email": 0,
+        "send_sms": 0,
+        "owner_email_copy": 0,
+    },
+    {
+        "rule_key": "maintenance_reminder_6_months",
+        "label": "Maintenance reminder after 6 months",
+        "description": "Invite the customer to book another clean after 6 months.",
+        "template_key": "maintenance_reminder_email",
+        "sms_template_key": "maintenance_reminder_sms",
+        "timing_type": "months_after_completion",
+        "timing_value": "6",
+        "send_time": "10:00",
+        "send_email": 0,
+        "send_sms": 0,
+        "owner_email_copy": 0,
+    },
+    {
+        "rule_key": "maintenance_reminder_12_months",
+        "label": "Maintenance reminder after 12 months",
+        "description": "Invite the customer to book another clean after 12 months.",
+        "template_key": "maintenance_reminder_email",
+        "sms_template_key": "maintenance_reminder_sms",
+        "timing_type": "months_after_completion",
+        "timing_value": "12",
+        "send_time": "10:00",
+        "send_email": 0,
+        "send_sms": 0,
+        "owner_email_copy": 0,
+    },
+]
+
+
+AUTOMATION_TIMING_LABELS = {
+    "at_booking": "At booking",
+    "days_before": "X days before appointment",
+    "day_at_time": "On appointment day at time",
+    "hours_before": "X hours before appointment",
+    "days_after_completion": "X days after completion",
+    "months_after_completion": "X months after completion",
+}
+
+
 def latest_customer_job(customer_id):
     return q("""SELECT jobs.*, customers.first_name, customers.last_name, customers.phone, customers.email,
                        customers.address, customers.town, customers.postcode, customers.sms_opt_out
@@ -2849,6 +2969,7 @@ def visual_customer_email_html(template_key, customer, job, plain_body):
         "thank_you_message": "finished",
         "review_request_message": "review",
         "payment_received_email": "payment",
+        "maintenance_reminder_email": "maintenance",
     }.get(template_key)
     if day_kind:
         return day_run_email_html(day_kind, job_context, plain_body)
@@ -2881,6 +3002,202 @@ def send_rendered_customer_message(customer, channel, subject, body, test_mode=F
         ok, msg = send_clicksend_env_sms(recipient, body, customer=customer, category="Customer Message")
         return ok, msg, recipient
     return False, "Choose Email or SMS.", ""
+
+
+def parse_hhmm(value, default="09:00"):
+    text = clean_str(value) or default
+    try:
+        hour_text, minute_text = text.split(":", 1)
+        hour = max(0, min(23, int(hour_text)))
+        minute = max(0, min(59, int(minute_text[:2])))
+        return hour, minute
+    except Exception:
+        return parse_hhmm(default, "09:00") if default != text else (9, 0)
+
+
+def add_months(base_date, months):
+    month = base_date.month - 1 + int(months or 0)
+    year = base_date.year + month // 12
+    month = month % 12 + 1
+    day = min(base_date.day, pycalendar.monthrange(year, month)[1])
+    return date(year, month, day)
+
+
+def automation_settings_rows():
+    init_db()
+    rows = {row["rule_key"]: row for row in q("SELECT * FROM communication_automation_settings ORDER BY rowid")}
+    out = []
+    for default in AUTOMATION_RULE_DEFAULTS:
+        row = rows.get(default["rule_key"])
+        merged = dict(default)
+        if row:
+            for key in merged:
+                if key in row.keys() and row[key] is not None:
+                    merged[key] = row[key]
+            merged["active"] = row["active"] if "active" in row.keys() else 1
+        else:
+            merged["active"] = 1
+        merged["timing_label"] = AUTOMATION_TIMING_LABELS.get(merged["timing_type"], merged["timing_type"])
+        out.append(merged)
+    return out
+
+
+def automation_completion_date(job):
+    for key in ("job_completed_at", "payment_received_at", "invoice_created_at"):
+        value = clean_str(row_value(job, key))
+        if value:
+            parsed = parse_iso_date(value[:10])
+            if parsed:
+                return parsed
+    parsed_job_date = parse_iso_date(row_value(job, "job_date"))
+    if parsed_job_date:
+        return parsed_job_date
+    created = clean_str(row_value(job, "created_at"))
+    return parse_iso_date(created[:10]) if created else None
+
+
+def automation_due_datetime(rule, job):
+    now = datetime.now(ZoneInfo("Europe/London"))
+    timing_type = clean_str(row_value(rule, "timing_type"))
+    try:
+        timing_value = int(clean_str(row_value(rule, "timing_value")) or 0)
+    except ValueError:
+        timing_value = 0
+    hour, minute = parse_hhmm(row_value(rule, "send_time") or "09:00")
+    job_date = parse_iso_date(row_value(job, "job_date"))
+    job_time_text = clean_str(row_value(job, "job_time")) or "09:00"
+    job_hour, job_minute = parse_hhmm(job_time_text)
+    status = clean_str(row_value(job, "status")).lower()
+
+    if timing_type == "at_booking":
+        if status not in {"booked", "in progress"}:
+            return None
+        created = clean_str(row_value(job, "created_at"))
+        created_date = parse_iso_date(created[:10]) if created else uk_today()
+        return datetime(created_date.year, created_date.month, created_date.day, 0, 0, tzinfo=ZoneInfo("Europe/London"))
+    if not job_date:
+        return None
+    if timing_type == "days_before":
+        target = job_date - timedelta(days=timing_value)
+        return datetime(target.year, target.month, target.day, hour, minute, tzinfo=ZoneInfo("Europe/London"))
+    if timing_type == "day_at_time":
+        return datetime(job_date.year, job_date.month, job_date.day, hour, minute, tzinfo=ZoneInfo("Europe/London"))
+    if timing_type == "hours_before":
+        job_dt = datetime(job_date.year, job_date.month, job_date.day, job_hour, job_minute, tzinfo=ZoneInfo("Europe/London"))
+        return job_dt - timedelta(hours=timing_value)
+    if timing_type in {"days_after_completion", "months_after_completion"}:
+        if status not in {"completed", "invoiced", "paid"}:
+            return None
+        completed = automation_completion_date(job)
+        if not completed:
+            return None
+        target = completed + timedelta(days=timing_value) if timing_type == "days_after_completion" else add_months(completed, timing_value)
+        return datetime(target.year, target.month, target.day, hour, minute, tzinfo=ZoneInfo("Europe/London"))
+    return None
+
+
+def automation_recent_enough(rule, due_at, now):
+    if not due_at or due_at > now:
+        return False
+    timing_type = clean_str(row_value(rule, "timing_type"))
+    lookback_hours = 336 if timing_type == "months_after_completion" else 72
+    return due_at >= now - timedelta(hours=lookback_hours)
+
+
+def automation_already_sent(rule_key, customer_id, job_id, channel):
+    row = q("""SELECT id FROM communication_automation_log
+               WHERE rule_key=? AND customer_id=? AND job_id=? AND channel=?
+                 AND status IN ('Sent','Success')
+               LIMIT 1""", (rule_key, customer_id, job_id, channel), one=True)
+    return bool(row)
+
+
+def automation_log(rule_key, customer_id, job_id, channel, recipient, subject, body, status, message, due_at):
+    run("""INSERT INTO communication_automation_log
+           (rule_key, customer_id, job_id, channel, recipient, subject, body, status, message, due_at, sent_at)
+           VALUES (?,?,?,?,?,?,?,?,?,?,datetime('now'))""",
+        (rule_key, customer_id, job_id, channel, recipient, subject, body, status, message, due_at.isoformat() if due_at else ""))
+
+
+def automation_job_rows():
+    return q("""SELECT jobs.id AS job_id, jobs.customer_id, jobs.quote_id, jobs.title, jobs.service_type,
+                       jobs.job_date, jobs.job_time, jobs.status, jobs.amount, jobs.assigned_to,
+                       jobs.notes, jobs.created_at,
+                       customers.id AS customer_row_id, customers.first_name, customers.last_name,
+                       customers.phone, customers.email, customers.address, customers.town, customers.postcode,
+                       customers.sms_opt_out, customers.job_completed_at, customers.payment_received_at,
+                       customers.invoice_created_at
+                FROM jobs
+                LEFT JOIN customers ON customers.id = jobs.customer_id
+                WHERE jobs.customer_id IS NOT NULL
+                  AND IFNULL(jobs.status,'') <> 'Archived'
+                  AND IFNULL(customers.archived_at,'') = ''
+                ORDER BY jobs.id DESC""")
+
+
+def automation_send_for_rule(rule, job, dry_run=False):
+    now = datetime.now(ZoneInfo("Europe/London"))
+    due_at = automation_due_datetime(rule, job)
+    if not automation_recent_enough(rule, due_at, now):
+        return []
+    customer_id = row_value(job, "customer_id")
+    job_id = row_value(job, "job_id")
+    results = []
+    customer = {
+        "id": customer_id,
+        "first_name": row_value(job, "first_name"),
+        "last_name": row_value(job, "last_name"),
+        "phone": row_value(job, "phone"),
+        "email": row_value(job, "email"),
+        "address": row_value(job, "address"),
+        "town": row_value(job, "town"),
+        "postcode": row_value(job, "postcode"),
+        "sms_opt_out": row_value(job, "sms_opt_out"),
+    }
+    job_context = dict(job)
+    job_context["id"] = job_id
+    replacements = customer_message_replacements(customer, job_context)
+    channels = []
+    if int(row_value(rule, "send_email", 0) or 0) == 1:
+        channels.append(("email", row_value(rule, "template_key")))
+    if int(row_value(rule, "send_sms", 0) or 0) == 1:
+        channels.append(("sms", row_value(rule, "sms_template_key") or row_value(rule, "template_key")))
+    for channel, template_key in channels:
+        if automation_already_sent(row_value(rule, "rule_key"), customer_id, job_id, channel):
+            continue
+        template = message_template(template_key)
+        subject = render_simple_template(template.get("subject") or row_value(rule, "label"), replacements)
+        body = render_simple_template(template.get("body") or "", replacements)
+        html_body = ""
+        if channel == "email":
+            html_body = visual_customer_email_html(template_key, customer, job_context, body)
+        if dry_run:
+            ok, msg, recipient = True, "Dry run: would send.", row_value(customer, "email") if channel == "email" else row_value(customer, "phone")
+        else:
+            ok, msg, recipient = send_rendered_customer_message(customer, channel, subject, body, test_mode=False, html_body=html_body)
+        status = "Sent" if ok else "Failed"
+        if not dry_run:
+            automation_log(row_value(rule, "rule_key"), customer_id, job_id, channel, recipient, subject, body, status, msg, due_at)
+        if ok and not dry_run:
+            log_customer_message(customer_id, "Automation " + ("Email" if channel == "email" else "SMS"), subject, body)
+            if channel == "email" and int(row_value(rule, "owner_email_copy", 0) or 0) == 1:
+                owner_email, _owner_mobile = owner_contact_form_recipients()
+                if owner_email:
+                    send_env_email(owner_email, "COPY - " + subject, body, html_body, customer=customer)
+        results.append({"rule": row_value(rule, "rule_key"), "job_id": job_id, "customer_id": customer_id, "channel": channel, "status": status, "message": msg})
+    return results
+
+
+def run_due_communication_automations(dry_run=False):
+    sent = []
+    for rule in automation_settings_rows():
+        if int(row_value(rule, "active", 1) or 0) != 1:
+            continue
+        if int(row_value(rule, "send_email", 0) or 0) != 1 and int(row_value(rule, "send_sms", 0) or 0) != 1:
+            continue
+        for job in automation_job_rows():
+            sent.extend(automation_send_for_rule(rule, dict(job), dry_run=dry_run))
+    return sent
 
 
 def day_run_message(kind, job):
@@ -2940,6 +3257,7 @@ def day_run_email_html(kind, job, plain_body):
         "finished": "Your clean is complete",
         "review": "Thank you for choosing us",
         "payment": "Thank you for your payment",
+        "maintenance": "Time for a freshen up?",
     }
     strap_map = {
         "coming": "We are heading to your carpet cleaning appointment today.",
@@ -2947,6 +3265,7 @@ def day_run_email_html(kind, job, plain_body):
         "finished": "Thank you for using us today.",
         "review": "If you are happy with the result, a Google review really helps.",
         "payment": "Your payment has been received. Thank you for your continued support.",
+        "maintenance": "It has been a while since your last clean. We would be happy to help when you are ready.",
     }
     title = title_map.get(kind, "Message from The Carpet Cleaning Company")
     strap = strap_map.get(kind, "A quick update from The Carpet Cleaning Company.")
@@ -4003,6 +4322,35 @@ def init_db():
         body TEXT,
         updated_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
+    CREATE TABLE IF NOT EXISTS communication_automation_settings (
+        rule_key TEXT PRIMARY KEY,
+        label TEXT,
+        description TEXT,
+        template_key TEXT,
+        sms_template_key TEXT,
+        timing_type TEXT,
+        timing_value TEXT,
+        send_time TEXT,
+        send_email INTEGER DEFAULT 0,
+        send_sms INTEGER DEFAULT 0,
+        owner_email_copy INTEGER DEFAULT 0,
+        active INTEGER DEFAULT 1,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS communication_automation_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        rule_key TEXT,
+        customer_id INTEGER,
+        job_id INTEGER,
+        channel TEXT,
+        recipient TEXT,
+        subject TEXT,
+        body TEXT,
+        status TEXT,
+        message TEXT,
+        due_at TEXT,
+        sent_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
     """)
     cur = conn.cursor()
     # Safe additive migrations for older databases
@@ -4110,6 +4458,18 @@ def init_db():
         conn.execute(
             "INSERT OR IGNORE INTO message_templates(template_key, name, subject, body, updated_at) VALUES (?,?,?,?,datetime('now'))",
             (key, template["name"], template["subject"], template["body"]),
+        )
+    for rule in AUTOMATION_RULE_DEFAULTS:
+        conn.execute(
+            """INSERT OR IGNORE INTO communication_automation_settings
+               (rule_key, label, description, template_key, sms_template_key, timing_type, timing_value, send_time,
+                send_email, send_sms, owner_email_copy, active, updated_at)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'))""",
+            (
+                rule["rule_key"], rule["label"], rule["description"], rule["template_key"], rule["sms_template_key"],
+                rule["timing_type"], rule["timing_value"], rule["send_time"], rule["send_email"], rule["send_sms"],
+                rule["owner_email_copy"], 1,
+            ),
         )
     seed_visual_email_templates(conn)
     conn.execute(
@@ -5553,6 +5913,74 @@ def message_settings():
             "body": row["body"] if row else default["body"],
         })
     return render_template("message_settings.html", templates=templates)
+
+
+@app.route("/communication-automation", methods=["GET", "POST"])
+@login_required
+def communication_automation_settings():
+    init_db()
+    if request.method == "POST":
+        for default in AUTOMATION_RULE_DEFAULTS:
+            key = default["rule_key"]
+            active = 1 if request.form.get(f"{key}_active") == "1" else 0
+            send_email = 1 if request.form.get(f"{key}_send_email") == "1" else 0
+            send_sms = 1 if request.form.get(f"{key}_send_sms") == "1" else 0
+            owner_email_copy = 1 if request.form.get(f"{key}_owner_email_copy") == "1" else 0
+            timing_type = clean_str(request.form.get(f"{key}_timing_type")) or default["timing_type"]
+            timing_value = clean_str(request.form.get(f"{key}_timing_value")) or default["timing_value"]
+            send_time = clean_str(request.form.get(f"{key}_send_time")) or default["send_time"]
+            run("""INSERT INTO communication_automation_settings
+                   (rule_key, label, description, template_key, sms_template_key, timing_type, timing_value, send_time,
+                    send_email, send_sms, owner_email_copy, active, updated_at)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'))
+                   ON CONFLICT(rule_key) DO UPDATE SET
+                    timing_type=excluded.timing_type,
+                    timing_value=excluded.timing_value,
+                    send_time=excluded.send_time,
+                    send_email=excluded.send_email,
+                    send_sms=excluded.send_sms,
+                    owner_email_copy=excluded.owner_email_copy,
+                    active=excluded.active,
+                    updated_at=datetime('now')""",
+                (
+                    key, default["label"], default["description"], default["template_key"], default["sms_template_key"],
+                    timing_type, timing_value, send_time, send_email, send_sms, owner_email_copy, active,
+                ))
+        flash("Global communication automation settings saved.")
+        return redirect(url_for("communication_automation_settings"))
+    logs = q("""SELECT * FROM communication_automation_log
+                ORDER BY id DESC LIMIT 40""")
+    return render_template(
+        "communication_automation.html",
+        rules=automation_settings_rows(),
+        timing_labels=AUTOMATION_TIMING_LABELS,
+        logs=logs,
+        automation_secret_set=bool(os.environ.get("AUTOMATION_SECRET", "").strip()),
+    )
+
+
+def automation_request_authorized():
+    secret = os.environ.get("AUTOMATION_SECRET", "").strip()
+    supplied = request.headers.get("X-Automation-Secret", "").strip() or request.args.get("secret", "").strip()
+    if secret and supplied and secrets.compare_digest(secret, supplied):
+        return True
+    return bool(session.get("logged_in"))
+
+
+@app.route("/automation/run-due", methods=["GET", "POST"])
+def automation_run_due():
+    if not automation_request_authorized():
+        return {"ok": False, "error": "Not authorised"}, 403
+    dry_run = request.args.get("dry_run") == "1" or request.form.get("dry_run") == "1"
+    init_db()
+    results = run_due_communication_automations(dry_run=dry_run)
+    return {
+        "ok": True,
+        "dry_run": dry_run,
+        "sent_or_checked": len(results),
+        "results": results[:100],
+        "ran_at": datetime.now(ZoneInfo("Europe/London")).isoformat(timespec="seconds"),
+    }
 
 
 @app.route('/sms-inbox')

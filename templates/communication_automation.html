@@ -1,0 +1,92 @@
+{% extends "layout.html" %}
+{% block title %}Communication Automation{% endblock %}
+{% block page_title %}Communication Automation{% endblock %}
+{% block body_content %}
+<section class="panel page-shell">
+  <div class="panel-head panel-head-stack">
+    <div>
+      <span class="section-kicker">Global communication settings</span>
+      <h3>Automatic customer emails and texts</h3>
+      <p>Choose which customer messages are automatic and which stay manual. Manual buttons on customer and job pages still work.</p>
+    </div>
+    <form method="post" action="{{ url_for('automation_run_due', dry_run=1) }}">
+      <button class="btn secondary" type="submit">Test Due Check</button>
+    </form>
+  </div>
+  <div class="notice">
+    Automations only send when a rule is enabled, the message is due, and that exact rule/job/channel has not already been sent. Older overdue items are ignored by the safety window to avoid accidental bulk sends.
+    {% if automation_secret_set %}
+      <br>Automation secret is set for cron use.
+    {% else %}
+      <br><strong>Automation secret is not set.</strong> The page can run manually while logged in, but a Render Cron Job should use an <code>AUTOMATION_SECRET</code>.
+    {% endif %}
+  </div>
+
+  <form method="post" class="form automation-settings-form">
+    <div class="automation-rule-grid">
+      {% for rule in rules %}
+      <section class="panel automation-rule-card">
+        <div class="panel-head compact-head">
+          <div>
+            <h3>{{ rule.label }}</h3>
+            <p>{{ rule.description }}</p>
+          </div>
+          <label class="toggle-line">
+            <input type="checkbox" name="{{ rule.rule_key }}_active" value="1" {% if rule.active|int == 1 %}checked{% endif %}>
+            <span>Rule active</span>
+          </label>
+        </div>
+        <div class="customer-form-send-options">
+          <label><input type="checkbox" name="{{ rule.rule_key }}_send_email" value="1" {% if rule.send_email|int == 1 %}checked{% endif %}> Auto email</label>
+          <label><input type="checkbox" name="{{ rule.rule_key }}_send_sms" value="1" {% if rule.send_sms|int == 1 %}checked{% endif %}> Auto text</label>
+          <label><input type="checkbox" name="{{ rule.rule_key }}_owner_email_copy" value="1" {% if rule.owner_email_copy|int == 1 %}checked{% endif %}> Email copy to me</label>
+        </div>
+        <div class="cols">
+          <label>Timing
+            <select name="{{ rule.rule_key }}_timing_type">
+              {% for value, label in timing_labels.items() %}
+              <option value="{{ value }}" {% if rule.timing_type == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label>Value
+            <input name="{{ rule.rule_key }}_timing_value" value="{{ rule.timing_value or '0' }}" inputmode="numeric">
+          </label>
+        </div>
+        <label>Send time
+          <input type="time" name="{{ rule.rule_key }}_send_time" value="{{ rule.send_time or '' }}">
+        </label>
+        <p class="muted">Email template: <strong>{{ rule.template_key }}</strong><br>SMS template: <strong>{{ rule.sms_template_key }}</strong></p>
+      </section>
+      {% endfor %}
+    </div>
+    <button class="btn primary">Save Automation Settings</button>
+  </form>
+</section>
+
+<section class="panel">
+  <div class="panel-head">
+    <div>
+      <h3>Recent automation log</h3>
+      <p>The latest automatic send attempts will appear here.</p>
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table class="table compact-table">
+      <tr><th>When</th><th>Rule</th><th>Channel</th><th>Status</th><th>Recipient</th><th>Message</th></tr>
+      {% for row in logs %}
+      <tr>
+        <td>{{ row.sent_at }}</td>
+        <td>{{ row.rule_key }}</td>
+        <td>{{ row.channel }}</td>
+        <td>{{ row.status }}</td>
+        <td>{{ row.recipient }}</td>
+        <td>{{ row.message }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" class="empty-cell">No automation sends logged yet.</td></tr>
+      {% endfor %}
+    </table>
+  </div>
+</section>
+{% endblock %}
