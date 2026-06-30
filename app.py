@@ -251,6 +251,10 @@ def email_action_button(label, url, background="#1457a8", color="#ffffff"):
     """
 
 
+def email_text_link(label, url):
+    return f'<p style="margin:2px 0 0;font-size:13px;line-height:1.5;color:#385066">{html_lib.escape(label)}: <a href="{html_lib.escape(url)}" style="color:#1457a8;text-decoration:underline;word-break:break-all">{html_lib.escape(url)}</a></p>'
+
+
 def row_value(row, key, default=""):
     if not row:
         return default
@@ -1349,26 +1353,26 @@ DEFAULT_MESSAGE_TEMPLATES = {
     "today_run_coming_email": {
         "name": "Today Run - we are on our way email",
         "subject": "We are on our way",
-        "body": "Hi {{name}},\n\nWe are on our way for your carpet cleaning appointment today.\n\nAppointment date: {{date}}\nAddress: {{address}}\n\nThanks\nPaul\n{{business_name}}",
+        "body": "Hi {{name}},\n\nI am on my way to your carpet cleaning appointment now.\n\nAddress: {{address}}\n\nIf there is anything I need to know about parking, access, pets or entry to the property, please reply as soon as you can.\n\nThanks\nPaul\n{{business_name}}",
     },
     "today_run_coming_sms": {
         "name": "Today Run - we are on our way SMS",
         "subject": "",
-        "body": "Hi {{name}}, we are on our way for your carpet cleaning appointment today. Thanks, Paul - {{business_name}}",
+        "body": "Hi {{name}}, I am on my way to your carpet cleaning appointment now. Please reply if there are any parking or access issues. Thanks, Paul - {{business_name}}",
     },
     "today_run_reminder_email": {
         "name": "Today Run - appointment reminder email",
         "subject": "Appointment reminder",
-        "body": "Hi {{name}},\n\nJust a reminder that your carpet cleaning appointment is booked for {{date}}.\n\nThanks\nPaul\n{{business_name}}",
+        "body": "Hi {{name}},\n\nJust a quick reminder that your carpet clean is booked in for {{date}} at {{time}}.\n\nAddress: {{address}}\n\nPlease clear any small items from the areas being cleaned where possible. If parking or access has changed, please let me know before I arrive.\n\nThanks\nPaul\n{{business_name}}",
     },
     "today_run_reminder_sms": {
         "name": "Today Run - appointment reminder SMS",
         "subject": "",
-        "body": "Hi {{name}}, just a reminder that your carpet cleaning appointment is booked for {{date}}. Thanks, Paul - {{business_name}}",
+        "body": "Hi {{name}}, just a quick reminder that your carpet clean is booked in for {{date}} at {{time}}. Please clear small items where possible. Thanks, Paul - {{business_name}}",
     },
-    "appointment_reminder_sms": {"name": "Appointment reminder SMS", "subject": "", "body": "Hi {{name}}, just a reminder that your carpet cleaning appointment is booked for {{date}} at {{time}}. Thanks, Paul."},
-    "thank_you_message": {"name": "Thank you message", "subject": "Thank you", "body": "Hi {{name}}, thank you for using The Carpet Cleaning Company."},
-    "review_request_message": {"name": "Review request message", "subject": "Review request", "body": "Hi {{name}}, thank you for using The Carpet Cleaning Company. If you are happy with the work, I would really appreciate a quick Google review: https://share.google/XHQjHHLwpmlugHP0c"},
+    "appointment_reminder_sms": {"name": "Appointment reminder SMS", "subject": "", "body": "Hi {{name}}, just a quick reminder that your carpet clean is booked in for {{date}} at {{time}}. Thanks, Paul."},
+    "thank_you_message": {"name": "Thank you message", "subject": "Thank you", "body": "Hi {{name}},\n\nThank you for choosing The Carpet Cleaning Company today. I hope you are happy with the clean.\n\nIf you notice anything you are unsure about, please message me and I will be happy to help.\n\nThanks\nPaul"},
+    "review_request_message": {"name": "Review request message", "subject": "Review request", "body": "Hi {{name}},\n\nThank you again for choosing The Carpet Cleaning Company.\n\nIf you are happy with the work, I would really appreciate a quick Google review. It helps a small local business and helps new customers see the results we achieve.\n\nGoogle review link:\n{{review_link}}\n\nThanks\nPaul"},
 }
 
 
@@ -2846,6 +2850,7 @@ def day_run_email_html(kind, job, plain_body):
     name = clean_str(row_value(job, "first_name")) or "there"
     business = settings()["business_name"] or "The Carpet Cleaning Company"
     logo_url = public_static_or_live_url("site/email-logo-white.png")
+    hero_url = public_static_or_live_url("site/hero-carpet-cleaning.webp")
     website_url = enquiry_public_site_url()
     facebook_url = "https://www.facebook.com/profile.php?id=61559013150413"
     reviews_url = settings()["review_link"] or "https://share.google/XHQjHHLwpmlugHP0c"
@@ -2871,32 +2876,57 @@ def day_run_email_html(kind, job, plain_body):
     title = title_map.get(kind, "Message from The Carpet Cleaning Company")
     strap = strap_map.get(kind, "A quick update from The Carpet Cleaning Company.")
     logo_html = f'<img src="{html_lib.escape(logo_url)}" alt="{html_lib.escape(business)}" width="104" style="display:block;width:104px;height:auto;border:0;margin:0 auto">' if logo_url else ""
+    hero_html = f'<img src="{html_lib.escape(hero_url)}" alt="Professional carpet cleaning" width="580" style="display:block;width:100%;max-width:580px;height:auto;border:0;border-radius:18px">' if hero_url else ""
     message_html = html_lib.escape(plain_body or "").replace("\n", "<br>")
+    review_focus_html = ""
+    if kind == "review":
+        review_focus_html = f"""
+          <tr>
+            <td style="padding:0 30px 14px">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f3faf6;border:1px solid #bfe5cf;border-radius:18px;border-left:5px solid #0f7b63">
+                <tr>
+                  <td style="padding:20px">
+                    <h2 style="margin:0 0 8px;font-size:21px;line-height:1.25;color:#071524">Would you leave us a Google review?</h2>
+                    <p style="margin:0 0 14px;font-size:16px;line-height:1.6;color:#385066">If you are happy with the clean, a quick review really helps a local business and helps new customers feel confident booking with us.</p>
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                      {email_action_button("Leave a Google review", reviews_url, "#0f7b63", "#ffffff")}
+                    </table>
+                    {email_text_link("Google review link", reviews_url)}
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        """
     return f"""<!doctype html>
 <html>
-<body style="margin:0;background:#eef4f8;font-family:Arial,Helvetica,sans-serif;color:#0b1f33">
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#eef4f8;margin:0;padding:0">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;background:#eaf3f8;font-family:Arial,Helvetica,sans-serif;color:#0b1f33">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#eaf3f8;margin:0;padding:0">
     <tr>
       <td align="center" style="padding:28px 14px">
-        <table role="presentation" width="640" cellspacing="0" cellpadding="0" style="width:100%;max-width:640px;background:#ffffff;border-radius:22px;overflow:hidden;border:1px solid #d8e4ee;box-shadow:0 18px 48px rgba(12,31,51,.10)">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="width:100%;max-width:640px;background:#ffffff;border-radius:26px;overflow:hidden;border:1px solid #d8e4ee;box-shadow:0 22px 60px rgba(12,31,51,.13)">
           <tr>
             <td style="height:8px;background:linear-gradient(90deg,#071524 0%,#0f4a5a 50%,#d8af55 100%);font-size:0;line-height:0">&nbsp;</td>
           </tr>
           <tr>
-            <td align="center" style="background:#fbf7ee;padding:26px 30px 24px;color:#071524;border-bottom:1px solid #eadfcb">
+            <td align="center" style="background:linear-gradient(180deg,#fff8ec 0%,#eef7fb 100%);padding:28px 30px 24px;color:#071524;border-bottom:1px solid #dce8f1">
               <table role="presentation" cellspacing="0" cellpadding="0" style="background:#ffffff;border:1px solid #ead6a8;border-radius:999px;box-shadow:0 10px 24px rgba(7,21,36,.10);margin:0 auto 14px">
                 <tr>
                   <td style="padding:12px">{logo_html}</td>
                 </tr>
               </table>
-              <div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#9a6d20;font-weight:700">{html_lib.escape(business)}</div>
+              <div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#0f7b63;font-weight:900">{html_lib.escape(business)}</div>
               <h1 style="margin:8px 0 0;font-size:30px;line-height:1.18;color:#071524">{html_lib.escape(title)}</h1>
               <p style="margin:9px auto 0;max-width:500px;font-size:16px;line-height:1.55;color:#385066">Hi {html_lib.escape(name)}, {html_lib.escape(strap)}</p>
             </td>
           </tr>
           <tr>
+            <td style="padding:24px 30px 12px">{hero_html}</td>
+          </tr>
+          <tr>
             <td style="padding:24px 30px 10px">
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f8fbfd;border:1px solid #dce8f1;border-radius:16px">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f8fbfd;border:1px solid #dce8f1;border-radius:18px">
                 <tr>
                   <td style="padding:20px;font-size:16px;line-height:1.65;color:#385066">{message_html}</td>
                 </tr>
@@ -2905,9 +2935,9 @@ def day_run_email_html(kind, job, plain_body):
           </tr>
           <tr>
             <td style="padding:12px 30px 8px">
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #dce8f1;border-radius:16px;overflow:hidden">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #dce8f1;border-radius:18px;overflow:hidden">
                 <tr>
-                  <td style="background:#f3f8fb;color:#071524;padding:15px 20px;font-size:17px;font-weight:700">Appointment details</td>
+                  <td style="background:#f3f8fb;color:#071524;padding:15px 20px;font-size:17px;font-weight:900">Appointment details</td>
                 </tr>
                 <tr>
                   <td style="padding:14px 20px;border-top:1px solid #dce8f1;color:#385066;font-size:15px;line-height:1.55"><strong>Date:</strong> {html_lib.escape(job_date)}<br><strong>Address:</strong> {html_lib.escape(address)}</td>
@@ -2915,9 +2945,10 @@ def day_run_email_html(kind, job, plain_body):
               </table>
             </td>
           </tr>
+          {review_focus_html}
           <tr>
             <td style="padding:18px 30px 8px">
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f7fbff;border:1px solid #d8e7f6;border-radius:16px">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f7fbff;border:1px solid #d8e7f6;border-radius:18px">
                 <tr>
                   <td style="padding:18px">
                     <h2 style="margin:0 0 8px;font-size:20px;line-height:1.25;color:#071524">Useful links</h2>
@@ -2927,6 +2958,7 @@ def day_run_email_html(kind, job, plain_body):
                       {email_action_button("Read our Google reviews", reviews_url, "#0f7b63", "#ffffff")}
                       {email_action_button("Visit our website", website_url, "#d8af55", "#071524")}
                     </table>
+                    {email_text_link("Google reviews", reviews_url)}
                   </td>
                 </tr>
               </table>
@@ -3103,14 +3135,14 @@ def booking_confirmation_email_html(job):
           <tr>
             <td style="padding:0 30px 18px">
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#eef5ff;border:1px solid #cbdff8;border-radius:18px">
-                <tr><td style="padding:18px"><strong style="font-size:17px;color:#071524">See our work</strong><p style="margin:6px 0 13px;font-size:15px;line-height:1.55;color:#42566c">Please follow us on Facebook to see our videos, recent cleans and before-and-after photos. It is a good way to see the kind of results we get.</p><table role="presentation" width="100%" cellspacing="0" cellpadding="0">{email_action_button("Follow us on Facebook", facebook_url, "#1457a8", "#ffffff")}</table></td></tr>
+                <tr><td style="padding:18px"><strong style="font-size:17px;color:#071524">See our work</strong><p style="margin:6px 0 13px;font-size:15px;line-height:1.55;color:#42566c">Please follow us on Facebook to see our videos, recent cleans and before-and-after photos. It is a good way to see the kind of results we get.</p><table role="presentation" width="100%" cellspacing="0" cellpadding="0">{email_action_button("Follow us on Facebook", facebook_url, "#1457a8", "#ffffff")}{email_action_button("Read our Google reviews", reviews_url, "#0d6b58", "#ffffff")}</table>{email_text_link("Google reviews", reviews_url)}</td></tr>
               </table>
             </td>
           </tr>
           <tr>
             <td style="padding:0 30px 18px">
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f3faf6;border:1px solid #cfe5d9;border-radius:18px">
-                <tr><td style="padding:18px"><strong style="font-size:17px;color:#071524">After the clean</strong><p style="margin:6px 0 13px;font-size:15px;line-height:1.55;color:#42566c">If you're happy with the service, a quick Google review really helps a local business.</p><table role="presentation" width="100%" cellspacing="0" cellpadding="0">{email_action_button("Leave a Google review", reviews_url, "#0d6b58", "#ffffff")}</table></td></tr>
+                <tr><td style="padding:18px"><strong style="font-size:17px;color:#071524">After the clean</strong><p style="margin:6px 0 13px;font-size:15px;line-height:1.55;color:#42566c">If you're happy with the service, a quick Google review really helps a local business.</p><table role="presentation" width="100%" cellspacing="0" cellpadding="0">{email_action_button("Leave a Google review", reviews_url, "#0d6b58", "#ffffff")}</table>{email_text_link("Google review link", reviews_url)}</td></tr>
               </table>
             </td>
           </tr>
@@ -4068,6 +4100,24 @@ def init_db():
               AND body LIKE 'New website enquiry for The Carpet Cleaning Company.%'""",
         (DEFAULT_MESSAGE_TEMPLATES["owner_enquiry_alert_sms"]["body"],),
     )
+    template_refresh_rules = {
+        "today_run_coming_email": "%I am on my way to your carpet cleaning appointment now%",
+        "today_run_coming_sms": "%I am on my way to your carpet cleaning appointment now%",
+        "today_run_reminder_email": "%Just a quick reminder that your carpet clean is booked in%",
+        "today_run_reminder_sms": "%Just a quick reminder that your carpet clean is booked in%",
+        "appointment_reminder_sms": "%just a quick reminder that your carpet clean is booked in%",
+        "thank_you_message": "%If you notice anything you are unsure about%",
+        "review_request_message": "%Google review link:%",
+    }
+    for template_key, expected_phrase in template_refresh_rules.items():
+        template = DEFAULT_MESSAGE_TEMPLATES[template_key]
+        conn.execute(
+            """UPDATE message_templates
+                  SET subject=?, body=?, updated_at=datetime('now')
+                WHERE template_key=?
+                  AND body NOT LIKE ?""",
+            (template["subject"], template["body"], template_key, expected_phrase),
+        )
     conn.commit()
     conn.close()
     try:
