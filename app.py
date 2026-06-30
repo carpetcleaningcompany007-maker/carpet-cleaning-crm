@@ -1914,6 +1914,15 @@ def contact_form_alert_text(lead, customer_id=None):
         "CUSTOMER FORM COMPLETED",
         "Ready for you to check.",
         "",
+        "WHAT TO DO NOW",
+        "1. Open the Review / approve link.",
+        "2. Check name, phone, email, address, date, time, price, access and job notes.",
+        "3. Edit anything that looks wrong.",
+        "4. If all looks right, approve/update Xero.",
+        "5. Open the customer hub and send the booking confirmation.",
+        "",
+        f"NEXT BOOKING STEP: {preferred_date} at {preferred_time}",
+        "",
         "BOOKING / QUOTE",
         f"Date: {preferred_date}",
         f"Time: {preferred_time}",
@@ -2005,6 +2014,17 @@ def contact_form_alert_html(lead, customer_id=None):
       <p style="margin:0 0 18px">The customer has filled out the form you sent them. Check the details below, then approve it before anything is uploaded to Xero.</p>
       <p style="margin:20px 0"><a href="{safe(review_url)}" style="display:inline-block;background:#1677c8;color:#fff;padding:14px 18px;border-radius:8px;text-decoration:none;font-weight:700">Review and approve in CRM</a></p>
       <p style="margin:0 0 18px;font-size:14px;color:#36516b">Review link:<br><a href="{safe(review_url)}">{safe(review_url)}</a></p>
+      <div style="margin:16px 0;background:#fff8e8;border:1px solid #e3c36f;border-radius:14px;padding:16px">
+        <strong style="display:block;font-size:18px;color:#071524;margin-bottom:8px">What to do now</strong>
+        <ol style="margin:0;padding-left:20px;color:#36516b;font-size:15px;line-height:1.7">
+          <li>Open the review link.</li>
+          <li>Check the customer details, address, date, time, price, access and job notes.</li>
+          <li>Edit anything that looks wrong.</li>
+          <li>If everything looks right, approve/update Xero.</li>
+          <li>Open the customer hub and send the booking confirmation.</li>
+        </ol>
+        <p style="margin:12px 0 0;color:#071524;font-weight:800">Next booking step: {safe(preferred_date)} at {safe(preferred_time)}</p>
+      </div>
       {alert_card("Booking / quote", [
         ("Date", safe(preferred_date)),
         ("Time", safe(preferred_time)),
