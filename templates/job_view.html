@@ -153,7 +153,7 @@
   <div class="panel-head">
     <div>
       <h3>Job emails and texts</h3>
-      <p>View or send the customer messages for this job. These use this job's date, time, price, address and notes.</p>
+      <p>Preview the pictured emails, check the SMS wording, or send the customer messages for this job.</p>
     </div>
   </div>
   <div class="message-action-grid">
@@ -161,10 +161,13 @@
     <div class="message-action-card">
       <strong>{{ item.label }}</strong>
       <p>{{ item.note }}</p>
+      <div class="message-button-row">
+        <a class="btn secondary btn-small" href="{{ url_for('job_email_template_preview', job_id=job.id, template_key=item.key) }}" target="_blank">Preview Pictured Email</a>
+      </div>
       <details class="template-preview">
-        <summary>View template text</summary>
+        <summary>View plain text/SMS wording</summary>
         <div class="template-preview-body">
-          <strong>Email</strong>
+          <strong>Plain email text</strong>
           <pre>{{ item.email_body }}</pre>
           <strong>SMS</strong>
           <pre>{{ item.sms_body }}</pre>

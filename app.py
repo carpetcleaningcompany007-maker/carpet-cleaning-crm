@@ -2751,7 +2751,7 @@ def customer_email_job_context(customer, job=None):
         except Exception:
             context = {}
     for key in ("id", "first_name", "last_name", "phone", "email", "address", "town", "postcode", "sms_opt_out"):
-        if not clean_str(context.get(key)):
+        if not clean_str(str(context.get(key) or "")):
             context[key] = row_value(customer, key)
     context.setdefault("customer_id", row_value(customer, "id"))
     context.setdefault("title", "Carpet cleaning")
@@ -5698,6 +5698,28 @@ def job_booking_email_preview(job_id):
         flash("Job not found.")
         return redirect(url_for("jobs"))
     return Response(booking_confirmation_email_html(job), mimetype="text/html")
+
+
+@app.route("/jobs/<int:job_id>/email-template-preview/<template_key>")
+@login_required
+def job_email_template_preview(job_id, template_key):
+    job = q("""SELECT jobs.*, customers.id AS customer_id, customers.first_name, customers.last_name, customers.phone, customers.email,
+                      customers.address, customers.town, customers.postcode, customers.sms_opt_out
+               FROM jobs LEFT JOIN customers ON customers.id = jobs.customer_id
+               WHERE jobs.id=?""", (job_id,), one=True)
+    if not job:
+        flash("Job not found.")
+        return redirect(url_for("jobs"))
+    allowed_keys = {item["key"] for item in CUSTOMER_ACTION_TEMPLATES}
+    if template_key not in allowed_keys:
+        flash("Email template not found.")
+        return redirect(url_for("job_view", job_id=job_id) + "#job-message-actions")
+    template = message_template(template_key)
+    body = render_simple_template(template.get("body") or "", customer_message_replacements(job, job))
+    html_body = visual_customer_email_html(template_key, job, job, body)
+    if not html_body:
+        html_body = "<div style='font-family:Arial,sans-serif;line-height:1.55;color:#102033;white-space:pre-wrap'>" + html_lib.escape(body or "") + "</div>"
+    return Response(html_body, mimetype="text/html")
 
 
 @app.route("/jobs/<int:job_id>/send-booking-confirmation", methods=["POST"])
