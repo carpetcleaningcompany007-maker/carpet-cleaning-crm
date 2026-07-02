@@ -336,8 +336,9 @@ def parse_money(value, default=0.0):
     raw = clean_str(value)
     if not raw:
         return float(default)
+    raw = raw.replace("£", "").replace(",", "").strip()
     try:
-        return float(raw.replace(",", ""))
+        return float(raw)
     except ValueError:
         raise ValueError("Please enter a valid number.")
 
@@ -9108,6 +9109,14 @@ def intake_form_update_details(lead_id):
     updated = q("SELECT * FROM intake_submissions WHERE id=?", (lead_id,), one=True)
     customer_id = updated["customer_id"] or create_customer_from_intake(updated)
     run("UPDATE intake_submissions SET customer_id=? WHERE id=?", (customer_id, lead_id))
+    if row_get(updated, "job_id"):
+        run("""UPDATE jobs
+               SET amount=?, notes=?
+               WHERE id=?""", (
+            agreed_quote_price,
+            append_note(row_get(q("SELECT notes FROM jobs WHERE id=?", (updated["job_id"],), one=True), "notes"), f"Agreed quote price updated from intake review: £{agreed_quote_price:.2f}" if agreed_quote_price > 0 else "Agreed quote price cleared from intake review."),
+            updated["job_id"],
+        ))
     first_name, last_name = split_customer_name(name)
     run("""UPDATE customers
            SET first_name=?, last_name=?, phone=?, email=?, address=?, postcode=?,
