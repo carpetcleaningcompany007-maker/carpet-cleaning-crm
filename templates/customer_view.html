@@ -287,6 +287,12 @@ document.addEventListener('click', function(e){
         </div>
       </div>
       <form method="post" action="{{ url_for('customer_edit', customer_id=customer.id) }}" class="form">
+        {% if request.args.get('details_saved') == '1' %}
+          <div class="send-form-inline-success">
+            <strong>Customer details saved</strong>
+            <span>The main customer record has been updated.</span>
+          </div>
+        {% endif %}
         <div class="cols"><input name="first_name" value="{{ customer.first_name }}" placeholder="First name"><input name="last_name" value="{{ customer.last_name }}" placeholder="Last name"></div>
         <div class="cols"><input name="phone" value="{{ customer.phone or '' }}" placeholder="Phone"><input name="email" value="{{ customer.email or '' }}" placeholder="Email"></div>
         <input name="address" value="{{ customer.address or '' }}" placeholder="Address">
@@ -294,11 +300,11 @@ document.addEventListener('click', function(e){
         <div class="cols"><input name="source" value="{{ customer.source or '' }}" placeholder="Source"><input name="tags" value="{{ customer.tags or '' }}" placeholder="Tags"></div>
         <textarea name="notes" placeholder="General notes">{{ customer.notes or '' }}</textarea>
         <div class="row-actions">
-          <button class="btn primary">Save Changes</button>
+          <button class="btn primary" type="submit">Save Changes</button>
           {% if is_archived %}
-          <button formaction="{{ url_for('customer_restore', customer_id=customer.id) }}" class="btn secondary">Restore Customer</button>
+          <button type="submit" formaction="{{ url_for('customer_restore', customer_id=customer.id) }}" class="btn secondary">Restore Customer</button>
           {% else %}
-          <button formaction="{{ url_for('customer_delete', customer_id=customer.id) }}" class="btn danger" onclick="return confirm('Archive this customer?')">Archive Customer</button>
+          <button type="submit" formaction="{{ url_for('customer_delete', customer_id=customer.id) }}" class="btn danger" onclick="return confirm('Archive this customer?')">Archive Customer</button>
           {% endif %}
         </div>
       </form>

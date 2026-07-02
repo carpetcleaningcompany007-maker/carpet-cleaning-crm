@@ -5841,19 +5841,20 @@ def customer_reminder_new(customer_id):
 @app.route("/customers/<int:customer_id>/edit", methods=["POST"])
 @login_required
 def customer_edit(customer_id):
+    details_anchor = "#customer-details"
     first_name = clean_str(request.form.get("first_name"))
     last_name = clean_str(request.form.get("last_name"))
     email = clean_str(request.form.get("email"))
     if not first_name or not last_name:
         flash("First name and last name are required.")
-        return redirect(url_for("customer_view", customer_id=customer_id))
+        return redirect(url_for("customer_view", customer_id=customer_id) + details_anchor)
     if email and not is_valid_email(email):
         flash("Please enter a valid email address.")
-        return redirect(url_for("customer_view", customer_id=customer_id))
+        return redirect(url_for("customer_view", customer_id=customer_id) + details_anchor)
     existing_customer_id = find_existing_customer_id(first_name=first_name, last_name=last_name, email=email, phone=request.form.get("phone"), postcode=request.form.get("postcode"))
     if existing_customer_id and existing_customer_id != customer_id:
         flash("Another customer already matches those details, so the update was stopped to avoid duplicates.")
-        return redirect(url_for("customer_view", customer_id=customer_id))
+        return redirect(url_for("customer_view", customer_id=customer_id) + details_anchor)
     run("""UPDATE customers SET first_name=?, last_name=?, phone=?, email=?, address=?, town=?, postcode=?, source=?, tags=?, notes=? WHERE id=?""", (
         first_name, last_name, clean_str(request.form.get("phone")),
         email, clean_str(request.form.get("address")), clean_str(request.form.get("town")),
@@ -5861,7 +5862,7 @@ def customer_edit(customer_id):
         clean_str(request.form.get("notes")), customer_id
     ))
     flash("Customer updated.")
-    return redirect(url_for("customer_view", customer_id=customer_id))
+    return redirect(url_for("customer_view", customer_id=customer_id, details_saved=1) + details_anchor)
 
 
 @app.route("/customers/<int:customer_id>/delete", methods=["POST"])
