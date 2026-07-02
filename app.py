@@ -5158,9 +5158,18 @@ def dashboard():
 @app.route("/send-contact-form", methods=["GET", "POST"])
 @login_required
 def send_contact_form():
-    form_link = booking_form_url()
-    message = send_standalone_contact_form_message()
     s = settings()
+    form_values = {
+        "name": clean_str(request.values.get("name")),
+        "email": clean_str(request.values.get("email")),
+        "phone": clean_str(request.values.get("phone")),
+        "preferred_date": clean_str(request.values.get("preferred_date")),
+        "preferred_time": clean_str(request.values.get("preferred_time")) or "09:30",
+        "preferred_days_times": clean_str(request.values.get("preferred_days_times")),
+        "agreed_quote_price": clean_str(request.values.get("agreed_quote_price")),
+    }
+    form_link = booking_form_url(prefill=form_values)
+    message = send_standalone_contact_form_message(form_link, form_values["name"])
     if request.method == "POST":
         recipient_name = clean_str(request.form.get("name"))
         email_to = clean_str(request.form.get("email"))
@@ -5214,12 +5223,21 @@ def send_contact_form():
 
         if not results:
             flash("Add an email address or mobile number, then choose email, text, or both.")
-            return redirect(url_for("send_contact_form"))
+            return redirect(url_for("send_contact_form", **prefill))
 
         flash("; ".join(f"{label}: {'sent' if ok else 'failed'} - {msg}" for label, ok, msg in results))
-        return redirect(url_for("send_contact_form", sent=1))
+        redirect_values = {k: v for k, v in prefill.items() if clean_str(v)}
+        redirect_values["sent"] = "1"
+        return redirect(url_for("send_contact_form", **redirect_values))
 
-    return render_template("send_contact_form.html", form_link=form_link, message=message, app_settings=s, sent_confirmation=request.args.get("sent") == "1")
+    return render_template(
+        "send_contact_form.html",
+        form_link=form_link,
+        message=message,
+        app_settings=s,
+        form_values=form_values,
+        sent_confirmation=request.args.get("sent") == "1",
+    )
 
 
 
@@ -5505,15 +5523,34 @@ def customer_view(customer_id):
         SUM(CASE WHEN lower(IFNULL(status,'')) IN ('failed','undelivered') OR lower(IFNULL(event_type,'')) LIKE '%fail%' THEN 1 ELSE 0 END) AS failed_count
         FROM sms_events WHERE customer_id=?""", (customer_id,), one=True)
     workflow = workflow_context(customer)
+    send_form_values = {
+        "name": clean_str(request.args.get("form_name")) or customer_name(customer),
+        "email": clean_str(request.args.get("form_email")) or clean_str(row_value(customer, "email")),
+        "phone": clean_str(request.args.get("form_phone")) or clean_str(row_value(customer, "phone")),
+        "preferred_date": clean_str(request.args.get("preferred_date")),
+        "preferred_time": clean_str(request.args.get("preferred_time")) or "09:30",
+        "preferred_days_times": clean_str(request.args.get("preferred_days_times")),
+        "agreed_quote_price": clean_str(request.args.get("agreed_quote_price")),
+    }
+    booking_prefill = {
+        "name": send_form_values["name"],
+        "email": send_form_values["email"],
+        "phone": send_form_values["phone"],
+        "preferred_date": send_form_values["preferred_date"],
+        "preferred_time": send_form_values["preferred_time"],
+        "preferred_days_times": send_form_values["preferred_days_times"],
+        "agreed_quote_price": send_form_values["agreed_quote_price"],
+    }
+    booking_url = booking_form_url(customer, prefill=booking_prefill)
     workflow_messages = {
-        "booking_form": booking_form_message(customer),
-        "booking_form_url": booking_form_url(customer),
+        "booking_form": booking_form_message(customer, form_link=booking_url, recipient_name=send_form_values["name"]),
+        "booking_form_url": booking_url,
         "reminder": reminder_message(customer),
         "review": review_request_message(customer),
     }
     customer_action_templates = customer_action_template_cards(customer_id)
     saved_message_templates = q("SELECT * FROM communication_templates ORDER BY name COLLATE NOCASE ASC, id DESC")
-    return render_template("customer_view.html", customer=customer, timeline=timeline, quotes=quotes, jobs=jobs, invoices=invoices, feedback=feedback, reminders=reminders, subscription_summary=subscription_summary, is_archived=bool(customer and customer["archived_at"]), last_contacted_at=last_contacted_at, last_contacted_label=contact_badge_text(last_contacted_at), recent_contacts=recent_contacts, contact_summary=contact_summary, recent_sms=recent_sms, sms_summary=sms_summary, sms_thread=sms_thread, workflow=workflow, workflow_stages=WORKFLOW_STAGES, workflow_messages=workflow_messages, customer_action_templates=customer_action_templates, saved_message_templates=saved_message_templates, app_settings=settings())
+    return render_template("customer_view.html", customer=customer, timeline=timeline, quotes=quotes, jobs=jobs, invoices=invoices, feedback=feedback, reminders=reminders, subscription_summary=subscription_summary, is_archived=bool(customer and customer["archived_at"]), last_contacted_at=last_contacted_at, last_contacted_label=contact_badge_text(last_contacted_at), recent_contacts=recent_contacts, contact_summary=contact_summary, recent_sms=recent_sms, sms_summary=sms_summary, sms_thread=sms_thread, workflow=workflow, workflow_stages=WORKFLOW_STAGES, workflow_messages=workflow_messages, send_form_values=send_form_values, customer_action_templates=customer_action_templates, saved_message_templates=saved_message_templates, app_settings=settings())
 
 
 @app.route("/customers/<int:customer_id>/send-contact-form", methods=["POST"])
@@ -5585,7 +5622,18 @@ def customer_send_contact_form(customer_id):
 
     result_text = "; ".join(f"{label}: {'sent' if ok else 'failed'} - {msg}" for label, ok, msg in results)
     flash(result_text)
-    return redirect(url_for("customer_view", customer_id=customer_id, form_sent=1) + "#send-customer-form")
+    redirect_values = {
+        "form_sent": "1",
+        "form_name": recipient_name,
+        "form_email": email_to,
+        "form_phone": sms_to,
+        "preferred_date": preferred_date,
+        "preferred_time": preferred_time,
+        "preferred_days_times": preferred_days_times,
+        "agreed_quote_price": agreed_quote_price,
+    }
+    redirect_values = {key: value for key, value in redirect_values.items() if clean_str(value)}
+    return redirect(url_for("customer_view", customer_id=customer_id, **redirect_values) + "#send-customer-form")
 
 
 @app.route("/customers/<int:customer_id>/send-message-template", methods=["POST"])

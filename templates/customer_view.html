@@ -186,25 +186,25 @@
       <form class="customer-form-send-panel" method="post" action="{{ url_for('customer_send_contact_form', customer_id=customer.id) }}">
         <div class="customer-form-send-fields">
           <label>Customer name
-            <input name="name" value="{{ (customer.first_name ~ ' ' ~ customer.last_name).strip() }}" placeholder="Customer name">
+            <input name="name" value="{{ send_form_values.name or (customer.first_name ~ ' ' ~ customer.last_name).strip() }}" placeholder="Customer name">
           </label>
           <label>Email address
-            <input type="email" name="email" value="{{ customer.email or '' }}" placeholder="customer@email.com">
+            <input type="email" name="email" value="{{ send_form_values.email or customer.email or '' }}" placeholder="customer@email.com">
           </label>
           <label>Mobile number
-            <input name="phone" value="{{ customer.phone or '' }}" placeholder="07...">
+            <input name="phone" value="{{ send_form_values.phone or customer.phone or '' }}" placeholder="07...">
           </label>
           <label>Booking date
-            <input type="date" name="preferred_date">
+            <input type="date" name="preferred_date" value="{{ send_form_values.preferred_date or '' }}">
           </label>
           <label>Booking time
-            <input type="time" name="preferred_time" value="09:30">
+            <input type="time" name="preferred_time" value="{{ send_form_values.preferred_time or '09:30' }}">
           </label>
           <label>Booking note
-            <input name="preferred_days_times" placeholder="Example: Tuesday afternoon, or customer can edit">
+            <input name="preferred_days_times" placeholder="Example: Tuesday afternoon, or customer can edit" value="{{ send_form_values.preferred_days_times or '' }}">
           </label>
           <label>Agreed quote price
-            <input type="number" name="agreed_quote_price" min="0" step="0.01" placeholder="Example: 120.00">
+            <input type="number" name="agreed_quote_price" min="0" step="0.01" placeholder="Example: 120.00" value="{{ send_form_values.agreed_quote_price or '' }}">
           </label>
         </div>
         <div class="customer-form-send-options">
