@@ -1769,6 +1769,57 @@ def owner_contact_form_recipients():
     return owner_email, owner_mobile
 
 
+def owner_copy_text_header(context, recipient, customer=None):
+    name = customer_full_name(customer) if customer else ""
+    lines = [
+        f"OWNER COPY - {context}",
+        f"Customer: {name or 'Not supplied'}",
+        f"Original recipient: {recipient or 'Not supplied'}",
+        "",
+    ]
+    return "\n".join(lines)
+
+
+def send_owner_customer_email_copy(original_to, subject, text_body, html_body="", customer=None, context="Customer email"):
+    owner_email, _owner_mobile = owner_contact_form_recipients()
+    if not owner_email:
+        return False, "No owner email configured."
+    original_recipients = {email.lower() for email in parse_email_list(original_to)}
+    if owner_email.lower() in original_recipients:
+        return True, "Owner already included in email recipient list."
+    copy_subject = f"COPY - {subject or context}"
+    copy_text = owner_copy_text_header(context, ", ".join(parse_email_list(original_to)) or original_to, customer) + (text_body or "")
+    copy_html = html_body or ("<pre style='font-family:Arial,sans-serif;white-space:pre-wrap'>" + html_lib.escape(text_body or "") + "</pre>")
+    copy_html = (
+        "<div style='font-family:Arial,sans-serif;background:#f4f8fb;padding:14px;border:1px solid #d9e6ef;border-radius:10px;margin-bottom:14px'>"
+        f"<strong>Owner copy</strong><br>Customer: {html_lib.escape(customer_full_name(customer) if customer else 'Not supplied')}<br>"
+        f"Original recipient: {html_lib.escape(', '.join(parse_email_list(original_to)) or original_to or 'Not supplied')}"
+        "</div>"
+        + copy_html
+    )
+    return send_env_email(owner_email, copy_subject, copy_text, copy_html, customer=customer)
+
+
+def send_owner_customer_sms_copy(original_to, body, customer=None, context="Customer SMS"):
+    _owner_email, owner_mobile = owner_contact_form_recipients()
+    if not owner_mobile:
+        return False, "No owner mobile configured."
+    original_phone = normalize_phone(original_to)
+    if owner_mobile and original_phone and normalize_phone(owner_mobile) == original_phone:
+        return True, "Owner already received the customer SMS."
+    copy_body = owner_copy_text_header(context, original_phone or original_to, customer) + (body or "")
+    return send_clicksend_env_sms(owner_mobile, copy_body, customer=None, category="Owner Copy")
+
+
+def send_owner_customer_message_copy(channel, original_to, subject, body, html_body="", customer=None, context="Customer message"):
+    channel = clean_str(channel).lower()
+    if channel == "email":
+        return send_owner_customer_email_copy(original_to, subject, body, html_body=html_body, customer=customer, context=context)
+    if channel == "sms":
+        return send_owner_customer_sms_copy(original_to, body, customer=customer, context=context)
+    return False, "Unsupported owner copy channel."
+
+
 def clean_intake_job_notes(lead):
     raw_notes = row_get(lead, "job_notes") or ""
     access_prefixes = (
@@ -2168,9 +2219,13 @@ def run_website_enquiry_automation(lead_id, customer_id, data):
     if customer_email:
         customer_email_template = message_template("customer_enquiry_email")
         subject = render_simple_template(customer_email_template["subject"] or "Thank you for your enquiry", template_context_for_enquiry(data, customer_id=customer_id, lead_id=lead_id))
-        ok, msg = send_env_email(customer_email, subject, enquiry_customer_email_text(data), enquiry_customer_email_html(data), customer=customer)
+        email_text = enquiry_customer_email_text(data)
+        email_html = enquiry_customer_email_html(data)
+        ok, msg = send_env_email(customer_email, subject, email_text, email_html, customer=customer)
+        if ok:
+            send_owner_customer_message_copy("email", customer_email, subject, email_text, html_body=email_html, customer=customer, context="Website enquiry customer email")
         update_intake_delivery_status(lead_id, customer_email_status=status_text(ok, msg))
-        run("INSERT INTO communications(customer_id, channel, subject, body, created_at) VALUES (?,?,?,?,datetime('now'))", (customer_id, "Email", "Customer enquiry thank you", enquiry_customer_email_text(data)))
+        run("INSERT INTO communications(customer_id, channel, subject, body, created_at) VALUES (?,?,?,?,datetime('now'))", (customer_id, "Email", "Customer enquiry thank you", email_text))
         run("INSERT INTO customer_timeline(customer_id, note_text, created_at) VALUES (?,?,datetime('now'))", (customer_id, ("Customer welcome email sent. " if ok else "Customer welcome email failed. ") + clean_str(msg)))
         results["customer_email"] = (ok, msg)
     else:
@@ -2179,6 +2234,8 @@ def run_website_enquiry_automation(lead_id, customer_id, data):
     customer_phone = request_value(data, "phone", "phone_number", "telephone", "tel")
     customer_sms = render_simple_template(message_template("customer_enquiry_sms")["body"], template_context_for_enquiry(data, customer_id=customer_id, lead_id=lead_id))
     ok, msg = send_clicksend_env_sms(customer_phone, customer_sms, customer=customer, category="Service")
+    if ok:
+        send_owner_customer_message_copy("sms", customer_phone, "Customer enquiry SMS", customer_sms, customer=customer, context="Website enquiry customer SMS")
     update_intake_delivery_status(lead_id, customer_sms_status=status_text(ok, msg))
     results["customer_sms"] = (ok, msg)
 
@@ -2993,6 +3050,8 @@ def send_rendered_customer_message(customer, channel, subject, body, test_mode=F
         email_html = html_body or ("<div style='font-family:Arial,sans-serif;line-height:1.55;color:#102033;white-space:pre-wrap'>" + html_lib.escape(body or "") + "</div>")
         text_body = strip_html_for_sms(body) if is_html_email_body(body) else body
         ok, msg = send_env_email(recipient, ("TEST - " if test_mode else "") + (subject or "Customer message"), text_body, email_html, customer=customer)
+        if ok and not test_mode:
+            send_owner_customer_message_copy("email", recipient, subject or "Customer message", text_body, html_body=email_html, customer=customer, context="Customer email")
         return ok, msg, recipient
     if channel == "sms":
         recipient = clean_str(row_value(s, "sms_test_number")) if test_mode else clean_str(row_value(customer, "phone"))
@@ -3001,6 +3060,8 @@ def send_rendered_customer_message(customer, channel, subject, body, test_mode=F
         if not test_mode and row_value(customer, "sms_opt_out"):
             return False, "SMS is switched off for this customer.", recipient
         ok, msg = send_clicksend_env_sms(recipient, body, customer=customer, category="Customer Message")
+        if ok and not test_mode:
+            send_owner_customer_message_copy("sms", recipient, subject or "Customer SMS", body, customer=customer, context="Customer SMS")
         return ok, msg, recipient
     return False, "Choose Email or SMS.", ""
 
@@ -3181,10 +3242,6 @@ def automation_send_for_rule(rule, job, dry_run=False):
             automation_log(row_value(rule, "rule_key"), customer_id, job_id, channel, recipient, subject, body, status, msg, due_at)
         if ok and not dry_run:
             log_customer_message(customer_id, "Automation " + ("Email" if channel == "email" else "SMS"), subject, body)
-            if channel == "email" and int(row_value(rule, "owner_email_copy", 0) or 0) == 1:
-                owner_email, _owner_mobile = owner_contact_form_recipients()
-                if owner_email:
-                    send_env_email(owner_email, "COPY - " + subject, body, html_body, customer=customer)
         results.append({"rule": row_value(rule, "rule_key"), "job_id": job_id, "customer_id": customer_id, "channel": channel, "status": status, "message": msg})
     return results
 
@@ -5140,12 +5197,17 @@ def send_contact_form():
         results = []
         if send_email:
             subject = "Customer details form - The Carpet Cleaning Company"
-            ok, msg = send_env_email(email_to, subject, message, booking_form_email_html(None, form_link, recipient_name=recipient_name))
+            email_html = booking_form_email_html(None, form_link, recipient_name=recipient_name)
+            ok, msg = send_env_email(email_to, subject, message, email_html)
+            if ok:
+                send_owner_customer_message_copy("email", email_to, subject, message, html_body=email_html, context="Customer form link email")
             results.append(("Email", ok, msg))
             run("INSERT INTO communications (customer_id, channel, subject, body, created_at) VALUES (?,?,?,?,datetime('now'))",
                 (None, "Email", subject, message))
         if send_sms:
             ok, msg = send_clicksend_env_sms(sms_to, message, customer=None, category="Customer Form")
+            if ok:
+                send_owner_customer_message_copy("sms", sms_to, "Customer details form", message, context="Customer form link SMS")
             results.append(("SMS", ok, msg))
             run("INSERT INTO communications (customer_id, channel, subject, body, created_at) VALUES (?,?,?,?,datetime('now'))",
                 (None, "SMS", "Customer details form", message))
@@ -5248,11 +5310,15 @@ def today_run_job_action(job_id):
             email_body = day_run_email_html(action, job, body)
             ok, msg = send_env_email(job["email"] or "", subject, body, email_body, customer=job)
             if ok:
+                send_owner_customer_message_copy("email", job["email"] or "", subject, body, html_body=email_body, customer=job, context="Today Run customer email")
+            if ok:
                 log_customer_message(customer_id, "Email", subject, body)
         elif channel == "sms":
             template_subject, body = day_run_rendered_message(action, job, "sms")
             subject = template_subject or subject_map[action]
             ok, msg = send_clicksend_env_sms(job["phone"] or "", body, customer=job, category="review" if action == "review" else "reminder")
+            if ok:
+                send_owner_customer_message_copy("sms", job["phone"] or "", subject, body, customer=job, context="Today Run customer SMS")
             if ok:
                 log_customer_message(customer_id, "SMS", subject, body)
         else:
@@ -5489,7 +5555,10 @@ def customer_send_contact_form(customer_id):
 
     if send_email:
         subject = "Customer details form - The Carpet Cleaning Company"
-        ok, msg = send_env_email(email_to, subject, message, booking_form_email_html(customer, form_link, recipient_name=recipient_name), customer=customer)
+        email_html = booking_form_email_html(customer, form_link, recipient_name=recipient_name)
+        ok, msg = send_env_email(email_to, subject, message, email_html, customer=customer)
+        if ok:
+            send_owner_customer_message_copy("email", email_to, subject, message, html_body=email_html, customer=customer, context="Customer form link email")
         results.append(("Email", ok, msg))
         run("INSERT INTO communications (customer_id, channel, subject, body, created_at) VALUES (?,?,?,?,datetime('now'))",
             (customer_id, "Email", subject, message))
@@ -5497,6 +5566,8 @@ def customer_send_contact_form(customer_id):
 
     if send_sms:
         ok, msg = send_clicksend_env_sms(sms_to, message, customer=customer, category="Customer Form")
+        if ok:
+            send_owner_customer_message_copy("sms", sms_to, "Customer details form", message, customer=customer, context="Customer form link SMS")
         results.append(("SMS", ok, msg))
         run("INSERT INTO communications (customer_id, channel, subject, body, created_at) VALUES (?,?,?,?,datetime('now'))",
             (customer_id, "SMS", "Customer details form", message))
@@ -6335,6 +6406,8 @@ def job_send_booking_confirmation(job_id):
         sms_body = render_simple_template(sms_template.get("body") or text_body, template_context_for_job(job))
         ok, msg = send_clicksend_env_sms(row_value(job, "phone") or "", sms_body, customer=job, category="booking")
         if ok:
+            send_owner_customer_message_copy("sms", row_value(job, "phone") or "", "Booking confirmation", sms_body, customer=job, context="Booking confirmation SMS")
+        if ok:
             log_customer_message(customer_id, "SMS", "Booking confirmation", sms_body)
             if customer_id:
                 run("INSERT INTO customer_timeline(customer_id, note_text, photo_filename) VALUES (?,?,?)",
@@ -6344,6 +6417,8 @@ def job_send_booking_confirmation(job_id):
 
     html_body = booking_confirmation_email_html(job)
     ok, msg = send_env_email(row_value(job, "email") or "", subject, text_body, html_body, customer=job)
+    if ok:
+        send_owner_customer_message_copy("email", row_value(job, "email") or "", subject, text_body, html_body=html_body, customer=job, context="Booking confirmation email")
     if ok:
         log_customer_message(customer_id, "Email", subject, text_body)
         if customer_id:
