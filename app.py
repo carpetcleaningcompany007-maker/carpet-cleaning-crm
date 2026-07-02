@@ -1328,6 +1328,9 @@ def public_static_or_live_url(filename):
     return public_static_url(filename) or f"{live_base}/static/{filename.lstrip('/')}"
 
 
+CUSTOMER_FORM_SENDING_PAUSED = True
+
+
 DEFAULT_MESSAGE_TEMPLATES = {
     "customer_enquiry_email": {
         "name": "Customer enquiry email",
@@ -1376,6 +1379,8 @@ DEFAULT_MESSAGE_TEMPLATES = {
     "review_request_message": {"name": "Review request message", "subject": "Review request", "body": "Hi {{name}},\n\nThank you again for choosing The Carpet Cleaning Company.\n\nIf you are happy with the work, I would really appreciate a quick Google review. It helps a small local business and helps new customers see the results we achieve.\n\nGoogle review link:\n{{review_link}}\n\nThanks\nPaul"},
     "payment_received_email": {"name": "Payment received email", "subject": "Thank you for your payment", "body": "Hi {{name}},\n\nThank you very much for your payment. It's greatly appreciated.\n\nThank you for choosing The Carpet Cleaning Company. We really appreciate your business and your continued support.\n\nIf you were happy with the service, we'd be very grateful if you could leave us a Google review. You can also follow us on Facebook to see our latest work, videos and cleaning tips.\n\nGoogle Reviews:\n{{review_link}}\n\nFacebook:\n{{facebook}}\n\nThanks\nPaul\n{{business_name}}"},
     "payment_received_sms": {"name": "Payment received SMS", "subject": "", "body": "Hi {{name}}, thank you very much for your payment. It's greatly appreciated. If you were happy with the service, a Google review would really help: {{review_link}} Thanks, Paul - {{business_name}}"},
+    "unable_to_reach_email": {"name": "Unable to reach customer email", "subject": "Sorry we missed you", "body": "Hi {{name}},\n\nThank you for contacting The Carpet Cleaning Company.\n\nI have tried to get back to you but have not been able to reach you yet. I did not want you to think your enquiry had been missed.\n\nIf you would still like help with your carpet or upholstery cleaning, please reply to this email or call/text me on 07802 563213 and I will be happy to help.\n\nIf it is easier, you can send over a few photos of the areas you would like cleaned, along with your address and any access or parking notes, and I can come back to you with the next step.\n\nThanks\nPaul\nThe Carpet Cleaning Company\n07802 563213"},
+    "unable_to_reach_sms": {"name": "Unable to reach customer SMS", "subject": "", "body": "Hi {{name}}, thanks for contacting The Carpet Cleaning Company. I have tried to get back to you but could not reach you. If you still need help, please reply here or call/text me on 07802 563213. Thanks, Paul"},
     "maintenance_reminder_email": {"name": "Maintenance reminder email", "subject": "It has been a while since your last clean", "body": "Hi {{name}},\n\nI hope you are well.\n\nIt has been a while since your last carpet or upholstery clean, so I just wanted to check whether you would like to book in again.\n\nRegular cleaning helps keep carpets and upholstery looking better for longer, especially in busy areas, homes with pets, or rooms used every day.\n\nIf you would like another clean, just reply to this email and I will be happy to help.\n\nYou can also follow us on Facebook to see our latest work and cleaning tips:\n{{facebook}}\n\nThanks\nPaul\n{{business_name}}"},
     "maintenance_reminder_sms": {"name": "Maintenance reminder SMS", "subject": "", "body": "Hi {{name}}, it has been a while since your last clean. Would you like to book in again? Just reply and I will be happy to help. Thanks, Paul - {{business_name}}"},
 }
@@ -2822,6 +2827,7 @@ CUSTOMER_ACTION_TEMPLATES = [
     {"key": "thank_you_message", "sms_key": "thank_you_message", "label": "Thank you after job", "note": "Send once the work is finished."},
     {"key": "review_request_message", "sms_key": "review_request_message", "label": "Review request", "note": "Send after the customer is happy."},
     {"key": "payment_received_email", "sms_key": "payment_received_sms", "label": "Payment received", "note": "Send after the customer has paid."},
+    {"key": "unable_to_reach_email", "sms_key": "unable_to_reach_sms", "label": "Tried to contact", "note": "Use when they contacted you but you cannot get hold of them."},
 ]
 
 
@@ -3027,6 +3033,7 @@ def visual_customer_email_html(template_key, customer, job, plain_body):
         "thank_you_message": "finished",
         "review_request_message": "review",
         "payment_received_email": "payment",
+        "unable_to_reach_email": "missed",
         "maintenance_reminder_email": "maintenance",
     }.get(template_key)
     if day_kind:
@@ -3315,6 +3322,7 @@ def day_run_email_html(kind, job, plain_body):
         "finished": "Your clean is complete",
         "review": "Thank you for choosing us",
         "payment": "Thank you for your payment",
+        "missed": "Sorry we missed you",
         "maintenance": "Time for a freshen up?",
     }
     strap_map = {
@@ -3323,6 +3331,7 @@ def day_run_email_html(kind, job, plain_body):
         "finished": "Thank you for using us today.",
         "review": "If you are happy with the result, a Google review really helps.",
         "payment": "Your payment has been received. Thank you for your continued support.",
+        "missed": "We tried to get back to you and would still be happy to help.",
         "maintenance": "It has been a while since your last clean. We would be happy to help when you are ready.",
     }
     title = title_map.get(kind, "Message from The Carpet Cleaning Company")
@@ -5171,6 +5180,9 @@ def send_contact_form():
     form_link = booking_form_url(prefill=form_values)
     message = send_standalone_contact_form_message(form_link, form_values["name"])
     if request.method == "POST":
+        if CUSTOMER_FORM_SENDING_PAUSED:
+            flash("Customer form sending is paused. No form link was sent.")
+            return redirect(url_for("send_contact_form", **{k: v for k, v in form_values.items() if clean_str(v)}))
         recipient_name = clean_str(request.form.get("name"))
         email_to = clean_str(request.form.get("email"))
         sms_to = clean_str(request.form.get("phone"))
@@ -5236,6 +5248,7 @@ def send_contact_form():
         message=message,
         app_settings=s,
         form_values=form_values,
+        customer_form_sending_paused=CUSTOMER_FORM_SENDING_PAUSED,
         sent_confirmation=request.args.get("sent") == "1",
     )
 
@@ -5550,7 +5563,7 @@ def customer_view(customer_id):
     }
     customer_action_templates = customer_action_template_cards(customer_id)
     saved_message_templates = q("SELECT * FROM communication_templates ORDER BY name COLLATE NOCASE ASC, id DESC")
-    return render_template("customer_view.html", customer=customer, timeline=timeline, quotes=quotes, jobs=jobs, invoices=invoices, feedback=feedback, reminders=reminders, subscription_summary=subscription_summary, is_archived=bool(customer and customer["archived_at"]), last_contacted_at=last_contacted_at, last_contacted_label=contact_badge_text(last_contacted_at), recent_contacts=recent_contacts, contact_summary=contact_summary, recent_sms=recent_sms, sms_summary=sms_summary, sms_thread=sms_thread, workflow=workflow, workflow_stages=WORKFLOW_STAGES, workflow_messages=workflow_messages, send_form_values=send_form_values, customer_action_templates=customer_action_templates, saved_message_templates=saved_message_templates, app_settings=settings())
+    return render_template("customer_view.html", customer=customer, timeline=timeline, quotes=quotes, jobs=jobs, invoices=invoices, feedback=feedback, reminders=reminders, subscription_summary=subscription_summary, is_archived=bool(customer and customer["archived_at"]), last_contacted_at=last_contacted_at, last_contacted_label=contact_badge_text(last_contacted_at), recent_contacts=recent_contacts, contact_summary=contact_summary, recent_sms=recent_sms, sms_summary=sms_summary, sms_thread=sms_thread, workflow=workflow, workflow_stages=WORKFLOW_STAGES, workflow_messages=workflow_messages, send_form_values=send_form_values, customer_form_sending_paused=CUSTOMER_FORM_SENDING_PAUSED, customer_action_templates=customer_action_templates, saved_message_templates=saved_message_templates, app_settings=settings())
 
 
 @app.route("/customers/<int:customer_id>/send-contact-form", methods=["POST"])
@@ -5560,6 +5573,9 @@ def customer_send_contact_form(customer_id):
     if not customer:
         flash("Customer not found.")
         return redirect(url_for("customers"))
+    if CUSTOMER_FORM_SENDING_PAUSED:
+        flash("Customer form sending is paused. No form link was sent.")
+        return redirect(url_for("customer_view", customer_id=customer_id) + "#send-customer-form")
 
     recipient_name = clean_str(request.form.get("name")) or customer_name(customer)
     email_to = clean_str(request.form.get("email")) or clean_str(customer["email"])

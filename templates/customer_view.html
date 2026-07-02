@@ -183,6 +183,11 @@
           <span>The personal form link has been sent. The name, phone and email fields will be pre-filled, but the customer can edit them before submitting.</span>
         </div>
       {% endif %}
+      {% if customer_form_sending_paused %}
+        <div class="notice danger-notice">
+          Customer form sending is paused. No form link will be emailed or texted from this customer record until it is switched back on.
+        </div>
+      {% endif %}
       <form class="customer-form-send-panel" method="post" action="{{ url_for('customer_send_contact_form', customer_id=customer.id) }}">
         <div class="customer-form-send-fields">
           <label>Customer name
@@ -211,7 +216,7 @@
           <label><input type="checkbox" name="send_email" value="1" {% if customer.email %}checked{% endif %}> Send email</label>
           <label><input type="checkbox" name="send_sms" value="1" {% if customer.phone and not customer.sms_opt_out %}checked{% endif %} {% if customer.sms_opt_out %}disabled{% endif %}> Send text</label>
         </div>
-        <button class="btn primary" type="submit">Send Customer Form</button>
+        <button class="btn primary" type="submit" {% if customer_form_sending_paused %}disabled{% endif %}>Send Customer Form</button>
         {% if customer.sms_opt_out %}<p class="muted">SMS is switched off for this customer.</p>{% endif %}
       </form>
       <p><a class="btn secondary" href="{{ workflow_messages.booking_form_url }}" target="_blank">Open Contact Form</a></p>

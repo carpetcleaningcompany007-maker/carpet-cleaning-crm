@@ -19,13 +19,18 @@
   <div class="panel-head">
     <h3>Send form link</h3>
   </div>
+  {% if customer_form_sending_paused %}
+    <div class="notice danger-notice">
+      Customer form sending is paused. No form links will be emailed or texted from this page until it is switched back on.
+    </div>
+  {% endif %}
   <form method="post" class="send-contact-form">
     <div class="test-send-banner">
       <div>
         <strong>Test it on yourself first</strong>
         <span>Email: {{ app_settings.test_email or 'not set' }} · SMS: {{ app_settings.sms_test_number or 'not set' }}</span>
       </div>
-      <button class="btn secondary" name="use_test_details" value="1" type="submit">Send Test To Me</button>
+      <button class="btn secondary" name="use_test_details" value="1" type="submit" {% if customer_form_sending_paused %}disabled{% endif %}>Send Test To Me</button>
     </div>
     <div class="send-contact-grid">
       <label>Customer name
@@ -54,7 +59,7 @@
       <label><input type="checkbox" name="send_email" value="1"> Send email</label>
       <label><input type="checkbox" name="send_sms" value="1"> Send text</label>
     </div>
-    <button class="btn primary send-contact-submit" type="submit">Send Contact Form</button>
+    <button class="btn primary send-contact-submit" type="submit" {% if customer_form_sending_paused %}disabled{% endif %}>Send Contact Form</button>
   </form>
 </section>
 
