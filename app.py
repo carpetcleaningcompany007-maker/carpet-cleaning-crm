@@ -1379,7 +1379,7 @@ DEFAULT_MESSAGE_TEMPLATES = {
     "review_request_message": {"name": "Review request message", "subject": "Review request", "body": "Hi {{name}},\n\nThank you again for choosing The Carpet Cleaning Company.\n\nIf you are happy with the work, I would really appreciate a quick Google review. It helps a small local business and helps new customers see the results we achieve.\n\nGoogle review link:\n{{review_link}}\n\nThanks\nPaul"},
     "payment_received_email": {"name": "Payment received email", "subject": "Thank you for your payment", "body": "Hi {{name}},\n\nThank you very much for your payment. It's greatly appreciated.\n\nThank you for choosing The Carpet Cleaning Company. We really appreciate your business and your continued support.\n\nIf you were happy with the service, we'd be very grateful if you could leave us a Google review. You can also follow us on Facebook to see our latest work, videos and cleaning tips.\n\nGoogle Reviews:\n{{review_link}}\n\nFacebook:\n{{facebook}}\n\nThanks\nPaul\n{{business_name}}"},
     "payment_received_sms": {"name": "Payment received SMS", "subject": "", "body": "Hi {{name}}, thank you very much for your payment. It's greatly appreciated. If you were happy with the service, a Google review would really help: {{review_link}} Thanks, Paul - {{business_name}}"},
-    "unable_to_reach_email": {"name": "Unable to reach customer email", "subject": "Sorry I missed you", "body": "Hi {{name}},\n\nThank you very much for your enquiry. I really appreciate you getting in touch with The Carpet Cleaning Company.\n\nI have tried to contact you so we can discuss your carpet or upholstery cleaning requirements, but I have not been able to get hold of you yet. I did not want you to think your message had been missed.\n\nIf you would still like a quote or would like to talk through the best cleaning options, please reply to this email or call/text me on 07802 563213. I will be happy to help.\n\nIf it is easier, you can also send over a few photos of the areas you would like cleaned, along with your address and any useful parking or access details. That helps me give better advice and a more accurate quote.\n\nYou can also see recent cleans, videos and before-and-after photos on Facebook:\n{{facebook}}\n\nGoogle reviews:\n{{review_link}}\n\nThanks again for contacting us.\n\nPaul\nThe Carpet Cleaning Company\n07802 563213"},
+    "unable_to_reach_email": {"name": "Unable to reach customer email", "subject": "I tried to contact you", "body": "Hi {{name}},\n\nThank you very much for your enquiry. I really appreciate you getting in touch with The Carpet Cleaning Company.\n\nI have tried to contact you so we can discuss your carpet or upholstery cleaning requirements, but I have not been able to get hold of you yet. I did not want you to think your message had been missed.\n\nIf you would still like a quote or would like to talk through the best cleaning options, please reply to this email or call/text me on 07802 563213. I will be happy to help.\n\nIf it is easier, you can also send over a few photos of the areas you would like cleaned, along with your address and any useful parking or access details. That helps me give better advice and a more accurate quote.\n\nYou can also see recent cleans, videos and before-and-after photos on Facebook:\n{{facebook}}\n\nGoogle reviews:\n{{review_link}}\n\nThanks again for contacting us.\n\nPaul\nThe Carpet Cleaning Company\n07802 563213"},
     "unable_to_reach_sms": {"name": "Unable to reach customer SMS", "subject": "", "body": "Hi {{name}}, thanks for your enquiry. I have tried to contact you to discuss your carpet cleaning requirements but could not get hold of you. If you still need help, please reply here or call/text me on 07802 563213. Thanks, Paul"},
     "maintenance_reminder_email": {"name": "Maintenance reminder email", "subject": "It has been a while since your last clean", "body": "Hi {{name}},\n\nI hope you are well.\n\nIt has been a while since your last carpet or upholstery clean, so I just wanted to check whether you would like to book in again.\n\nRegular cleaning helps keep carpets and upholstery looking better for longer, especially in busy areas, homes with pets, or rooms used every day.\n\nIf you would like another clean, just reply to this email and I will be happy to help.\n\nYou can also follow us on Facebook to see our latest work and cleaning tips:\n{{facebook}}\n\nThanks\nPaul\n{{business_name}}"},
     "maintenance_reminder_sms": {"name": "Maintenance reminder SMS", "subject": "", "body": "Hi {{name}}, it has been a while since your last clean. Would you like to book in again? Just reply and I will be happy to help. Thanks, Paul - {{business_name}}"},
@@ -3322,7 +3322,7 @@ def day_run_email_html(kind, job, plain_body):
         "finished": "Your clean is complete",
         "review": "Thank you for choosing us",
         "payment": "Thank you for your payment",
-        "missed": "Sorry we missed you",
+        "missed": "I tried to contact you",
         "maintenance": "Time for a freshen up?",
     }
     strap_map = {
@@ -3331,7 +3331,7 @@ def day_run_email_html(kind, job, plain_body):
         "finished": "Thank you for using us today.",
         "review": "If you are happy with the result, a Google review really helps.",
         "payment": "Your payment has been received. Thank you for your continued support.",
-        "missed": "We tried to get back to you and would still be happy to help.",
+        "missed": "Thank you for your enquiry. I tried to get hold of you and would still be happy to help.",
         "maintenance": "It has been a while since your last clean. We would be happy to help when you are ready.",
     }
     title = title_map.get(kind, "Message from The Carpet Cleaning Company")
@@ -4621,6 +4621,14 @@ def init_db():
                 WHERE template_key=?
                   AND body NOT LIKE ?""",
             (template["subject"], template["body"], template_key, expected_phrase),
+        )
+    for template_key in ("unable_to_reach_email", "unable_to_reach_sms"):
+        template = DEFAULT_MESSAGE_TEMPLATES[template_key]
+        conn.execute(
+            """UPDATE message_templates
+                  SET subject=?, body=?, updated_at=datetime('now')
+                WHERE template_key=?""",
+            (template["subject"], template["body"], template_key),
         )
     conn.commit()
     conn.close()
