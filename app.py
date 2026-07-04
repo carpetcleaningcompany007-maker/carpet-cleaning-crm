@@ -5197,9 +5197,18 @@ def dashboard():
                            LEFT JOIN customers ON customers.id = customer_feedback.customer_id
                            ORDER BY customer_feedback.id DESC LIMIT 5""")
     intake_new = q("SELECT COUNT(*) AS c FROM intake_submissions WHERE IFNULL(status,'New') IN ('New','Reviewed','Waiting for review')", one=True)
+    intake_needs_contact = q("""SELECT COUNT(*) AS c FROM intake_submissions
+                                 WHERE IFNULL(status,'New') NOT IN ('Booked','Closed','Closed - no reply')
+                                   AND IFNULL(follow_up_status,'Follow up required') IN ('','Pending','Follow up required')""", one=True)
+    intake_waiting = q("""SELECT COUNT(*) AS c FROM intake_submissions
+                          WHERE IFNULL(status,'') IN ('Contacted','Waiting for customer','Quoted')""", one=True)
     recent_enquiries = q("""SELECT * FROM intake_submissions
-                            ORDER BY id DESC LIMIT 8""")
-    return render_template("dashboard.html", stats=stats, recent_quotes=quotes, recent_jobs=jobs, archive_counts=archive_counts, report_summary=report_summary, invoice_alerts=invoice_alerts, app_settings=settings(), follow_up_summary=follow_up_summary, cashflow=cashflow, reminders_due=reminders_due, feedback_recent=feedback_recent, intake_new=intake_new["c"] if intake_new else 0, recent_enquiries=recent_enquiries)
+                            ORDER BY CASE
+                              WHEN IFNULL(follow_up_status,'Follow up required') IN ('','Pending','Follow up required') THEN 0
+                              WHEN IFNULL(status,'') IN ('Contacted','Waiting for customer','Quoted') THEN 1
+                              ELSE 2
+                            END, id DESC LIMIT 8""")
+    return render_template("dashboard.html", stats=stats, recent_quotes=quotes, recent_jobs=jobs, archive_counts=archive_counts, report_summary=report_summary, invoice_alerts=invoice_alerts, app_settings=settings(), follow_up_summary=follow_up_summary, cashflow=cashflow, reminders_due=reminders_due, feedback_recent=feedback_recent, intake_new=intake_new["c"] if intake_new else 0, intake_needs_contact=intake_needs_contact["c"] if intake_needs_contact else 0, intake_waiting=intake_waiting["c"] if intake_waiting else 0, recent_enquiries=recent_enquiries)
 
 
 @app.route("/send-contact-form", methods=["GET", "POST"])
@@ -9238,7 +9247,87 @@ def intake_form_view(lead_id):
     if not lead:
         flash("Intake form not found.")
         return redirect(url_for("intake_forms"))
-    return render_template("intake_form_view.html", lead=lead, display_job_notes=clean_intake_job_notes(lead), xero_configured=xero_is_configured(), xero_connected=bool(xero_token_row()))
+    return render_template("intake_form_view.html", lead=lead, display_job_notes=clean_intake_job_notes(lead), xero_configured=xero_is_configured(), xero_connected=bool(xero_token_row()), lead_checklist=intake_lead_checklist(lead), lead_next_action=intake_lead_next_action(lead))
+
+
+def intake_lead_checklist(lead):
+    has_contact = bool(row_get(lead, "phone") or row_get(lead, "email"))
+    has_address = bool(row_get(lead, "full_address") or row_get(lead, "postcode"))
+    return [
+        {"label": "Customer details captured", "ok": bool(row_get(lead, "name") and has_contact), "help": "Add name plus phone or email.", "href": "#edit-intake-details"},
+        {"label": "Address or postcode captured", "ok": has_address, "help": "Add an address or postcode.", "href": "#edit-intake-details"},
+        {"label": "Customer record created", "ok": bool(row_get(lead, "customer_id")), "help": "Create or open the CRM customer record.", "href": "#lead-action-panel"},
+        {"label": "You have been alerted", "ok": "sent:" in clean_str(row_get(lead, "owner_sms_status")).lower() or "sent:" in clean_str(row_get(lead, "owner_email_status")).lower(), "help": "Owner email/SMS alert has not been confirmed.", "href": "#lead-action-panel"},
+        {"label": "Follow-up action set", "ok": clean_str(row_get(lead, "follow_up_status")) not in {"", "Follow up required", "Pending"}, "help": "Mark contacted, waiting, quoted, booked or lost.", "href": "#lead-action-panel"},
+        {"label": "Xero contact updated", "ok": bool(row_get(lead, "xero_contact_id")), "help": "Approve and update Xero when details are tidy.", "href": "#lead-action-panel"},
+        {"label": "Job created when booked", "ok": bool(row_get(lead, "job_id")), "help": "Create the job once the booking is agreed.", "href": "#lead-action-panel"},
+    ]
+
+
+def intake_lead_next_action(lead):
+    if not row_get(lead, "customer_id"):
+        return "Create or open the customer record."
+    if clean_str(row_get(lead, "follow_up_status")) in {"", "Follow up required", "Pending"}:
+        return "Contact the customer, then mark the result."
+    if not row_get(lead, "xero_contact_id"):
+        return "Review the details and update Xero."
+    if not row_get(lead, "job_id"):
+        return "Create the job when the customer is booked."
+    return "Lead is linked to a job. Continue from the job page."
+
+
+@app.route("/intake-forms/<int:lead_id>/quick-action", methods=["POST"])
+@login_required
+def intake_form_quick_action(lead_id):
+    lead = q("SELECT * FROM intake_submissions WHERE id=?", (lead_id,), one=True)
+    if not lead:
+        flash("Intake form not found.")
+        return redirect(url_for("intake_forms"))
+    action = clean_str(request.form.get("action")).lower()
+    customer_id = row_get(lead, "customer_id")
+    if action in {"open_customer", "contacted", "waiting_customer", "quoted", "booked", "lost", "send_unable_email", "send_unable_sms"}:
+        customer_id = customer_id or create_customer_from_intake(lead)
+        run("UPDATE intake_submissions SET customer_id=?, updated_at=datetime('now') WHERE id=?", (customer_id, lead_id))
+    status_map = {
+        "contacted": ("Contacted", "Contact attempted - waiting for customer response", "Contact attempted from intake form."),
+        "waiting_customer": ("Waiting for customer", "Waiting for customer response", "Waiting for customer response after enquiry."),
+        "quoted": ("Quoted", "Quote discussed - awaiting decision", "Quote discussed from intake form."),
+        "booked": ("Booked", "Booked - create or open job", "Customer marked as booked from intake form."),
+        "lost": ("Closed - no reply", "Closed - no reply", "Lead closed as no reply."),
+    }
+    if action == "open_customer":
+        return redirect(url_for("customer_view", customer_id=customer_id))
+    if action in status_map:
+        status, follow_up, timeline = status_map[action]
+        run("""UPDATE intake_submissions
+               SET status=?, follow_up_status=?, updated_at=datetime('now')
+               WHERE id=?""", (status, follow_up, lead_id))
+        run("UPDATE customers SET next_action=?, last_updated=datetime('now') WHERE id=?", (follow_up, customer_id))
+        run("INSERT INTO customer_timeline(customer_id, note_text, created_at) VALUES (?,?,datetime('now'))", (customer_id, timeline))
+        flash(f"Lead updated: {status}.")
+        return redirect(url_for("intake_form_view", lead_id=lead_id) + "#lead-action-panel")
+    if action in {"send_unable_email", "send_unable_sms"}:
+        customer = q("SELECT * FROM customers WHERE id=?", (customer_id,), one=True)
+        channel = "email" if action == "send_unable_email" else "sms"
+        template_key = "unable_to_reach_email" if channel == "email" else "unable_to_reach_sms"
+        template = message_template(template_key)
+        subject = render_simple_template(template.get("subject") or template.get("name") or "I tried to contact you", customer_message_replacements(customer, latest_customer_job(customer_id)))
+        body = render_simple_template(template.get("body") or "", customer_message_replacements(customer, latest_customer_job(customer_id)))
+        html_body = visual_customer_email_html(template_key, customer, latest_customer_job(customer_id), body) if channel == "email" else ""
+        ok, msg, recipient = send_rendered_customer_message(customer, channel, subject, body, html_body=html_body)
+        if ok:
+            run("INSERT INTO communications (customer_id, channel, subject, body, created_at) VALUES (?,?,?,?,datetime('now'))",
+                (customer_id, "Email" if channel == "email" else "SMS", subject, body))
+            run("INSERT INTO customer_timeline(customer_id, note_text, created_at) VALUES (?,?,datetime('now'))",
+                (customer_id, f"Unable-to-reach {channel} sent to {recipient}."))
+            run("""UPDATE intake_submissions
+                   SET status='Contacted', follow_up_status=?, updated_at=datetime('now')
+                   WHERE id=?""", (f"Unable-to-reach {channel} sent - waiting for customer", lead_id))
+            run("UPDATE customers SET next_action='Waiting for customer response', last_updated=datetime('now') WHERE id=?", (customer_id,))
+        flash(("Sent: " if ok else "Failed: ") + msg)
+        return redirect(url_for("intake_form_view", lead_id=lead_id) + "#lead-action-panel")
+    flash("Choose a lead action.")
+    return redirect(url_for("intake_form_view", lead_id=lead_id) + "#lead-action-panel")
 
 
 @app.route("/intake-forms/<int:lead_id>/calendar-note")

@@ -42,8 +42,8 @@
             <td>{{ lead.customer_email_status or 'Pending' }}</td>
             <td>{{ lead.customer_sms_status or 'Pending' }}</td>
             <td>Email: {{ lead.owner_email_status or 'Pending' }}<br>SMS: {{ lead.owner_sms_status or 'Pending' }}</td>
-            <td>{{ lead.follow_up_status or 'Follow up required' }}</td>
-            <td><a class="btn small" href="{{ url_for('intake_form_view', lead_id=lead.id) }}">View</a></td>
+            <td><strong>{{ lead.follow_up_status or 'Follow up required' }}</strong></td>
+            <td><a class="btn small" href="{{ url_for('intake_form_view', lead_id=lead.id) }}#lead-action-panel">Work lead</a></td>
           </tr>
         {% else %}
           <tr><td colspan="11">No intake forms yet.</td></tr>
@@ -59,7 +59,7 @@
             <span class="mobile-record-kicker">Form reply</span>
             <strong>{{ lead.name or 'Customer' }}</strong>
           </div>
-          <a class="mobile-record-action" href="{{ url_for('intake_form_view', lead_id=lead.id) }}">View</a>
+          <a class="mobile-record-action" href="{{ url_for('intake_form_view', lead_id=lead.id) }}#lead-action-panel">Work</a>
         </div>
         <dl class="mobile-record-details">
           <div><dt>Received</dt><dd>{{ lead.created_at }}</dd></div>
@@ -68,6 +68,7 @@
           <div><dt>Status</dt><dd>{{ lead.status or 'Waiting for review' }}</dd></div>
           <div><dt>Xero</dt><dd>{{ lead.xero_sync_status or ('Sent' if lead.xero_contact_id else ('Failed' if lead.xero_error else 'Pending')) }}</dd></div>
           <div><dt>Alerts</dt><dd>Email: {{ lead.owner_email_status or 'Pending' }}<br>SMS: {{ lead.owner_sms_status or 'Pending' }}</dd></div>
+          <div><dt>Next</dt><dd>{{ lead.follow_up_status or 'Follow up required' }}</dd></div>
         </dl>
       </article>
     {% else %}

@@ -20,10 +20,29 @@
   .status-line div{border:1px solid #e2ebf3;border-radius:12px;padding:11px;background:#fbfdff}
   .status-line strong{display:block;color:#64748b;font-size:12px;text-transform:uppercase;margin-bottom:4px}
   .edit-form .span-2{grid-column:1/-1}
+  .lead-action-panel{border:1px solid #cfe1ef;background:#fff;border-radius:16px;padding:18px;display:grid;gap:16px}
+  .lead-action-head{display:flex;justify-content:space-between;gap:14px;align-items:flex-start}
+  .lead-action-head h4{margin:0;font-size:22px;color:#071524}
+  .lead-action-head p{margin:6px 0 0;color:#486174}
+  .lead-next-pill{display:inline-flex;align-items:center;border-radius:999px;background:#eaf6ff;border:1px solid #b8d9f1;color:#155b8f;padding:8px 12px;font-weight:900;white-space:nowrap}
+  .lead-check-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px}
+  .lead-check{display:block;text-decoration:none;border:1px solid #e2ebf3;border-radius:12px;padding:12px;background:#fbfdff;color:#132238}
+  .lead-check.done{background:#eefcf7;border-color:#bde8d8}
+  .lead-check.missing{background:#fff9f1;border-color:#efd2a4}
+  .lead-check span{display:inline-flex;border-radius:999px;padding:4px 8px;font-size:12px;font-weight:900;margin-bottom:8px}
+  .lead-check.done span{background:#d7f5e9;color:#087255}
+  .lead-check.missing span{background:#ffe9bf;color:#8a4f00}
+  .lead-check strong{display:block}
+  .lead-check em{display:block;margin-top:4px;color:#64748b;font-style:normal;font-size:13px}
+  .lead-action-buttons{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+  .lead-action-buttons form,.lead-action-buttons a{margin:0}
+  .lead-action-buttons .btn{width:100%;min-height:48px}
   @media (max-width:860px){
     .review-hero{display:block}
     .review-pill{margin-top:14px}
     .review-card-grid,.status-line{grid-template-columns:1fr}
+    .lead-action-head{display:block}
+    .lead-next-pill{margin-top:12px;white-space:normal}
   }
 </style>
 
@@ -35,6 +54,38 @@
     </div>
     <span class="review-pill">{{ lead.status or 'Waiting for review' }}</span>
   </div>
+
+  <section class="lead-action-panel" id="lead-action-panel">
+    <div class="lead-action-head">
+      <div>
+        <h4>What happens next</h4>
+        <p>Use this as the control panel for this enquiry. The buttons only act when you press them.</p>
+      </div>
+      <span class="lead-next-pill">{{ lead_next_action }}</span>
+    </div>
+    <div class="lead-check-grid">
+      {% for item in lead_checklist %}
+        <a class="lead-check {{ 'done' if item.ok else 'missing' }}" href="{{ item.href or '#' }}">
+          <span>{{ 'Done' if item.ok else 'To do' }}</span>
+          <strong>{{ item.label }}</strong>
+          {% if not item.ok %}<em>{{ item.help }}</em>{% endif %}
+        </a>
+      {% endfor %}
+    </div>
+    <div class="lead-action-buttons">
+      {% if lead.phone %}<a class="btn primary" href="tel:{{ lead.phone|replace(' ', '') }}">Call customer</a>{% endif %}
+      {% if lead.phone %}<a class="btn secondary" href="sms:{{ lead.phone|replace(' ', '') }}">Text customer</a>{% endif %}
+      {% if lead.email %}<a class="btn secondary" href="mailto:{{ lead.email }}">Email customer</a>{% endif %}
+      <form method="post" action="{{ url_for('intake_form_quick_action', lead_id=lead.id) }}"><input type="hidden" name="action" value="contacted"><button class="btn secondary" type="submit">Mark contacted</button></form>
+      <form method="post" action="{{ url_for('intake_form_quick_action', lead_id=lead.id) }}"><input type="hidden" name="action" value="waiting_customer"><button class="btn secondary" type="submit">Waiting for customer</button></form>
+      <form method="post" action="{{ url_for('intake_form_quick_action', lead_id=lead.id) }}"><input type="hidden" name="action" value="quoted"><button class="btn secondary" type="submit">Mark quoted</button></form>
+      <form method="post" action="{{ url_for('intake_form_quick_action', lead_id=lead.id) }}"><input type="hidden" name="action" value="open_customer"><button class="btn secondary" type="submit">Open customer</button></form>
+      <form method="post" action="{{ url_for('intake_form_quick_action', lead_id=lead.id) }}"><input type="hidden" name="action" value="send_unable_email"><button class="btn secondary" type="submit" {% if not lead.email %}disabled{% endif %}>Send unable-to-reach email</button></form>
+      <form method="post" action="{{ url_for('intake_form_quick_action', lead_id=lead.id) }}"><input type="hidden" name="action" value="send_unable_sms"><button class="btn secondary" type="submit" {% if not lead.phone %}disabled{% endif %}>Send unable-to-reach text</button></form>
+      <form method="post" action="{{ url_for('intake_create_job', lead_id=lead.id) }}"><button class="btn primary" type="submit">Create job</button></form>
+      <form method="post" action="{{ url_for('intake_form_quick_action', lead_id=lead.id) }}"><input type="hidden" name="action" value="lost"><button class="btn danger" type="submit">Close no reply</button></form>
+    </div>
+  </section>
 
   <div class="review-card-grid">
     <section class="review-card">
@@ -106,7 +157,7 @@
     </section>
   </div>
 
-  <section class="review-card">
+  <section class="review-card" id="edit-intake-details">
     <h4>Edit before approval</h4>
     <form method="post" action="{{ url_for('intake_form_update_details', lead_id=lead.id) }}" class="form-grid edit-form">
       <label>Name<input name="name" value="{{ lead.name or '' }}"></label>
