@@ -1562,7 +1562,7 @@ def enquiry_customer_email_html(data):
                     <p style="margin:0;font-size:16px;line-height:1.65;color:#385066">We clean carpets, upholstery and stains professionally, and every job is a little different. Photos help us see the fabric, condition, staining, traffic lanes, pet marks and access before recommending the best approach.</p>
                     <p style="margin:13px 0 0;font-size:16px;line-height:1.65;color:#385066">Please reply with any photos you have, or send them by SMS / Text / WhatsApp. It helps us quote faster and more accurately.</p>
                     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:14px">
-                      {email_action_button("Send photos on WhatsApp", whatsapp_photo_url, "#22c55e", "#071524")}
+                      {email_action_button("Send photos on WhatsApp", whatsapp_photo_url, "#128c7e", "#ffffff")}
                       {email_action_button("WhatsApp us", whatsapp_url, "#128c7e", "#ffffff")}
                     </table>
                   </td>
@@ -1616,10 +1616,10 @@ def enquiry_customer_email_html(data):
                     <p style="margin:0 0 15px;font-size:16px;line-height:1.65;color:#385066">Please follow us on Facebook to see our videos, recent cleans, before-and-after photos and customer feedback. It is the best place to see the kind of results we get.</p>
                     <p style="margin:0 0 12px;font-size:15px;line-height:1.55;color:#071524;font-weight:800">↓ Click these links ↓</p>
                     <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
-                      {email_action_button("Follow us on Facebook", facebook_url, "#164f91", "#ffffff")}
-                      {email_action_button("Read our Google reviews", reviews_url, "#0d6b58", "#ffffff")}
+                      {email_action_button("Follow us on Facebook", facebook_url, "#165dcc", "#ffffff")}
+                      {email_action_button("Read our Google reviews", reviews_url, "#165dcc", "#ffffff")}
                       {email_action_button("WhatsApp us", whatsapp_url, "#128c7e", "#ffffff")}
-                      {email_action_button("Visit our website", website_url, "#d8af55", "#071524")}
+                      {email_action_button("Visit our website", website_url, "#165dcc", "#ffffff")}
                     </table>
                   </td>
                 </tr>
