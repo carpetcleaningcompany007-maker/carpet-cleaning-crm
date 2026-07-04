@@ -1335,7 +1335,7 @@ DEFAULT_MESSAGE_TEMPLATES = {
     "customer_enquiry_email": {
         "name": "Customer enquiry email",
         "subject": "Thank you for contacting The Carpet Cleaning Company",
-        "body": "Hi {{name}},\n\nThank you for contacting The Carpet Cleaning Company.\n\nWe’ve received your enquiry and will be in touch shortly.\n\nWe provide professional carpet cleaning, upholstery cleaning and stain treatment services, with the aim of choosing the right cleaning approach for each job rather than guessing from a short message.\n\nIf you can, please send photos of the areas you would like us to quote for. This can include carpets, upholstery, stains, heavy soiling, pet marks, traffic lanes, rugs, stairs, hallways, sofas, chairs, or anything else you would like cleaned.\n\nPhotos help us understand the carpet or upholstery type, the condition, the stains, and the best cleaning method. We can then advise on the most suitable cleaning option and discuss the best way to get the best result for your budget.\n\nYou can send photos by replying to this email, or by replying to our SMS message from your phone.\n\nWhile you wait, please take a look at, like and follow our Facebook page to see our videos, recent work, before-and-after photos, and customer feedback:\nFacebook: https://www.facebook.com/profile.php?id=61559013150413\nGoogle Reviews: https://share.google/XHQjHHLwpmlugHP0c\nWebsite: https://www.thecarpetcleaningcrew.co.uk\n\nThank you for considering The Carpet Cleaning Company.\n\nPaul Nicholas\nThe Carpet Cleaning Company\n07802 563213\nwww.thecarpetcleaningcrew.co.uk",
+        "body": "Hi {{name}},\n\nThank you for contacting The Carpet Cleaning Company.\n\nWe’ve received your enquiry and will be in touch shortly.\n\nWe provide professional carpet cleaning, upholstery cleaning and stain treatment services, with the aim of choosing the right cleaning approach for each job rather than guessing from a short message.\n\nTo help us give you the most accurate advice and quotation, please reply to this email with a few photos of the areas you would like cleaned. Photos of carpets, upholstery, stains, heavy soiling, pet marks, traffic lanes, rugs, stairs, hallways, sofas, chairs or access areas are all useful.\n\nPhotos help us understand the carpet or upholstery type, the condition, the stains, and the best cleaning method. We can then advise on the most suitable cleaning option and discuss the best way to get the best result for your budget.\n\nYou can reply with photos to this email, or send them by replying to our SMS message from your phone.\n\nWhile you wait, please take a look at, like and follow our Facebook page to see our videos, recent work, before-and-after photos, and customer feedback:\nFacebook: https://www.facebook.com/profile.php?id=61559013150413\nGoogle Reviews: https://share.google/XHQjHHLwpmlugHP0c\nWebsite: https://www.thecarpetcleaningcrew.co.uk\n\nThank you for considering The Carpet Cleaning Company.\n\nPaul Nicholas\nThe Carpet Cleaning Company\n07802 563213\nwww.thecarpetcleaningcrew.co.uk",
     },
     "customer_enquiry_sms": {
         "name": "Customer enquiry SMS",
@@ -1727,12 +1727,7 @@ def send_clicksend_env_sms(to_phone, body, customer=None, category="Website Enqu
 def owner_enquiry_alert_text(data, customer_id=None, lead_id=None):
     customer_url = url_for("customer_view", customer_id=customer_id, _external=True) if customer_id else ""
     review_url = url_for("intake_form_view", lead_id=lead_id, _external=True) if lead_id else ""
-    phone_permission = request_value(data, "phone_permission", "can_contact_by_phone", "ok_to_call")
-    preferred_contact = request_value(data, "preferred_contact_method", "contact_method")
-    preferred_contact_other = request_value(data, "preferred_contact_other", "other_contact_method")
-    preferred_contact_text = preferred_contact or preferred_contact_other or "Not supplied"
-    if preferred_contact and preferred_contact_other:
-        preferred_contact_text = f"{preferred_contact} - {preferred_contact_other}"
+    contact_consent = request_value(data, "contact_consent", "consent_to_contact")
     lines = [
         "New website enquiry received",
         f"Customer name: {request_value(data, 'name', 'full_name', 'customer_name')}",
@@ -1741,8 +1736,7 @@ def owner_enquiry_alert_text(data, customer_id=None, lead_id=None):
         f"Address: {request_value(data, 'address', 'full_address', 'street_address')}",
         f"Postcode: {request_value(data, 'postcode', 'post_code', 'zip')}",
         f"Service requested: {request_value(data, 'service', 'what_cleaned', 'service_required', 'cleaning_required')}",
-        f"Can phone: {phone_permission or 'Not supplied'}",
-        f"Preferred contact: {preferred_contact_text}",
+        f"Consent to contact: {contact_consent or 'Not supplied'}",
         f"Preferred date: {request_value(data, 'preferred_date', 'date', 'preferred_days_times')}",
         f"Message: {request_value(data, 'message', 'notes', 'additional_notes')}",
     ]
@@ -4898,19 +4892,15 @@ def create_intake_from_website_payload(data, source="Website form", photo_filena
     preferred_date = request_value(data, "preferred_date", "date")
     preferred_time = request_value(data, "preferred_time", "time")
     agreed_quote_price = parse_money(request_value(data, "agreed_quote_price", "quote_price", "price"), 0)
-    marketing_consent = request_value(data, "marketing_consent", "marketing", "consent")
-    phone_permission = request_value(data, "phone_permission", "can_contact_by_phone", "ok_to_call")
-    preferred_contact = request_value(data, "preferred_contact_method", "contact_method")
-    preferred_contact_other = request_value(data, "preferred_contact_other", "other_contact_method")
+    marketing_consent = request_value(data, "marketing_consent", "marketing")
+    contact_consent = request_value(data, "contact_consent", "consent_to_contact")
     if not name:
         name = "Website Customer"
     if not phone and not email:
         raise ValueError("Please enter at least a phone number or email address.")
     notes = "\n".join([part for part in [
         f"Town: {town}" if town else "",
-        f"Can contact by phone: {phone_permission}" if phone_permission else "",
-        f"Preferred contact method: {preferred_contact}" if preferred_contact else "",
-        f"Other preferred contact details: {preferred_contact_other}" if preferred_contact_other else "",
+        f"Consent to contact: {contact_consent}" if contact_consent else "",
         additional_notes,
     ] if part])
     lead_id = run("""INSERT INTO intake_submissions
