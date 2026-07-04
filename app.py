@@ -1727,6 +1727,12 @@ def send_clicksend_env_sms(to_phone, body, customer=None, category="Website Enqu
 def owner_enquiry_alert_text(data, customer_id=None, lead_id=None):
     customer_url = url_for("customer_view", customer_id=customer_id, _external=True) if customer_id else ""
     review_url = url_for("intake_form_view", lead_id=lead_id, _external=True) if lead_id else ""
+    phone_permission = request_value(data, "phone_permission", "can_contact_by_phone", "ok_to_call")
+    preferred_contact = request_value(data, "preferred_contact_method", "contact_method")
+    preferred_contact_other = request_value(data, "preferred_contact_other", "other_contact_method")
+    preferred_contact_text = preferred_contact or preferred_contact_other or "Not supplied"
+    if preferred_contact and preferred_contact_other:
+        preferred_contact_text = f"{preferred_contact} - {preferred_contact_other}"
     lines = [
         "New website enquiry received",
         f"Customer name: {request_value(data, 'name', 'full_name', 'customer_name')}",
@@ -1735,6 +1741,8 @@ def owner_enquiry_alert_text(data, customer_id=None, lead_id=None):
         f"Address: {request_value(data, 'address', 'full_address', 'street_address')}",
         f"Postcode: {request_value(data, 'postcode', 'post_code', 'zip')}",
         f"Service requested: {request_value(data, 'service', 'what_cleaned', 'service_required', 'cleaning_required')}",
+        f"Can phone: {phone_permission or 'Not supplied'}",
+        f"Preferred contact: {preferred_contact_text}",
         f"Preferred date: {request_value(data, 'preferred_date', 'date', 'preferred_days_times')}",
         f"Message: {request_value(data, 'message', 'notes', 'additional_notes')}",
     ]
@@ -4891,12 +4899,18 @@ def create_intake_from_website_payload(data, source="Website form", photo_filena
     preferred_time = request_value(data, "preferred_time", "time")
     agreed_quote_price = parse_money(request_value(data, "agreed_quote_price", "quote_price", "price"), 0)
     marketing_consent = request_value(data, "marketing_consent", "marketing", "consent")
+    phone_permission = request_value(data, "phone_permission", "can_contact_by_phone", "ok_to_call")
+    preferred_contact = request_value(data, "preferred_contact_method", "contact_method")
+    preferred_contact_other = request_value(data, "preferred_contact_other", "other_contact_method")
     if not name:
         name = "Website Customer"
     if not phone and not email:
         raise ValueError("Please enter at least a phone number or email address.")
     notes = "\n".join([part for part in [
         f"Town: {town}" if town else "",
+        f"Can contact by phone: {phone_permission}" if phone_permission else "",
+        f"Preferred contact method: {preferred_contact}" if preferred_contact else "",
+        f"Other preferred contact details: {preferred_contact_other}" if preferred_contact_other else "",
         additional_notes,
     ] if part])
     lead_id = run("""INSERT INTO intake_submissions
@@ -9142,7 +9156,7 @@ def website_form_submit():
     data = request.get_json(silent=True) if request.is_json else request.form
     data = data or {}
     try:
-        photo_filename = save_upload("photo")
+        photo_filename = save_uploads("photos") or save_upload("photo")
         lead_id, customer_id = create_intake_from_website_payload(data, source=request_value(data, "source") or "Website form", photo_filename=photo_filename)
     except ValueError as exc:
         if request.is_json or request.path.startswith("/api/"):
