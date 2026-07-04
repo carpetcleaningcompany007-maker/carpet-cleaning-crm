@@ -1233,7 +1233,7 @@ def website_form_email_payload(data, lead_id=None, customer_id=None):
         ("Address", request_value(data, "address", "full_address")),
         ("Postcode", request_value(data, "postcode", "post_code", "zip", "area")),
         ("Service", request_value(data, "service", "what_cleaned", "cleaning_required")),
-        ("Rooms or areas", request_value(data, "rooms", "number_rooms", "rooms_or_areas", "areas")),
+        ("Rooms or areas", enquiry_rooms_items_text(data)),
         ("Upholstery", request_value(data, "upholstery")),
         ("Rugs", request_value(data, "rugs")),
         ("Stains/problem areas", request_value(data, "stains", "problem_areas")),
@@ -1501,7 +1501,7 @@ def enquiry_customer_email_html(data):
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#edf5f2;margin:0;padding:0">
     <tr>
       <td align="center" style="padding:28px 14px">
-        <table role="presentation" width="640" cellspacing="0" cellpadding="0" style="width:100%;max-width:640px;background:#ffffff;border-radius:24px;overflow:hidden;border:1px solid #d7e5df;box-shadow:0 20px 54px rgba(7,21,36,.12)">
+        <table role="presentation" width="640" cellspacing="0" cellpadding="0" style="width:100%;max-width:640px;background:#ffffff;border-radius:24px;overflow:hidden;border:1px solid #d7e5df">
           <tr>
             <td style="height:9px;background:linear-gradient(90deg,#071524 0%,#0d5c4e 55%,#d8af55 100%);font-size:0;line-height:0">&nbsp;</td>
           </tr>
@@ -1510,7 +1510,7 @@ def enquiry_customer_email_html(data):
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
                 <tr>
                   <td align="center">
-                    <table role="presentation" cellspacing="0" cellpadding="0" style="background:#ffffff;border:1px solid #e3c36f;border-radius:999px;box-shadow:0 12px 28px rgba(7,21,36,.12);margin:0 auto 14px">
+                    <table role="presentation" cellspacing="0" cellpadding="0" style="background:#ffffff;border:1px solid #e3c36f;border-radius:999px;margin:0 auto 14px">
                       <tr>
                         <td style="padding:12px">{logo_html}</td>
                       </tr>
@@ -1594,6 +1594,13 @@ def enquiry_customer_email_html(data):
                     </table>
                   </td>
                 </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td align="right" style="padding:10px 30px 4px">
+              <table role="presentation" cellspacing="0" cellpadding="0" align="right">
+                {email_action_button("WhatsApp Paul now", whatsapp_url, "#128c7e", "#ffffff")}
               </table>
             </td>
           </tr>
