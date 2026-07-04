@@ -1335,7 +1335,7 @@ DEFAULT_MESSAGE_TEMPLATES = {
     "customer_enquiry_email": {
         "name": "Customer enquiry email",
         "subject": "Thank you for contacting The Carpet Cleaning Company",
-        "body": "Hi {{name}},\n\nThank you for contacting The Carpet Cleaning Company.\n\nWe’ve received your enquiry and will be in touch shortly.\n\nWe provide professional carpet cleaning, upholstery cleaning and stain treatment services, with the aim of choosing the right cleaning approach for each job rather than guessing from a short message.\n\nTo help us give you the most accurate advice and quotation, please reply to this email with a few photos of the areas you would like cleaned. Photos of carpets, upholstery, stains, heavy soiling, pet marks, traffic lanes, rugs, stairs, hallways, sofas, chairs or access areas are all useful.\n\nPhotos help us understand the carpet or upholstery type, the condition, the stains, and the best cleaning method. We can then advise on the most suitable cleaning option and discuss the best way to get the best result for your budget.\n\nYou can reply with photos to this email, send them by SMS / text / WhatsApp, or use WhatsApp here:\nhttps://wa.me/447802563213\n\nWhile you wait, please take a look at, like and follow our Facebook page to see our videos, recent work, before-and-after photos, and customer feedback:\nFacebook: https://www.facebook.com/profile.php?id=61559013150413\nGoogle Reviews: https://share.google/XHQjHHLwpmlugHP0c\nWebsite: https://www.thecarpetcleaningcrew.co.uk\n\nThank you for considering The Carpet Cleaning Company.\n\nPaul Nicholas\nThe Carpet Cleaning Company\n07802 563213\nwww.thecarpetcleaningcrew.co.uk",
+        "body": "Hi {{name}},\n\nThank you for contacting The Carpet Cleaning Company.\n\nWe’ve received your enquiry and will be in touch shortly.\n\nWe provide professional carpet cleaning, upholstery cleaning and stain treatment services, with the aim of choosing the right cleaning approach for each job rather than guessing from a short message.\n\nTo help us give you the most accurate advice and quotation, please reply to this email with a few photos of the areas you would like cleaned. Photos of carpets, upholstery, stains, heavy soiling, pet marks, traffic lanes, rugs, stairs, hallways, sofas, chairs or access areas are all useful.\n\nPhotos help us understand the carpet or upholstery type, the condition, the stains, and the best cleaning method. We can then advise on the most suitable cleaning option and discuss the best way to get the best result for your budget.\n\nYou can reply with photos to this email, send them by SMS / Text / WhatsApp, or use WhatsApp here:\nhttps://wa.me/447802563213\n\nWhile you wait, please take a look at, like and follow our Facebook page to see our videos, recent work, before-and-after photos, and customer feedback:\nFacebook: https://www.facebook.com/profile.php?id=61559013150413\nGoogle Reviews: https://share.google/XHQjHHLwpmlugHP0c\nWebsite: https://www.thecarpetcleaningcrew.co.uk\n\nThank you for considering The Carpet Cleaning Company.\n\nPaul Nicholas\nThe Carpet Cleaning Company\n07802 563213\nwww.thecarpetcleaningcrew.co.uk",
     },
     "customer_enquiry_sms": {
         "name": "Customer enquiry SMS",
@@ -1531,10 +1531,10 @@ def enquiry_customer_email_html(data):
                   <td style="padding:20px">
                     <h2 style="margin:0 0 10px;font-size:21px;line-height:1.25;color:#071524">A quick note before we quote</h2>
                     <p style="margin:0;font-size:16px;line-height:1.65;color:#385066">We clean carpets, upholstery and stains professionally, and every job is a little different. Photos help us see the fabric, condition, staining, traffic lanes, pet marks and access before recommending the best approach.</p>
-                    <p style="margin:13px 0 0;font-size:16px;line-height:1.65;color:#385066">Please reply with any photos you have, or send them by SMS / text / WhatsApp. It helps us quote faster and more accurately.</p>
+                    <p style="margin:13px 0 0;font-size:16px;line-height:1.65;color:#385066">Please reply with any photos you have, or send them by SMS / Text / WhatsApp. It helps us quote faster and more accurately.</p>
                     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:14px">
                       {email_action_button("Send photos on WhatsApp", whatsapp_photo_url, "#22c55e", "#071524")}
-                      {email_action_button("WhatsApp call Paul", whatsapp_url, "#128c7e", "#ffffff")}
+                      {email_action_button("WhatsApp us", whatsapp_url, "#128c7e", "#ffffff")}
                     </table>
                   </td>
                 </tr>
@@ -1589,7 +1589,7 @@ def enquiry_customer_email_html(data):
                     <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
                       {email_action_button("Follow us on Facebook", facebook_url, "#164f91", "#ffffff")}
                       {email_action_button("Read our Google reviews", reviews_url, "#0d6b58", "#ffffff")}
-                      {email_action_button("WhatsApp call Paul", whatsapp_url, "#128c7e", "#ffffff")}
+                      {email_action_button("WhatsApp us", whatsapp_url, "#128c7e", "#ffffff")}
                       {email_action_button("Visit our website", website_url, "#d8af55", "#071524")}
                     </table>
                   </td>
@@ -1600,7 +1600,7 @@ def enquiry_customer_email_html(data):
           <tr>
             <td align="right" style="padding:10px 30px 4px">
               <table role="presentation" cellspacing="0" cellpadding="0" align="right">
-                {email_action_button("WhatsApp Paul now", whatsapp_url, "#128c7e", "#ffffff")}
+                {email_action_button("WhatsApp us now", whatsapp_url, "#128c7e", "#ffffff")}
               </table>
             </td>
           </tr>
@@ -3692,7 +3692,7 @@ def built_in_visual_email_templates():
     hero_html = f'<img src="{html_lib.escape(hero_url)}" alt="Professional carpet cleaning" width="580" style="display:block;width:100%;max-width:580px;height:auto;border:0;border-radius:18px">' if hero_url else ""
     welcome_whatsapp_buttons = (
         email_action_button("Send photos on WhatsApp", whatsapp_photo_url, "#22c55e", "#071524")
-        + email_action_button("WhatsApp Paul", whatsapp_url, "#128c7e", "#ffffff")
+        + email_action_button("WhatsApp us", whatsapp_url, "#128c7e", "#ffffff")
     )
 
     def shell(title, strap, body_html, subject):
@@ -3730,7 +3730,7 @@ def built_in_visual_email_templates():
                     <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
                       {email_action_button("Follow us on Facebook", facebook_url, "#1457a8", "#ffffff")}
                       {email_action_button("Read our Google reviews", reviews_url, "#0f7b63", "#ffffff")}
-                      {email_action_button("WhatsApp Paul", whatsapp_url, "#128c7e", "#ffffff")}
+                      {email_action_button("WhatsApp us", whatsapp_url, "#128c7e", "#ffffff")}
                       {email_action_button("Visit our website", website_url, "#d8af55", "#071524")}
                     </table>
                   </td>
@@ -3768,7 +3768,7 @@ def built_in_visual_email_templates():
                   <td style="padding:20px">
                     <h2 style="margin:0 0 10px;font-size:21px;line-height:1.25;color:#071524">A quick note before we quote</h2>
                     <p style="margin:0;font-size:16px;line-height:1.65;color:#385066">We clean carpets, upholstery and stains professionally, and every job is a little different. Photos help us see the carpet or upholstery type, condition, staining, traffic lanes, pet marks and access before recommending the best approach.</p>
-                    <p style="margin:13px 0 0;font-size:16px;line-height:1.65;color:#385066">Please reply with any photos you have, or send them by SMS / text / WhatsApp. That helps us quote faster, advise on the best cleaning option, and discuss the best way to get the best result for your budget.</p>
+                    <p style="margin:13px 0 0;font-size:16px;line-height:1.65;color:#385066">Please reply with any photos you have, or send them by SMS / Text / WhatsApp. That helps us quote faster, advise on the best cleaning option, and discuss the best way to get the best result for your budget.</p>
                     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:14px">
                       """ + welcome_whatsapp_buttons + """
                     </table>
