@@ -2100,7 +2100,7 @@ def contact_form_alert_html(lead, customer_id=None):
         )
         return f"""
         <div style="margin:16px 0;background:#ffffff;border:1px solid #d8e7f2;border-radius:14px;overflow:hidden">
-          <div style="padding:12px 14px;background:#f3f9ff;border-left:5px solid {accent}">
+          <div style="padding:12px 14px;background:#f3f9ff;border:1px solid #d8e7f6;border-radius:14px">
             <strong style="font-size:17px;color:#071524">{safe(title)}</strong>
           </div>
           <table style="border-collapse:collapse;width:100%">{body}</table>
@@ -3415,13 +3415,13 @@ def day_run_email_html(kind, job, plain_body):
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#eaf3f8;margin:0;padding:0">
     <tr>
       <td align="center" style="padding:28px 14px">
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="width:100%;max-width:640px;background:#ffffff;border-radius:26px;overflow:hidden;border:1px solid #d8e4ee;box-shadow:0 22px 60px rgba(12,31,51,.13)">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="width:100%;max-width:640px;background:#ffffff;border-radius:26px;overflow:hidden;border:1px solid #d8e4ee">
           <tr>
             <td style="height:8px;background:linear-gradient(90deg,#071524 0%,#0f4a5a 50%,#d8af55 100%);font-size:0;line-height:0">&nbsp;</td>
           </tr>
           <tr>
             <td align="center" style="background:linear-gradient(180deg,#fff8ec 0%,#eef7fb 100%);padding:28px 30px 24px;color:#071524;border-bottom:1px solid #dce8f1">
-              <table role="presentation" cellspacing="0" cellpadding="0" style="background:#ffffff;border:1px solid #ead6a8;border-radius:999px;box-shadow:0 10px 24px rgba(7,21,36,.10);margin:0 auto 14px">
+              <table role="presentation" cellspacing="0" cellpadding="0" style="background:#ffffff;border:1px solid #ead6a8;border-radius:999px;margin:0 auto 14px">
                 <tr>
                   <td style="padding:12px">{logo_html}</td>
                 </tr>
@@ -3553,7 +3553,7 @@ def booking_confirmation_email_html(job):
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#edf5f2;margin:0;padding:0">
     <tr>
       <td align="center" style="padding:28px 14px">
-        <table role="presentation" width="640" cellspacing="0" cellpadding="0" style="width:100%;max-width:640px;background:#ffffff;border-radius:24px;overflow:hidden;border:1px solid #d7e5df;box-shadow:0 20px 54px rgba(7,21,36,.12)">
+        <table role="presentation" width="640" cellspacing="0" cellpadding="0" style="width:100%;max-width:640px;background:#ffffff;border-radius:24px;overflow:hidden;border:1px solid #d7e5df">
           <tr>
             <td style="height:9px;background:linear-gradient(90deg,#071524 0%,#0d5c4e 55%,#d8af55 100%);font-size:0;line-height:0">&nbsp;</td>
           </tr>
@@ -3562,7 +3562,7 @@ def booking_confirmation_email_html(job):
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
                 <tr>
                   <td align="center">
-                    <table role="presentation" cellspacing="0" cellpadding="0" style="background:#ffffff;border:1px solid #e3c36f;border-radius:999px;box-shadow:0 12px 28px rgba(7,21,36,.12);margin:0 auto 14px">
+                    <table role="presentation" cellspacing="0" cellpadding="0" style="background:#ffffff;border:1px solid #e3c36f;border-radius:999px;margin:0 auto 14px">
                       <tr>
                         <td style="padding:12px">{logo_html}</td>
                       </tr>
