@@ -32,6 +32,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("CRM_SECRET_KEY", "change-this-secret")
 app.config["UPLOAD_FOLDER"] = os.environ.get("CRM_UPLOAD_FOLDER", os.path.join("static", "uploads"))
+EMAIL_RENDER_BUILD = "customer-email-cta-2026-07-05-01"
 DB_PATH = os.environ.get("CRM_DB_PATH", "crm.db")
 BACKUP_DIR = os.environ.get("CRM_BACKUP_DIR", "backups")
 XERO_SCOPES = "offline_access accounting.settings.read accounting.contacts accounting.contacts.read accounting.invoices accounting.invoices.read"
@@ -56,6 +57,34 @@ def add_website_form_cors_headers(response):
         response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
         response.headers["Access-Control-Allow-Headers"] = "Content-Type, Accept"
     return response
+
+
+@app.route("/api/customer-email-render-check")
+def customer_email_render_check():
+    sample = {
+        "name": "Render Check",
+        "email": "customer@example.com",
+        "phone": "07802563213",
+        "service": "Carpet cleaning",
+        "areas": "3",
+        "rooms_or_items": "3",
+        "postcode": "SY8 1AA",
+        "message": "Render check message",
+        "contact_consent": "Yes",
+    }
+    html = enquiry_customer_email_html(sample)
+    return {
+        "build": EMAIL_RENDER_BUILD,
+        "has_sms_text_whatsapp": "SMS / Text / WhatsApp" in html,
+        "has_lowercase_old_sms_text": "SMS / text / WhatsApp" in html,
+        "has_old_sms_sentence": "send them back through the SMS" in html,
+        "has_whatsapp_us": "WhatsApp us" in html,
+        "has_whatsapp_link": "https://wa.me/447802563213" in html,
+        "has_box_shadow": "box-shadow" in html,
+        "has_border_left": "border-left" in html,
+        "has_preferred_date": "Preferred date" in html or "preferred date" in html.lower(),
+        "has_three_rooms": "3 rooms" in html,
+    }
 
 AREA_OPTIONS = [
     "Function room","Hallway","Restaurant","Bar","Reception","Bedroom corridor",
