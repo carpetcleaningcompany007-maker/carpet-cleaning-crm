@@ -1350,7 +1350,7 @@ DEFAULT_MESSAGE_TEMPLATES = {
     "owner_enquiry_alert_sms": {
         "name": "Owner enquiry alert SMS",
         "subject": "",
-        "body": "New enquiry\nName: {{name}}\nPhone: {{phone}}\nEmail: {{email}}\nPostcode: {{postcode}}\nService: {{service}}\nMessage: {{message}}",
+        "body": "{{owner_alert_details}}",
     },
     "booking_confirmation_email": {"name": "Booking confirmation email", "subject": "Your carpet clean is booked in", "body": "Hi {{name}},\n\nYour carpet clean is booked in.\n\nDate: {{date}}\nArrival: {{time}}\nPrice: {{total}}\nAddress: {{address}}\n\nWhile you wait, please follow us on Facebook to see our videos, recent cleans and before-and-after photos:\n{{facebook}}\n\nThanks\nPaul\n{{business_name}}"},
     "booking_confirmation_sms": {"name": "Booking confirmation SMS", "subject": "", "body": "Hi {{name}}, your carpet clean is booked in for {{date}} at {{time}}. Total: {{total}}. Please clear small items and save parking if possible. Thanks, Paul - {{business_name}}"},
@@ -1726,6 +1726,7 @@ def send_clicksend_env_sms(to_phone, body, customer=None, category="Website Enqu
 
 def owner_enquiry_alert_text(data, customer_id=None, lead_id=None):
     customer_url = url_for("customer_view", customer_id=customer_id, _external=True) if customer_id else ""
+    review_url = url_for("intake_form_view", lead_id=lead_id, _external=True) if lead_id else ""
     lines = [
         "New website enquiry received",
         f"Customer name: {request_value(data, 'name', 'full_name', 'customer_name')}",
@@ -1737,6 +1738,8 @@ def owner_enquiry_alert_text(data, customer_id=None, lead_id=None):
         f"Preferred date: {request_value(data, 'preferred_date', 'date', 'preferred_days_times')}",
         f"Message: {request_value(data, 'message', 'notes', 'additional_notes')}",
     ]
+    if review_url:
+        lines.append(f"Review form: {review_url}")
     if customer_url:
         lines.append(f"Open in CRM: {customer_url}")
     if lead_id:
@@ -4604,6 +4607,16 @@ def init_db():
         (
             DEFAULT_MESSAGE_TEMPLATES["customer_enquiry_email"]["subject"],
             DEFAULT_MESSAGE_TEMPLATES["customer_enquiry_email"]["body"],
+        ),
+    )
+    conn.execute(
+        """UPDATE message_templates
+              SET body=?, updated_at=datetime('now')
+            WHERE template_key='owner_enquiry_alert_sms'
+              AND body<>?""",
+        (
+            DEFAULT_MESSAGE_TEMPLATES["owner_enquiry_alert_sms"]["body"],
+            DEFAULT_MESSAGE_TEMPLATES["owner_enquiry_alert_sms"]["body"],
         ),
     )
     conn.execute(
