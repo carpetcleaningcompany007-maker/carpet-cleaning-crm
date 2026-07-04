@@ -84,6 +84,10 @@ def customer_email_render_check():
         "has_border_left": "border-left" in html,
         "has_preferred_date": "Preferred date" in html or "preferred date" in html.lower(),
         "has_three_rooms": "3 rooms" in html,
+        "has_round_logo": "email-logo-round.png" in html,
+        "has_old_square_logo": "email-logo-white.png" in html,
+        "has_navy_buttons": "background:#071524" in html,
+        "has_whatsapp_green_buttons": "background:#25d366" in html,
     }
 
 AREA_OPTIONS = [
@@ -1503,7 +1507,7 @@ def update_intake_delivery_status(lead_id, **fields):
 def enquiry_customer_email_html(data):
     replacements = template_context_for_enquiry(data)
     customer_name = html_lib.escape(replacements.get("{{name}}") or "there")
-    logo_url = public_static_or_live_url("site/email-logo-white.png")
+    logo_url = public_static_or_live_url("site/email-logo-round.png")
     hero_url = public_static_or_live_url("site/hero-carpet-cleaning.webp")
     website_url = enquiry_public_site_url()
     facebook_url = "https://www.facebook.com/profile.php?id=61559013150413"
@@ -1514,7 +1518,7 @@ def enquiry_customer_email_html(data):
     rooms = html_lib.escape(enquiry_rooms_items_text(data))
     postcode = html_lib.escape(clean_str(data.get("postcode") or "Not supplied"))
     message = html_lib.escape(clean_str(data.get("message") or "No extra message supplied."))
-    logo_html = f'<img src="{html_lib.escape(logo_url)}" alt="The Carpet Cleaning Company" width="104" style="display:block;width:104px;height:auto;border:0;margin:0 auto">' if logo_url else ""
+    logo_html = f'<img src="{html_lib.escape(logo_url)}" alt="The Carpet Cleaning Company" width="116" style="display:block;width:116px;height:auto;border:0;margin:0 auto">' if logo_url else ""
     hero_html = f"""
         <tr>
           <td style="padding:0 30px 22px">
@@ -1539,9 +1543,9 @@ def enquiry_customer_email_html(data):
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
                 <tr>
                   <td align="center">
-                    <table role="presentation" cellspacing="0" cellpadding="0" style="background:#ffffff;border:1px solid #e3c36f;border-radius:999px;margin:0 auto 14px">
+                    <table role="presentation" cellspacing="0" cellpadding="0" style="background:transparent;border:0;border-radius:999px;margin:0 auto 14px">
                       <tr>
-                        <td style="padding:12px">{logo_html}</td>
+                        <td style="padding:0">{logo_html}</td>
                       </tr>
                     </table>
                     <div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#967024;font-weight:800">The Carpet Cleaning Company</div>
@@ -1562,8 +1566,8 @@ def enquiry_customer_email_html(data):
                     <p style="margin:0;font-size:16px;line-height:1.65;color:#385066">We clean carpets, upholstery and stains professionally, and every job is a little different. Photos help us see the fabric, condition, staining, traffic lanes, pet marks and access before recommending the best approach.</p>
                     <p style="margin:13px 0 0;font-size:16px;line-height:1.65;color:#385066">Please reply with any photos you have, or send them by SMS / Text / WhatsApp. It helps us quote faster and more accurately.</p>
                     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:14px">
-                      {email_action_button("Send photos on WhatsApp", whatsapp_photo_url, "#128c7e", "#ffffff")}
-                      {email_action_button("WhatsApp us", whatsapp_url, "#128c7e", "#ffffff")}
+                      {email_action_button("Send photos on WhatsApp", whatsapp_photo_url, "#25d366", "#071524")}
+                      {email_action_button("WhatsApp us", whatsapp_url, "#25d366", "#071524")}
                     </table>
                   </td>
                 </tr>
@@ -1616,10 +1620,10 @@ def enquiry_customer_email_html(data):
                     <p style="margin:0 0 15px;font-size:16px;line-height:1.65;color:#385066">Please follow us on Facebook to see our videos, recent cleans, before-and-after photos and customer feedback. It is the best place to see the kind of results we get.</p>
                     <p style="margin:0 0 12px;font-size:15px;line-height:1.55;color:#071524;font-weight:800">↓ Click these links ↓</p>
                     <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
-                      {email_action_button("Follow us on Facebook", facebook_url, "#165dcc", "#ffffff")}
-                      {email_action_button("Read our Google reviews", reviews_url, "#165dcc", "#ffffff")}
-                      {email_action_button("WhatsApp us", whatsapp_url, "#128c7e", "#ffffff")}
-                      {email_action_button("Visit our website", website_url, "#165dcc", "#ffffff")}
+                      {email_action_button("Follow us on Facebook", facebook_url, "#071524", "#ffffff")}
+                      {email_action_button("Read our Google reviews", reviews_url, "#071524", "#ffffff")}
+                      {email_action_button("WhatsApp us", whatsapp_url, "#25d366", "#071524")}
+                      {email_action_button("Visit our website", website_url, "#071524", "#ffffff")}
                     </table>
                   </td>
                 </tr>
@@ -1629,7 +1633,7 @@ def enquiry_customer_email_html(data):
           <tr>
             <td align="right" style="padding:10px 30px 4px">
               <table role="presentation" cellspacing="0" cellpadding="0" align="right">
-                {email_action_button("WhatsApp us now", whatsapp_url, "#128c7e", "#ffffff")}
+                {email_action_button("WhatsApp us now", whatsapp_url, "#25d366", "#071524")}
               </table>
             </td>
           </tr>
