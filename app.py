@@ -3073,6 +3073,17 @@ def send_rendered_customer_message(customer, channel, subject, body, test_mode=F
     return False, "Choose Email or SMS.", ""
 
 
+def send_comms_email(to_email, subject, body, customer=None):
+    body = body or ""
+    if is_html_email_body(body):
+        html_body = body
+        text_body = strip_html_for_sms(body)
+    else:
+        html_body = "<div style='font-family:Arial,sans-serif;line-height:1.55;color:#102033;white-space:pre-wrap'>" + html_lib.escape(body) + "</div>"
+        text_body = body
+    return send_env_email(to_email, subject, text_body, html_body, customer=customer)
+
+
 def parse_hhmm(value, default="09:00"):
     text = clean_str(value) or default
     try:
@@ -7838,7 +7849,7 @@ def communications_send_test():
     body = request.form.get("body") or ""
     rendered_subject = safe_replace(subject, comms_replacements(None))
     rendered_body = safe_replace(body, comms_replacements(None))
-    ok, msg = send_email_smtp(test_email, rendered_subject, rendered_body)
+    ok, msg = send_comms_email(test_email, rendered_subject, rendered_body)
     flash(msg)
     return redirect(url_for("communications"))
 
@@ -7877,7 +7888,9 @@ def communications_send_customer():
     rendered_body = safe_replace(body, comms_replacements(customer))
 
     if channel == "Email":
-        ok, msg = send_email_smtp(customer["email"] or "", rendered_subject, rendered_body, customer=customer)
+        ok, msg = send_comms_email(customer["email"] or "", rendered_subject, rendered_body, customer=customer)
+        if ok:
+            send_owner_customer_message_copy("email", customer["email"] or "", rendered_subject, rendered_body, html_body=rendered_body if is_html_email_body(rendered_body) else "", customer=customer, context="Communication Hub customer email")
         flash(msg)
     elif channel == "SMS":
         ok, msg = send_sms_gateway(customer["phone"] or "", rendered_body, customer=customer, message_category=request.form.get('message_category') or '')
