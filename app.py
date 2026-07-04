@@ -1335,7 +1335,7 @@ DEFAULT_MESSAGE_TEMPLATES = {
     "customer_enquiry_email": {
         "name": "Customer enquiry email",
         "subject": "Thank you for contacting The Carpet Cleaning Company",
-        "body": "Hi {{name}},\n\nThank you for contacting The Carpet Cleaning Company.\n\nWe’ve received your enquiry and will be in touch shortly.\n\nWe provide professional carpet cleaning, upholstery cleaning and stain treatment services, with the aim of choosing the right cleaning approach for each job rather than guessing from a short message.\n\nTo help us give you the most accurate advice and quotation, please reply to this email with a few photos of the areas you would like cleaned. Photos of carpets, upholstery, stains, heavy soiling, pet marks, traffic lanes, rugs, stairs, hallways, sofas, chairs or access areas are all useful.\n\nPhotos help us understand the carpet or upholstery type, the condition, the stains, and the best cleaning method. We can then advise on the most suitable cleaning option and discuss the best way to get the best result for your budget.\n\nYou can reply with photos to this email, send them by replying to our SMS message from your phone, or send them on WhatsApp here:\nhttps://wa.me/447802563213\n\nWhile you wait, please take a look at, like and follow our Facebook page to see our videos, recent work, before-and-after photos, and customer feedback:\nFacebook: https://www.facebook.com/profile.php?id=61559013150413\nGoogle Reviews: https://share.google/XHQjHHLwpmlugHP0c\nWebsite: https://www.thecarpetcleaningcrew.co.uk\n\nThank you for considering The Carpet Cleaning Company.\n\nPaul Nicholas\nThe Carpet Cleaning Company\n07802 563213\nwww.thecarpetcleaningcrew.co.uk",
+        "body": "Hi {{name}},\n\nThank you for contacting The Carpet Cleaning Company.\n\nWe’ve received your enquiry and will be in touch shortly.\n\nWe provide professional carpet cleaning, upholstery cleaning and stain treatment services, with the aim of choosing the right cleaning approach for each job rather than guessing from a short message.\n\nTo help us give you the most accurate advice and quotation, please reply to this email with a few photos of the areas you would like cleaned. Photos of carpets, upholstery, stains, heavy soiling, pet marks, traffic lanes, rugs, stairs, hallways, sofas, chairs or access areas are all useful.\n\nPhotos help us understand the carpet or upholstery type, the condition, the stains, and the best cleaning method. We can then advise on the most suitable cleaning option and discuss the best way to get the best result for your budget.\n\nYou can reply with photos to this email, send them by SMS / text / WhatsApp, or use WhatsApp here:\nhttps://wa.me/447802563213\n\nWhile you wait, please take a look at, like and follow our Facebook page to see our videos, recent work, before-and-after photos, and customer feedback:\nFacebook: https://www.facebook.com/profile.php?id=61559013150413\nGoogle Reviews: https://share.google/XHQjHHLwpmlugHP0c\nWebsite: https://www.thecarpetcleaningcrew.co.uk\n\nThank you for considering The Carpet Cleaning Company.\n\nPaul Nicholas\nThe Carpet Cleaning Company\n07802 563213\nwww.thecarpetcleaningcrew.co.uk",
     },
     "customer_enquiry_sms": {
         "name": "Customer enquiry SMS",
@@ -1390,7 +1390,7 @@ def template_context_for_enquiry(data, customer_id=None, lead_id=None):
     service = request_value(data, "service", "what_cleaned", "service_required", "cleaning_required")
     phone = request_value(data, "phone", "phone_number", "telephone", "tel")
     owner_details = owner_enquiry_alert_text(data, customer_id=customer_id, lead_id=lead_id)
-    rooms_items = request_value(data, "rooms", "rooms_or_items", "rooms_items", "number_rooms", "areas", "rooms_areas")
+    rooms_items = enquiry_rooms_items_text(data)
     return {
         "{{name}}": request_value(data, "name", "full_name", "customer_name") or "there",
         "{{phone}}": phone,
@@ -1411,6 +1411,28 @@ def render_simple_template(text, replacements):
     for key, value in replacements.items():
         rendered = rendered.replace(key, clean_str(value))
     return rendered
+
+
+def enquiry_rooms_items_text(data):
+    value = request_value(
+        data,
+        "rooms_areas",
+        "rooms_or_areas",
+        "rooms_or_items",
+        "rooms_items",
+        "items_required",
+        "number_rooms",
+        "rooms",
+        "number_of_rooms",
+        "room_count",
+        "areas",
+    )
+    value = clean_str(value)
+    if not value:
+        return "Not supplied"
+    if value.isdigit():
+        return f"{value} room" + ("" if value == "1" else "s")
+    return value
 
 
 def message_template(key):
@@ -1460,7 +1482,7 @@ def enquiry_customer_email_html(data):
     whatsapp_url = "https://wa.me/447802563213"
     whatsapp_photo_url = "https://wa.me/447802563213?text=Hi%20Paul%2C%20I%20would%20like%20to%20send%20photos%20for%20my%20carpet%20cleaning%20quote."
     service = html_lib.escape(clean_str(data.get("service_required") or data.get("service") or "Cleaning enquiry"))
-    rooms = html_lib.escape(clean_str(data.get("rooms") or data.get("rooms_or_items") or data.get("areas") or data.get("number_rooms") or "Not supplied"))
+    rooms = html_lib.escape(enquiry_rooms_items_text(data))
     postcode = html_lib.escape(clean_str(data.get("postcode") or "Not supplied"))
     message = html_lib.escape(clean_str(data.get("message") or "No extra message supplied."))
     logo_html = f'<img src="{html_lib.escape(logo_url)}" alt="The Carpet Cleaning Company" width="104" style="display:block;width:104px;height:auto;border:0;margin:0 auto">' if logo_url else ""
@@ -1509,7 +1531,7 @@ def enquiry_customer_email_html(data):
                   <td style="padding:20px">
                     <h2 style="margin:0 0 10px;font-size:21px;line-height:1.25;color:#071524">A quick note before we quote</h2>
                     <p style="margin:0;font-size:16px;line-height:1.65;color:#385066">We clean carpets, upholstery and stains professionally, and every job is a little different. Photos help us see the fabric, condition, staining, traffic lanes, pet marks and access before recommending the best approach.</p>
-                    <p style="margin:13px 0 0;font-size:16px;line-height:1.65;color:#385066">Please reply with any photos you have, send them back through the SMS, or send them on WhatsApp. It helps us quote faster and more accurately.</p>
+                    <p style="margin:13px 0 0;font-size:16px;line-height:1.65;color:#385066">Please reply with any photos you have, or send them by SMS / text / WhatsApp. It helps us quote faster and more accurately.</p>
                     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:14px">
                       {email_action_button("Send photos on WhatsApp", whatsapp_photo_url, "#22c55e", "#071524")}
                       {email_action_button("WhatsApp call Paul", whatsapp_url, "#128c7e", "#ffffff")}
@@ -1740,7 +1762,7 @@ def owner_enquiry_alert_text(data, customer_id=None, lead_id=None):
         f"Address: {request_value(data, 'address', 'full_address', 'street_address')}",
         f"Postcode: {request_value(data, 'postcode', 'post_code', 'zip')}",
         f"Service requested: {request_value(data, 'service', 'what_cleaned', 'service_required', 'cleaning_required')}",
-        f"Rooms/items: {request_value(data, 'rooms', 'rooms_or_items', 'rooms_items', 'number_rooms', 'areas', 'rooms_areas') or 'Not supplied'}",
+        f"Rooms/items: {enquiry_rooms_items_text(data)}",
         f"Consent to contact: {contact_consent or 'Not supplied'}",
         f"Message: {request_value(data, 'message', 'notes', 'additional_notes')}",
     ]
@@ -3364,7 +3386,7 @@ def day_run_email_html(kind, job, plain_body):
         review_focus_html = f"""
           <tr>
             <td style="padding:0 30px 14px">
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f3faf6;border:1px solid #bfe5cf;border-radius:18px;border-left:5px solid #0f7b63">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f3faf6;border:1px solid #bfe5cf;border-radius:18px">
                 <tr>
                   <td style="padding:20px">
                     <h2 style="margin:0 0 8px;font-size:21px;line-height:1.25;color:#071524">Would you leave us a Google review?</h2>
@@ -3608,7 +3630,7 @@ def booking_confirmation_email_html(job):
           </tr>
           <tr>
             <td style="padding:0 30px 14px">
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#fff8e8;border:1px solid #e3c36f;border-radius:18px;border-left:5px solid #d8af55">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#fff8e8;border:1px solid #e3c36f;border-radius:18px">
                 <tr><td style="padding:18px"><strong style="font-size:17px;color:#071524">Payment</strong><p style="margin:6px 0 0;font-size:15px;line-height:1.55;color:#5a4b2a">Cash, card, or bank transfer on the day.</p></td></tr>
               </table>
             </td>
@@ -3657,8 +3679,14 @@ def built_in_visual_email_templates():
     website_url = enquiry_public_site_url()
     facebook_url = "https://www.facebook.com/profile.php?id=61559013150413"
     reviews_url = "https://share.google/XHQjHHLwpmlugHP0c"
+    whatsapp_url = "https://wa.me/447802563213"
+    whatsapp_photo_url = "https://wa.me/447802563213?text=Hi%20Paul%2C%20I%20would%20like%20to%20send%20photos%20for%20my%20carpet%20cleaning%20quote."
     logo_html = f'<img src="{html_lib.escape(logo_url)}" alt="{business}" width="108" style="display:block;width:108px;height:auto;border:0;margin:0 auto">' if logo_url else ""
     hero_html = f'<img src="{html_lib.escape(hero_url)}" alt="Professional carpet cleaning" width="580" style="display:block;width:100%;max-width:580px;height:auto;border:0;border-radius:18px">' if hero_url else ""
+    welcome_whatsapp_buttons = (
+        email_action_button("Send photos on WhatsApp", whatsapp_photo_url, "#22c55e", "#071524")
+        + email_action_button("WhatsApp Paul", whatsapp_url, "#128c7e", "#ffffff")
+    )
 
     def shell(title, strap, body_html, subject):
         return {
@@ -3670,11 +3698,11 @@ def built_in_visual_email_templates():
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#eef4f8;margin:0;padding:0">
     <tr>
       <td align="center" style="padding:28px 14px">
-        <table role="presentation" width="640" cellspacing="0" cellpadding="0" style="width:100%;max-width:640px;background:#ffffff;border:1px solid #d8e4ee;border-radius:22px;overflow:hidden;box-shadow:0 18px 48px rgba(12,31,51,.10)">
+        <table role="presentation" width="640" cellspacing="0" cellpadding="0" style="width:100%;max-width:640px;background:#ffffff;border:1px solid #d8e4ee;border-radius:22px;overflow:hidden">
           <tr><td style="height:8px;background:linear-gradient(90deg,#071524 0%,#0f4a5a 50%,#d8af55 100%);font-size:0;line-height:0">&nbsp;</td></tr>
           <tr>
             <td align="center" style="background:#fbf7ee;padding:26px 30px 24px;border-bottom:1px solid #eadfcb">
-              <table role="presentation" cellspacing="0" cellpadding="0" style="background:#ffffff;border:1px solid #ead6a8;border-radius:999px;box-shadow:0 10px 24px rgba(7,21,36,.10);margin:0 auto 14px">
+              <table role="presentation" cellspacing="0" cellpadding="0" style="background:#ffffff;border:1px solid #ead6a8;border-radius:999px;margin:0 auto 14px">
                 <tr><td style="padding:12px">{logo_html}</td></tr>
               </table>
               <div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#9a6d20;font-weight:800">{business}</div>
@@ -3695,6 +3723,7 @@ def built_in_visual_email_templates():
                     <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
                       {email_action_button("Follow us on Facebook", facebook_url, "#1457a8", "#ffffff")}
                       {email_action_button("Read our Google reviews", reviews_url, "#0f7b63", "#ffffff")}
+                      {email_action_button("WhatsApp Paul", whatsapp_url, "#128c7e", "#ffffff")}
                       {email_action_button("Visit our website", website_url, "#d8af55", "#071524")}
                     </table>
                   </td>
@@ -3732,7 +3761,10 @@ def built_in_visual_email_templates():
                   <td style="padding:20px">
                     <h2 style="margin:0 0 10px;font-size:21px;line-height:1.25;color:#071524">A quick note before we quote</h2>
                     <p style="margin:0;font-size:16px;line-height:1.65;color:#385066">We clean carpets, upholstery and stains professionally, and every job is a little different. Photos help us see the carpet or upholstery type, condition, staining, traffic lanes, pet marks and access before recommending the best approach.</p>
-                    <p style="margin:13px 0 0;font-size:16px;line-height:1.65;color:#385066">Please reply with any photos you have. That helps us quote faster, advise on the best cleaning option, and discuss the best way to get the best result for your budget.</p>
+                    <p style="margin:13px 0 0;font-size:16px;line-height:1.65;color:#385066">Please reply with any photos you have, or send them by SMS / text / WhatsApp. That helps us quote faster, advise on the best cleaning option, and discuss the best way to get the best result for your budget.</p>
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:14px">
+                      """ + welcome_whatsapp_buttons + """
+                    </table>
                   </td>
                 </tr>
               </table>
@@ -3776,6 +3808,11 @@ def seed_visual_email_templates(conn):
     for name, template in templates.items():
         exists = conn.execute("SELECT id FROM communication_templates WHERE name=? LIMIT 1", (name,)).fetchone()
         if exists:
+            if name == "Website enquiry welcome - visual":
+                conn.execute(
+                    "UPDATE communication_templates SET channel=?, subject=?, body=? WHERE name=?",
+                    (template["channel"], template["subject"], template["body"], name),
+                )
             continue
         conn.execute(
             "INSERT INTO communication_templates(name, channel, subject, body) VALUES (?,?,?,?)",
