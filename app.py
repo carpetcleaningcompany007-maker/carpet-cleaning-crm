@@ -1353,7 +1353,7 @@ def enquiry_public_site_url():
 
 
 def carpet_cleaning_options_url():
-    return enquiry_public_site_url() + "/pages/pricing.html"
+    return enquiry_public_site_url() + "/pages/choose-carpet-cleaning-package.html"
 
 
 def public_static_url(filename):
@@ -1421,7 +1421,7 @@ DEFAULT_MESSAGE_TEMPLATES = {
     "payment_received_sms": {"name": "Payment received SMS", "subject": "", "body": "Hi {{name}}, thank you very much for your payment. It's greatly appreciated. If you were happy with the service, a Google review would really help: {{review_link}} Thanks, Paul - {{business_name}}"},
     "unable_to_reach_email": {"name": "Unable to reach customer email", "subject": "I tried to contact you", "body": "Hi {{name}},\n\nThank you very much for your enquiry. I really appreciate you getting in touch with The Carpet Cleaning Company.\n\nI have tried to contact you so we can discuss your carpet or upholstery cleaning requirements, but I have not been able to get hold of you yet. I did not want you to think your message had been missed.\n\nIf you would still like a quote or would like to talk through the best cleaning options, please reply to this email or call/text me on 07802 563213. I will be happy to help.\n\nIf it is easier, you can also send over a few photos of the areas you would like cleaned, along with your address and any useful parking or access details. That helps me give better advice and a more accurate quote.\n\nYou can also see recent cleans, videos and before-and-after photos on Facebook:\n{{facebook}}\n\nGoogle reviews:\n{{review_link}}\n\nThanks again for contacting us.\n\nPaul\nThe Carpet Cleaning Company\n07802 563213"},
     "unable_to_reach_sms": {"name": "Unable to reach customer SMS", "subject": "", "body": "Hi {{name}}, thanks for your enquiry. I have tried to contact you to discuss your carpet cleaning requirements but could not get hold of you. If you still need help, please reply here or call/text me on 07802 563213. Thanks, Paul"},
-    "carpet_cleaning_options_guide_email": {"name": "Carpet cleaning options guide email", "subject": "Choosing the right carpet cleaning option", "body": "Hi {{name}},\n\nHere is a quick guide to help you choose the right carpet cleaning option for your home:\n\n{{carpet_options_link}}\n\nIt explains the Bronze, Silver and Gold options, what each package includes, and which option is best for different carpet conditions.\n\nIf you are unsure, just reply with a few photos and I will help you choose the most suitable option.\n\nThanks\nPaul\n{{business_name}}"},
+    "carpet_cleaning_options_guide_email": {"name": "Carpet cleaning package guide email", "subject": "Choose the right carpet cleaning package", "body": "Hi {{name}},\n\nHere is the guide to help you choose the right carpet cleaning package for your home:\n\n{{carpet_options_link}}\n\nIt explains the Standard Clean, Targeted Pre Spray Treatment, Professional Deep Clean and Stain Guard options, with prices and what is included in each package.\n\nIf you are unsure, just reply with a few photos and I will help you choose the most suitable option.\n\nThanks\nPaul\n{{business_name}}"},
     "carpet_cleaning_options_guide_sms": {"name": "Carpet cleaning options guide SMS", "subject": "", "body": "Hi {{name}}, here is a quick guide to help you choose the right carpet cleaning option for your home: {{carpet_options_link}} If you are unsure, send me a few photos and I will help. Thanks, Paul"},
     "maintenance_reminder_email": {"name": "Maintenance reminder email", "subject": "It has been a while since your last clean", "body": "Hi {{name}},\n\nI hope you are well.\n\nIt has been a while since your last carpet or upholstery clean, so I just wanted to check whether you would like to book in again.\n\nRegular cleaning helps keep carpets and upholstery looking better for longer, especially in busy areas, homes with pets, or rooms used every day.\n\nIf you would like another clean, just reply to this email and I will be happy to help.\n\nYou can also follow us on Facebook to see our latest work and cleaning tips:\n{{facebook}}\n\nThanks\nPaul\n{{business_name}}"},
     "maintenance_reminder_sms": {"name": "Maintenance reminder SMS", "subject": "", "body": "Hi {{name}}, it has been a while since your last clean. Would you like to book in again? Just reply and I will be happy to help. Thanks, Paul - {{business_name}}"},
@@ -2910,7 +2910,7 @@ CUSTOMER_ACTION_TEMPLATES = [
     {"key": "review_request_message", "sms_key": "review_request_message", "label": "Review request", "note": "Send after the customer is happy."},
     {"key": "payment_received_email", "sms_key": "payment_received_sms", "label": "Payment received", "note": "Send after the customer has paid."},
     {"key": "unable_to_reach_email", "sms_key": "unable_to_reach_sms", "label": "Tried to contact", "note": "Use when they contacted you but you cannot get hold of them."},
-    {"key": "carpet_cleaning_options_guide_email", "sms_key": "carpet_cleaning_options_guide_sms", "label": "Cleaning options guide", "note": "Send the website guide that explains Bronze, Silver and Gold package choices."},
+    {"key": "carpet_cleaning_options_guide_email", "sms_key": "carpet_cleaning_options_guide_sms", "label": "Package selector guide", "note": "Send the website guide that explains the package choices and prices."},
 ]
 
 
@@ -3153,7 +3153,7 @@ def carpet_options_guide_email_html(customer, plain_body):
                 <tr>
                   <td style="padding:18px">
                     <h2 style="margin:0 0 8px;font-size:20px;line-height:1.25;color:#071524">Carpet cleaning package guide</h2>
-                    <p style="margin:0 0 14px;font-size:15px;line-height:1.55;color:#385066">The guide explains Bronze, Silver and Gold options, what each package includes, and when each one makes sense.</p>
+                    <p style="margin:0 0 14px;font-size:15px;line-height:1.55;color:#385066">The guide explains the Standard Clean, Targeted Pre Spray Treatment, Professional Deep Clean and Stain Guard options, with prices and what each package includes.</p>
                     <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
                       {email_action_button("View carpet cleaning options", guide_url, "#0f7b63", "#ffffff")}
                       {email_action_button("Ask Paul on WhatsApp", whatsapp_url, "#25d366", "#071524")}
@@ -3930,7 +3930,7 @@ def built_in_visual_email_templates():
                 <tr>
                   <td style="padding:20px">
                     <h2 style="margin:0 0 10px;font-size:21px;line-height:1.25;color:#071524">Choosing the right clean</h2>
-                    <p style="margin:0;font-size:16px;line-height:1.65;color:#385066">Hi {{{{first_name}}}}, here is a quick guide to help you choose the right carpet cleaning option for your home. It explains the Bronze, Silver and Gold options, what each package includes, and which option is best for different carpet conditions.</p>
+                    <p style="margin:0;font-size:16px;line-height:1.65;color:#385066">Hi {{{{first_name}}}}, here is a quick guide to help you choose the right carpet cleaning package for your home. It explains the Standard Clean, Targeted Pre Spray Treatment, Professional Deep Clean and Stain Guard options, with prices and what each package includes.</p>
                     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:14px">
                       {email_action_button("View carpet cleaning options", options_url, "#0f7b63", "#ffffff")}
                       {email_action_button("Ask Paul on WhatsApp", whatsapp_url, "#25d366", "#071524")}
@@ -3956,10 +3956,10 @@ def built_in_visual_email_templates():
             "We are on our way",
         ),
         "Carpet cleaning options guide - visual": shell(
-            "Choosing the right clean",
-            "A quick guide to help you choose between Bronze, Silver and Gold.",
+            "Choose your cleaning package",
+            "A quick guide to help you compare the carpet cleaning options and prices.",
             options_body,
-            "Choosing the right carpet cleaning option",
+            "Choose the right carpet cleaning package",
         ),
     }
 
