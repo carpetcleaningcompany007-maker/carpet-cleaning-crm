@@ -76,6 +76,7 @@
       {% if lead.phone %}<a class="btn primary" href="tel:{{ lead.phone|replace(' ', '') }}">Call customer</a>{% endif %}
       {% if lead.phone %}<a class="btn secondary" href="sms:{{ lead.phone|replace(' ', '') }}">Text customer</a>{% endif %}
       {% if lead.email %}<a class="btn secondary" href="mailto:{{ lead.email }}">Email customer</a>{% endif %}
+      <form method="post" action="{{ url_for('intake_request_missing_details', lead_id=lead.id) }}"><button class="btn primary" type="submit" {% if not lead.email and not lead.phone %}disabled{% endif %}>Request missing details</button></form>
       <form method="post" action="{{ url_for('intake_form_quick_action', lead_id=lead.id) }}"><input type="hidden" name="action" value="contacted"><button class="btn secondary" type="submit">Mark contacted</button></form>
       <form method="post" action="{{ url_for('intake_form_quick_action', lead_id=lead.id) }}"><input type="hidden" name="action" value="waiting_customer"><button class="btn secondary" type="submit">Waiting for customer</button></form>
       <form method="post" action="{{ url_for('intake_form_quick_action', lead_id=lead.id) }}"><input type="hidden" name="action" value="quoted"><button class="btn secondary" type="submit">Mark quoted</button></form>
@@ -122,6 +123,7 @@
         <div><strong>Xero</strong>{% if lead.xero_contact_id %}Sent{% elif not xero_configured %}Needs Xero setup{% elif not xero_connected %}Ready to connect{% elif lead.xero_error %}Failed: {{ friendly_xero_error(lead.xero_error) }}{% else %}{{ lead.xero_sync_status or 'Waiting' }}{% endif %}</div>
         <div><strong>Owner email</strong>{{ lead.owner_email_status or 'Pending' }}</div>
         <div><strong>Owner SMS</strong>{{ lead.owner_sms_status or 'Pending' }}</div>
+        <div><strong>Update form</strong>{% if lead.update_form_sent_at %}Sent {{ lead.update_form_sent_at }}<br>{{ lead.update_form_status or '' }}{% else %}Not sent yet{% endif %}</div>
         <div><strong>Source</strong>{{ lead.source or 'Customer details form' }}</div>
       </div>
       {% if lead.xero_contact_id %}

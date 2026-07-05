@@ -26,6 +26,7 @@ import calendar as pycalendar
 from difflib import SequenceMatcher
 
 from flask import Flask, render_template, request, redirect, url_for, flash, session, g, Response, send_file, send_from_directory
+from itsdangerous import BadSignature, URLSafeSerializer
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -87,6 +88,7 @@ def customer_email_render_check():
         "has_round_logo": "email-logo-round.png" in html,
         "has_old_square_logo": "email-logo-white.png" in html,
         "has_navy_buttons": "background:#071524" in html,
+        "has_bright_social_buttons": "background:#1877f2" in html and "background:#4285f4" in html,
         "has_whatsapp_green_buttons": "background:#25d366" in html,
     }
 
@@ -1620,10 +1622,10 @@ def enquiry_customer_email_html(data):
                     <p style="margin:0 0 15px;font-size:16px;line-height:1.65;color:#385066">Please follow us on Facebook to see our videos, recent cleans, before-and-after photos and customer feedback. It is the best place to see the kind of results we get.</p>
                     <p style="margin:0 0 12px;font-size:15px;line-height:1.55;color:#071524;font-weight:800">↓ Click these links ↓</p>
                     <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
-                      {email_action_button("Follow us on Facebook", facebook_url, "#071524", "#ffffff")}
-                      {email_action_button("Read our Google reviews", reviews_url, "#071524", "#ffffff")}
+                      {email_action_button("Follow us on Facebook", facebook_url, "#1877f2", "#ffffff")}
+                      {email_action_button("Read our Google reviews", reviews_url, "#4285f4", "#ffffff")}
                       {email_action_button("WhatsApp us", whatsapp_url, "#25d366", "#071524")}
-                      {email_action_button("Visit our website", website_url, "#071524", "#ffffff")}
+                      {email_action_button("Visit our website", website_url, "#0ea5e9", "#ffffff")}
                     </table>
                   </td>
                 </tr>
@@ -4406,7 +4408,9 @@ def init_db():
         xero_sent_at TEXT DEFAULT '',
         xero_error TEXT DEFAULT '',
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        update_form_sent_at TEXT DEFAULT '',
+        update_form_status TEXT DEFAULT ''
     );
     CREATE TABLE IF NOT EXISTS xero_tokens (
         id INTEGER PRIMARY KEY CHECK (id=1),
@@ -4606,6 +4610,8 @@ def init_db():
         ("intake_submissions", "owner_email_status", "TEXT DEFAULT 'Pending'"),
         ("intake_submissions", "owner_sms_status", "TEXT DEFAULT 'Pending'"),
         ("intake_submissions", "follow_up_status", "TEXT DEFAULT 'Follow up required'"),
+        ("intake_submissions", "update_form_sent_at", "TEXT DEFAULT ''"),
+        ("intake_submissions", "update_form_status", "TEXT DEFAULT ''"),
         ("customer_feedback", "review_requested", "INTEGER DEFAULT 0"),
         ("customer_feedback", "review_link_sent_at", "TEXT DEFAULT ''"),
         ("future_reminders", "reminder_type", "TEXT DEFAULT 'Follow up'"),
@@ -4842,11 +4848,82 @@ def row_get(row, key, default=""):
         return default
 
 
+def intake_update_serializer():
+    return URLSafeSerializer(app.config["SECRET_KEY"], salt="intake-update-form")
+
+
+def signed_intake_update_token(lead_id):
+    return intake_update_serializer().dumps({"lead_id": int(lead_id)})
+
+
+def lead_id_from_update_token(token):
+    token = clean_str(token)
+    if not token:
+        return None
+    try:
+        data = intake_update_serializer().loads(token)
+        return int(data.get("lead_id") or 0) or None
+    except (BadSignature, TypeError, ValueError):
+        return None
+
+
+def parse_intake_parking_summary(parking):
+    result = {"parking_issues": "", "steps_access": "", "property_access": "", "access_info": ""}
+    notes = []
+    for line in clean_str(parking).splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        lower = line.lower()
+        if lower.startswith("parking:"):
+            result["parking_issues"] = line.split(":", 1)[1].strip()
+        elif lower.startswith("steps/access:"):
+            result["steps_access"] = line.split(":", 1)[1].strip()
+        elif lower.startswith("property type and access:"):
+            result["property_access"] = line.split(":", 1)[1].strip()
+        elif lower.startswith("access notes:"):
+            notes.append(line.split(":", 1)[1].strip())
+        else:
+            notes.append(line)
+    result["access_info"] = "\n".join([note for note in notes if note])
+    return result
+
+
+def intake_prefill_values(lead):
+    if not lead:
+        return {}
+    parking = parse_intake_parking_summary(row_get(lead, "parking"))
+    return {
+        "name": row_get(lead, "name"),
+        "phone": row_get(lead, "phone"),
+        "email": row_get(lead, "email"),
+        "full_address": row_get(lead, "full_address"),
+        "postcode": row_get(lead, "postcode"),
+        "what3words": row_get(lead, "what3words"),
+        "google_maps_link": row_get(lead, "google_maps_link"),
+        "preferred_date": row_get(lead, "preferred_date"),
+        "preferred_time": row_get(lead, "preferred_time") or "09:30",
+        "preferred_days_times": row_get(lead, "preferred_days_times"),
+        "agreed_quote_price": row_get(lead, "agreed_quote_price"),
+        "rooms_areas": row_get(lead, "rooms_areas"),
+        "job_notes": clean_intake_job_notes(lead) or row_get(lead, "job_notes"),
+        "stains": row_get(lead, "stains"),
+        "additional_notes": row_get(lead, "additional_notes"),
+        "what_cleaned": row_get(lead, "what_cleaned") or "Customer contact form",
+        **parking,
+    }
+
+
 def booking_form_url(customer=None, prefill=None):
     params = {}
     if customer:
         params["customer_id"] = customer["id"]
-    for key in ("name", "phone", "email", "preferred_date", "preferred_time", "preferred_days_times", "agreed_quote_price"):
+    for key in (
+        "name", "phone", "email", "full_address", "postcode", "what3words", "google_maps_link",
+        "parking_issues", "steps_access", "property_access", "access_info",
+        "preferred_date", "preferred_time", "preferred_days_times", "agreed_quote_price",
+        "rooms_areas", "job_notes", "stains", "additional_notes", "what_cleaned", "update_token",
+    ):
         value = clean_str((prefill or {}).get(key))
         if value:
             params[key] = value
@@ -5002,6 +5079,29 @@ def create_intake_from_website_payload(data, source="Website form", photo_filena
     run("UPDATE intake_submissions SET customer_id=?, status='Waiting for review', updated_at=datetime('now') WHERE id=?", (customer_id, lead_id))
     run("UPDATE customers SET source=?, next_action='Review website form and approve customer for Xero' WHERE id=?", (source, customer_id))
     return lead_id, customer_id
+
+
+def update_customer_basic_details_from_intake(customer_id, lead):
+    if not customer_id or not lead:
+        return
+    first_name, last_name = split_customer_name(row_get(lead, "name"))
+    updates = []
+    params = []
+    for col, value in [
+        ("first_name", first_name),
+        ("last_name", last_name),
+        ("phone", row_get(lead, "phone")),
+        ("email", row_get(lead, "email")),
+        ("address", row_get(lead, "full_address")),
+        ("postcode", row_get(lead, "postcode")),
+    ]:
+        value = clean_str(value)
+        if value:
+            updates.append(f"{col}=?")
+            params.append(value)
+    if updates:
+        params.append(customer_id)
+        run(f"UPDATE customers SET {', '.join(updates)} WHERE id=?", tuple(params))
 
 
 def workflow_overdue_warnings(customer):
@@ -9095,15 +9195,35 @@ def update_invoice_from_xero(invoice_id, xero_invoice):
 @app.route("/booking-form", methods=["GET", "POST"])
 def booking_form():
     linked_customer_id = int(request.values.get("customer_id") or 0)
+    update_token = clean_str(request.values.get("update_token"))
+    update_lead_id = lead_id_from_update_token(update_token)
+    update_lead = q("SELECT * FROM intake_submissions WHERE id=?", (update_lead_id,), one=True) if update_lead_id else None
+    if update_lead and not linked_customer_id:
+        linked_customer_id = int(row_get(update_lead, "customer_id") or 0)
     linked_customer = q("SELECT * FROM customers WHERE id=?", (linked_customer_id,), one=True) if linked_customer_id else None
+    lead_prefill = intake_prefill_values(update_lead) if update_lead else {}
     prefill = {
-        "name": clean_str(request.values.get("name")),
-        "phone": clean_str(request.values.get("phone")),
-        "email": clean_str(request.values.get("email")),
-        "preferred_date": clean_str(request.values.get("preferred_date")),
-        "preferred_time": clean_str(request.values.get("preferred_time")),
-        "preferred_days_times": clean_str(request.values.get("preferred_days_times")),
-        "agreed_quote_price": clean_str(request.values.get("agreed_quote_price")),
+        "name": clean_str(request.values.get("name")) or clean_str(lead_prefill.get("name")),
+        "phone": clean_str(request.values.get("phone")) or clean_str(lead_prefill.get("phone")),
+        "email": clean_str(request.values.get("email")) or clean_str(lead_prefill.get("email")),
+        "full_address": clean_str(request.values.get("full_address")) or clean_str(lead_prefill.get("full_address")),
+        "postcode": clean_str(request.values.get("postcode")) or clean_str(lead_prefill.get("postcode")),
+        "what3words": clean_str(request.values.get("what3words")) or clean_str(lead_prefill.get("what3words")),
+        "google_maps_link": clean_str(request.values.get("google_maps_link")) or clean_str(lead_prefill.get("google_maps_link")),
+        "parking_issues": clean_str(request.values.get("parking_issues")) or clean_str(lead_prefill.get("parking_issues")),
+        "steps_access": clean_str(request.values.get("steps_access")) or clean_str(lead_prefill.get("steps_access")),
+        "property_access": clean_str(request.values.get("property_access")) or clean_str(lead_prefill.get("property_access")),
+        "access_info": clean_str(request.values.get("access_info")) or clean_str(lead_prefill.get("access_info")),
+        "preferred_date": clean_str(request.values.get("preferred_date")) or clean_str(lead_prefill.get("preferred_date")),
+        "preferred_time": clean_str(request.values.get("preferred_time")) or clean_str(lead_prefill.get("preferred_time")),
+        "preferred_days_times": clean_str(request.values.get("preferred_days_times")) or clean_str(lead_prefill.get("preferred_days_times")),
+        "agreed_quote_price": clean_str(request.values.get("agreed_quote_price")) or clean_str(lead_prefill.get("agreed_quote_price")),
+        "rooms_areas": clean_str(request.values.get("rooms_areas")) or clean_str(lead_prefill.get("rooms_areas")),
+        "job_notes": clean_str(request.values.get("job_notes")) or clean_str(lead_prefill.get("job_notes")),
+        "stains": clean_str(request.values.get("stains")) or clean_str(lead_prefill.get("stains")),
+        "additional_notes": clean_str(request.values.get("additional_notes")) or clean_str(lead_prefill.get("additional_notes")),
+        "what_cleaned": clean_str(request.values.get("what_cleaned")) or clean_str(lead_prefill.get("what_cleaned")),
+        "update_token": update_token if update_lead else "",
     }
     if request.method == "POST":
         name = clean_str(request.form.get("name"))
@@ -9143,29 +9263,58 @@ def booking_form():
             f"WhatsApp number: {whatsapp_number}" if whatsapp_number else "",
             f"Carpet/upholstery details: {carpet_details}" if carpet_details else "",
         ] if part])
-        lead_id = run("""INSERT INTO intake_submissions
-               (name, phone, email, full_address, postcode, agreed_quote_price, google_maps_link, what3words, job_notes, rooms_areas,
-            what_cleaned, number_rooms, upholstery, rugs, stains, pets, parking, preferred_days_times, additional_notes,
-                preferred_date, preferred_time, photo_filename, customer_id, status, source, marketing_consent)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", (
-            name, phone, email, clean_str(request.form.get("full_address")), clean_str(request.form.get("postcode")),
-            parse_money(request.form.get("agreed_quote_price"), 0),
-            clean_str(request.form.get("google_maps_link")), clean_str(request.form.get("what3words")),
-            job_notes, clean_str(request.form.get("rooms_areas")),
-            clean_str(request.form.get("what_cleaned")), clean_str(request.form.get("number_rooms")),
-            clean_str(request.form.get("upholstery")), clean_str(request.form.get("rugs")),
-            clean_str(request.form.get("stains")), clean_str(request.form.get("pets")),
-            parking_summary, clean_str(request.form.get("preferred_days_times")),
-            "\n".join([part for part in [clean_str(request.form.get("additional_notes")), privacy_line, marketing_line] if part]),
-            clean_str(request.form.get("preferred_date")), clean_str(request.form.get("preferred_time")), photo_filename,
-            linked_customer_id or None, "Waiting for review", "Customer contact form", marketing_consent,
-        ))
+        submitted_update_token = clean_str(request.form.get("update_token")) or update_token
+        submitted_update_lead_id = lead_id_from_update_token(submitted_update_token)
+        existing_update_lead = q("SELECT * FROM intake_submissions WHERE id=?", (submitted_update_lead_id,), one=True) if submitted_update_lead_id else None
+        submitted_additional_notes = "\n".join([part for part in [clean_str(request.form.get("additional_notes")), privacy_line, marketing_line] if part])
+        if existing_update_lead:
+            combined_photo_filename = ",".join([part for part in [clean_str(row_get(existing_update_lead, "photo_filename")), photo_filename] if part])
+            lead_id = existing_update_lead["id"]
+            run("""UPDATE intake_submissions SET
+                   name=?, phone=?, email=?, full_address=?, postcode=?, agreed_quote_price=?, google_maps_link=?,
+                   what3words=?, job_notes=?, rooms_areas=?, what_cleaned=?, number_rooms=?, upholstery=?, rugs=?,
+                   stains=?, pets=?, parking=?, preferred_days_times=?, additional_notes=?, preferred_date=?,
+                   preferred_time=?, photo_filename=?, customer_id=COALESCE(customer_id, ?), status=?,
+                   source=CASE WHEN IFNULL(source,'')='' THEN ? ELSE source END, marketing_consent=?,
+                   update_form_status=?, updated_at=datetime('now')
+                   WHERE id=?""", (
+                name, phone, email, clean_str(request.form.get("full_address")), clean_str(request.form.get("postcode")),
+                parse_money(request.form.get("agreed_quote_price"), 0),
+                clean_str(request.form.get("google_maps_link")), clean_str(request.form.get("what3words")),
+                job_notes, clean_str(request.form.get("rooms_areas")),
+                clean_str(request.form.get("what_cleaned")), clean_str(request.form.get("number_rooms")),
+                clean_str(request.form.get("upholstery")), clean_str(request.form.get("rugs")),
+                clean_str(request.form.get("stains")), clean_str(request.form.get("pets")),
+                parking_summary, clean_str(request.form.get("preferred_days_times")), submitted_additional_notes,
+                clean_str(request.form.get("preferred_date")), clean_str(request.form.get("preferred_time")),
+                combined_photo_filename, linked_customer_id or None, "Updated - waiting for review",
+                "Customer contact form update", marketing_consent, "Customer sent updated details", lead_id,
+            ))
+        else:
+            lead_id = run("""INSERT INTO intake_submissions
+                   (name, phone, email, full_address, postcode, agreed_quote_price, google_maps_link, what3words, job_notes, rooms_areas,
+                what_cleaned, number_rooms, upholstery, rugs, stains, pets, parking, preferred_days_times, additional_notes,
+                    preferred_date, preferred_time, photo_filename, customer_id, status, source, marketing_consent)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", (
+                name, phone, email, clean_str(request.form.get("full_address")), clean_str(request.form.get("postcode")),
+                parse_money(request.form.get("agreed_quote_price"), 0),
+                clean_str(request.form.get("google_maps_link")), clean_str(request.form.get("what3words")),
+                job_notes, clean_str(request.form.get("rooms_areas")),
+                clean_str(request.form.get("what_cleaned")), clean_str(request.form.get("number_rooms")),
+                clean_str(request.form.get("upholstery")), clean_str(request.form.get("rugs")),
+                clean_str(request.form.get("stains")), clean_str(request.form.get("pets")),
+                parking_summary, clean_str(request.form.get("preferred_days_times")),
+                submitted_additional_notes,
+                clean_str(request.form.get("preferred_date")), clean_str(request.form.get("preferred_time")), photo_filename,
+                linked_customer_id or None, "Waiting for review", "Customer contact form", marketing_consent,
+            ))
         lead = q("SELECT * FROM intake_submissions WHERE id=?", (lead_id,), one=True)
         customer_id = create_customer_from_intake(lead)
+        update_customer_basic_details_from_intake(customer_id, lead)
         run("UPDATE intake_submissions SET customer_id=?, status='Waiting for review', updated_at=datetime('now') WHERE id=?", (customer_id, lead_id))
         send_contact_form_owner_alerts(lead_id, customer_id)
         return render_template("customer_intake_thanks.html", biz=settings(), public_mode=True)
-    return render_template("customer_intake.html", biz=settings(), linked_customer=linked_customer, prefill=prefill, public_mode=True)
+    return render_template("customer_intake.html", biz=settings(), linked_customer=linked_customer, prefill=prefill, public_mode=True, update_lead=update_lead)
 
 
 @app.route("/customer-intake", methods=["GET", "POST"])
@@ -9329,6 +9478,56 @@ def intake_form_view(lead_id):
         flash("Intake form not found.")
         return redirect(url_for("intake_forms"))
     return render_template("intake_form_view.html", lead=lead, display_job_notes=clean_intake_job_notes(lead), xero_configured=xero_is_configured(), xero_connected=bool(xero_token_row()), lead_checklist=intake_lead_checklist(lead), lead_next_action=intake_lead_next_action(lead))
+
+
+@app.route("/intake-forms/<int:lead_id>/request-missing-details", methods=["POST"])
+@login_required
+def intake_request_missing_details(lead_id):
+    lead = q("SELECT * FROM intake_submissions WHERE id=?", (lead_id,), one=True)
+    if not lead:
+        flash("Intake form not found.")
+        return redirect(url_for("intake_forms"))
+    if CUSTOMER_FORM_SENDING_PAUSED:
+        flash("Customer form sending is paused. No update form link was sent.")
+        return redirect(url_for("intake_form_view", lead_id=lead_id))
+    customer_id = safe_intake_customer_id(lead)
+    customer = q("SELECT * FROM customers WHERE id=?", (customer_id,), one=True) if customer_id else None
+    prefill = intake_prefill_values(lead)
+    prefill["update_token"] = signed_intake_update_token(lead_id)
+    form_link = booking_form_url(customer, prefill=prefill)
+    recipient_name = clean_str(row_get(lead, "name"))
+    email_to = clean_str(row_get(lead, "email"))
+    sms_to = clean_str(row_get(lead, "phone"))
+    message = send_standalone_contact_form_message(form_link, recipient_name)
+    subject = "Please update your customer details - The Carpet Cleaning Company"
+    results = []
+    if email_to:
+        email_html = booking_form_email_html(customer, form_link, recipient_name=recipient_name)
+        ok, msg = send_env_email(email_to, subject, message, email_html, customer=customer)
+        if ok:
+            send_owner_customer_message_copy("email", email_to, subject, message, html_body=email_html, customer=customer, context="Missing details update form")
+        results.append(("Email", ok, msg))
+    if sms_to and not is_customer_sms_opted_out(customer):
+        ok, msg = send_clicksend_env_sms(sms_to, message, customer=customer, category="Customer Form Update")
+        if ok:
+            send_owner_customer_message_copy("sms", sms_to, "Customer update form", message, customer=customer, context="Missing details update form")
+        results.append(("SMS", ok, msg))
+    if not results:
+        flash("This enquiry needs an email address or mobile number before an update form can be sent.")
+        return redirect(url_for("intake_form_view", lead_id=lead_id) + "#edit-intake-details")
+    sent_labels = [label for label, ok, _ in results if ok]
+    status = "; ".join(f"{label}: {'sent' if ok else 'failed'} - {msg}" for label, ok, msg in results)
+    run("""UPDATE intake_submissions
+           SET update_form_sent_at=datetime('now'), update_form_status=?, follow_up_status='Waiting for customer', updated_at=datetime('now')
+           WHERE id=?""", (status, lead_id))
+    if customer_id:
+        run("INSERT INTO communications(customer_id, channel, subject, body, created_at) VALUES (?,?,?,?,datetime('now'))",
+            (customer_id, "Customer Form", subject, message))
+        run("INSERT INTO customer_timeline(customer_id, note_text, created_at) VALUES (?,?,datetime('now'))",
+            (customer_id, "Requested missing customer details by " + (", ".join(sent_labels) if sent_labels else "customer form link") + "."))
+        set_customer_workflow(customer_id, "booking_form_sent", "Requested missing customer details.", "Missing details requested")
+    flash("Request missing details: " + status)
+    return redirect(url_for("intake_form_view", lead_id=lead_id))
 
 
 def intake_lead_checklist(lead):

@@ -27,6 +27,18 @@
 
     <form method="post" enctype="multipart/form-data" class="customer-form">
       {% if linked_customer %}<input type="hidden" name="customer_id" value="{{ linked_customer.id }}">{% endif %}
+      {% if prefill.update_token %}<input type="hidden" name="update_token" value="{{ prefill.update_token }}">{% endif %}
+      {% if update_lead %}
+        <section class="customer-form-card">
+          <div class="customer-form-card-head">
+            <span>Update</span>
+            <div>
+              <h2>Just fill in anything missing</h2>
+              <p>We have filled in the details we already have. Please check them, add anything useful, then send the form back.</p>
+            </div>
+          </div>
+        </section>
+      {% endif %}
 
       <section class="customer-form-card">
         <div class="customer-form-card-head">
@@ -59,18 +71,18 @@
         </div>
         <div class="customer-form-grid">
           <label class="wide">Full address
-            <textarea name="full_address" rows="4" autocomplete="street-address" placeholder="House number, street, town, and any useful directions">{% if linked_customer %}{{ linked_customer.address or '' }}{% endif %}</textarea>
+            <textarea name="full_address" rows="4" autocomplete="street-address" placeholder="House number, street, town, and any useful directions">{% if prefill.full_address %}{{ prefill.full_address }}{% elif linked_customer %}{{ linked_customer.address or '' }}{% endif %}</textarea>
           </label>
           <label>Postcode
-            <input name="postcode" autocomplete="postal-code" value="{% if linked_customer %}{{ linked_customer.postcode or '' }}{% endif %}">
+            <input name="postcode" autocomplete="postal-code" value="{% if prefill.postcode %}{{ prefill.postcode }}{% elif linked_customer %}{{ linked_customer.postcode or '' }}{% endif %}">
           </label>
           <label>What3Words location
-            <input name="what3words" placeholder="example: filled.count.soap">
+            <input name="what3words" placeholder="example: filled.count.soap" value="{{ prefill.what3words or '' }}">
           </label>
           <div class="wide customer-map-link-field">
             <label for="map-pin-input">Map pin link</label>
-            <input id="map-pin-input" name="google_maps_link" inputmode="url" placeholder="Paste your shared map pin link here">
-            <a class="customer-map-preview-link" id="map-pin-preview" href="" target="_blank" rel="noopener" hidden>Check location in Google Maps</a>
+            <input id="map-pin-input" name="google_maps_link" inputmode="url" placeholder="Paste your shared map pin link here" value="{{ prefill.google_maps_link or '' }}">
+            <a class="customer-map-preview-link" id="map-pin-preview" href="{{ prefill.google_maps_link or '' }}" target="_blank" rel="noopener" {% if not prefill.google_maps_link %}hidden{% endif %}>Check location in Google Maps</a>
             <span class="customer-field-help">Optional: paste a shared Google Maps or Apple Maps pin link if useful.</span>
           </div>
         </div>
@@ -88,35 +100,29 @@
           <label>Parking near the property
             <select name="parking_issues" required>
               <option value="">Please choose</option>
-              <option>No parking issues</option>
-              <option>Street parking nearby</option>
-              <option>Permit or restricted parking</option>
-              <option>Driveway available</option>
-              <option>Parking may be difficult</option>
+              {% for option in ['No parking issues','Street parking nearby','Permit or restricted parking','Driveway available','Parking may be difficult'] %}
+                <option {% if prefill.parking_issues == option %}selected{% endif %}>{{ option }}</option>
+              {% endfor %}
             </select>
           </label>
           <label>Steps to access the property
             <select name="steps_access" required>
               <option value="">Please choose</option>
-              <option>No steps</option>
-              <option>A few steps</option>
-              <option>One flight of stairs</option>
-              <option>Two or more flights of stairs</option>
-              <option>Lift available</option>
+              {% for option in ['No steps','A few steps','One flight of stairs','Two or more flights of stairs','Lift available'] %}
+                <option {% if prefill.steps_access == option %}selected{% endif %}>{{ option }}</option>
+              {% endfor %}
             </select>
           </label>
           <label>Property type and access
             <select name="property_access" required>
               <option value="">Please choose</option>
-              <option>House</option>
-              <option>Flat or apartment</option>
-              <option>Commercial premises</option>
-              <option>Gated access</option>
-              <option>Key safe or arranged access</option>
+              {% for option in ['House','Flat or apartment','Commercial premises','Gated access','Key safe or arranged access'] %}
+                <option {% if prefill.property_access == option %}selected{% endif %}>{{ option }}</option>
+              {% endfor %}
             </select>
           </label>
           <label class="wide">Access notes
-            <textarea name="access_info" rows="3" placeholder="Your extra details like: gates, flats, lift, stairs, key safe, narrow access, pets, parking permits, or anything useful"></textarea>
+            <textarea name="access_info" rows="3" placeholder="Your extra details like: gates, flats, lift, stairs, key safe, narrow access, pets, parking permits, or anything useful">{{ prefill.access_info or '' }}</textarea>
           </label>
         </div>
       </section>
@@ -155,16 +161,16 @@
         </div>
         <div class="customer-form-grid">
           <label class="wide">Describe what needs cleaning
-            <textarea name="job_notes" rows="4" placeholder="Tell us what you would like cleaned and anything important about the condition, fabric, stains, traffic lanes, odours or previous cleaning"></textarea>
+            <textarea name="job_notes" rows="4" placeholder="Tell us what you would like cleaned and anything important about the condition, fabric, stains, traffic lanes, odours or previous cleaning">{{ prefill.job_notes or '' }}</textarea>
           </label>
           <label class="wide">Rooms or areas to be cleaned
-            <textarea name="rooms_areas" rows="3" placeholder="Example: lounge, hall stairs landing, 3 bedrooms, sofa, rug"></textarea>
+            <textarea name="rooms_areas" rows="3" placeholder="Example: lounge, hall stairs landing, 3 bedrooms, sofa, rug">{{ prefill.rooms_areas or '' }}</textarea>
           </label>
           <label class="wide">Stains or problem areas
-            <textarea name="stains" rows="3" placeholder="Pet stains, drink spills, traffic lanes, heavy soiling, odours, marks, anything we should know"></textarea>
+            <textarea name="stains" rows="3" placeholder="Pet stains, drink spills, traffic lanes, heavy soiling, odours, marks, anything we should know">{{ prefill.stains or '' }}</textarea>
           </label>
           <label class="wide">Anything else you would like us to know?
-            <textarea name="additional_notes" rows="3" placeholder="Preferred times, urgency, special instructions, or any questions"></textarea>
+            <textarea name="additional_notes" rows="3" placeholder="Preferred times, urgency, special instructions, or any questions">{{ prefill.additional_notes or '' }}</textarea>
           </label>
         </div>
       </section>
@@ -211,8 +217,7 @@
         </div>
       </section>
 
-      <input type="hidden" name="what_cleaned" value="Customer contact form">
-      <input type="hidden" name="job_notes" value="Customer submitted contact/address details.">
+      <input type="hidden" name="what_cleaned" value="{{ prefill.what_cleaned or 'Customer contact form' }}">
 
       <section class="customer-form-submit">
         <button class="customer-submit-btn" type="submit">Send now</button>
