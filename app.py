@@ -253,6 +253,7 @@ def merge_message_text(text, customer=None):
         "{{phone}}": s["phone"] or "",
         "{{review_link}}": s["review_link"] or "",
         "{{website}}": s["website"] or "",
+        "{{carpet_options_link}}": carpet_cleaning_options_url(),
         "{{email}}": customer_email,
         "{{customer_email}}": customer_email,
         "{{customer_phone}}": customer_phone,
@@ -1351,6 +1352,10 @@ def enquiry_public_site_url():
     return "https://www.thecarpetcleaningcrew.co.uk"
 
 
+def carpet_cleaning_options_url():
+    return enquiry_public_site_url() + "/pages/pricing.html"
+
+
 def public_static_url(filename):
     try:
         return url_for("static", filename=filename, _external=True)
@@ -1416,6 +1421,8 @@ DEFAULT_MESSAGE_TEMPLATES = {
     "payment_received_sms": {"name": "Payment received SMS", "subject": "", "body": "Hi {{name}}, thank you very much for your payment. It's greatly appreciated. If you were happy with the service, a Google review would really help: {{review_link}} Thanks, Paul - {{business_name}}"},
     "unable_to_reach_email": {"name": "Unable to reach customer email", "subject": "I tried to contact you", "body": "Hi {{name}},\n\nThank you very much for your enquiry. I really appreciate you getting in touch with The Carpet Cleaning Company.\n\nI have tried to contact you so we can discuss your carpet or upholstery cleaning requirements, but I have not been able to get hold of you yet. I did not want you to think your message had been missed.\n\nIf you would still like a quote or would like to talk through the best cleaning options, please reply to this email or call/text me on 07802 563213. I will be happy to help.\n\nIf it is easier, you can also send over a few photos of the areas you would like cleaned, along with your address and any useful parking or access details. That helps me give better advice and a more accurate quote.\n\nYou can also see recent cleans, videos and before-and-after photos on Facebook:\n{{facebook}}\n\nGoogle reviews:\n{{review_link}}\n\nThanks again for contacting us.\n\nPaul\nThe Carpet Cleaning Company\n07802 563213"},
     "unable_to_reach_sms": {"name": "Unable to reach customer SMS", "subject": "", "body": "Hi {{name}}, thanks for your enquiry. I have tried to contact you to discuss your carpet cleaning requirements but could not get hold of you. If you still need help, please reply here or call/text me on 07802 563213. Thanks, Paul"},
+    "carpet_cleaning_options_guide_email": {"name": "Carpet cleaning options guide email", "subject": "Choosing the right carpet cleaning option", "body": "Hi {{name}},\n\nHere is a quick guide to help you choose the right carpet cleaning option for your home:\n\n{{carpet_options_link}}\n\nIt explains the Bronze, Silver and Gold options, what each package includes, and which option is best for different carpet conditions.\n\nIf you are unsure, just reply with a few photos and I will help you choose the most suitable option.\n\nThanks\nPaul\n{{business_name}}"},
+    "carpet_cleaning_options_guide_sms": {"name": "Carpet cleaning options guide SMS", "subject": "", "body": "Hi {{name}}, here is a quick guide to help you choose the right carpet cleaning option for your home: {{carpet_options_link}} If you are unsure, send me a few photos and I will help. Thanks, Paul"},
     "maintenance_reminder_email": {"name": "Maintenance reminder email", "subject": "It has been a while since your last clean", "body": "Hi {{name}},\n\nI hope you are well.\n\nIt has been a while since your last carpet or upholstery clean, so I just wanted to check whether you would like to book in again.\n\nRegular cleaning helps keep carpets and upholstery looking better for longer, especially in busy areas, homes with pets, or rooms used every day.\n\nIf you would like another clean, just reply to this email and I will be happy to help.\n\nYou can also follow us on Facebook to see our latest work and cleaning tips:\n{{facebook}}\n\nThanks\nPaul\n{{business_name}}"},
     "maintenance_reminder_sms": {"name": "Maintenance reminder SMS", "subject": "", "body": "Hi {{name}}, it has been a while since your last clean. Would you like to book in again? Just reply and I will be happy to help. Thanks, Paul - {{business_name}}"},
 }
@@ -1438,6 +1445,7 @@ def template_context_for_enquiry(data, customer_id=None, lead_id=None):
         "{{message}}": request_value(data, "message", "notes", "additional_notes"),
         "{{owner_alert_details}}": owner_details,
         "{{website}}": enquiry_public_site_url(),
+        "{{carpet_options_link}}": carpet_cleaning_options_url(),
     }
 
 
@@ -2666,6 +2674,7 @@ def template_context_for_job(job):
         "{{review_link}}": s["review_link"] or "https://share.google/XHQjHHLwpmlugHP0c",
         "{{website}}": enquiry_public_site_url(),
         "{{facebook}}": "https://www.facebook.com/profile.php?id=61559013150413",
+        "{{carpet_options_link}}": carpet_cleaning_options_url(),
     }
 
 
@@ -2901,6 +2910,7 @@ CUSTOMER_ACTION_TEMPLATES = [
     {"key": "review_request_message", "sms_key": "review_request_message", "label": "Review request", "note": "Send after the customer is happy."},
     {"key": "payment_received_email", "sms_key": "payment_received_sms", "label": "Payment received", "note": "Send after the customer has paid."},
     {"key": "unable_to_reach_email", "sms_key": "unable_to_reach_sms", "label": "Tried to contact", "note": "Use when they contacted you but you cannot get hold of them."},
+    {"key": "carpet_cleaning_options_guide_email", "sms_key": "carpet_cleaning_options_guide_sms", "label": "Cleaning options guide", "note": "Send the website guide that explains Bronze, Silver and Gold package choices."},
 ]
 
 
@@ -3096,8 +3106,91 @@ def customer_email_job_context(customer, job=None):
     return context
 
 
+def carpet_options_guide_email_html(customer, plain_body):
+    name = clean_str(row_value(customer, "first_name")) or clean_str(row_value(customer, "name")) or "there"
+    business = settings()["business_name"] or "The Carpet Cleaning Company"
+    logo_url = public_static_or_live_url("site/email-logo-white.png")
+    hero_url = public_static_or_live_url("site/hero-carpet-cleaning.webp")
+    guide_url = carpet_cleaning_options_url()
+    website_url = enquiry_public_site_url()
+    facebook_url = "https://www.facebook.com/profile.php?id=61559013150413"
+    whatsapp_url = "https://wa.me/447802563213"
+    logo_html = f'<img src="{html_lib.escape(logo_url)}" alt="{html_lib.escape(business)}" width="104" style="display:block;width:104px;height:auto;border:0;margin:0 auto">' if logo_url else ""
+    hero_html = f'<img src="{html_lib.escape(hero_url)}" alt="Professional carpet cleaning" width="580" style="display:block;width:100%;max-width:580px;height:auto;border:0;border-radius:18px">' if hero_url else ""
+    message_html = html_lib.escape(plain_body or "").replace("\n", "<br>")
+    return f"""<!doctype html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;background:#eaf3f8;font-family:Arial,Helvetica,sans-serif;color:#0b1f33">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#eaf3f8;margin:0;padding:0">
+    <tr>
+      <td align="center" style="padding:28px 14px">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="width:100%;max-width:640px;background:#ffffff;border-radius:26px;overflow:hidden;border:1px solid #d8e4ee">
+          <tr><td style="height:8px;background:linear-gradient(90deg,#071524 0%,#0f4a5a 50%,#d8af55 100%);font-size:0;line-height:0">&nbsp;</td></tr>
+          <tr>
+            <td align="center" style="background:linear-gradient(180deg,#fff8ec 0%,#eef7fb 100%);padding:28px 30px 24px;color:#071524;border-bottom:1px solid #dce8f1">
+              <table role="presentation" cellspacing="0" cellpadding="0" style="background:#ffffff;border:1px solid #ead6a8;border-radius:999px;margin:0 auto 14px">
+                <tr><td style="padding:12px">{logo_html}</td></tr>
+              </table>
+              <div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#0f7b63;font-weight:900">{html_lib.escape(business)}</div>
+              <h1 style="margin:8px 0 0;font-size:30px;line-height:1.18;color:#071524">Choose the right carpet clean</h1>
+              <p style="margin:9px auto 0;max-width:500px;font-size:16px;line-height:1.55;color:#385066">Hi {html_lib.escape(name)}, here is the quick guide to help you choose the best option for your home.</p>
+            </td>
+          </tr>
+          <tr><td style="padding:24px 30px 12px">{hero_html}</td></tr>
+          <tr>
+            <td style="padding:24px 30px 10px">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f8fbfd;border:1px solid #dce8f1;border-radius:18px">
+                <tr>
+                  <td style="padding:20px;font-size:16px;line-height:1.65;color:#385066">{message_html}</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:12px 30px 8px">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f7fbff;border:1px solid #d8e7f6;border-radius:18px">
+                <tr>
+                  <td style="padding:18px">
+                    <h2 style="margin:0 0 8px;font-size:20px;line-height:1.25;color:#071524">Carpet cleaning package guide</h2>
+                    <p style="margin:0 0 14px;font-size:15px;line-height:1.55;color:#385066">The guide explains Bronze, Silver and Gold options, what each package includes, and when each one makes sense.</p>
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                      {email_action_button("View carpet cleaning options", guide_url, "#0f7b63", "#ffffff")}
+                      {email_action_button("Ask Paul on WhatsApp", whatsapp_url, "#25d366", "#071524")}
+                      {email_action_button("Follow us on Facebook", facebook_url, "#1877f2", "#ffffff")}
+                    </table>
+                    {email_text_link("Options guide", guide_url)}
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:10px 30px 26px">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-top:1px solid #dce8f1">
+                <tr>
+                  <td style="padding-top:20px;font-size:15px;line-height:1.65;color:#385066">
+                    <strong style="color:#071524">Paul Nicholas</strong><br>
+                    {html_lib.escape(business)}<br>
+                    <a href="tel:07802563213" style="color:#165dcc;text-decoration:none">07802 563213</a><br>
+                    <a href="{html_lib.escape(website_url)}" style="color:#165dcc;text-decoration:none">www.thecarpetcleaningcrew.co.uk</a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>"""
+
+
 def visual_customer_email_html(template_key, customer, job, plain_body):
     job_context = customer_email_job_context(customer, job)
+    if template_key == "carpet_cleaning_options_guide_email":
+        return carpet_options_guide_email_html(customer, plain_body)
     if template_key == "booking_confirmation_email":
         return booking_confirmation_email_html(job_context)
     day_kind = {
@@ -3723,6 +3816,7 @@ def built_in_visual_email_templates():
     reviews_url = "https://share.google/XHQjHHLwpmlugHP0c"
     whatsapp_url = "https://wa.me/447802563213"
     whatsapp_photo_url = "https://wa.me/447802563213?text=Hi%20Paul%2C%20I%20would%20like%20to%20send%20photos%20for%20my%20carpet%20cleaning%20quote."
+    options_url = carpet_cleaning_options_url()
     logo_html = f'<img src="{html_lib.escape(logo_url)}" alt="{business}" width="108" style="display:block;width:108px;height:auto;border:0;margin:0 auto">' if logo_url else ""
     hero_html = f'<img src="{html_lib.escape(hero_url)}" alt="Professional carpet cleaning" width="580" style="display:block;width:100%;max-width:580px;height:auto;border:0;border-radius:18px">' if hero_url else ""
     welcome_whatsapp_buttons = (
@@ -3829,6 +3923,25 @@ def built_in_visual_email_templates():
             </td>
           </tr>
     """
+    options_body = f"""
+          <tr>
+            <td style="padding:0 30px 8px">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f8fbfd;border:1px solid #dce8f1;border-radius:16px">
+                <tr>
+                  <td style="padding:20px">
+                    <h2 style="margin:0 0 10px;font-size:21px;line-height:1.25;color:#071524">Choosing the right clean</h2>
+                    <p style="margin:0;font-size:16px;line-height:1.65;color:#385066">Hi {{{{first_name}}}}, here is a quick guide to help you choose the right carpet cleaning option for your home. It explains the Bronze, Silver and Gold options, what each package includes, and which option is best for different carpet conditions.</p>
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:14px">
+                      {email_action_button("View carpet cleaning options", options_url, "#0f7b63", "#ffffff")}
+                      {email_action_button("Ask Paul on WhatsApp", whatsapp_url, "#25d366", "#071524")}
+                    </table>
+                    {email_text_link("Options guide", options_url)}
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+    """
     return {
         "Website enquiry welcome - visual": shell(
             "Thanks, {{first_name}}",
@@ -3841,6 +3954,12 @@ def built_in_visual_email_templates():
             "A quick update about your carpet cleaning appointment.",
             coming_body,
             "We are on our way",
+        ),
+        "Carpet cleaning options guide - visual": shell(
+            "Choosing the right clean",
+            "A quick guide to help you choose between Bronze, Silver and Gold.",
+            options_body,
+            "Choosing the right carpet cleaning option",
         ),
     }
 
@@ -7837,6 +7956,7 @@ def comms_replacements(customer=None):
         "{{review_link}}": s["review_link"] or "",
         "{{website}}": s["website"] or "",
         "{{facebook}}": "https://www.facebook.com/profile.php?id=61559013150413",
+        "{{carpet_options_link}}": carpet_cleaning_options_url(),
         "{{date}}": uk_today().isoformat(),
         "{{time}}": "",
         "{{address}}": address,
@@ -7851,6 +7971,7 @@ def comms_replacements(customer=None):
         "[[review_link]]": s["review_link"] or "",
         "[[website]]": s["website"] or "",
         "[[facebook]]": "https://www.facebook.com/profile.php?id=61559013150413",
+        "[[carpet_options_link]]": carpet_cleaning_options_url(),
         "[[date]]": uk_today().isoformat(),
         "[[time]]": "",
         "[[address]]": address,
