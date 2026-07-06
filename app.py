@@ -34,7 +34,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("CRM_SECRET_KEY", "change-this-secret")
 app.config["UPLOAD_FOLDER"] = os.environ.get("CRM_UPLOAD_FOLDER", os.path.join("static", "uploads"))
-EMAIL_RENDER_BUILD = "follow-up-queue-debug-2026-07-06-01"
+EMAIL_RENDER_BUILD = "gentle-follow-up-sms-2026-07-06-01"
 DB_PATH = os.environ.get("CRM_DB_PATH", "crm.db")
 BACKUP_DIR = os.environ.get("CRM_BACKUP_DIR", "backups")
 XERO_SCOPES = "offline_access accounting.settings.read accounting.contacts accounting.contacts.read accounting.invoices accounting.invoices.read"
@@ -1524,13 +1524,12 @@ def enquiry_follow_up_sms_text(data):
     greeting = f"Hi {first_name}," if first_name else "Hi,"
     return (
         f"{greeting}\n\n"
-        "Thank you for your enquiry. "
-        f"{enquiry_follow_up_intro(data)}\n\n"
-        "If you haven’t already, could you send a couple of photos and let me know if there are any stains, pet odours or problem areas?\n\n"
-        "If you’ve already sent this over, thank you. It will help me give you the most accurate quote and recommend the best option.\n\n"
-        "Would it be okay for me to give you a quick call? It’s usually easier to talk it through so I can explain the options properly.\n\n"
-        "Regards,\n"
-        "Paul from The Carpet Cleaning Company"
+        "Thanks for your enquiry.\n\n"
+        "I’ve had a quick look at what you need. If you have any photos to share, that would be great.\n\n"
+        "Often it’s easier if we have a quick chat on the phone, if that’s okay with you. Perhaps I could give you a quick call.\n\n"
+        "I’d love to help in whichever way works best for you and answer any questions you may have.\n\n"
+        "Kind regards,\n\n"
+        "Paul"
     )
 
 
