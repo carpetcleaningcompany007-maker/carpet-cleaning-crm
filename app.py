@@ -34,7 +34,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("CRM_SECRET_KEY", "change-this-secret")
 app.config["UPLOAD_FOLDER"] = os.environ.get("CRM_UPLOAD_FOLDER", os.path.join("static", "uploads"))
-EMAIL_RENDER_BUILD = "enquiry-follow-up-sms-2026-07-06-01"
+EMAIL_RENDER_BUILD = "short-enquiry-follow-up-sms-2026-07-06-01"
 DB_PATH = os.environ.get("CRM_DB_PATH", "crm.db")
 BACKUP_DIR = os.environ.get("CRM_BACKUP_DIR", "backups")
 XERO_SCOPES = "offline_access accounting.settings.read accounting.contacts accounting.contacts.read accounting.invoices accounting.invoices.read"
@@ -1524,12 +1524,10 @@ def enquiry_follow_up_sms_text(data):
     greeting = f"Hi {first_name}," if first_name else "Hi,"
     return (
         f"{greeting}\n\n"
-        "Thank you for your enquiry.\n\n"
+        "Thank you for your enquiry. "
         f"{enquiry_follow_up_intro(data)}\n\n"
-        "To help me recommend the best option, could you tell me a little more about what you’re hoping to achieve? "
-        "For example, are you simply looking for the lowest-cost clean, or are you after the best possible results? "
-        "Also, are there any stains, pet odours or other areas you’d like us to focus on?\n\n"
-        "If you could send me a couple of photos as well, I can give you the most accurate quote and recommend the service that’s right for you.\n\n"
+        "Could you send a couple of photos and let me know if there are any stains, pet odours or problem areas?\n\n"
+        "That will help me give you the most accurate quote and recommend the best option.\n\n"
         "Thanks, Paul\n"
         "The Carpet Cleaning Company"
     )
