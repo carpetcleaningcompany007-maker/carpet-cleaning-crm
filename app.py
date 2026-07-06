@@ -1478,6 +1478,123 @@ def enquiry_rooms_items_text(data):
     return value
 
 
+def enquiry_follow_up_intro(data):
+    service_text = clean_str(
+        request_value(data, "what_cleaned", "service", "service_required", "cleaning_required")
+        or request_value(data, "rooms_or_items", "rooms_items", "rooms_areas", "items_required")
+    ).lower()
+    rooms = clean_str(request_value(data, "number_rooms", "rooms", "number_of_rooms", "room_count", "areas"))
+    rooms_label = ""
+    if rooms:
+        room_match = re.search(r"\d+", rooms)
+        if room_match:
+            count = int(room_match.group(0))
+            rooms_label = f"{count} room" + ("" if count == 1 else "s")
+        else:
+            rooms_label = rooms
+    if "carpet" in service_text or rooms_label:
+        return f"I’ve just received your enquiry for {rooms_label}." if rooms_label else "I’ve just received your enquiry for your carpets."
+    if "upholster" in service_text or clean_str(request_value(data, "upholstery", "any_upholstery")):
+        return "I’ve just received your enquiry for your upholstery."
+    service_map = [
+        ("rug", "your rugs"),
+        ("hard floor", "your hard floors"),
+        ("hardfloor", "your hard floors"),
+        ("floor", "your hard floors"),
+        ("mattress", "your mattress cleaning"),
+        ("stain", "stain treatment"),
+        ("tile", "your tile and grout cleaning"),
+        ("grout", "your tile and grout cleaning"),
+    ]
+    for needle, label in service_map:
+        if needle in service_text:
+            return f"I’ve just received your enquiry for {label}."
+    service = clean_str(request_value(data, "what_cleaned", "service", "service_required", "cleaning_required"))
+    if service and len(service) <= 60:
+        return f"I’ve just received your enquiry for {service}."
+    return "I’ve just received your enquiry."
+
+
+def enquiry_follow_up_sms_text(data):
+    name = request_value(data, "name", "full_name", "customer_name", "fullname")
+    first_name = split_customer_name(name)[0] if name else ""
+    greeting = f"Hi {first_name}," if first_name else "Hi,"
+    return (
+        f"{greeting}\n\n"
+        "Thank you for your enquiry.\n\n"
+        f"{enquiry_follow_up_intro(data)}\n\n"
+        "To help me recommend the best option, could you tell me a little more about what you’re hoping to achieve? "
+        "For example, are you simply looking for the lowest-cost clean, or are you after the best possible results? "
+        "Also, are there any stains, pet odours or other areas you’d like us to focus on?\n\n"
+        "If you could send me a couple of photos as well, I can give you the most accurate quote and recommend the service that’s right for you.\n\n"
+        "Thanks, Paul\n"
+        "The Carpet Cleaning Company"
+    )
+
+
+def schedule_enquiry_follow_up_sms(lead_id, customer_id=None, data=None, delay_minutes=4):
+    if not lead_id:
+        return False, "No enquiry ID to schedule."
+    existing = q("SELECT status FROM enquiry_follow_up_queue WHERE lead_id=?", (lead_id,), one=True)
+    if existing:
+        return False, f"Follow-up SMS already {clean_str(row_get(existing, 'status')).lower() or 'queued'} for this enquiry."
+    lead = q("SELECT * FROM intake_submissions WHERE id=?", (lead_id,), one=True)
+    payload = dict(data or {})
+    if lead:
+        for key in lead.keys():
+            payload.setdefault(key, lead[key])
+    phone = normalize_phone(request_value(payload, "phone", "phone_number", "telephone", "tel"))
+    if not phone:
+        return False, "No customer phone number supplied."
+    due_at = datetime.now(ZoneInfo("Europe/London")) + timedelta(minutes=delay_minutes)
+    body = enquiry_follow_up_sms_text(payload)
+    try:
+        run("""INSERT INTO enquiry_follow_up_queue
+               (lead_id, customer_id, phone, body, due_at, status, created_at)
+               VALUES (?,?,?,?,?,'Queued',datetime('now'))
+               ON CONFLICT(lead_id) DO NOTHING""",
+            (lead_id, customer_id or row_get(lead, "customer_id"), phone, body, due_at.isoformat(timespec="seconds")))
+        return True, "Follow-up SMS queued."
+    except sqlite3.OperationalError:
+        return False, "Follow-up queue is not ready."
+
+
+def run_due_enquiry_follow_up_sms(dry_run=False):
+    now = datetime.now(ZoneInfo("Europe/London"))
+    rows = q("""SELECT q.*, s.status AS lead_status, s.phone AS lead_phone, s.customer_id AS lead_customer_id
+                FROM enquiry_follow_up_queue q
+                LEFT JOIN intake_submissions s ON s.id=q.lead_id
+                WHERE q.status='Queued' AND q.sent_at='' AND q.due_at <= ?
+                ORDER BY q.due_at ASC
+                LIMIT 50""", (now.isoformat(timespec="seconds"),))
+    results = []
+    for row in rows:
+        lead_id = row_value(row, "lead_id")
+        customer_id = row_value(row, "customer_id") or row_value(row, "lead_customer_id")
+        phone = row_value(row, "phone") or row_value(row, "lead_phone")
+        customer = q("SELECT * FROM customers WHERE id=?", (customer_id,), one=True) if customer_id else None
+        body = row_value(row, "body")
+        if dry_run:
+            ok, msg = True, "Dry run: would send enquiry follow-up SMS."
+        else:
+            ok, msg = send_clicksend_env_sms(phone, body, customer=customer, category="Service")
+            if ok:
+                send_owner_customer_message_copy("sms", phone, "Enquiry follow-up SMS", body, customer=customer, context="Enquiry follow-up SMS")
+        status = "Sent" if ok else "Failed"
+        if not dry_run:
+            run("""UPDATE enquiry_follow_up_queue
+                   SET status=?, message=?, sent_at=CASE WHEN ?='Sent' THEN datetime('now') ELSE sent_at END,
+                       updated_at=datetime('now')
+                   WHERE id=?""", (status, clean_str(msg), status, row_value(row, "id")))
+            if customer_id:
+                run("INSERT INTO communications(customer_id, channel, subject, body, created_at) VALUES (?,?,?,?,datetime('now'))",
+                    (customer_id, "SMS", "Automatic enquiry follow-up", body))
+                run("INSERT INTO customer_timeline(customer_id, note_text, created_at) VALUES (?,?,datetime('now'))",
+                    (customer_id, ("Automatic enquiry follow-up SMS sent. " if ok else "Automatic enquiry follow-up SMS failed. ") + clean_str(msg)))
+        results.append({"rule": "enquiry_follow_up_sms", "lead_id": lead_id, "customer_id": customer_id, "channel": "sms", "status": status, "message": msg})
+    return results
+
+
 def message_template(key):
     default = DEFAULT_MESSAGE_TEMPLATES.get(key, {"name": key, "subject": "", "body": ""})
     row = q("SELECT * FROM message_templates WHERE template_key=?", (key,), one=True)
@@ -2347,6 +2464,7 @@ def run_website_enquiry_automation(lead_id, customer_id, data):
 
     update_intake_delivery_status(lead_id, follow_up_status="Follow up required")
     run("INSERT INTO customer_timeline(customer_id, note_text, created_at) VALUES (?,?,datetime('now'))", (customer_id, "Follow up required after website enquiry."))
+    results["follow_up_sms_queue"] = schedule_enquiry_follow_up_sms(lead_id, customer_id, data)
     return results
 
 
@@ -3432,6 +3550,7 @@ def automation_send_for_rule(rule, job, dry_run=False):
 
 def run_due_communication_automations(dry_run=False):
     sent = []
+    sent.extend(run_due_enquiry_follow_up_sms(dry_run=dry_run))
     for rule in automation_settings_rows():
         if int(row_value(rule, "active", 1) or 0) != 1:
             continue
@@ -4637,6 +4756,19 @@ def init_db():
         message TEXT,
         due_at TEXT,
         sent_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS enquiry_follow_up_queue (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        lead_id INTEGER UNIQUE,
+        customer_id INTEGER,
+        phone TEXT,
+        body TEXT,
+        due_at TEXT,
+        sent_at TEXT DEFAULT '',
+        status TEXT DEFAULT 'Queued',
+        message TEXT DEFAULT '',
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
     """)
     cur = conn.cursor()
@@ -9475,6 +9607,7 @@ def customer_contact_form_submit():
         "Customer completed the sent details form. Check before Xero.",
     ))
     alert_results = send_contact_form_owner_alerts(lead_id, customer_id)
+    follow_up_queue = schedule_enquiry_follow_up_sms(lead_id, customer_id, data)
     customer = q("SELECT * FROM customers WHERE id=?", (customer_id,), one=True)
     lead = q("SELECT * FROM intake_submissions WHERE id=?", (lead_id,), one=True)
     return {
@@ -9487,6 +9620,7 @@ def customer_contact_form_submit():
         "owner_email_status": lead["owner_email_status"] if lead else "",
         "owner_sms_status": lead["owner_sms_status"] if lead else "",
         "alerts": {key: {"ok": value[0], "message": value[1]} for key, value in alert_results.items()},
+        "follow_up_sms_queue": {"ok": follow_up_queue[0], "message": follow_up_queue[1]},
     }
 
 
