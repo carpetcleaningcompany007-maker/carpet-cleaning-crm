@@ -23,6 +23,7 @@ import urllib.request
 import urllib.error
 import uuid
 import calendar as pycalendar
+import threading
 from difflib import SequenceMatcher
 
 from flask import Flask, render_template, request, redirect, url_for, flash, session, g, Response, send_file, send_from_directory
@@ -1569,6 +1570,14 @@ def run_due_enquiry_follow_up_sms(dry_run=False):
                 LIMIT 50""", (now.isoformat(timespec="seconds"),))
     results = []
     for row in rows:
+        if not dry_run:
+            cur = db().execute(
+                "UPDATE enquiry_follow_up_queue SET status='Sending', updated_at=datetime('now') WHERE id=? AND status='Queued' AND sent_at=''",
+                (row_value(row, "id"),),
+            )
+            db().commit()
+            if cur.rowcount != 1:
+                continue
         lead_id = row_value(row, "lead_id")
         customer_id = row_value(row, "customer_id") or row_value(row, "lead_customer_id")
         phone = row_value(row, "phone") or row_value(row, "lead_phone")
@@ -10324,7 +10333,39 @@ def xero_create_contact(lead_id):
         flash(friendly)
     return redirect(url_for("intake_form_view", lead_id=lead_id))
 
+
+_automation_thread_started = False
+
+
+def automation_background_loop():
+    while True:
+        try:
+            with app.app_context():
+                init_db()
+                results = run_due_communication_automations(dry_run=False)
+                if results:
+                    logger.info("Background automation processed %s message(s).", len(results))
+        except Exception:
+            logger.exception("Background automation runner failed")
+        time.sleep(60)
+
+
+def start_background_automation_runner():
+    global _automation_thread_started
+    if _automation_thread_started:
+        return
+    if os.environ.get("DISABLE_CRM_BACKGROUND_AUTOMATION", "").lower() in {"1", "true", "yes", "on"}:
+        return
+    debug = os.environ.get("FLASK_DEBUG", "").lower() in {"1", "true", "yes", "on"}
+    if debug and os.environ.get("WERKZEUG_RUN_MAIN") != "true":
+        return
+    _automation_thread_started = True
+    thread = threading.Thread(target=automation_background_loop, name="crm-automation-runner", daemon=True)
+    thread.start()
+
+
 init_db()
+start_background_automation_runner()
 
 
 if __name__ == "__main__":
