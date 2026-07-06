@@ -34,7 +34,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("CRM_SECRET_KEY", "change-this-secret")
 app.config["UPLOAD_FOLDER"] = os.environ.get("CRM_UPLOAD_FOLDER", os.path.join("static", "uploads"))
-EMAIL_RENDER_BUILD = "gentle-follow-up-sms-2026-07-06-01"
+EMAIL_RENDER_BUILD = "website-only-follow-up-sms-2026-07-06-01"
 DB_PATH = os.environ.get("CRM_DB_PATH", "crm.db")
 BACKUP_DIR = os.environ.get("CRM_BACKUP_DIR", "backups")
 XERO_SCOPES = "offline_access accounting.settings.read accounting.contacts accounting.contacts.read accounting.invoices accounting.invoices.read"
@@ -9661,7 +9661,6 @@ def customer_contact_form_submit():
         "Customer completed the sent details form. Check before Xero.",
     ))
     alert_results = send_contact_form_owner_alerts(lead_id, customer_id)
-    follow_up_queue = schedule_enquiry_follow_up_sms(lead_id, customer_id, data)
     customer = q("SELECT * FROM customers WHERE id=?", (customer_id,), one=True)
     lead = q("SELECT * FROM intake_submissions WHERE id=?", (lead_id,), one=True)
     return {
@@ -9674,7 +9673,7 @@ def customer_contact_form_submit():
         "owner_email_status": lead["owner_email_status"] if lead else "",
         "owner_sms_status": lead["owner_sms_status"] if lead else "",
         "alerts": {key: {"ok": value[0], "message": value[1]} for key, value in alert_results.items()},
-        "follow_up_sms_queue": {"ok": follow_up_queue[0], "message": follow_up_queue[1]},
+        "follow_up_sms_queue": {"ok": False, "message": "Not queued for customer details forms."},
     }
 
 
