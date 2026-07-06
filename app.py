@@ -34,7 +34,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("CRM_SECRET_KEY", "change-this-secret")
 app.config["UPLOAD_FOLDER"] = os.environ.get("CRM_UPLOAD_FOLDER", os.path.join("static", "uploads"))
-EMAIL_RENDER_BUILD = "customer-email-cta-2026-07-05-01"
+EMAIL_RENDER_BUILD = "enquiry-follow-up-sms-2026-07-06-01"
 DB_PATH = os.environ.get("CRM_DB_PATH", "crm.db")
 BACKUP_DIR = os.environ.get("CRM_BACKUP_DIR", "backups")
 XERO_SCOPES = "offline_access accounting.settings.read accounting.contacts accounting.contacts.read accounting.invoices accounting.invoices.read"
@@ -77,6 +77,8 @@ def customer_email_render_check():
     html = enquiry_customer_email_html(sample)
     return {
         "build": EMAIL_RENDER_BUILD,
+        "has_enquiry_follow_up_sms": True,
+        "follow_up_delay_minutes": 4,
         "has_sms_text_whatsapp": "SMS / Text / WhatsApp" in html,
         "has_lowercase_old_sms_text": "SMS / text / WhatsApp" in html,
         "has_old_sms_sentence": "send them back through the SMS" in html,
