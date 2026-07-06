@@ -34,7 +34,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("CRM_SECRET_KEY", "change-this-secret")
 app.config["UPLOAD_FOLDER"] = os.environ.get("CRM_UPLOAD_FOLDER", os.path.join("static", "uploads"))
-EMAIL_RENDER_BUILD = "talk-through-options-follow-up-sms-2026-07-06-01"
+EMAIL_RENDER_BUILD = "follow-up-queue-debug-2026-07-06-01"
 DB_PATH = os.environ.get("CRM_DB_PATH", "crm.db")
 BACKUP_DIR = os.environ.get("CRM_BACKUP_DIR", "backups")
 XERO_SCOPES = "offline_access accounting.settings.read accounting.contacts accounting.contacts.read accounting.invoices accounting.invoices.read"
@@ -1566,14 +1566,20 @@ def run_due_enquiry_follow_up_sms(dry_run=False):
     rows = q("""SELECT q.*, s.status AS lead_status, s.phone AS lead_phone, s.customer_id AS lead_customer_id
                 FROM enquiry_follow_up_queue q
                 LEFT JOIN intake_submissions s ON s.id=q.lead_id
-                WHERE q.status='Queued' AND q.sent_at='' AND q.due_at <= ?
+                WHERE q.sent_at='' AND q.due_at <= ?
+                  AND (
+                    q.status='Queued'
+                    OR (q.status='Sending' AND datetime(IFNULL(q.updated_at, q.created_at)) <= datetime('now','-5 minutes'))
+                  )
                 ORDER BY q.due_at ASC
                 LIMIT 50""", (now.isoformat(timespec="seconds"),))
     results = []
     for row in rows:
         if not dry_run:
             cur = db().execute(
-                "UPDATE enquiry_follow_up_queue SET status='Sending', updated_at=datetime('now') WHERE id=? AND status='Queued' AND sent_at=''",
+                """UPDATE enquiry_follow_up_queue
+                   SET status='Sending', updated_at=datetime('now')
+                   WHERE id=? AND sent_at='' AND status IN ('Queued','Sending')""",
                 (row_value(row, "id"),),
             )
             db().commit()
@@ -6606,6 +6612,45 @@ def automation_run_due():
         "sent_or_checked": len(results),
         "results": results[:100],
         "ran_at": datetime.now(ZoneInfo("Europe/London")).isoformat(timespec="seconds"),
+    }
+
+
+@app.route("/automation/enquiry-follow-ups")
+@login_required
+def automation_enquiry_follow_ups():
+    init_db()
+    lead_id = int(request.args.get("lead_id") or 0)
+    if lead_id:
+        rows = q("""SELECT q.*, s.name, s.source
+                    FROM enquiry_follow_up_queue q
+                    LEFT JOIN intake_submissions s ON s.id=q.lead_id
+                    WHERE q.lead_id=?
+                    ORDER BY q.id DESC""", (lead_id,))
+    else:
+        rows = q("""SELECT q.*, s.name, s.source
+                    FROM enquiry_follow_up_queue q
+                    LEFT JOIN intake_submissions s ON s.id=q.lead_id
+                    ORDER BY q.id DESC LIMIT 20""")
+    return {
+        "ok": True,
+        "rows": [
+            {
+                "id": row_value(row, "id"),
+                "lead_id": row_value(row, "lead_id"),
+                "customer_id": row_value(row, "customer_id"),
+                "name": row_value(row, "name"),
+                "source": row_value(row, "source"),
+                "phone": row_value(row, "phone"),
+                "status": row_value(row, "status"),
+                "message": row_value(row, "message"),
+                "due_at": row_value(row, "due_at"),
+                "sent_at": row_value(row, "sent_at"),
+                "created_at": row_value(row, "created_at"),
+                "updated_at": row_value(row, "updated_at"),
+                "body": row_value(row, "body"),
+            }
+            for row in rows
+        ],
     }
 
 
