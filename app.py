@@ -34,7 +34,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("CRM_SECRET_KEY", "change-this-secret")
 app.config["UPLOAD_FOLDER"] = os.environ.get("CRM_UPLOAD_FOLDER", os.path.join("static", "uploads"))
-EMAIL_RENDER_BUILD = "call-choice-enquiry-follow-up-sms-2026-07-06-01"
+EMAIL_RENDER_BUILD = "regards-enquiry-follow-up-sms-2026-07-06-01"
 DB_PATH = os.environ.get("CRM_DB_PATH", "crm.db")
 BACKUP_DIR = os.environ.get("CRM_BACKUP_DIR", "backups")
 XERO_SCOPES = "offline_access accounting.settings.read accounting.contacts accounting.contacts.read accounting.invoices accounting.invoices.read"
@@ -1529,8 +1529,8 @@ def enquiry_follow_up_sms_text(data):
         "If you haven’t already, could you send a couple of photos and let me know if there are any stains, pet odours or problem areas?\n\n"
         "If you’ve already sent this over, thank you. It will help me give you the most accurate quote and recommend the best option.\n\n"
         "Would it be okay for me to give you a quick call, or would you prefer to message here?\n\n"
-        "Thanks, Paul\n"
-        "The Carpet Cleaning Company"
+        "Regards,\n"
+        "Paul from The Carpet Cleaning Company"
     )
 
 
