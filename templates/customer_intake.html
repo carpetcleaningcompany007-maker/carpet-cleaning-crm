@@ -66,7 +66,7 @@
           <span>Step 2</span>
           <div>
             <h2>Your address</h2>
-            <p>Please include the full address. What3Words or a map pin is optional, but useful for hard-to-find properties.</p>
+            <p>Please include the full address. What3Words is optional, but useful for hard-to-find properties.</p>
           </div>
         </div>
         <div class="customer-form-grid">
@@ -79,12 +79,6 @@
           <label>What3Words location
             <input name="what3words" placeholder="example: filled.count.soap" value="{{ prefill.what3words or '' }}">
           </label>
-          <div class="wide customer-map-link-field">
-            <label for="map-pin-input">Map pin link</label>
-            <input id="map-pin-input" name="google_maps_link" inputmode="url" placeholder="Paste your shared map pin link here" value="{{ prefill.google_maps_link or '' }}">
-            <a class="customer-map-preview-link" id="map-pin-preview" href="{{ prefill.google_maps_link or '' }}" target="_blank" rel="noopener" {% if not prefill.google_maps_link %}hidden{% endif %}>Check location in Google Maps</a>
-            <span class="customer-field-help">Optional: paste a shared Google Maps or Apple Maps pin link if useful.</span>
-          </div>
         </div>
       </section>
 
@@ -131,30 +125,6 @@
         <div class="customer-form-card-head">
           <span>Step 4</span>
           <div>
-            <h2>Booking date and time</h2>
-            <p>If we have suggested a booking slot, it will appear here. Please check it and edit or add anything useful.</p>
-          </div>
-        </div>
-        <div class="customer-form-grid">
-          <label>Proposed booking date
-            <input type="date" name="preferred_date" value="{{ prefill.preferred_date or '' }}">
-          </label>
-          <label>Proposed booking time
-            <input type="time" name="preferred_time" value="{{ prefill.preferred_time or '' }}">
-          </label>
-          <label>Agreed quote price
-            <input type="number" name="agreed_quote_price" min="0" step="0.01" value="{{ prefill.agreed_quote_price or '' }}" placeholder="Example: 120.00">
-          </label>
-          <label class="wide">Preferred dates or times
-            <textarea name="preferred_days_times" rows="3" placeholder="Add anything useful about dates, times or availability">{{ prefill.preferred_days_times or '' }}</textarea>
-          </label>
-        </div>
-      </section>
-
-      <section class="customer-form-card">
-        <div class="customer-form-card-head">
-          <span>Step 5</span>
-          <div>
             <h2>Cleaning details</h2>
             <p>A quick description helps us understand what you need before we call and quote.</p>
           </div>
@@ -177,10 +147,10 @@
 
       <section class="customer-form-card customer-photo-card">
         <div class="customer-form-card-head">
-          <span>Step 6</span>
+          <span>Step 5</span>
           <div>
-            <h2>A few photos would be useful</h2>
-            <p>Please add photos of the areas, stains, upholstery, stairs or access where you can. They help us quote more accurately and prepare properly.</p>
+            <h2>Send photos if you haven't already</h2>
+            <p>Only send photos if you have not already sent them. Photos of the areas, stains, upholstery, stairs or access help us quote more accurately and prepare properly.</p>
             {% set wa_number = whatsapp_phone(biz.phone or '07802 563213') %}
             <a class="customer-whatsapp-btn" href="https://wa.me/{{ wa_number }}?text={{ 'Hi Paul, I would like to send photos for my carpet cleaning quote.'|urlencode }}" target="_blank" rel="noopener">Send via WhatsApp</a>
           </div>
@@ -220,6 +190,7 @@
       <input type="hidden" name="what_cleaned" value="{{ prefill.what_cleaned or 'Customer contact form' }}">
 
       <section class="customer-form-submit">
+        <div class="customer-form-error" id="customer-form-error" role="alert" hidden></div>
         <button class="customer-submit-btn" type="submit">Send now</button>
       </section>
     </form>
@@ -227,13 +198,36 @@
 </section>
 <script>
   (function () {
-    var input = document.getElementById("map-pin-input");
-    var preview = document.getElementById("map-pin-preview");
-    if (!input || !preview) return;
-    input.addEventListener("input", function () {
-      var value = input.value.trim();
-      preview.href = value;
-      preview.hidden = !value;
+    var form = document.querySelector(".customer-form");
+    var error = document.getElementById("customer-form-error");
+    if (!form || !error) return;
+
+    var labels = {
+      name: "full name",
+      phone: "phone number",
+      parking_issues: "parking near the property",
+      steps_access: "steps to access the property",
+      property_access: "property type and access",
+      privacy_acknowledgement: "privacy acknowledgement"
+    };
+
+    form.addEventListener("submit", function (event) {
+      var missing = [];
+      Array.prototype.forEach.call(form.querySelectorAll("[required]"), function (field) {
+        var filled = field.type === "checkbox" ? field.checked : String(field.value || "").trim();
+        if (!filled) {
+          missing.push(labels[field.name] || field.name || "required field");
+        }
+      });
+      if (missing.length) {
+        event.preventDefault();
+        error.hidden = false;
+        error.textContent = "Please complete these required details before sending: " + missing.join(", ") + ".";
+        var firstMissing = form.querySelector("[required]:invalid") || form.querySelector("[required]");
+        if (firstMissing && firstMissing.focus) firstMissing.focus();
+      } else {
+        error.hidden = true;
+      }
     });
   })();
 </script>

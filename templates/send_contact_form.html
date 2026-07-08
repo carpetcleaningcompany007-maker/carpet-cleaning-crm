@@ -42,18 +42,6 @@
       <label>Mobile number
         <input name="phone" placeholder="07..." autocomplete="tel" value="{{ form_values.phone or '' }}">
       </label>
-      <label>Booking date
-        <input type="date" name="preferred_date" value="{{ form_values.preferred_date or '' }}">
-      </label>
-      <label>Booking time
-        <input type="time" name="preferred_time" value="{{ form_values.preferred_time or '09:30' }}">
-      </label>
-      <label>Booking note
-        <input name="preferred_days_times" placeholder="Example: Tuesday afternoon, or customer can edit" value="{{ form_values.preferred_days_times or '' }}">
-      </label>
-      <label>Agreed quote price
-        <input type="number" name="agreed_quote_price" min="0" step="0.01" placeholder="Example: 120.00" value="{{ form_values.agreed_quote_price or '' }}">
-      </label>
     </div>
     <div class="send-contact-options">
       <label><input type="checkbox" name="send_email" value="1"> Send email</label>

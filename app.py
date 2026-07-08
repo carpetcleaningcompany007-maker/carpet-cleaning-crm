@@ -34,7 +34,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("CRM_SECRET_KEY", "change-this-secret")
 app.config["UPLOAD_FOLDER"] = os.environ.get("CRM_UPLOAD_FOLDER", os.path.join("static", "uploads"))
-EMAIL_RENDER_BUILD = "website-only-follow-up-sms-2026-07-06-01"
+EMAIL_RENDER_BUILD = "customer-form-cleanup-2026-07-08-01"
 DB_PATH = os.environ.get("CRM_DB_PATH", "crm.db")
 BACKUP_DIR = os.environ.get("CRM_BACKUP_DIR", "backups")
 XERO_SCOPES = "offline_access accounting.settings.read accounting.contacts accounting.contacts.read accounting.invoices accounting.invoices.read"
@@ -5666,10 +5666,6 @@ def send_contact_form():
         "name": clean_str(request.values.get("name")),
         "email": clean_str(request.values.get("email")),
         "phone": clean_str(request.values.get("phone")),
-        "preferred_date": clean_str(request.values.get("preferred_date")),
-        "preferred_time": clean_str(request.values.get("preferred_time")) or "09:30",
-        "preferred_days_times": clean_str(request.values.get("preferred_days_times")),
-        "agreed_quote_price": clean_str(request.values.get("agreed_quote_price")),
     }
     form_link = booking_form_url(prefill=form_values)
     message = send_standalone_contact_form_message(form_link, form_values["name"])
@@ -5680,10 +5676,6 @@ def send_contact_form():
         recipient_name = clean_str(request.form.get("name"))
         email_to = clean_str(request.form.get("email"))
         sms_to = clean_str(request.form.get("phone"))
-        preferred_date = clean_str(request.form.get("preferred_date"))
-        preferred_time = clean_str(request.form.get("preferred_time"))
-        preferred_days_times = clean_str(request.form.get("preferred_days_times"))
-        agreed_quote_price = clean_str(request.form.get("agreed_quote_price"))
         if request.form.get("use_test_details") == "1":
             recipient_name = recipient_name or "Paul"
             email_to = clean_str(row_value(s, "test_email"))
@@ -5692,10 +5684,6 @@ def send_contact_form():
             "name": recipient_name,
             "phone": sms_to,
             "email": email_to,
-            "preferred_date": preferred_date,
-            "preferred_time": preferred_time,
-            "preferred_days_times": preferred_days_times,
-            "agreed_quote_price": agreed_quote_price,
         }
         form_link = booking_form_url(prefill=prefill)
         message = send_standalone_contact_form_message(form_link, recipient_name)

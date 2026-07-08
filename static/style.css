@@ -4938,6 +4938,17 @@ input[type=submit],
   margin-bottom: 26px !important;
 }
 
+.customer-form-error {
+  grid-column: 1 / -1 !important;
+  padding: 14px 16px !important;
+  border: 1px solid rgba(220, 38, 38, .28) !important;
+  border-radius: 14px !important;
+  background: #fff1f2 !important;
+  color: #991b1b !important;
+  font-weight: 900 !important;
+  line-height: 1.4 !important;
+}
+
 .customer-submit-btn {
   min-height: 62px !important;
   border: 0 !important;
