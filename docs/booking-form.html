@@ -806,7 +806,7 @@
         <div>
           <p class="eyebrow">Quick contact form</p>
           <h1>Send your details securely.</h1>
-          <p class="lead">Please share your best contact details, full address and What3Words location if you have it. It goes straight into our CRM for review before we update your customer record.</p>
+          <p class="lead">Please share your best contact details, full address and What3Words location if you have it. This helps us prepare an accurate quote and respond as quickly as possible.</p>
           <div class="chips">
             <span>Mobile friendly</span>
             <span>Reviewed by our team</span>
@@ -824,7 +824,7 @@
       <div class="steps">
         <div><span>1</span><strong>Your details</strong></div>
         <div><span>2</span><strong>Address</strong></div>
-        <div><span>3</span><strong>CRM review</strong></div>
+        <div><span>3</span><strong>Quick review</strong></div>
       </div>
     </section>
 
@@ -882,9 +882,9 @@
 
       <section class="submit">
         <div>
-          <h2>Send to our CRM</h2>
+          <h2>Send your details</h2>
           <p>We will review your details before using them for any quote, booking, invoice or follow-up.</p>
-          <div class="small">This form is hosted from GitHub Pages and submits securely into The Carpet Cleaning Company CRM.</div>
+          <div class="small">Your details are sent securely to The Carpet Cleaning Company so we can prepare your quote.</div>
           <div class="submitting-note">Sending your details securely...</div>
         </div>
         <button type="submit">Send contact details</button>
@@ -899,9 +899,9 @@
         <div class="thanks-copy">
           <p class="eyebrow">Details received</p>
           <h1>Thanks, we have your details.</h1>
-          <p>Your contact information has been sent securely to The Carpet Cleaning Company CRM for review. We will check it before using it for a quote, booking, invoice or follow-up.</p>
+          <p>Your contact information has been sent securely to The Carpet Cleaning Company. If you have not already booked in, our team will be in touch soon.</p>
           <div class="thanks-next">
-            <div><span>1</span><strong>CRM review</strong><em>Your details are checked before anything is updated.</em></div>
+            <div><span>1</span><strong>We check your details</strong><em>We make sure we have what we need to prepare your quote.</em></div>
             <div><span>2</span><strong>Contact confirmed</strong><em>We use the details you supplied to get back to you clearly.</em></div>
             <div><span>3</span><strong>Next step</strong><em>Quote, booking or follow-up happens after review.</em></div>
           </div>
@@ -944,13 +944,13 @@
                 saved = true;
                 break;
               }
-              lastError = new Error("CRM returned " + response.status);
+              lastError = new Error("The form returned " + response.status);
             } catch (endpointError) {
               lastError = endpointError;
             }
           }
           if (!saved) {
-            throw lastError || new Error("The CRM could not save the form.");
+            throw lastError || new Error("The form could not be sent.");
           }
           document.body.classList.remove("is-sending");
           document.body.classList.add("is-submitted");
