@@ -323,6 +323,20 @@ def normalize_phone(value):
     return phone
 
 
+def is_valid_uk_phone(value):
+    phone = normalize_phone(value)
+    digits = re.sub(r"\D", "", phone)
+    if phone.startswith("+44"):
+        national = "0" + digits[2:]
+    elif phone.startswith("0"):
+        national = digits
+    else:
+        return False
+    if len(national) not in {10, 11}:
+        return False
+    return national.startswith(("01", "02", "03", "07", "08"))
+
+
 def whatsapp_phone(value):
     return normalize_phone(value).replace("+", "")
 
@@ -5294,7 +5308,7 @@ def request_value(data, *names):
     return ""
 
 
-def create_intake_from_website_payload(data, source="Website form", photo_filename=""):
+def create_intake_from_website_payload(data, source="Website form", photo_filename="", require_valid_phone=False):
     name = request_value(data, "name", "full_name", "customer_name", "fullname")
     phone = request_value(data, "phone", "phone_number", "telephone", "tel")
     email = request_value(data, "email", "email_address")
@@ -5322,6 +5336,8 @@ def create_intake_from_website_payload(data, source="Website form", photo_filena
         name = "Website Customer"
     if not phone and not email:
         raise ValueError("Please enter at least a phone number or email address.")
+    if require_valid_phone and not is_valid_uk_phone(phone):
+        raise ValueError("Please enter a valid UK phone number, for example 07802 563213.")
     notes = "\n".join([part for part in [
         f"Town: {town}" if town else "",
         f"Consent to contact: {contact_consent}" if contact_consent else "",
@@ -9738,7 +9754,12 @@ def website_form_submit():
     data = data or {}
     try:
         photo_filename = save_uploads("photos") or save_upload("photo")
-        lead_id, customer_id = create_intake_from_website_payload(data, source=request_value(data, "source") or "Website form", photo_filename=photo_filename)
+        lead_id, customer_id = create_intake_from_website_payload(
+            data,
+            source=request_value(data, "source") or "Website form",
+            photo_filename=photo_filename,
+            require_valid_phone=True,
+        )
     except ValueError as exc:
         if request.is_json or request.path.startswith("/api/"):
             return {"ok": False, "error": str(exc)}, 400
