@@ -110,6 +110,8 @@
   .stage-helper-note{margin:10px 0 0;color:#47657f;font-size:15px;line-height:1.45}
   .stage-done-banner{display:flex;gap:12px;align-items:flex-start;border:1px solid #bfe5d8;background:#fff;border-radius:14px;padding:15px;color:#0b7058;font-weight:900}
   .stage-done-banner .stage-check-mark{background:#0f8f6d;color:#fff}
+  .stage-action-row{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px;align-items:center}
+  .stage-action-row form{margin:0}
   .stage-missing-list{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 16px}
   .stage-missing-list span{border:1px solid #f3c9bd;background:#fff8f5;color:#8a1f0c;border-radius:999px;padding:7px 10px;font-weight:900;font-size:14px}
   .stage-action-head{display:flex;gap:12px;align-items:flex-start;margin-bottom:12px}
@@ -264,7 +266,13 @@
       {% if customer.xero_contact_id %}
         <div class="stage-done-banner"><span class="stage-check-mark">&#10003;</span><span>Uploaded to Xero</span></div>
         <p class="stage-helper-note">Xero ContactID: {{ customer.xero_contact_id }}. This customer has already been linked to Xero, either from the Stage 2 button or an earlier approval/Xero action.</p>
-        <p><a class="btn secondary" href="{{ xero_contact_web_url(customer.xero_contact_id) }}" target="_blank" rel="noopener">Open in Xero</a></p>
+        <div class="stage-action-row">
+          <form method="post" action="{{ url_for('xero_sync_contact', customer_id=customer.id) }}">
+            <input type="hidden" name="next_url" value="{{ url_for('customer_view', customer_id=customer.id) }}#customer-stage-2">
+            <button class="btn primary" type="submit">Update Xero details</button>
+          </form>
+          <a class="btn secondary" href="{{ xero_contact_web_url(customer.xero_contact_id) }}" target="_blank" rel="noopener">Open in Xero</a>
+        </div>
       {% elif not customer_hub.stages[0].complete %}
         <p class="muted">Complete Stage 1 before uploading this customer to Xero.</p>
       {% else %}

@@ -9893,8 +9893,16 @@ def ensure_xero_contact_for_customer(customer_id):
         raise RuntimeError("Xero upload stopped. Missing: " + ", ".join(missing) + ". Add these details before uploading to Xero.")
     contact_id = find_xero_contact_id_for_customer(customer)
     if contact_id:
+        payload = xero_contact_payload_from_customer(customer)
+        payload["Contacts"][0]["ContactID"] = contact_id
+        result = xero_api_request(
+            XERO_CONTACTS_URL,
+            method="POST",
+            payload=payload,
+            idempotency_key=f"crm-contact-update-{customer_id}-{contact_id}",
+        )
         run("""UPDATE customers SET xero_contact_id=?, xero_contact_synced_at=datetime('now'), xero_contact_error='' WHERE id=?""", (contact_id, customer_id))
-        log_xero_sync("customer", customer_id, "match_contact", "ok", "Matched existing Xero contact", {"ContactID": contact_id})
+        log_xero_sync("customer", customer_id, "update_contact", "ok", "Updated existing Xero contact", result)
         return contact_id
     result = xero_api_request(
         XERO_CONTACTS_URL,
