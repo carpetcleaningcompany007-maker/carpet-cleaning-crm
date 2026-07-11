@@ -311,7 +311,9 @@ def is_valid_email(value):
 
 
 def clean_str(value):
-    return (value or "").strip()
+    if value is None:
+        return ""
+    return str(value).strip()
 
 
 def normalize_phone(value):
@@ -6285,14 +6287,15 @@ def customer_view(customer_id):
         FROM sms_events WHERE customer_id=?""", (customer_id,), one=True)
     workflow = workflow_context(customer)
     customer_hub = customer_hub_stage_context(customer, quotes, jobs, invoices, all_recent_contacts, feedback, reminders)
+    latest_job = jobs[0] if jobs else None
     send_form_values = {
         "name": clean_str(request.args.get("form_name")) or customer_name(customer),
         "email": clean_str(request.args.get("form_email")) or clean_str(row_value(customer, "email")),
         "phone": clean_str(request.args.get("form_phone")) or clean_str(row_value(customer, "phone")),
-        "preferred_date": clean_str(request.args.get("preferred_date")),
-        "preferred_time": clean_str(request.args.get("preferred_time")) or "09:30",
-        "preferred_days_times": clean_str(request.args.get("preferred_days_times")),
-        "agreed_quote_price": clean_str(request.args.get("agreed_quote_price")),
+        "preferred_date": clean_str(request.args.get("preferred_date")) or clean_str(row_value(latest_job, "job_date")),
+        "preferred_time": clean_str(request.args.get("preferred_time")) or clean_str(row_value(latest_job, "job_time")) or "09:30",
+        "preferred_days_times": clean_str(request.args.get("preferred_days_times")) or clean_str(row_value(latest_job, "notes")),
+        "agreed_quote_price": clean_str(request.args.get("agreed_quote_price")) or (("%.2f" % float(row_value(latest_job, "amount") or 0)) if latest_job and float(row_value(latest_job, "amount") or 0) > 0 else ""),
     }
     booking_prefill = {
         "name": send_form_values["name"],
@@ -6313,6 +6316,79 @@ def customer_view(customer_id):
     customer_action_templates = customer_action_template_cards(customer_id)
     saved_message_templates = q("SELECT * FROM communication_templates ORDER BY name COLLATE NOCASE ASC, id DESC")
     return render_template("customer_view.html", customer=customer, timeline=timeline, quotes=quotes, jobs=jobs, invoices=invoices, feedback=feedback, reminders=reminders, subscription_summary=subscription_summary, is_archived=bool(customer and customer["archived_at"]), last_contacted_at=last_contacted_at, last_contacted_label=contact_badge_text(last_contacted_at), recent_contacts=recent_contacts, contact_summary=contact_summary, recent_sms=recent_sms, sms_summary=sms_summary, sms_thread=sms_thread, workflow=workflow, workflow_stages=WORKFLOW_STAGES, customer_hub=customer_hub, workflow_messages=workflow_messages, send_form_values=send_form_values, customer_form_sending_paused=CUSTOMER_FORM_SENDING_PAUSED, customer_action_templates=customer_action_templates, saved_message_templates=saved_message_templates, app_settings=settings())
+
+
+@app.route("/customers/<int:customer_id>/save-booking-details", methods=["POST"])
+@login_required
+def customer_save_booking_details(customer_id):
+    customer = q("SELECT * FROM customers WHERE id=?", (customer_id,), one=True)
+    if not customer:
+        flash("Customer not found.")
+        return redirect(url_for("customers"))
+    first_name, last_name = split_customer_name(clean_str(request.form.get("name")) or customer_name(customer))
+    email = clean_str(request.form.get("email"))
+    phone = clean_str(request.form.get("phone"))
+    preferred_date = clean_str(request.form.get("preferred_date"))
+    preferred_time = clean_str(request.form.get("preferred_time")) or "09:30"
+    booking_note = clean_str(request.form.get("preferred_days_times"))
+    try:
+        agreed_quote_price = parse_money(request.form.get("agreed_quote_price"), 0)
+    except ValueError as exc:
+        flash(str(exc))
+        return redirect(url_for("customer_view", customer_id=customer_id) + "#send-customer-form")
+    if email and not is_valid_email(email):
+        flash("Please enter a valid email address before saving.")
+        return redirect(url_for("customer_view", customer_id=customer_id) + "#send-customer-form")
+    run("""UPDATE customers SET first_name=?, last_name=?, phone=?, email=? WHERE id=?""", (
+        first_name or clean_str(row_value(customer, "first_name")),
+        last_name or clean_str(row_value(customer, "last_name")),
+        phone,
+        email,
+        customer_id,
+    ))
+    latest_job = latest_customer_job(customer_id)
+    job_title = "Carpet cleaning"
+    if latest_job:
+        run("""UPDATE jobs SET job_date=?, job_time=?, amount=?, notes=? WHERE id=?""", (
+            preferred_date,
+            preferred_time,
+            agreed_quote_price,
+            booking_note,
+            row_value(latest_job, "id"),
+        ))
+        job_id = row_value(latest_job, "id")
+    else:
+        job_id = run("""INSERT INTO jobs(customer_id, title, service_type, job_date, job_time, status, amount, assigned_to, notes)
+                        VALUES (?,?,?,?,?,?,?,?,?)""", (
+            customer_id,
+            job_title,
+            "Carpet cleaning",
+            preferred_date,
+            preferred_time,
+            "Booked" if preferred_date or preferred_time or agreed_quote_price > 0 else "Lead",
+            agreed_quote_price,
+            "",
+            booking_note,
+        ))
+    run("INSERT INTO customer_timeline(customer_id, note_text, created_at) VALUES (?,?,datetime('now'))", (
+        customer_id,
+        f"Booking details saved in Customer Hub. Job #{job_id}.",
+    ))
+    if preferred_date or preferred_time or agreed_quote_price > 0:
+        set_customer_workflow(customer_id, "job_booked", "Booking details saved from Customer Hub.", "Job details saved")
+    flash("Booking details saved. Nothing was sent to the customer.")
+    redirect_values = {
+        "booking_saved": "1",
+        "form_name": f"{first_name} {last_name}".strip(),
+        "form_email": email,
+        "form_phone": phone,
+        "preferred_date": preferred_date,
+        "preferred_time": preferred_time,
+        "preferred_days_times": booking_note,
+        "agreed_quote_price": ("%.2f" % agreed_quote_price) if agreed_quote_price > 0 else "",
+    }
+    redirect_values = {key: value for key, value in redirect_values.items() if clean_str(value)}
+    return redirect(url_for("customer_view", customer_id=customer_id, **redirect_values) + "#send-customer-form")
 
 
 @app.route("/customers/<int:customer_id>/send-contact-form", methods=["POST"])
