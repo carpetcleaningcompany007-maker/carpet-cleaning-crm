@@ -5469,6 +5469,159 @@ def workflow_context(customer):
     }
 
 
+def yes_no_done(label, done, missing_text="Missing"):
+    return {
+        "label": label,
+        "done": bool(done),
+        "text": "Done" if done else missing_text,
+    }
+
+
+def customer_hub_stage_context(customer, quotes=None, jobs=None, invoices=None, communications=None, feedback=None, reminders=None):
+    quotes = list(quotes or [])
+    jobs = list(jobs or [])
+    invoices = list(invoices or [])
+    communications = list(communications or [])
+    feedback = list(feedback or [])
+    reminders = list(reminders or [])
+    latest_job = jobs[0] if jobs else None
+    latest_invoice = invoices[0] if invoices else None
+    name_ready = customer_name(customer) != "Customer"
+    contact_ready = bool(clean_str(row_value(customer, "phone")) or clean_str(row_value(customer, "email")))
+    address_ready = bool(clean_str(row_value(customer, "address")) and clean_str(row_value(customer, "postcode")))
+    quote_ready = bool(quotes)
+    job_ready = bool(latest_job)
+    job_price_ready = bool(latest_job and parse_money(row_value(latest_job, "amount"), 0) > 0)
+    job_date_ready = bool(latest_job and clean_str(row_value(latest_job, "job_date")))
+    job_time_ready = bool(latest_job and clean_str(row_value(latest_job, "job_time")))
+    booking_sent = communication_matches(communications, "booking confirmation", "your carpet clean is booked in")
+    reminder_sent = communication_matches(communications, "appointment reminder", "just a reminder")
+    on_way_sent = communication_matches(communications, "we are on our way", "on our way")
+    thank_you_sent = communication_matches(communications, "thank you")
+    review_sent = communication_matches(communications, "review request", "google review")
+    job_status = clean_str(row_value(latest_job, "status")).lower() if latest_job else ""
+    completed = job_status in {"completed", "invoiced", "paid"}
+    invoice_ready = bool(latest_invoice)
+    invoice_status = clean_str(row_value(latest_invoice, "status")).lower() if latest_invoice else ""
+    payment_ready = bool(
+        clean_str(row_value(customer, "payment_received_at"))
+        or invoice_status in {"paid", "payment received"}
+        or job_status == "paid"
+    )
+    stage_defs = [
+        {
+            "number": 1,
+            "title": "Check customer details",
+            "subtitle": "Confirm the basic contact and address information.",
+            "href": "#customer-details",
+            "action_href": "#customer-details",
+            "action_label": "Check details",
+            "items": [
+                yes_no_done("Customer name", name_ready, "Needs name"),
+                yes_no_done("Phone or email", contact_ready, "Needs contact"),
+                yes_no_done("Address and postcode", address_ready, "Needs address"),
+                yes_no_done("Contact form sent", clean_str(row_value(customer, "form_sent_at")), "Not sent"),
+                yes_no_done("Customer form returned", clean_str(row_value(customer, "form_completed_at")), "Not returned"),
+            ],
+            "sent": [
+                "Contact form sent" if clean_str(row_value(customer, "form_sent_at")) else "No contact form sent yet",
+            ],
+        },
+        {
+            "number": 2,
+            "title": "Confirm quote and booking",
+            "subtitle": "Make sure the job, price, date and time are ready.",
+            "href": "#customer-sales",
+            "action_href": url_for("jobs") if not latest_job else url_for("job_view", job_id=row_value(latest_job, "id")),
+            "action_label": "Open job" if latest_job else "Create or find job",
+            "items": [
+                yes_no_done("Quote created", quote_ready, "No quote"),
+                yes_no_done("Job created", job_ready, "No job"),
+                yes_no_done("Price added", job_price_ready, "Needs price"),
+                yes_no_done("Date added", job_date_ready, "Needs date"),
+                yes_no_done("Time added", job_time_ready, "Needs time"),
+            ],
+            "sent": [
+                f"Latest job: {clean_str(row_value(latest_job, 'title')) or 'Saved job'}" if latest_job else "No job saved yet",
+            ],
+        },
+        {
+            "number": 3,
+            "title": "Send confirmation",
+            "subtitle": "Send the customer the booking message once the job is complete enough.",
+            "href": "#customer-message-actions",
+            "action_href": "#customer-message-actions",
+            "action_label": "Send messages",
+            "items": [
+                yes_no_done("Ready to confirm", job_ready and job_price_ready and job_date_ready and job_time_ready and address_ready and contact_ready, "Missing job info"),
+                yes_no_done("Booking confirmation sent", booking_sent, "Not sent"),
+                yes_no_done("Reminder sent", reminder_sent, "Not sent"),
+                yes_no_done("On-my-way available", job_ready, "Needs job"),
+            ],
+            "sent": [
+                "Booking confirmation sent" if booking_sent else "Booking confirmation not sent",
+                "Reminder sent" if reminder_sent else "Reminder not sent",
+                "On-my-way sent" if on_way_sent else "On-my-way not sent",
+            ],
+        },
+        {
+            "number": 4,
+            "title": "Complete the job",
+            "subtitle": "Use this once the work has been carried out.",
+            "href": url_for("job_view", job_id=row_value(latest_job, "id")) if latest_job else "#customer-sales",
+            "action_href": url_for("job_view", job_id=row_value(latest_job, "id")) if latest_job else "#customer-sales",
+            "action_label": "Open job",
+            "items": [
+                yes_no_done("Job booked", job_ready, "No job"),
+                yes_no_done("Job completed", completed, "Not completed"),
+                yes_no_done("Thank-you sent", thank_you_sent, "Not sent"),
+            ],
+            "sent": [
+                f"Job status: {clean_str(row_value(latest_job, 'status')) or 'Not set'}" if latest_job else "No job status yet",
+                "Thank-you sent" if thank_you_sent else "Thank-you not sent",
+            ],
+        },
+        {
+            "number": 5,
+            "title": "Payment and review",
+            "subtitle": "Close the loop with invoice, payment and review request.",
+            "href": "#customer-finance",
+            "action_href": "#customer-finance",
+            "action_label": "Check finance",
+            "items": [
+                yes_no_done("Invoice created", invoice_ready, "No invoice"),
+                yes_no_done("Payment received", payment_ready, "Not paid"),
+                yes_no_done("Review request sent", review_sent, "Not sent"),
+                yes_no_done("Feedback recorded", bool(feedback), "No feedback"),
+                yes_no_done("Future reminder set", bool(reminders), "No reminder"),
+            ],
+            "sent": [
+                "Review request sent" if review_sent else "Review request not sent",
+            ],
+        },
+    ]
+    current_index = 0
+    for idx, stage in enumerate(stage_defs):
+        if not all(item["done"] for item in stage["items"]):
+            current_index = idx
+            break
+    else:
+        current_index = len(stage_defs) - 1
+    for idx, stage in enumerate(stage_defs):
+        stage["state"] = "done" if idx < current_index else ("current" if idx == current_index else "todo")
+        stage["completed_count"] = sum(1 for item in stage["items"] if item["done"])
+        stage["total_count"] = len(stage["items"])
+        stage["missing"] = [item["label"] for item in stage["items"] if not item["done"]]
+    current_stage = stage_defs[current_index]
+    return {
+        "stages": stage_defs,
+        "current": current_stage,
+        "progress": round((current_index / max(1, len(stage_defs) - 1)) * 100),
+        "summary": f"Stage {current_stage['number']} - {current_stage['title']}",
+        "next_action": current_stage["action_label"],
+    }
+
+
 def set_customer_workflow(customer_id, status, notes="", action_label=None):
     customer = q("SELECT * FROM customers WHERE id=?", (customer_id,), one=True)
     if not customer:
@@ -6118,7 +6271,8 @@ def customer_view(customer_id):
     reminders = q("SELECT * FROM future_reminders WHERE customer_id=? ORDER BY COALESCE(reminder_date,'9999-12-31') ASC, id DESC", (customer_id,))
     subscription_summary = customer_subscription_summary(customer_id)
     last_contacted_at = customer_last_contact_map([customer_id]).get(customer_id)
-    recent_contacts = recent_customer_contacts(customer_id, 8)
+    all_recent_contacts = recent_customer_contacts(customer_id, 80)
+    recent_contacts = all_recent_contacts[:8]
     contact_summary = customer_contact_summary(customer_id, 30)
     recent_sms = q("""SELECT * FROM sms_events WHERE customer_id=? ORDER BY id DESC LIMIT 8""", (customer_id,))
     sms_thread = sms_thread_rows(customer_id=customer_id, limit=24)
@@ -6130,6 +6284,7 @@ def customer_view(customer_id):
         SUM(CASE WHEN lower(IFNULL(status,'')) IN ('failed','undelivered') OR lower(IFNULL(event_type,'')) LIKE '%fail%' THEN 1 ELSE 0 END) AS failed_count
         FROM sms_events WHERE customer_id=?""", (customer_id,), one=True)
     workflow = workflow_context(customer)
+    customer_hub = customer_hub_stage_context(customer, quotes, jobs, invoices, all_recent_contacts, feedback, reminders)
     send_form_values = {
         "name": clean_str(request.args.get("form_name")) or customer_name(customer),
         "email": clean_str(request.args.get("form_email")) or clean_str(row_value(customer, "email")),
@@ -6157,7 +6312,7 @@ def customer_view(customer_id):
     }
     customer_action_templates = customer_action_template_cards(customer_id)
     saved_message_templates = q("SELECT * FROM communication_templates ORDER BY name COLLATE NOCASE ASC, id DESC")
-    return render_template("customer_view.html", customer=customer, timeline=timeline, quotes=quotes, jobs=jobs, invoices=invoices, feedback=feedback, reminders=reminders, subscription_summary=subscription_summary, is_archived=bool(customer and customer["archived_at"]), last_contacted_at=last_contacted_at, last_contacted_label=contact_badge_text(last_contacted_at), recent_contacts=recent_contacts, contact_summary=contact_summary, recent_sms=recent_sms, sms_summary=sms_summary, sms_thread=sms_thread, workflow=workflow, workflow_stages=WORKFLOW_STAGES, workflow_messages=workflow_messages, send_form_values=send_form_values, customer_form_sending_paused=CUSTOMER_FORM_SENDING_PAUSED, customer_action_templates=customer_action_templates, saved_message_templates=saved_message_templates, app_settings=settings())
+    return render_template("customer_view.html", customer=customer, timeline=timeline, quotes=quotes, jobs=jobs, invoices=invoices, feedback=feedback, reminders=reminders, subscription_summary=subscription_summary, is_archived=bool(customer and customer["archived_at"]), last_contacted_at=last_contacted_at, last_contacted_label=contact_badge_text(last_contacted_at), recent_contacts=recent_contacts, contact_summary=contact_summary, recent_sms=recent_sms, sms_summary=sms_summary, sms_thread=sms_thread, workflow=workflow, workflow_stages=WORKFLOW_STAGES, customer_hub=customer_hub, workflow_messages=workflow_messages, send_form_values=send_form_values, customer_form_sending_paused=CUSTOMER_FORM_SENDING_PAUSED, customer_action_templates=customer_action_templates, saved_message_templates=saved_message_templates, app_settings=settings())
 
 
 @app.route("/customers/<int:customer_id>/send-contact-form", methods=["POST"])
