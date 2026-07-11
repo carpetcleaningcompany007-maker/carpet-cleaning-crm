@@ -26,6 +26,14 @@
       <span>Search contacts</span>
       <input name="q" value="{{ search }}" placeholder="Name, phone, email, address, postcode, town, or tag" autocomplete="off">
     </label>
+    <label class="contacts-first-name">
+      <span>First name</span>
+      <input name="first_name" value="{{ first_name_filter }}" placeholder="First name only" autocomplete="given-name">
+    </label>
+    <label class="contacts-last-name">
+      <span>Last name</span>
+      <input name="last_name" value="{{ last_name_filter }}" placeholder="Last name only" autocomplete="family-name">
+    </label>
     <label class="contacts-scope">
       <span>View</span>
       <select name="scope">
@@ -46,26 +54,30 @@
     </label>
     <input type="hidden" name="starts" value="{{ starts }}">
     <button class="btn secondary" type="submit">Search</button>
-    {% if search or starts or scope != 'active' or sort != 'name' %}
+    {% if search or first_name_filter or last_name_filter or starts or scope != 'active' or sort != 'name' %}
       <a class="btn ghost" href="{{ url_for('customers') }}">Clear</a>
     {% endif %}
   </form>
 
   <div class="contacts-result-summary">
     <strong>{{ customer_stats.total }}</strong>
-    <span>{% if customer_stats.total == 1 %}contact found{% else %}contacts found{% endif %}{% if search %} for “{{ search }}”{% endif %}</span>
+    <span>
+      {% if customer_stats.total == 1 %}contact found{% else %}contacts found{% endif %}
+      {% if search %} for “{{ search }}”{% endif %}
+      {% if first_name_filter or last_name_filter %} matching {{ (first_name_filter ~ ' ' ~ last_name_filter).strip() }}{% endif %}
+    </span>
   </div>
 
   <div class="contacts-tabs" aria-label="Contact views">
-    <a class="{% if scope=='active' %}active{% endif %}" href="{{ url_for('customers', q=search, scope='active', starts=starts, sort=sort) }}">Active</a>
-    <a class="{% if scope=='archived' %}active{% endif %}" href="{{ url_for('customers', q=search, scope='archived', starts=starts, sort=sort) }}">Archived</a>
-    <a class="{% if scope=='all' %}active{% endif %}" href="{{ url_for('customers', q=search, scope='all', starts=starts, sort=sort) }}">All</a>
+    <a class="{% if scope=='active' %}active{% endif %}" href="{{ url_for('customers', q=search, first_name=first_name_filter, last_name=last_name_filter, scope='active', starts=starts, sort=sort) }}">Active</a>
+    <a class="{% if scope=='archived' %}active{% endif %}" href="{{ url_for('customers', q=search, first_name=first_name_filter, last_name=last_name_filter, scope='archived', starts=starts, sort=sort) }}">Archived</a>
+    <a class="{% if scope=='all' %}active{% endif %}" href="{{ url_for('customers', q=search, first_name=first_name_filter, last_name=last_name_filter, scope='all', starts=starts, sort=sort) }}">All</a>
   </div>
 
   <div class="contacts-alpha" aria-label="Alphabet filter">
-    <a class="{% if not starts %}active{% endif %}" href="{{ url_for('customers', q=search, scope=scope, sort=sort) }}">All</a>
+    <a class="{% if not starts %}active{% endif %}" href="{{ url_for('customers', q=search, first_name=first_name_filter, last_name=last_name_filter, scope=scope, sort=sort) }}">All</a>
     {% for letter in letters %}
-      <a class="{% if starts==letter %}active{% endif %}" href="{{ url_for('customers', q=search, scope=scope, starts=letter, sort=sort) }}">{{ letter }}</a>
+      <a class="{% if starts==letter %}active{% endif %}" href="{{ url_for('customers', q=search, first_name=first_name_filter, last_name=last_name_filter, scope=scope, starts=letter, sort=sort) }}">{{ letter }}</a>
     {% endfor %}
   </div>
 

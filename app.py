@@ -5892,6 +5892,8 @@ def today_run_job_action(job_id):
 @login_required
 def customers():
     search = (request.args.get("q") or "").strip()
+    first_name_filter = (request.args.get("first_name") or "").strip()
+    last_name_filter = (request.args.get("last_name") or "").strip()
     scope = (request.args.get("scope") or "active").strip().lower()
     starts = (request.args.get("starts") or "").strip().upper()
     sort = (request.args.get("sort") or "name").strip().lower()
@@ -5923,6 +5925,12 @@ def customers():
             else:
                 where_parts.append(f"{searchable_fields} LIKE ?")
                 params.append(f"%{term}%")
+    if first_name_filter:
+        where_parts.append("lower(IFNULL(first_name,'')) LIKE ?")
+        params.append(f"%{first_name_filter.lower()}%")
+    if last_name_filter:
+        where_parts.append("lower(IFNULL(last_name,'')) LIKE ?")
+        params.append(f"%{last_name_filter.lower()}%")
     if starts:
         where_parts.append("""(
             UPPER(SUBSTR(TRIM(IFNULL(first_name,'') || IFNULL(last_name,'') || IFNULL(email,'') || IFNULL(phone,'')),1,1))=?
@@ -5954,7 +5962,18 @@ def customers():
         "missing_email": sum(1 for row in rows if not clean_str(row["email"])),
         "missing_phone": sum(1 for row in rows if not clean_str(row["phone"])),
     }
-    return render_template("customers.html", customers=rows, search=search, scope=scope, starts=starts, sort=sort, letters=letters, customer_stats=customer_stats)
+    return render_template(
+        "customers.html",
+        customers=rows,
+        search=search,
+        first_name_filter=first_name_filter,
+        last_name_filter=last_name_filter,
+        scope=scope,
+        starts=starts,
+        sort=sort,
+        letters=letters,
+        customer_stats=customer_stats,
+    )
 
 
 @app.route("/customers/import-library", methods=["GET", "POST"])

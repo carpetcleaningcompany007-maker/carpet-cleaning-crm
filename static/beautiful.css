@@ -2110,7 +2110,7 @@ body.app-page .contact-stat-strip strong {
 
 body.app-page .contacts-filter-bar {
   display: grid !important;
-  grid-template-columns: minmax(260px, 1fr) minmax(150px, 200px) minmax(170px, 220px) auto auto !important;
+  grid-template-columns: minmax(220px, 1.2fr) minmax(140px, .8fr) minmax(140px, .8fr) minmax(140px, 180px) minmax(170px, 220px) auto auto !important;
   gap: 12px !important;
   align-items: end !important;
   padding: 14px !important;
@@ -2317,6 +2317,10 @@ body.app-page .contacts-empty {
 
 @media (max-width: 1180px) {
   body.app-page .contact-stat-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  body.app-page .contacts-filter-bar {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 
