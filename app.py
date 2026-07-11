@@ -5528,6 +5528,7 @@ def customer_hub_stage_context(customer, quotes=None, jobs=None, invoices=None, 
             "sent": [
                 "Contact form sent" if clean_str(row_value(customer, "form_sent_at")) else "No contact form sent yet",
             ],
+            "template_keys": ["unable_to_reach_email"],
         },
         {
             "number": 2,
@@ -5546,6 +5547,7 @@ def customer_hub_stage_context(customer, quotes=None, jobs=None, invoices=None, 
             "sent": [
                 f"Latest job: {clean_str(row_value(latest_job, 'title')) or 'Saved job'}" if latest_job else "No job saved yet",
             ],
+            "template_keys": ["carpet_cleaning_options_guide_email"],
         },
         {
             "number": 3,
@@ -5565,6 +5567,7 @@ def customer_hub_stage_context(customer, quotes=None, jobs=None, invoices=None, 
                 "Reminder sent" if reminder_sent else "Reminder not sent",
                 "On-my-way sent" if on_way_sent else "On-my-way not sent",
             ],
+            "template_keys": ["booking_confirmation_email", "today_run_reminder_email", "today_run_coming_email"],
         },
         {
             "number": 4,
@@ -5582,6 +5585,7 @@ def customer_hub_stage_context(customer, quotes=None, jobs=None, invoices=None, 
                 f"Job status: {clean_str(row_value(latest_job, 'status')) or 'Not set'}" if latest_job else "No job status yet",
                 "Thank-you sent" if thank_you_sent else "Thank-you not sent",
             ],
+            "template_keys": ["thank_you_message"],
         },
         {
             "number": 5,
@@ -5600,6 +5604,7 @@ def customer_hub_stage_context(customer, quotes=None, jobs=None, invoices=None, 
             "sent": [
                 "Review request sent" if review_sent else "Review request not sent",
             ],
+            "template_keys": ["payment_received_email", "review_request_message", "maintenance_reminder_email"],
         },
     ]
     current_index = 0
@@ -6314,6 +6319,9 @@ def customer_view(customer_id):
         "review": review_request_message(customer),
     }
     customer_action_templates = customer_action_template_cards(customer_id)
+    customer_action_template_map = {item["key"]: item for item in customer_action_templates}
+    for stage in customer_hub["stages"]:
+        stage["templates"] = [customer_action_template_map[key] for key in stage.get("template_keys", []) if key in customer_action_template_map]
     saved_message_templates = q("SELECT * FROM communication_templates ORDER BY name COLLATE NOCASE ASC, id DESC")
     return render_template("customer_view.html", customer=customer, timeline=timeline, quotes=quotes, jobs=jobs, invoices=invoices, feedback=feedback, reminders=reminders, subscription_summary=subscription_summary, is_archived=bool(customer and customer["archived_at"]), last_contacted_at=last_contacted_at, last_contacted_label=contact_badge_text(last_contacted_at), recent_contacts=recent_contacts, contact_summary=contact_summary, recent_sms=recent_sms, sms_summary=sms_summary, sms_thread=sms_thread, workflow=workflow, workflow_stages=WORKFLOW_STAGES, customer_hub=customer_hub, workflow_messages=workflow_messages, send_form_values=send_form_values, customer_form_sending_paused=CUSTOMER_FORM_SENDING_PAUSED, customer_action_templates=customer_action_templates, saved_message_templates=saved_message_templates, app_settings=settings())
 

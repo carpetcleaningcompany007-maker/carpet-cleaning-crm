@@ -95,13 +95,67 @@
   .stage-sent-list{margin:12px 0 0;padding:0;list-style:none;display:grid;gap:7px;color:#47657f;font-size:15px}
   .stage-sent-list li{padding-left:16px;position:relative}
   .stage-sent-list li:before{content:"";position:absolute;left:0;top:.62em;width:6px;height:6px;border-radius:999px;background:#1167d8}
+  .stage-actions-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:18px}
+  .stage-action-section{border:1px solid #d7e3ec;background:#f8fbfd;border-radius:14px;padding:16px}
+  .stage-action-section.is-current{border-color:#1167d8;background:#eef7ff}
+  .stage-action-head{display:flex;gap:12px;align-items:flex-start;margin-bottom:12px}
+  .stage-action-head .stage-number{width:32px;height:32px;flex:0 0 32px}
+  .stage-action-head strong{display:block;font-size:18px;color:#071524}
+  .stage-action-head span{display:block;font-size:14px;color:#617083;margin-top:3px}
+  .stage-template-list{display:grid;gap:10px}
+  .stage-template-card{border:1px solid #dce8f1;background:#fff;border-radius:12px;padding:12px}
+  .stage-template-card strong{display:block;font-size:16px;color:#102033}
+  .stage-template-card p{margin:5px 0 10px;color:#617083;font-size:14px;line-height:1.35}
+  .stage-template-actions{display:flex;flex-wrap:wrap;gap:8px}
+  .stage-template-actions form{margin:0}
+  .stage-template-actions .btn{padding:9px 11px;font-size:14px}
+  .stage-no-template{margin:0;color:#617083;font-size:14px}
   .hub-collapse{margin:18px 0;border:1px solid #d7e3ec;border-radius:16px;background:#fff;overflow:hidden}
   .hub-collapse>summary{cursor:pointer;padding:18px 20px;font-weight:900;font-size:20px;color:#071524;background:#f8fbfd}
   .hub-collapse-body{padding:0 18px 18px}
-  @media(max-width:1180px){.customer-stage-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.stage-detail-panel{grid-template-columns:1fr}}
+  @media(max-width:1180px){.customer-stage-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.stage-detail-panel,.stage-actions-grid{grid-template-columns:1fr}}
   @media(max-width:1000px){.workflow-main{grid-template-columns:1fr}.workflow-current{font-size:40px}.workflow-next{font-size:26px}.customer-form-send-fields{grid-template-columns:1fr}}
-  @media(max-width:720px){body.app-page .customer-hero{padding:16px!important}body.app-page .customer-hero p{display:none!important}body.app-page .customer-hero>.row-actions{display:none!important}body.app-page .customer-hero .badge-row{display:none!important}body.app-page .customer-mobile-actions{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important}.stage-overview-head{grid-template-columns:1fr}.stage-overview-head h3{font-size:28px}.customer-stage-overview{padding:16px;margin:14px 0}.customer-stage-grid,.stage-check-list{grid-template-columns:1fr}.customer-stage-card{padding:15px}.stage-detail-main,.stage-next-box{padding:15px}.top-message-actions{margin-top:12px}}
+  @media(max-width:720px){body.app-page .customer-hero{padding:16px!important}body.app-page .customer-hero p{display:none!important}body.app-page .customer-hero>.row-actions{display:none!important}body.app-page .customer-hero .badge-row{display:none!important}body.app-page .customer-mobile-actions{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important}.stage-overview-head{grid-template-columns:1fr}.stage-overview-head h3{font-size:28px}.customer-stage-overview{padding:16px;margin:14px 0}.customer-stage-grid,.stage-check-list{grid-template-columns:1fr}.customer-stage-card{padding:15px}.stage-detail-main,.stage-next-box,.stage-action-section{padding:15px}.stage-template-actions .btn{width:100%;justify-content:center}.top-message-actions{margin-top:12px}}
 </style>
+
+{% macro stage_template_buttons(item) %}
+  <div class="stage-template-card">
+    <strong>{{ item.label }}</strong>
+    <p>{{ item.note }}</p>
+    {% if not item.has_job and item.key in ['booking_confirmation_email','today_run_reminder_email','today_run_coming_email'] %}
+      <p class="muted">No job is saved yet, so date and time placeholders will stay generic.</p>
+    {% endif %}
+    <div class="stage-template-actions">
+      <a class="btn secondary btn-small" href="{{ url_for('customer_email_template_preview', customer_id=customer.id, template_key=item.key) }}" target="_blank">Preview Email</a>
+      <form method="post" action="{{ url_for('customer_send_message_template', customer_id=customer.id) }}">
+        <input type="hidden" name="template_key" value="{{ item.key }}">
+        <input type="hidden" name="channel" value="email">
+        <input type="hidden" name="test_mode" value="1">
+        <button class="btn secondary btn-small" type="submit">Test Email</button>
+      </form>
+      <form method="post" action="{{ url_for('customer_send_message_template', customer_id=customer.id) }}">
+        <input type="hidden" name="template_key" value="{{ item.key }}">
+        <input type="hidden" name="channel" value="email">
+        <button class="btn primary btn-small" type="submit" {% if not customer.email %}disabled{% endif %}>Send Email</button>
+      </form>
+      <form method="post" action="{{ url_for('customer_send_message_template', customer_id=customer.id) }}">
+        <input type="hidden" name="template_key" value="{{ item.key }}">
+        <input type="hidden" name="channel" value="sms">
+        <input type="hidden" name="test_mode" value="1">
+        <button class="btn secondary btn-small" type="submit">Test SMS</button>
+      </form>
+      <form method="post" action="{{ url_for('customer_send_message_template', customer_id=customer.id) }}">
+        <input type="hidden" name="template_key" value="{{ item.key }}">
+        <input type="hidden" name="channel" value="sms">
+        <button class="btn primary btn-small" type="submit" {% if not customer.phone or customer.sms_opt_out %}disabled{% endif %}>Send SMS</button>
+      </form>
+    </div>
+    <details class="template-preview">
+      <summary>View SMS wording</summary>
+      <div class="template-preview-body"><pre>{{ item.sms_body }}</pre></div>
+    </details>
+  </div>
+{% endmacro %}
 
 <section class="customer-stage-overview" id="customer-stage-overview">
   <div class="stage-overview-head">
@@ -146,10 +200,34 @@
       </ul>
     </div>
   </div>
+  <div class="stage-actions-grid">
+    {% for stage in customer_hub.stages %}
+    <section class="stage-action-section {% if stage.state == 'current' %}is-current{% endif %}" id="stage-actions-{{ stage.number }}">
+      <div class="stage-action-head">
+        <span class="stage-number">{{ stage.number }}</span>
+        <span>
+          <strong>{{ stage.title }}</strong>
+          <span>{{ stage.subtitle }}</span>
+        </span>
+      </div>
+      {% if stage.templates %}
+      <div class="stage-template-list">
+        {% for item in stage.templates %}
+          {{ stage_template_buttons(item) }}
+        {% endfor %}
+      </div>
+      {% elif stage.number == 1 %}
+        <p class="stage-no-template">Use the contact form controls below to save details or send the customer form.</p>
+      {% else %}
+        <p class="stage-no-template">No message template is needed for this stage yet.</p>
+      {% endif %}
+    </section>
+    {% endfor %}
+  </div>
 </section>
 
-<details class="hub-collapse top-message-actions" id="customer-message-actions" open>
-  <summary>Customer email and text templates - previews, tests and sends</summary>
+<details class="hub-collapse top-message-actions" id="customer-message-actions">
+  <summary>All customer email and text templates</summary>
   <div class="hub-collapse-body">
   <div class="message-action-panel">
     <div class="message-action-head">
