@@ -263,7 +263,7 @@
       </div>
       {% if customer.xero_contact_id %}
         <div class="stage-done-banner"><span class="stage-check-mark">&#10003;</span><span>Uploaded to Xero</span></div>
-        <p class="stage-helper-note">Xero ContactID: {{ customer.xero_contact_id }}</p>
+        <p class="stage-helper-note">Xero ContactID: {{ customer.xero_contact_id }}. This customer has already been linked to Xero, either from the Stage 2 button or an earlier approval/Xero action.</p>
         <p><a class="btn secondary" href="{{ xero_contact_web_url(customer.xero_contact_id) }}" target="_blank" rel="noopener">Open in Xero</a></p>
       {% elif not customer_hub.stages[0].complete %}
         <p class="muted">Complete Stage 1 before uploading this customer to Xero.</p>

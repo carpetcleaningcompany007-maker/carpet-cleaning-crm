@@ -2418,6 +2418,9 @@ def sync_xero_contact_for_intake(lead_id):
         raise RuntimeError("Intake form not found.")
     customer_id = lead["customer_id"] or create_customer_from_intake(lead)
     lead = q("SELECT * FROM intake_submissions WHERE id=?", (lead_id,), one=True)
+    missing = missing_lead_fields_for_xero(lead)
+    if missing:
+        raise RuntimeError("Xero upload stopped. Missing: " + ", ".join(missing) + ". Add these details before uploading to Xero.")
 
     match = find_xero_contact_match_for_lead(lead, block_possible_duplicates=True)
     contact_id = match.get("contact_id", "")
@@ -2458,6 +2461,9 @@ def run_website_enquiry_automation(lead_id, customer_id, data):
     results = {}
 
     try:
+        missing = missing_lead_fields_for_xero(lead)
+        if missing:
+            raise RuntimeError("Xero upload stopped. Missing: " + ", ".join(missing) + ". Add these details before uploading to Xero.")
         match = find_xero_contact_match_for_lead(lead, block_possible_duplicates=True)
         contact_id = match.get("contact_id", "")
         payload = xero_contact_payload_from_lead(lead)
@@ -9463,20 +9469,42 @@ def create_customer_from_intake(lead):
     return customer_id
 
 
+def xero_contact_addresses(address_line, city="", postcode="", what3words=""):
+    address_line = clean_str(address_line)
+    city = clean_str(city)
+    postcode = clean_str(postcode)
+    what3words = clean_str(what3words)
+    if not (address_line or city or postcode or what3words):
+        return []
+    address_lines = [line.strip() for line in re.split(r"[\r\n,]+", address_line) if line.strip()]
+    base = {
+        "AddressLine1": address_lines[0] if address_lines else "",
+        "City": city,
+        "PostalCode": postcode,
+    }
+    for index, line in enumerate(address_lines[1:4], start=2):
+        base[f"AddressLine{index}"] = line
+    if what3words:
+        spare_line = next((f"AddressLine{index}" for index in range(2, 5) if not base.get(f"AddressLine{index}")), "")
+        if spare_line:
+            base[spare_line] = f"What3Words: {what3words}"
+    return [
+        {"AddressType": "POBOX", **base},
+        {"AddressType": "STREET", **base},
+    ]
+
+
 def xero_contact_payload_from_lead(lead):
     name = clean_str(lead["name"]) or "Customer"
     first_name, last_name = split_customer_name(name)
-    address = {"AddressType": "STREET", "AddressLine1": clean_str(lead["full_address"]), "PostalCode": clean_str(lead["postcode"])}
     what3words = clean_str(row_get(lead, "what3words"))
-    if what3words:
-        address["AddressLine2"] = f"What3Words: {what3words}"
     contact = {
         "Name": name,
         "FirstName": first_name,
         "LastName": last_name,
         "ContactNumber": f"FORM-{lead['id']}",
         "Phones": [{"PhoneType": "MOBILE", "PhoneNumber": clean_str(lead["phone"])}] if lead["phone"] else [],
-        "Addresses": [address],
+        "Addresses": xero_contact_addresses(lead["full_address"], "", lead["postcode"], what3words),
     }
     if lead["email"]:
         contact["EmailAddress"] = clean_str(lead["email"])
@@ -9491,7 +9519,7 @@ def xero_contact_payload_from_customer(customer):
         "LastName": clean_str(customer["last_name"]),
         "ContactNumber": f"CRM-{customer['id']}",
         "Phones": [{"PhoneType": "MOBILE", "PhoneNumber": clean_str(customer["phone"])}] if customer["phone"] else [],
-        "Addresses": [{"AddressType": "STREET", "AddressLine1": clean_str(customer["address"]), "City": clean_str(customer["town"]), "PostalCode": clean_str(customer["postcode"])}],
+        "Addresses": xero_contact_addresses(customer["address"], customer["town"], customer["postcode"], ""),
     }
     if customer["email"]:
         contact["EmailAddress"] = clean_str(customer["email"])
@@ -9799,10 +9827,70 @@ def archive_obvious_xero_non_customer_imports():
     return {"archived": len(rows)}
 
 
+def backfill_customer_from_latest_intake(customer_id):
+    customer = q("SELECT * FROM customers WHERE id=?", (customer_id,), one=True)
+    lead = q("SELECT * FROM intake_submissions WHERE customer_id=? ORDER BY id DESC LIMIT 1", (customer_id,), one=True)
+    if not customer or not lead:
+        return
+    name = clean_str(row_get(lead, "name"))
+    first_name, last_name = split_customer_name(name) if name else ("", "")
+    updates = {}
+    if not clean_str(row_get(customer, "first_name")) and first_name:
+        updates["first_name"] = first_name
+    if not clean_str(row_get(customer, "last_name")) and last_name:
+        updates["last_name"] = last_name
+    field_map = {
+        "phone": row_get(lead, "phone"),
+        "email": row_get(lead, "email"),
+        "address": row_get(lead, "full_address"),
+        "postcode": row_get(lead, "postcode"),
+    }
+    for field, value in field_map.items():
+        if not clean_str(row_get(customer, field)) and clean_str(value):
+            updates[field] = clean_str(value)
+    if not updates:
+        return
+    assignments = ", ".join([f"{field}=?" for field in updates])
+    run(f"UPDATE customers SET {assignments} WHERE id=?", (*updates.values(), customer_id))
+    run("INSERT INTO customer_timeline(customer_id, note_text, created_at) VALUES (?,?,datetime('now'))",
+        (customer_id, "Customer contact details were filled from the latest returned form before Xero upload."))
+
+
+def missing_customer_fields_for_xero(customer):
+    missing = []
+    name = clean_str(f"{row_get(customer, 'first_name')} {row_get(customer, 'last_name')}").strip()
+    if not name:
+        missing.append("name")
+    if not clean_str(row_get(customer, "address")):
+        missing.append("address")
+    if not clean_str(row_get(customer, "postcode")):
+        missing.append("postcode")
+    if not (clean_str(row_get(customer, "phone")) or clean_str(row_get(customer, "email"))):
+        missing.append("phone or email")
+    return missing
+
+
+def missing_lead_fields_for_xero(lead):
+    missing = []
+    if not clean_str(row_get(lead, "name")):
+        missing.append("name")
+    if not clean_str(row_get(lead, "full_address")):
+        missing.append("address")
+    if not clean_str(row_get(lead, "postcode")):
+        missing.append("postcode")
+    if not (clean_str(row_get(lead, "phone")) or clean_str(row_get(lead, "email"))):
+        missing.append("phone or email")
+    return missing
+
+
 def ensure_xero_contact_for_customer(customer_id):
+    backfill_customer_from_latest_intake(customer_id)
     customer = q("SELECT * FROM customers WHERE id=?", (customer_id,), one=True)
     if not customer:
         raise RuntimeError("Customer not found.")
+    missing = missing_customer_fields_for_xero(customer)
+    if missing:
+        raise RuntimeError("Xero upload stopped. Missing: " + ", ".join(missing) + ". Add these details before uploading to Xero.")
     contact_id = find_xero_contact_id_for_customer(customer)
     if contact_id:
         run("""UPDATE customers SET xero_contact_id=?, xero_contact_synced_at=datetime('now'), xero_contact_error='' WHERE id=?""", (contact_id, customer_id))
