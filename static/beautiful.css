@@ -2110,7 +2110,7 @@ body.app-page .contact-stat-strip strong {
 
 body.app-page .contacts-filter-bar {
   display: grid !important;
-  grid-template-columns: minmax(260px, 1fr) minmax(160px, 220px) auto !important;
+  grid-template-columns: minmax(260px, 1fr) minmax(150px, 200px) minmax(170px, 220px) auto auto !important;
   gap: 12px !important;
   align-items: end !important;
   padding: 14px !important;
@@ -2125,6 +2125,25 @@ body.app-page .contacts-filter-bar select {
   margin-top: 6px !important;
   border-radius: 8px !important;
   background: #f8fbff !important;
+}
+
+body.app-page .contacts-result-summary {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  width: fit-content !important;
+  max-width: 100% !important;
+  padding: 9px 12px !important;
+  color: var(--cc-muted) !important;
+  background: rgba(255,255,255,.78) !important;
+  border: 1px solid var(--cc-line) !important;
+  border-radius: 8px !important;
+  font-weight: 800 !important;
+}
+
+body.app-page .contacts-result-summary strong {
+  color: var(--cc-ink) !important;
+  font-size: 18px !important;
 }
 
 body.app-page .contacts-tabs,

@@ -5894,20 +5894,57 @@ def customers():
     search = (request.args.get("q") or "").strip()
     scope = (request.args.get("scope") or "active").strip().lower()
     starts = (request.args.get("starts") or "").strip().upper()
+    sort = (request.args.get("sort") or "name").strip().lower()
     if scope not in {"active", "archived", "all"}:
         scope = "active"
+    if sort not in {"name", "recent", "postcode", "xero", "missing"}:
+        sort = "name"
     if starts and (len(starts) != 1 or not starts.isalpha()):
         starts = ""
     where_parts = [list_scope_clause("customers", scope, archived_column="archived_at")]
     params = []
     if search:
-        like = f"%{search}%"
-        where_parts.append("(first_name LIKE ? OR last_name LIKE ? OR (first_name || ' ' || last_name) LIKE ? OR phone LIKE ? OR email LIKE ? OR town LIKE ? OR tags LIKE ?)")
-        params += [like, like, like, like, like, like, like]
+        searchable_fields = """
+            lower(IFNULL(first_name,'') || ' ' || IFNULL(last_name,'') || ' ' ||
+                  IFNULL(email,'') || ' ' || IFNULL(phone,'') || ' ' ||
+                  IFNULL(address,'') || ' ' || IFNULL(town,'') || ' ' ||
+                  IFNULL(postcode,'') || ' ' || IFNULL(source,'') || ' ' ||
+                  IFNULL(tags,'') || ' ' || IFNULL(notes,''))
+        """
+        phone_digits_expr = """
+            replace(replace(replace(replace(replace(replace(replace(replace(IFNULL(phone,''),
+            ' ',''), '+',''), '-',''), '(' ,''), ')',''), char(160), ''), '‪', ''), '‬', '')
+        """
+        for term in [part for part in search.lower().split() if part]:
+            digits = "".join(ch for ch in term if ch.isdigit())
+            if digits:
+                where_parts.append(f"({searchable_fields} LIKE ? OR {phone_digits_expr} LIKE ?)")
+                params += [f"%{term}%", f"%{digits}%"]
+            else:
+                where_parts.append(f"{searchable_fields} LIKE ?")
+                params.append(f"%{term}%")
     if starts:
-        where_parts.append("(UPPER(SUBSTR(first_name,1,1))=? OR UPPER(SUBSTR(last_name,1,1))=?)")
+        where_parts.append("""(
+            UPPER(SUBSTR(TRIM(IFNULL(first_name,'') || IFNULL(last_name,'') || IFNULL(email,'') || IFNULL(phone,'')),1,1))=?
+            OR UPPER(SUBSTR(last_name,1,1))=?
+        )""")
         params += [starts, starts]
-    sql = "SELECT * FROM customers WHERE " + " AND ".join(where_parts) + " ORDER BY lower(last_name), lower(first_name), id DESC"
+    display_name_expr = """
+        lower(COALESCE(
+            NULLIF(TRIM(IFNULL(first_name,'') || ' ' || IFNULL(last_name,'')), ''),
+            NULLIF(TRIM(IFNULL(email,'')), ''),
+            NULLIF(TRIM(IFNULL(phone,'')), ''),
+            'zzzz'
+        ))
+    """
+    sort_sql = {
+        "name": f"{display_name_expr} ASC, id DESC",
+        "recent": "datetime(IFNULL(last_updated, created_at)) DESC, id DESC",
+        "postcode": f"lower(IFNULL(postcode,'')) ASC, {display_name_expr} ASC, id DESC",
+        "xero": f"CASE WHEN IFNULL(xero_contact_id,'')='' THEN 1 ELSE 0 END ASC, {display_name_expr} ASC, id DESC",
+        "missing": f"CASE WHEN IFNULL(email,'')='' OR IFNULL(phone,'')='' THEN 0 ELSE 1 END ASC, {display_name_expr} ASC, id DESC",
+    }[sort]
+    sql = "SELECT * FROM customers WHERE " + " AND ".join(where_parts) + " ORDER BY " + sort_sql
     rows = q(sql, tuple(params))
     annotate_rows_with_last_contact(rows, key="id")
     letters = [chr(c) for c in range(ord('A'), ord('Z')+1)]
@@ -5917,7 +5954,7 @@ def customers():
         "missing_email": sum(1 for row in rows if not clean_str(row["email"])),
         "missing_phone": sum(1 for row in rows if not clean_str(row["phone"])),
     }
-    return render_template("customers.html", customers=rows, search=search, scope=scope, starts=starts, letters=letters, customer_stats=customer_stats)
+    return render_template("customers.html", customers=rows, search=search, scope=scope, starts=starts, sort=sort, letters=letters, customer_stats=customer_stats)
 
 
 @app.route("/customers/import-library", methods=["GET", "POST"])
