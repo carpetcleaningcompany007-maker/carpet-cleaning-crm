@@ -69,17 +69,18 @@
   .stage-pill{display:inline-flex;align-items:center;gap:8px;border:1px solid #b7d5eb;background:#eef8ff;color:#0b5f94;border-radius:999px;padding:8px 12px;font-weight:900;font-size:14px;text-transform:uppercase}
   .stage-progress{height:12px;background:#e3edf5;border-radius:999px;overflow:hidden;margin:18px 0}
   .stage-progress span{display:block;height:100%;background:linear-gradient(90deg,#1167d8,#13a4c8)}
-  .customer-stage-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
-  .customer-stage-card{display:flex;flex-direction:column;gap:12px;min-width:0;text-decoration:none;color:#102033;border:1px solid #d7e3ec;border-radius:14px;background:#f8fbfd;padding:16px}
+  .customer-stage-grid{display:grid;grid-template-columns:1fr;gap:12px}
+  .customer-stage-card{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:14px;align-items:center;min-width:0;text-decoration:none;color:#102033;border:1px solid #d7e3ec;border-radius:14px;background:#f8fbfd;padding:16px}
   .customer-stage-card.is-current{border-color:#1167d8;background:#eef7ff;box-shadow:0 16px 30px rgba(17,103,216,.12)}
   .customer-stage-card.is-done{border-color:#bfe5d8;background:#f2fbf7}
   .customer-stage-card.is-todo{opacity:.86}
   .stage-number{width:38px;height:38px;border-radius:999px;background:#102744;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:900}
   .is-current .stage-number{background:#1167d8}
   .is-done .stage-number{background:#0f8f6d}
-  .stage-card-title{font-weight:900;font-size:18px;line-height:1.16}
-  .stage-card-subtitle{color:#617083;font-size:14px;line-height:1.35}
-  .stage-mini-status{font-weight:900;color:#0b5f94;font-size:14px}
+  .stage-card-copy{display:grid;gap:4px;min-width:0}
+  .stage-card-title{font-weight:900;font-size:20px;line-height:1.16}
+  .stage-card-subtitle{color:#617083;font-size:15px;line-height:1.35}
+  .stage-mini-status{font-weight:900;color:#0b5f94;font-size:14px;white-space:nowrap}
   .stage-detail-panel{margin-top:18px;display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:16px}
   .stage-detail-main,.stage-next-box{border:1px solid #d7e3ec;background:#f8fbfd;border-radius:14px;padding:18px}
   .stage-detail-main h4,.stage-next-box h4{margin:0 0 12px;font-size:22px;color:#071524}
@@ -120,9 +121,9 @@
   .hub-collapse>summary{cursor:pointer;padding:18px 20px;font-weight:900;font-size:20px;color:#071524;background:#f8fbfd}
   .hub-collapse-body{padding:0 18px 18px}
   .extra-customer-tools{margin:18px 0 24px}
-  @media(max-width:1180px){.customer-stage-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.stage-detail-panel,.stage-action-fields{grid-template-columns:1fr}}
+  @media(max-width:1180px){.stage-detail-panel,.stage-action-fields{grid-template-columns:1fr}}
   @media(max-width:1000px){.workflow-main{grid-template-columns:1fr}.workflow-current{font-size:40px}.workflow-next{font-size:26px}.customer-form-send-fields{grid-template-columns:1fr}}
-  @media(max-width:720px){body.app-page .customer-hero{padding:16px!important}body.app-page .customer-hero p{display:none!important}body.app-page .customer-hero>.row-actions{display:none!important}body.app-page .customer-hero .badge-row{display:none!important}body.app-page .customer-mobile-actions{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important}.stage-overview-head{grid-template-columns:1fr}.stage-overview-head h3{font-size:28px}.customer-stage-overview{padding:16px;margin:14px 0}.customer-stage-grid,.stage-check-list{grid-template-columns:1fr}.customer-stage-card{padding:15px}.stage-detail-main,.stage-next-box,.stage-current-action{padding:15px}.stage-template-actions .btn{width:100%;justify-content:center}}
+  @media(max-width:720px){body.app-page .customer-hero{padding:16px!important}body.app-page .customer-hero p{display:none!important}body.app-page .customer-hero>.row-actions{display:none!important}body.app-page .customer-hero .badge-row{display:none!important}body.app-page .customer-mobile-actions{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important}.stage-overview-head{grid-template-columns:1fr}.stage-overview-head h3{font-size:28px}.customer-stage-overview{padding:16px;margin:14px 0}.stage-check-list{grid-template-columns:1fr}.customer-stage-card{grid-template-columns:auto minmax(0,1fr);padding:15px}.stage-mini-status{grid-column:2;white-space:normal}.stage-detail-main,.stage-next-box,.stage-current-action{padding:15px}.stage-template-actions .btn{width:100%;justify-content:center}}
 </style>
 
 {% macro stage_template_buttons(item) %}
@@ -178,8 +179,10 @@
     {% for stage in customer_hub.stages %}
     <a class="customer-stage-card is-{{ stage.state }}" href="{{ stage.href }}">
       <span class="stage-number">{{ stage.number }}</span>
-      <span class="stage-card-title">{{ stage.title }}</span>
-      <span class="stage-card-subtitle">{{ stage.subtitle }}</span>
+      <span class="stage-card-copy">
+        <span class="stage-card-title">{{ stage.title }}</span>
+        <span class="stage-card-subtitle">{{ stage.subtitle }}</span>
+      </span>
       <span class="stage-mini-status">{{ stage.completed_count }}/{{ stage.total_count }} complete</span>
     </a>
     {% endfor %}
