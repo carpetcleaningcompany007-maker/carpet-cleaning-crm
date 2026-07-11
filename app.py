@@ -5479,6 +5479,31 @@ def yes_no_done(label, done, missing_text="Missing"):
     }
 
 
+def customer_hub_detail_summary(customer, latest_intake=None, latest_job=None):
+    def first_value(*values):
+        for value in values:
+            text = clean_str(value)
+            if text:
+                return text
+        return ""
+
+    name = first_value(customer_name(customer), row_value(latest_intake, "name"))
+    if name == "Customer":
+        name = first_value(row_value(latest_intake, "name"))
+    return [
+        {"label": "Name", "value": name, "missing": "Name missing"},
+        {"label": "Address", "value": first_value(row_value(customer, "address"), row_value(latest_intake, "full_address")), "missing": "Address missing"},
+        {"label": "Postcode", "value": first_value(row_value(customer, "postcode"), row_value(latest_intake, "postcode")), "missing": "Postcode missing"},
+        {"label": "Telephone number", "value": first_value(row_value(customer, "phone"), row_value(latest_intake, "phone")), "missing": "Telephone missing"},
+        {"label": "Email address", "value": first_value(row_value(customer, "email"), row_value(latest_intake, "email")), "missing": "Email missing"},
+        {"label": "What3Words", "value": first_value(row_value(latest_intake, "what3words")), "missing": "What3Words missing"},
+        {"label": "Service requested", "value": first_value(row_value(latest_intake, "what_cleaned"), row_value(latest_intake, "service"), row_value(latest_intake, "rooms_areas"), row_value(latest_job, "service_type"), row_value(latest_job, "title")), "missing": "Service missing"},
+        {"label": "Rooms / areas", "value": first_value(row_value(latest_intake, "rooms_areas"), row_value(latest_intake, "number_rooms")), "missing": "Rooms or areas missing"},
+        {"label": "Access / parking", "value": first_value(row_value(latest_intake, "parking"), row_value(latest_intake, "additional_notes")), "missing": "Access notes missing"},
+        {"label": "Photos", "value": first_value(row_value(latest_intake, "photo_filename"), row_value(latest_intake, "photo_filenames")), "missing": "Photos not supplied"},
+    ]
+
+
 def customer_hub_stage_context(customer, quotes=None, jobs=None, invoices=None, communications=None, feedback=None, reminders=None, latest_intake=None):
     quotes = list(quotes or [])
     jobs = list(jobs or [])
@@ -5514,6 +5539,7 @@ def customer_hub_stage_context(customer, quotes=None, jobs=None, invoices=None, 
     job_price_ready = bool(latest_job and parse_money(row_value(latest_job, "amount"), 0) > 0)
     job_date_ready = bool(latest_job and clean_str(row_value(latest_job, "job_date")))
     job_time_ready = bool(latest_job and clean_str(row_value(latest_job, "job_time")))
+    xero_ready = bool(clean_str(row_value(customer, "xero_contact_id")) or clean_str(row_value(latest_intake, "xero_contact_id")))
     booking_sent = communication_matches(communications, "booking confirmation", "your carpet clean is booked in")
     thank_you_sent = communication_matches(communications, "thank you")
     review_sent = communication_matches(communications, "review request", "google review")
@@ -5531,7 +5557,7 @@ def customer_hub_stage_context(customer, quotes=None, jobs=None, invoices=None, 
             "number": 1,
             "title": "Customer form",
             "subtitle": "Check whether the enquiry details are complete.",
-            "href": "#customer-stage-overview",
+            "href": "#customer-stage-1",
             "action_href": "#stage-current-action",
             "action_label": "Check form",
             "items": [
@@ -5550,30 +5576,31 @@ def customer_hub_stage_context(customer, quotes=None, jobs=None, invoices=None, 
         },
         {
             "number": 2,
-            "title": "Confirm quote & booking",
-            "subtitle": "Enter the agreed price, date and time.",
-            "href": "#stage-current-action",
-            "action_href": "#stage-current-action",
-            "action_label": "Save quote and booking",
+            "title": "Upload contact to Xero",
+            "subtitle": "Create or update the Xero contact once the customer details are complete.",
+            "href": "#customer-stage-2",
+            "action_href": "#customer-stage-2",
+            "action_label": "Upload customer to Xero",
             "items": [
-                yes_no_done("Price added", job_price_ready, "Needs price"),
-                yes_no_done("Date added", job_date_ready, "Needs date"),
-                yes_no_done("Time added", job_time_ready, "Needs time"),
+                yes_no_done("Customer details complete", name_ready and phone_ready and email_ready and address_ready and what3words_ready and service_ready, "Complete Stage 1 first"),
+                yes_no_done("Xero contact uploaded", xero_ready, "Not uploaded"),
             ],
             "sent": [
-                f"Latest job: {clean_str(row_value(latest_job, 'title')) or 'Saved job'}" if latest_job else "No booking saved yet",
+                f"Xero ContactID: {clean_str(row_value(customer, 'xero_contact_id')) or clean_str(row_value(latest_intake, 'xero_contact_id'))}" if xero_ready else "Not uploaded to Xero yet",
             ],
             "template_keys": [],
         },
         {
             "number": 3,
-            "title": "Send booking confirmation",
-            "subtitle": "Send once, then show clearly that it has gone.",
-            "href": "#stage-current-action",
-            "action_href": "#stage-current-action",
-            "action_label": "Send booking confirmation",
+            "title": "Confirm quote and booking",
+            "subtitle": "Make sure price, date and time are saved before sending confirmation.",
+            "href": "#customer-stage-3",
+            "action_href": "#customer-stage-3",
+            "action_label": "Continue workflow",
             "items": [
-                yes_no_done("Ready to confirm", job_ready and job_price_ready and job_date_ready and job_time_ready and address_ready and contact_ready, "Missing job info"),
+                yes_no_done("Price added", job_price_ready, "Needs price"),
+                yes_no_done("Date added", job_date_ready, "Needs date"),
+                yes_no_done("Time added", job_time_ready, "Needs time"),
                 yes_no_done("Booking confirmation sent", booking_sent, "Not sent"),
             ],
             "sent": [
@@ -6309,8 +6336,9 @@ def customer_view(customer_id):
         FROM sms_events WHERE customer_id=?""", (customer_id,), one=True)
     workflow = workflow_context(customer)
     latest_intake = q("SELECT * FROM intake_submissions WHERE customer_id=? ORDER BY id DESC LIMIT 1", (customer_id,), one=True)
-    customer_hub = customer_hub_stage_context(customer, quotes, jobs, invoices, all_recent_contacts, feedback, reminders, latest_intake=latest_intake)
     latest_job = jobs[0] if jobs else None
+    customer_hub = customer_hub_stage_context(customer, quotes, jobs, invoices, all_recent_contacts, feedback, reminders, latest_intake=latest_intake)
+    customer_hub_details = customer_hub_detail_summary(customer, latest_intake=latest_intake, latest_job=latest_job)
     send_form_values = {
         "name": clean_str(request.args.get("form_name")) or customer_name(customer),
         "email": clean_str(request.args.get("form_email")) or clean_str(row_value(customer, "email")),
@@ -6341,7 +6369,7 @@ def customer_view(customer_id):
     for stage in customer_hub["stages"]:
         stage["templates"] = [customer_action_template_map[key] for key in stage.get("template_keys", []) if key in customer_action_template_map]
     saved_message_templates = q("SELECT * FROM communication_templates ORDER BY name COLLATE NOCASE ASC, id DESC")
-    return render_template("customer_view.html", customer=customer, timeline=timeline, quotes=quotes, jobs=jobs, invoices=invoices, feedback=feedback, reminders=reminders, subscription_summary=subscription_summary, is_archived=bool(customer and customer["archived_at"]), last_contacted_at=last_contacted_at, last_contacted_label=contact_badge_text(last_contacted_at), recent_contacts=recent_contacts, contact_summary=contact_summary, recent_sms=recent_sms, sms_summary=sms_summary, sms_thread=sms_thread, workflow=workflow, workflow_stages=WORKFLOW_STAGES, customer_hub=customer_hub, workflow_messages=workflow_messages, send_form_values=send_form_values, latest_intake=latest_intake, customer_form_sending_paused=CUSTOMER_FORM_SENDING_PAUSED, customer_action_templates=customer_action_templates, saved_message_templates=saved_message_templates, app_settings=settings())
+    return render_template("customer_view.html", customer=customer, timeline=timeline, quotes=quotes, jobs=jobs, invoices=invoices, feedback=feedback, reminders=reminders, subscription_summary=subscription_summary, is_archived=bool(customer and customer["archived_at"]), last_contacted_at=last_contacted_at, last_contacted_label=contact_badge_text(last_contacted_at), recent_contacts=recent_contacts, contact_summary=contact_summary, recent_sms=recent_sms, sms_summary=sms_summary, sms_thread=sms_thread, workflow=workflow, workflow_stages=WORKFLOW_STAGES, customer_hub=customer_hub, customer_hub_details=customer_hub_details, workflow_messages=workflow_messages, send_form_values=send_form_values, latest_intake=latest_intake, customer_form_sending_paused=CUSTOMER_FORM_SENDING_PAUSED, customer_action_templates=customer_action_templates, saved_message_templates=saved_message_templates, app_settings=settings())
 
 
 @app.route("/customers/<int:customer_id>/save-booking-details", methods=["POST"])
@@ -10171,7 +10199,20 @@ def intake_request_missing_details(lead_id):
     recipient_name = clean_str(row_get(lead, "name"))
     email_to = clean_str(row_get(lead, "email"))
     sms_to = clean_str(row_get(lead, "phone"))
-    message = send_standalone_contact_form_message(form_link, recipient_name)
+    missing_fields = [clean_str(part) for part in request.form.getlist("missing_fields") if clean_str(part)]
+    if not missing_fields:
+        missing_fields = [clean_str(part) for part in clean_str(request.form.get("missing_fields")).split(",") if clean_str(part)]
+    if missing_fields:
+        missing_text = ", ".join(missing_fields)
+        message = (
+            f"Hi {recipient_name or 'there'},\n\n"
+            "Thank you for completing your enquiry form. We just need a couple more details before we can continue.\n\n"
+            f"Could you please add: {missing_text}.\n\n"
+            f"You can update the form here:\n{form_link}\n\n"
+            "Kind regards,\nPaul\nThe Carpet Cleaning Company"
+        )
+    else:
+        message = send_standalone_contact_form_message(form_link, recipient_name)
     subject = "Please update your customer details - The Carpet Cleaning Company"
     results = []
     if email_to:

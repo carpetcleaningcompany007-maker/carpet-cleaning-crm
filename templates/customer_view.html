@@ -69,11 +69,12 @@
   .stage-pill{display:inline-flex;align-items:center;gap:8px;border:1px solid #b7d5eb;background:#eef8ff;color:#0b5f94;border-radius:999px;padding:8px 12px;font-weight:900;font-size:14px;text-transform:uppercase}
   .stage-progress{height:12px;background:#e3edf5;border-radius:999px;overflow:hidden;margin:18px 0}
   .stage-progress span{display:block;height:100%;background:linear-gradient(90deg,#1167d8,#13a4c8)}
-  .customer-stage-grid{display:grid;grid-template-columns:1fr;gap:12px}
-  .customer-stage-card{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:14px;align-items:center;min-width:0;text-decoration:none;color:#102033;border:1px solid #d7e3ec;border-radius:14px;background:#f8fbfd;padding:16px}
+  .customer-stage-flow{display:grid;gap:18px;margin-top:18px}
+  .customer-stage-card{display:block;min-width:0;color:#102033;border:1px solid #d7e3ec;border-radius:18px;background:#f8fbfd;padding:20px}
   .customer-stage-card.is-current{border-color:#1167d8;background:#eef7ff;box-shadow:0 16px 30px rgba(17,103,216,.12)}
   .customer-stage-card.is-done{border-color:#bfe5d8;background:#f2fbf7}
-  .customer-stage-card.is-todo{opacity:.86}
+  .customer-stage-card.is-todo{opacity:.94}
+  .stage-section-head{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:14px;align-items:start;margin-bottom:16px}
   .stage-number{width:38px;height:38px;border-radius:999px;background:#102744;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:900}
   .is-current .stage-number{background:#1167d8}
   .is-done .stage-number{background:#0f8f6d}
@@ -94,13 +95,19 @@
   .stage-sent-list{margin:12px 0 0;padding:0;list-style:none;display:grid;gap:7px;color:#47657f;font-size:15px}
   .stage-sent-list li{padding-left:16px;position:relative}
   .stage-sent-list li:before{content:"";position:absolute;left:0;top:.62em;width:6px;height:6px;border-radius:999px;background:#1167d8}
-  .stage-current-action{margin-top:18px;border:1px solid #d7e3ec;background:#f8fbfd;border-radius:16px;padding:20px}
+  .stage-current-action{margin-top:16px;border:1px solid #d7e3ec;background:#fff;border-radius:16px;padding:20px}
   .stage-current-action.is-complete{border-color:#bfe5d8;background:#f2fbf7}
   .stage-current-action h4{margin:0 0 10px;font-size:24px;color:#071524}
   .stage-current-action form{margin:0}
   .stage-current-action .btn{font-size:18px;padding:14px 18px}
   .stage-action-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:14px 0}
   .stage-action-fields label{font-weight:900;color:#102033}
+  .stage-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px}
+  .stage-detail-item{border:1px solid #dce8f1;background:#fff;border-radius:12px;padding:12px}
+  .stage-detail-item strong{display:block;font-size:13px;text-transform:uppercase;color:#49657f;margin-bottom:5px}
+  .stage-detail-item span{display:block;font-size:17px;font-weight:900;color:#071524;word-break:break-word}
+  .stage-detail-item.is-missing span{color:#8a1f0c}
+  .stage-helper-note{margin:10px 0 0;color:#47657f;font-size:15px;line-height:1.45}
   .stage-done-banner{display:flex;gap:12px;align-items:flex-start;border:1px solid #bfe5d8;background:#fff;border-radius:14px;padding:15px;color:#0b7058;font-weight:900}
   .stage-done-banner .stage-check-mark{background:#0f8f6d;color:#fff}
   .stage-missing-list{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 16px}
@@ -123,7 +130,7 @@
   .extra-customer-tools{margin:18px 0 24px}
   @media(max-width:1180px){.stage-detail-panel,.stage-action-fields{grid-template-columns:1fr}}
   @media(max-width:1000px){.workflow-main{grid-template-columns:1fr}.workflow-current{font-size:40px}.workflow-next{font-size:26px}.customer-form-send-fields{grid-template-columns:1fr}}
-  @media(max-width:720px){body.app-page .customer-hero{padding:16px!important}body.app-page .customer-hero p{display:none!important}body.app-page .customer-hero>.row-actions{display:none!important}body.app-page .customer-hero .badge-row{display:none!important}body.app-page .customer-mobile-actions{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important}.stage-overview-head{grid-template-columns:1fr}.stage-overview-head h3{font-size:28px}.customer-stage-overview{padding:16px;margin:14px 0}.stage-check-list{grid-template-columns:1fr}.customer-stage-card{grid-template-columns:auto minmax(0,1fr);padding:15px}.stage-mini-status{grid-column:2;white-space:normal}.stage-detail-main,.stage-next-box,.stage-current-action{padding:15px}.stage-template-actions .btn{width:100%;justify-content:center}}
+  @media(max-width:720px){body.app-page .customer-hero{padding:16px!important}body.app-page .customer-hero p{display:none!important}body.app-page .customer-hero>.row-actions{display:none!important}body.app-page .customer-hero .badge-row{display:none!important}body.app-page .customer-mobile-actions{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important}.stage-overview-head,.stage-section-head{grid-template-columns:auto minmax(0,1fr)}.stage-overview-head h3{font-size:28px}.customer-stage-overview{padding:16px;margin:14px 0}.stage-check-list,.stage-detail-grid{grid-template-columns:1fr}.customer-stage-card{padding:15px}.stage-mini-status{grid-column:2;white-space:normal}.stage-detail-main,.stage-next-box,.stage-current-action{padding:15px}.stage-template-actions .btn{width:100%;justify-content:center}}
 </style>
 
 {% macro stage_template_buttons(item) %}
@@ -169,136 +176,144 @@
   <div class="stage-overview-head">
     <div>
       <span class="stage-pill">Customer workflow</span>
-      <h3>{{ customer_hub.summary }}</h3>
-      <p>Work through one stage at a time. The current stage shows what is missing and the next action to take.</p>
+      <h3>Customer Hub workflow</h3>
+      <p>Complete each stage from top to bottom. No jumping around the page, and no extra sections until the basics are right.</p>
     </div>
-    <a class="btn primary" href="#stage-current-action">{{ customer_hub.current.action_label }}</a>
+    <span class="stage-pill">{{ customer_hub.summary }}</span>
   </div>
   <div class="stage-progress"><span style="width:{{ customer_hub.progress }}%"></span></div>
-  <div class="customer-stage-grid">
-    {% for stage in customer_hub.stages %}
-    <a class="customer-stage-card is-{{ stage.state }}" href="{{ stage.href }}">
-      <span class="stage-number">{{ stage.number }}</span>
-      <span class="stage-card-copy">
-        <span class="stage-card-title">{{ stage.title }}</span>
-        <span class="stage-card-subtitle">{{ stage.subtitle }}</span>
-      </span>
-      <span class="stage-mini-status">{{ stage.completed_count }}/{{ stage.total_count }} complete</span>
-    </a>
-    {% endfor %}
-  </div>
-  <div class="stage-detail-panel">
-    <div class="stage-detail-main">
-      <h4>Current stage checklist</h4>
+  <div class="customer-stage-flow">
+    <section class="customer-stage-card is-{{ customer_hub.stages[0].state }}" id="customer-stage-1">
+      <div class="stage-section-head">
+        <span class="stage-number">1</span>
+        <span class="stage-card-copy">
+          <span class="stage-card-title">Stage 1 - Check customer details</span>
+          <span class="stage-card-subtitle">Everything needed to understand the enquiry and prepare the quote.</span>
+        </span>
+        <span class="stage-mini-status">{{ customer_hub.stages[0].completed_count }}/{{ customer_hub.stages[0].total_count }} complete</span>
+      </div>
+      <div class="stage-detail-grid">
+        {% for detail in customer_hub_details %}
+        <div class="stage-detail-item {% if not detail.value %}is-missing{% endif %}">
+          <strong>{{ detail.label }}</strong>
+          <span>{{ detail.value or detail.missing }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      <div class="stage-current-action {% if customer_hub.stages[0].complete %}is-complete{% endif %}">
+        <h4>Is the form complete?</h4>
+        {% if customer_hub.stages[0].complete %}
+          <div class="stage-done-banner"><span class="stage-check-mark">&#10003;</span><span>Customer Details Complete</span></div>
+        {% else %}
+          <p class="muted">Missing information:</p>
+          <div class="stage-missing-list">
+            {% for field in customer_hub.stages[0].missing %}<span>{{ field }}</span>{% endfor %}
+          </div>
+          {% if customer_hub.stages[0].lead_id %}
+            <form method="post" action="{{ url_for('intake_request_missing_details', lead_id=customer_hub.stages[0].lead_id) }}">
+              <input type="hidden" name="return_to_customer" value="1">
+              {% for field in customer_hub.stages[0].missing %}
+              <input type="hidden" name="missing_fields" value="{{ field }}">
+              {% endfor %}
+              <button class="btn primary" type="submit">Request Missing Information</button>
+            </form>
+            <p class="stage-helper-note">This sends a polite update request listing the missing details and includes their pre-filled form link.</p>
+          {% else %}
+            <a class="btn primary" href="#send-customer-form">Send customer form</a>
+            <p class="stage-helper-note">No linked form reply was found yet, so send the customer form from the extra tools below.</p>
+          {% endif %}
+        {% endif %}
+      </div>
+      <div class="stage-current-action">
+        <h4>Quote and booking basics</h4>
+        <p class="muted">Save these early if you already know them. This does not send anything to the customer.</p>
+        <form method="post" action="{{ url_for('customer_save_booking_details', customer_id=customer.id) }}">
+          <input type="hidden" name="name" value="{{ send_form_values.name or (customer.first_name ~ ' ' ~ customer.last_name).strip() }}">
+          <input type="hidden" name="email" value="{{ send_form_values.email or customer.email or '' }}">
+          <input type="hidden" name="phone" value="{{ send_form_values.phone or customer.phone or '' }}">
+          <div class="stage-action-fields">
+            <label>Agreed price
+              <input type="number" name="agreed_quote_price" min="0" step="0.01" placeholder="Example: 120.00" value="{{ send_form_values.agreed_quote_price or '' }}">
+            </label>
+            <label>Booking date
+              <input type="date" name="preferred_date" value="{{ send_form_values.preferred_date or '' }}">
+            </label>
+            <label>Booking time
+              <input type="time" name="preferred_time" value="{{ send_form_values.preferred_time or '09:30' }}">
+            </label>
+          </div>
+          <label>Booking note
+            <input name="preferred_days_times" placeholder="Notes for this booking" value="{{ send_form_values.preferred_days_times or '' }}">
+          </label>
+          <div class="row-actions" style="margin-top:14px;">
+            <button class="btn primary" type="submit">Save price, date and time</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <section class="customer-stage-card is-{{ customer_hub.stages[1].state }}" id="customer-stage-2">
+      <div class="stage-section-head">
+        <span class="stage-number">2</span>
+        <span class="stage-card-copy">
+          <span class="stage-card-title">Stage 2 - Upload contact to Xero</span>
+          <span class="stage-card-subtitle">One button once Stage 1 is complete.</span>
+        </span>
+        <span class="stage-mini-status">{{ customer_hub.stages[1].completed_count }}/{{ customer_hub.stages[1].total_count }} complete</span>
+      </div>
+      {% if customer.xero_contact_id %}
+        <div class="stage-done-banner"><span class="stage-check-mark">&#10003;</span><span>Uploaded to Xero</span></div>
+        <p class="stage-helper-note">Xero ContactID: {{ customer.xero_contact_id }}</p>
+        <p><a class="btn secondary" href="{{ xero_contact_web_url(customer.xero_contact_id) }}" target="_blank" rel="noopener">Open in Xero</a></p>
+      {% elif not customer_hub.stages[0].complete %}
+        <p class="muted">Complete Stage 1 before uploading this customer to Xero.</p>
+      {% else %}
+        <form method="post" action="{{ url_for('xero_sync_contact', customer_id=customer.id) }}">
+          <input type="hidden" name="next_url" value="{{ url_for('customer_view', customer_id=customer.id) }}#customer-stage-2">
+          <button class="btn primary" type="submit">Upload customer to Xero</button>
+        </form>
+      {% endif %}
+      {% if customer.xero_contact_error %}
+        <div class="notice danger-notice">{{ friendly_xero_error(customer.xero_contact_error) }}</div>
+      {% endif %}
+    </section>
+
+    <section class="customer-stage-card is-{{ customer_hub.stages[2].state }}" id="customer-stage-3">
+      <div class="stage-section-head">
+        <span class="stage-number">3</span>
+        <span class="stage-card-copy">
+          <span class="stage-card-title">Stage 3 - Continue the workflow</span>
+          <span class="stage-card-subtitle">Confirm the booking, then use reminders, job completion, invoices and reviews.</span>
+        </span>
+        <span class="stage-mini-status">{{ customer_hub.stages[2].completed_count }}/{{ customer_hub.stages[2].total_count }} complete</span>
+      </div>
       <div class="stage-check-list">
-        {% for item in customer_hub.current["items"] %}
+        {% for item in customer_hub.stages[2]["items"] %}
         <div class="stage-check {% if item.done %}is-done{% endif %}">
           <span class="stage-check-mark">{% if item.done %}&#10003;{% else %}!{% endif %}</span>
           <span><strong>{{ item.label }}</strong><span>{{ item.text }}</span></span>
         </div>
         {% endfor %}
       </div>
-    </div>
-    <div class="stage-next-box">
-      <h4>What to do next</h4>
-      <p class="muted">Next action: <strong>{{ customer_hub.next_action }}</strong></p>
-      <a class="btn primary" href="#stage-current-action">{{ customer_hub.current.action_label }}</a>
-      <ul class="stage-sent-list">
-        {% for line in customer_hub.current.sent %}
-        <li>{{ line }}</li>
-        {% endfor %}
-      </ul>
-    </div>
-  </div>
-  <section class="stage-current-action {% if customer_hub.current.complete %}is-complete{% endif %}" id="stage-current-action">
-    {% if customer_hub.current.number == 1 %}
-      <h4>Is the form complete?</h4>
-      {% if customer_hub.current.complete %}
-        <div class="stage-done-banner"><span class="stage-check-mark">&#10003;</span><span>Stage 1 complete. The customer form has the required details.</span></div>
-      {% else %}
-        <p class="muted">These details still need checking before moving on:</p>
-        <div class="stage-missing-list">
-          {% for field in customer_hub.current.missing %}<span>{{ field }}</span>{% endfor %}
-        </div>
-        {% if customer_hub.current.lead_id %}
-          <form method="post" action="{{ url_for('intake_request_missing_details', lead_id=customer_hub.current.lead_id) }}">
-            <input type="hidden" name="return_to_customer" value="1">
-            <button class="btn primary" type="submit">Request missing details</button>
-          </form>
-          <p class="muted">This sends the customer their update form using the details already saved, so they only need to fill in what is missing.</p>
-        {% else %}
-          <a class="btn primary" href="#send-customer-form">Send customer form</a>
-          <p class="muted">No linked form reply was found yet, so send the customer form from the extra tools below.</p>
-        {% endif %}
-      {% endif %}
-    {% elif customer_hub.current.number == 2 %}
-      <h4>Confirm quote and booking</h4>
-      <p class="muted">Enter the agreed price, booking date and booking time. Saving here does not send anything to the customer.</p>
-      <form method="post" action="{{ url_for('customer_save_booking_details', customer_id=customer.id) }}">
-        <input type="hidden" name="name" value="{{ send_form_values.name or (customer.first_name ~ ' ' ~ customer.last_name).strip() }}">
-        <input type="hidden" name="email" value="{{ send_form_values.email or customer.email or '' }}">
-        <input type="hidden" name="phone" value="{{ send_form_values.phone or customer.phone or '' }}">
-        <div class="stage-action-fields">
-          <label>Agreed price
-            <input type="number" name="agreed_quote_price" min="0" step="0.01" placeholder="Example: 120.00" value="{{ send_form_values.agreed_quote_price or '' }}">
-          </label>
-          <label>Booking date
-            <input type="date" name="preferred_date" value="{{ send_form_values.preferred_date or '' }}">
-          </label>
-          <label>Booking time
-            <input type="time" name="preferred_time" value="{{ send_form_values.preferred_time or '09:30' }}">
-          </label>
-        </div>
-        <label>Booking note
-          <input name="preferred_days_times" placeholder="Notes for this booking" value="{{ send_form_values.preferred_days_times or '' }}">
-        </label>
-        <div class="row-actions" style="margin-top:14px;">
-          <button class="btn primary" type="submit">Save quote and booking</button>
-        </div>
-      </form>
-    {% elif customer_hub.current.number == 3 %}
-      <h4>Send booking confirmation</h4>
-      {% if customer_hub.current.sent_done %}
-        <div class="stage-done-banner"><span class="stage-check-mark">&#10003;</span><span>Booking confirmation has already been sent.</span></div>
-        <details class="saved-template-collapse">
-          <summary>Deliberately resend confirmation</summary>
-          {% for item in customer_hub.current.templates %}
-            {{ stage_template_buttons(item) }}
-          {% endfor %}
-        </details>
-      {% else %}
-        {% for item in customer_hub.current.templates %}
-          {{ stage_template_buttons(item) }}
-        {% endfor %}
-      {% endif %}
-    {% else %}
-      <h4>{{ customer_hub.current.title }}</h4>
-      {% if customer_hub.current.sent_done %}
-        <div class="stage-done-banner"><span class="stage-check-mark">&#10003;</span><span>The main customer message for this stage has already been sent.</span></div>
-        {% if customer_hub.current.templates %}
+      <div class="stage-current-action">
+        {% if not customer.xero_contact_id %}
+          <p class="muted">Upload the customer to Xero in Stage 2 before sending confirmations.</p>
+        {% elif customer_hub.stages[2].sent_done %}
+          <div class="stage-done-banner"><span class="stage-check-mark">&#10003;</span><span>Booking confirmation has already been sent.</span></div>
           <details class="saved-template-collapse">
-            <summary>Deliberately resend stage message</summary>
-            <div class="stage-template-list">
-              {% for item in customer_hub.current.templates %}
-                {{ stage_template_buttons(item) }}
-              {% endfor %}
-            </div>
+            <summary>Deliberately resend confirmation</summary>
+            {% for item in customer_hub.stages[2].templates %}
+              {{ stage_template_buttons(item) }}
+            {% endfor %}
           </details>
-        {% endif %}
-      {% elif customer_hub.current.complete %}
-        <div class="stage-done-banner"><span class="stage-check-mark">&#10003;</span><span>This stage is complete.</span></div>
-      {% endif %}
-      {% if customer_hub.current.templates and not customer_hub.current.sent_done %}
-        <div class="stage-template-list">
-          {% for item in customer_hub.current.templates %}
+        {% else %}
+          {% for item in customer_hub.stages[2].templates %}
             {{ stage_template_buttons(item) }}
           {% endfor %}
-        </div>
-      {% elif not customer_hub.current.sent_done %}
-        <a class="btn primary" href="{{ customer_hub.current.action_href }}">{{ customer_hub.current.action_label }}</a>
-      {% endif %}
-    {% endif %}
-  </section>
+        {% endif %}
+      </div>
+    </section>
+  </div>
 </section>
 
 <details class="hub-collapse extra-customer-tools" id="customer-message-actions">
