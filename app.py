@@ -337,6 +337,37 @@ def is_valid_uk_phone(value):
     return national.startswith(("01", "02", "03", "07", "08"))
 
 
+def website_enquiry_spam_reason(data):
+    values = []
+    for key in (
+        "name", "full_name", "customer_name", "email", "email_address", "address",
+        "postcode", "service", "service_required", "cleaning_required", "message",
+        "notes", "comments", "additional_notes", "job_notes",
+    ):
+        value = request_value(data, key)
+        if value:
+            values.append(value)
+    text = "\n".join(values)
+    lowered = text.lower()
+    if re.search(r"[\u0400-\u04ff]", text):
+        return "Russian/Cyrillic spam text detected."
+    links = re.findall(r"https?://|www\.", lowered)
+    if links:
+        allowed = ("thecarpetcleaningcrew.co.uk", "carpet-cleaning-crm.onrender.com", "w3w.co")
+        found_urls = re.findall(r"https?://[^\s<>()]+|www\.[^\s<>()]+", lowered)
+        if any(not any(domain in url for domain in allowed) for url in found_urls):
+            return "Unrelated website link detected."
+        if len(links) > 2:
+            return "Too many links in enquiry."
+    spam_terms = (
+        "krossov", "dolce", "gabbana", "limitirovann", "kollaborats",
+        "nanmed.ru", "dvery35.ru",
+    )
+    if any(term in lowered for term in spam_terms):
+        return "Known spam wording detected."
+    return ""
+
+
 def whatsapp_phone(value):
     return normalize_phone(value).replace("+", "")
 
@@ -9753,6 +9784,9 @@ def website_form_submit():
     data = request.get_json(silent=True) if request.is_json else request.form
     data = data or {}
     try:
+        spam_reason = website_enquiry_spam_reason(data)
+        if spam_reason:
+            raise ValueError(f"This enquiry could not be accepted. {spam_reason}")
         photo_filename = save_uploads("photos") or save_upload("photo")
         lead_id, customer_id = create_intake_from_website_payload(
             data,
