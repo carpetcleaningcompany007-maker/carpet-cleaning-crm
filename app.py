@@ -3390,7 +3390,7 @@ def is_html_email_body(body):
     return value.startswith("<!doctype") or value.startswith("<html") or "<body" in value or "<table" in value
 
 
-def send_rendered_customer_message(customer, channel, subject, body, test_mode=False, html_body=""):
+def send_rendered_customer_message(customer, channel, subject, body, test_mode=False, html_body="", owner_copy=True):
     s = settings()
     channel = clean_str(channel).lower()
     customer_id = row_value(customer, "id")
@@ -3401,7 +3401,7 @@ def send_rendered_customer_message(customer, channel, subject, body, test_mode=F
         email_html = html_body or ("<div style='font-family:Arial,sans-serif;line-height:1.55;color:#102033;white-space:pre-wrap'>" + html_lib.escape(body or "") + "</div>")
         text_body = strip_html_for_sms(body) if is_html_email_body(body) else body
         ok, msg = send_env_email(recipient, ("TEST - " if test_mode else "") + (subject or "Customer message"), text_body, email_html, customer=customer)
-        if ok and not test_mode:
+        if ok and not test_mode and owner_copy:
             send_owner_customer_message_copy("email", recipient, subject or "Customer message", text_body, html_body=email_html, customer=customer, context="Customer email")
         return ok, msg, recipient
     if channel == "sms":
@@ -3411,7 +3411,7 @@ def send_rendered_customer_message(customer, channel, subject, body, test_mode=F
         if not test_mode and row_value(customer, "sms_opt_out"):
             return False, "SMS is switched off for this customer.", recipient
         ok, msg = send_clicksend_env_sms(recipient, body, customer=customer, category="Customer Message")
-        if ok and not test_mode:
+        if ok and not test_mode and owner_copy:
             send_owner_customer_message_copy("sms", recipient, subject or "Customer SMS", body, customer=customer, context="Customer SMS")
         return ok, msg, recipient
     return False, "Choose Email or SMS.", ""
@@ -3598,7 +3598,16 @@ def automation_send_for_rule(rule, job, dry_run=False):
         if dry_run:
             ok, msg, recipient = True, "Dry run: would send.", row_value(customer, "email") if channel == "email" else row_value(customer, "phone")
         else:
-            ok, msg, recipient = send_rendered_customer_message(customer, channel, subject, body, test_mode=False, html_body=html_body)
+            owner_copy_enabled = int(row_value(rule, "owner_email_copy", 0) or 0) == 1
+            ok, msg, recipient = send_rendered_customer_message(
+                customer,
+                channel,
+                subject,
+                body,
+                test_mode=False,
+                html_body=html_body,
+                owner_copy=owner_copy_enabled,
+            )
         status = "Sent" if ok else "Failed"
         if not dry_run:
             automation_log(row_value(rule, "rule_key"), customer_id, job_id, channel, recipient, subject, body, status, msg, due_at)

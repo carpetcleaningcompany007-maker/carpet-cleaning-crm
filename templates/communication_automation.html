@@ -15,6 +15,7 @@
   </div>
   <div class="notice">
     Automations only send when a rule is enabled, the message is due, and that exact rule/job/channel has not already been sent. Older overdue items are ignored by the safety window to avoid accidental bulk sends.
+    <br>The CRM has a built-in background runner that checks due messages about once a minute while Render is awake. For extra reliability, a Render Cron Job can also call <code>/automation/run-due</code>.
     {% if automation_secret_set %}
       <br>Automation secret is set for cron use.
     {% else %}
@@ -39,7 +40,7 @@
         <div class="customer-form-send-options">
           <label><input type="checkbox" name="{{ rule.rule_key }}_send_email" value="1" {% if rule.send_email|int == 1 %}checked{% endif %}> Auto email</label>
           <label><input type="checkbox" name="{{ rule.rule_key }}_send_sms" value="1" {% if rule.send_sms|int == 1 %}checked{% endif %}> Auto text</label>
-          <label><input type="checkbox" name="{{ rule.rule_key }}_owner_email_copy" value="1" {% if rule.owner_email_copy|int == 1 %}checked{% endif %}> Email copy to me</label>
+          <label><input type="checkbox" name="{{ rule.rule_key }}_owner_email_copy" value="1" {% if rule.owner_email_copy|int == 1 %}checked{% endif %}> Send me a copy</label>
         </div>
         <div class="cols">
           <label>Timing
