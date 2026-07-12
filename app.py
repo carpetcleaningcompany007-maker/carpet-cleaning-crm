@@ -5648,14 +5648,12 @@ def customer_hub_stage_context(customer, quotes=None, jobs=None, invoices=None, 
         },
         {
             "number": 5,
-            "title": "Payment and review",
-            "subtitle": "Close the loop with invoice, payment and review request.",
+            "title": "Review request",
+            "subtitle": "Ask for a Google review once the customer is happy.",
             "href": "#stage-current-action",
             "action_href": "#customer-finance",
             "action_label": "Check finance",
             "items": [
-                yes_no_done("Invoice created", invoice_ready, "No invoice"),
-                yes_no_done("Payment received", payment_ready, "Not paid"),
                 yes_no_done("Review request sent", review_sent, "Not sent"),
             ],
             "sent": [
