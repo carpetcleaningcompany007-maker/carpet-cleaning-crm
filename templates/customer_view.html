@@ -128,6 +128,10 @@
   .stage-template-card .template-preview{margin-top:8px}
   .stage-template-card .template-preview summary{font-size:13px;padding:7px 9px}
   .stage-template-card .template-preview-body pre{font-size:13px;white-space:pre-wrap}
+  .template-edit-form{display:grid;gap:9px;margin-top:8px}
+  .template-edit-form label{display:grid;gap:5px;font-weight:900;color:#102033;font-size:13px}
+  .template-edit-form input,.template-edit-form textarea{width:100%;border:1px solid #cbdfea;border-radius:9px;padding:9px;font:inherit;font-size:14px;background:#fff;color:#102033}
+  .template-edit-form textarea{min-height:110px;resize:vertical;line-height:1.4}
   .stage-no-template{margin:0;color:#617083;font-size:14px}
   .hub-collapse{margin:18px 0;border:1px solid #d7e3ec;border-radius:16px;background:#fff;overflow:hidden}
   .hub-collapse>summary{cursor:pointer;padding:18px 20px;font-weight:900;font-size:20px;color:#071524;background:#f8fbfd}
@@ -147,32 +151,41 @@
     {% endif %}
     <div class="stage-template-actions">
       <a class="btn secondary btn-small" href="{{ url_for('customer_email_template_preview', customer_id=customer.id, template_key=item.key) }}" target="_blank">Preview Email</a>
-      <form method="post" action="{{ url_for('customer_send_message_template', customer_id=customer.id) }}">
-        <input type="hidden" name="template_key" value="{{ item.key }}">
-        <input type="hidden" name="channel" value="email">
-        <input type="hidden" name="test_mode" value="1">
-        <button class="btn secondary btn-small" type="submit">Test Email</button>
-      </form>
-      <form method="post" action="{{ url_for('customer_send_message_template', customer_id=customer.id) }}">
-        <input type="hidden" name="template_key" value="{{ item.key }}">
-        <input type="hidden" name="channel" value="email">
-        <button class="btn primary btn-small" type="submit" {% if not customer.email %}disabled{% endif %}>Send Email</button>
-      </form>
-      <form method="post" action="{{ url_for('customer_send_message_template', customer_id=customer.id) }}">
-        <input type="hidden" name="template_key" value="{{ item.key }}">
-        <input type="hidden" name="channel" value="sms">
-        <input type="hidden" name="test_mode" value="1">
-        <button class="btn secondary btn-small" type="submit">Test SMS</button>
-      </form>
-      <form method="post" action="{{ url_for('customer_send_message_template', customer_id=customer.id) }}">
-        <input type="hidden" name="template_key" value="{{ item.key }}">
-        <input type="hidden" name="channel" value="sms">
-        <button class="btn primary btn-small" type="submit" {% if not customer.phone or customer.sms_opt_out %}disabled{% endif %}>Send SMS</button>
-      </form>
     </div>
     <details class="template-preview">
-      <summary>View SMS wording</summary>
-      <div class="template-preview-body"><pre>{{ item.sms_body }}</pre></div>
+      <summary>View/edit email wording</summary>
+      <form method="post" action="{{ url_for('customer_send_message_template', customer_id=customer.id) }}" class="template-edit-form">
+        <input type="hidden" name="template_key" value="{{ item.key }}">
+        <input type="hidden" name="channel" value="email">
+        {% if item.email_saved %}<p class="muted">Custom email wording is saved for this customer.</p>{% endif %}
+        <label>Email subject
+          <input name="custom_subject" value="{{ item.email_subject }}">
+        </label>
+        <label>Email wording for this customer only
+          <textarea name="custom_body">{{ item.email_body }}</textarea>
+        </label>
+        <div class="stage-template-actions">
+          <button class="btn secondary btn-small" type="submit" name="save_only" value="1">Save Wording</button>
+          <button class="btn secondary btn-small" type="submit" name="test_mode" value="1">Test Email</button>
+          <button class="btn primary btn-small" type="submit" {% if not customer.email %}disabled{% endif %}>Send Email</button>
+        </div>
+      </form>
+    </details>
+    <details class="template-preview">
+      <summary>View/edit SMS wording</summary>
+      <form method="post" action="{{ url_for('customer_send_message_template', customer_id=customer.id) }}" class="template-edit-form">
+        <input type="hidden" name="template_key" value="{{ item.key }}">
+        <input type="hidden" name="channel" value="sms">
+        {% if item.sms_saved %}<p class="muted">Custom SMS wording is saved for this customer.</p>{% endif %}
+        <label>SMS / text wording for this customer only
+          <textarea name="custom_body">{{ item.sms_body }}</textarea>
+        </label>
+        <div class="stage-template-actions">
+          <button class="btn secondary btn-small" type="submit" name="save_only" value="1">Save Wording</button>
+          <button class="btn secondary btn-small" type="submit" name="test_mode" value="1">Test SMS</button>
+          <button class="btn primary btn-small" type="submit" {% if not customer.phone or customer.sms_opt_out %}disabled{% endif %}>Send SMS</button>
+        </div>
+      </form>
     </details>
   </div>
 {% endmacro %}

@@ -3243,18 +3243,54 @@ def customer_message_replacements(customer, job=None):
 
 def customer_action_template_cards(customer_id):
     job = latest_customer_job(customer_id)
+    customer = q("SELECT * FROM customers WHERE id=?", (customer_id,), one=True)
+    replacements = customer_message_replacements(customer, job) if customer else {}
     cards = []
     for item in CUSTOMER_ACTION_TEMPLATES:
         email_template = message_template(item["key"])
         sms_template = message_template(item["sms_key"])
+        email_override = customer_template_override(customer_id, item["key"], "email")
+        sms_override = customer_template_override(customer_id, item["sms_key"], "sms")
+        email_subject = (email_override["subject"] if email_override else email_template.get("subject")) or item["label"]
+        email_body = (email_override["body"] if email_override else email_template.get("body")) or ""
+        sms_body = (sms_override["body"] if sms_override else sms_template.get("body") or email_template.get("body")) or ""
         cards.append({
             **item,
-            "email_subject": email_template.get("subject") or item["label"],
-            "email_body": email_template.get("body") or "",
-            "sms_body": sms_template.get("body") or email_template.get("body") or "",
+            "email_subject": render_simple_template(email_subject, replacements),
+            "email_body": render_simple_template(email_body, replacements),
+            "sms_body": render_simple_template(sms_body, replacements),
+            "email_saved": bool(email_override),
+            "sms_saved": bool(sms_override),
             "has_job": bool(job),
         })
     return cards
+
+
+def customer_template_override(customer_id, template_key, channel):
+    return q(
+        """SELECT * FROM customer_template_overrides
+           WHERE customer_id=? AND template_key=? AND channel=?""",
+        (customer_id, template_key, channel),
+        one=True,
+    )
+
+
+def save_customer_template_override(customer_id, template_key, channel, subject, body):
+    existing = customer_template_override(customer_id, template_key, channel)
+    if existing:
+        run(
+            """UPDATE customer_template_overrides
+                  SET subject=?, body=?, updated_at=datetime('now')
+                WHERE id=?""",
+            (subject, body, existing["id"]),
+        )
+        return existing["id"]
+    return run(
+        """INSERT INTO customer_template_overrides
+           (customer_id, template_key, channel, subject, body, updated_at)
+           VALUES (?,?,?,?,?,datetime('now'))""",
+        (customer_id, template_key, channel, subject, body),
+    )
 
 
 def job_action_template_cards(job):
@@ -4806,6 +4842,16 @@ def init_db():
         subject TEXT,
         body TEXT,
         updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS customer_template_overrides (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        customer_id INTEGER,
+        template_key TEXT,
+        channel TEXT,
+        subject TEXT,
+        body TEXT,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(customer_id, template_key, channel)
     );
     CREATE TABLE IF NOT EXISTS communication_automation_settings (
         rule_key TEXT PRIMARY KEY,
@@ -6574,6 +6620,7 @@ def customer_send_message_template(customer_id):
 
     channel = clean_str(request.form.get("channel") or "email").lower()
     test_mode = request.form.get("test_mode") == "1"
+    save_only = request.form.get("save_only") == "1"
     template_key = clean_str(request.form.get("template_key"))
     saved_template_id = int(request.form.get("saved_template_id") or 0)
     latest_job = latest_customer_job(customer_id)
@@ -6594,6 +6641,30 @@ def customer_send_message_template(customer_id):
         template = message_template(template_key)
         subject_raw = template.get("subject") or template.get("name") or "Customer message"
         body_raw = template.get("body") or ""
+        saved_override = customer_template_override(customer_id, template_key, channel)
+        if saved_override:
+            subject_raw = saved_override["subject"] or subject_raw
+            body_raw = saved_override["body"] or body_raw
+
+    custom_subject = clean_str(request.form.get("custom_subject"))
+    custom_body = request.form.get("custom_body")
+    if custom_subject:
+        subject_raw = custom_subject
+    if custom_body is not None and clean_str(custom_body):
+        body_raw = custom_body
+
+    if save_only:
+        if saved_template_id:
+            flash("Saved customer wording is available for the staged CRM templates.")
+            return redirect(url_for("customer_view", customer_id=customer_id) + "#customer-stage-overview")
+        if not clean_str(body_raw):
+            flash("Add some wording before saving this customer message.")
+            return redirect(url_for("customer_view", customer_id=customer_id) + "#customer-stage-overview")
+        save_customer_template_override(customer_id, template_key, channel, subject_raw, body_raw)
+        run("INSERT INTO customer_timeline(customer_id, note_text, created_at) VALUES (?,?,datetime('now'))",
+            (customer_id, f"Saved custom {channel.upper()} wording for this customer."))
+        flash("Saved wording for this customer only.")
+        return redirect(url_for("customer_view", customer_id=customer_id) + "#customer-stage-overview")
 
     subject = render_simple_template(subject_raw, replacements)
     body = render_simple_template(body_raw, replacements)
@@ -6628,7 +6699,9 @@ def customer_email_template_preview(customer_id, template_key):
         return redirect(url_for("customer_view", customer_id=customer_id) + "#customer-stage-overview")
     latest_job = latest_customer_job(customer_id)
     template = message_template(template_key)
-    body = render_simple_template(template.get("body") or "", customer_message_replacements(customer, latest_job))
+    override = customer_template_override(customer_id, template_key, "email")
+    body_raw = (override["body"] if override else template.get("body")) or ""
+    body = render_simple_template(body_raw, customer_message_replacements(customer, latest_job))
     html_body = visual_customer_email_html(template_key, customer, latest_job, body)
     if not html_body:
         html_body = "<div style='font-family:Arial,sans-serif;line-height:1.55;color:#102033;white-space:pre-wrap'>" + html_lib.escape(body or "") + "</div>"
