@@ -5549,6 +5549,7 @@ def customer_hub_stage_context(customer, quotes=None, jobs=None, invoices=None, 
     booking_sent = communication_matches(communications, "booking confirmation", "your carpet clean is booked in")
     thank_you_sent = communication_matches(communications, "thank you")
     review_sent = communication_matches(communications, "review request", "google review")
+    maintenance_sent = communication_matches(communications, "maintenance reminder", "rebook", "book in again", "while since your last clean")
     job_status = clean_str(row_value(latest_job, "status")).lower() if latest_job else ""
     completed = job_status in {"completed", "invoiced", "paid"}
     invoice_ready = bool(latest_invoice)
@@ -5577,7 +5578,7 @@ def customer_hub_stage_context(customer, quotes=None, jobs=None, invoices=None, 
             "sent": [
                 "Form reply found" if latest_intake else "No form reply linked yet",
             ],
-            "template_keys": [],
+            "template_keys": ["unable_to_reach_email"],
             "lead_id": row_value(latest_intake, "id"),
         },
         {
@@ -5594,7 +5595,7 @@ def customer_hub_stage_context(customer, quotes=None, jobs=None, invoices=None, 
             "sent": [
                 f"Xero ContactID: {clean_str(row_value(customer, 'xero_contact_id')) or clean_str(row_value(latest_intake, 'xero_contact_id'))}" if xero_ready else "Not uploaded to Xero yet",
             ],
-            "template_keys": [],
+            "template_keys": ["carpet_cleaning_options_guide_email"],
         },
         {
             "number": 3,
@@ -5612,7 +5613,7 @@ def customer_hub_stage_context(customer, quotes=None, jobs=None, invoices=None, 
             "sent": [
                 "Booking confirmation sent" if booking_sent else "Booking confirmation not sent",
             ],
-            "template_keys": ["booking_confirmation_email"],
+            "template_keys": ["booking_confirmation_email", "today_run_reminder_email", "today_run_coming_email"],
             "sent_key": "booking_confirmation",
             "sent_done": booking_sent,
         },
@@ -5654,6 +5655,25 @@ def customer_hub_stage_context(customer, quotes=None, jobs=None, invoices=None, 
             "template_keys": ["payment_received_email", "review_request_message"],
             "sent_key": "review",
             "sent_done": review_sent,
+        },
+        {
+            "number": 6,
+            "title": "Future follow-up",
+            "subtitle": "Keep track of rebooking and maintenance reminders.",
+            "href": "#customer-stage-6",
+            "action_href": "#customer-stage-6",
+            "action_label": "Check follow-up",
+            "items": [
+                yes_no_done("Customer has booking history", job_ready, "No job history yet"),
+                yes_no_done("Review request sent", review_sent, "Send review first"),
+                yes_no_done("Maintenance reminder sent", maintenance_sent, "No rebooking reminder sent"),
+            ],
+            "sent": [
+                "Maintenance reminder sent" if maintenance_sent else "Maintenance reminder not sent",
+            ],
+            "template_keys": ["maintenance_reminder_email"],
+            "sent_key": "maintenance",
+            "sent_done": maintenance_sent,
         },
     ]
     current_index = 0

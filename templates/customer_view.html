@@ -119,12 +119,15 @@
   .stage-action-head strong{display:block;font-size:18px;color:#071524}
   .stage-action-head span{display:block;font-size:14px;color:#617083;margin-top:3px}
   .stage-template-list{display:grid;gap:10px}
-  .stage-template-card{border:1px solid #dce8f1;background:#fff;border-radius:12px;padding:12px}
+  .stage-template-card{border:1px solid #dce8f1;background:#fff;border-radius:12px;padding:10px;margin-top:10px}
   .stage-template-card strong{display:block;font-size:16px;color:#102033}
-  .stage-template-card p{margin:5px 0 10px;color:#617083;font-size:14px;line-height:1.35}
-  .stage-template-actions{display:flex;flex-wrap:wrap;gap:8px}
+  .stage-template-card p{margin:4px 0 8px;color:#617083;font-size:13px;line-height:1.3}
+  .stage-template-actions{display:flex;flex-wrap:wrap;gap:6px}
   .stage-template-actions form{margin:0}
-  .stage-template-actions .btn{padding:9px 11px;font-size:14px}
+  .stage-template-actions .btn{padding:8px 10px;font-size:13px;border-radius:9px;min-height:38px}
+  .stage-template-card .template-preview{margin-top:8px}
+  .stage-template-card .template-preview summary{font-size:13px;padding:7px 9px}
+  .stage-template-card .template-preview-body pre{font-size:13px;white-space:pre-wrap}
   .stage-no-template{margin:0;color:#617083;font-size:14px}
   .hub-collapse{margin:18px 0;border:1px solid #d7e3ec;border-radius:16px;background:#fff;overflow:hidden}
   .hub-collapse>summary{cursor:pointer;padding:18px 20px;font-weight:900;font-size:20px;color:#071524;background:#f8fbfd}
@@ -227,6 +230,19 @@
         {% endif %}
       </div>
       <div class="stage-current-action">
+        <h4>Stage 1 actions</h4>
+        <p class="muted">Use these if the customer has not completed the form, needs to update missing details, or you have tried to contact them.</p>
+        <div class="stage-action-row">
+          <a class="btn secondary" href="#send-customer-form">Send customer form</a>
+          {% if workflow_messages.booking_form_url %}
+            <a class="btn secondary" href="{{ workflow_messages.booking_form_url }}" target="_blank" rel="noopener">Preview form link</a>
+          {% endif %}
+        </div>
+        {% for item in customer_hub.stages[0].templates %}
+          {{ stage_template_buttons(item) }}
+        {% endfor %}
+      </div>
+      <div class="stage-current-action">
         <h4>Quote and booking basics</h4>
         <p class="muted">Save these early if you already know them. This does not send anything to the customer.</p>
         <form method="post" action="{{ url_for('customer_save_booking_details', customer_id=customer.id) }}">
@@ -284,14 +300,23 @@
       {% if customer.xero_contact_error %}
         <div class="notice danger-notice">{{ friendly_xero_error(customer.xero_contact_error) }}</div>
       {% endif %}
+      {% if customer_hub.stages[1].templates %}
+      <div class="stage-current-action">
+        <h4>Quote help</h4>
+        <p class="muted">Send the package guide if the customer needs help choosing the right clean.</p>
+        {% for item in customer_hub.stages[1].templates %}
+          {{ stage_template_buttons(item) }}
+        {% endfor %}
+      </div>
+      {% endif %}
     </section>
 
     <section class="customer-stage-card is-{{ customer_hub.stages[2].state }}" id="customer-stage-3">
       <div class="stage-section-head">
         <span class="stage-number">3</span>
         <span class="stage-card-copy">
-          <span class="stage-card-title">Stage 3 - Continue the workflow</span>
-          <span class="stage-card-subtitle">Confirm the booking, then use reminders, job completion, invoices and reviews.</span>
+          <span class="stage-card-title">Stage 3 - Send booking confirmation</span>
+          <span class="stage-card-subtitle">Confirm the booking message once price, date and time are ready.</span>
         </span>
         <span class="stage-mini-status">{{ customer_hub.stages[2].completed_count }}/{{ customer_hub.stages[2].total_count }} complete</span>
       </div>
@@ -308,12 +333,10 @@
           <p class="muted">Upload the customer to Xero in Stage 2 before sending confirmations.</p>
         {% elif customer_hub.stages[2].sent_done %}
           <div class="stage-done-banner"><span class="stage-check-mark">&#10003;</span><span>Booking confirmation has already been sent.</span></div>
-          <details class="saved-template-collapse">
-            <summary>Deliberately resend confirmation</summary>
-            {% for item in customer_hub.stages[2].templates %}
-              {{ stage_template_buttons(item) }}
-            {% endfor %}
-          </details>
+          <p class="stage-helper-note">Preview, test, or deliberately resend the booking confirmation below if you need to.</p>
+          {% for item in customer_hub.stages[2].templates %}
+            {{ stage_template_buttons(item) }}
+          {% endfor %}
         {% else %}
           {% for item in customer_hub.stages[2].templates %}
             {{ stage_template_buttons(item) }}
@@ -321,6 +344,42 @@
         {% endif %}
       </div>
     </section>
+
+    {% for stage in customer_hub.stages[3:] %}
+    <section class="customer-stage-card is-{{ stage.state }}" id="customer-stage-{{ stage.number }}">
+      <div class="stage-section-head">
+        <span class="stage-number">{{ stage.number }}</span>
+        <span class="stage-card-copy">
+          <span class="stage-card-title">Stage {{ stage.number }} - {{ stage.title }}</span>
+          <span class="stage-card-subtitle">{{ stage.subtitle }}</span>
+        </span>
+        <span class="stage-mini-status">{{ stage.completed_count }}/{{ stage.total_count }} complete</span>
+      </div>
+      <div class="stage-check-list">
+        {% for item in stage["items"] %}
+        <div class="stage-check {% if item.done %}is-done{% endif %}">
+          <span class="stage-check-mark">{% if item.done %}&#10003;{% else %}!{% endif %}</span>
+          <span><strong>{{ item.label }}</strong><span>{{ item.text }}</span></span>
+        </div>
+        {% endfor %}
+      </div>
+      <div class="stage-current-action {% if stage.sent_done %}is-complete{% endif %}">
+        {% if stage.sent_done %}
+          <div class="stage-done-banner"><span class="stage-check-mark">&#10003;</span><span>{{ stage.sent[0] }}</span></div>
+          <p class="stage-helper-note">You can still preview, test, or deliberately resend from this stage if needed.</p>
+        {% else %}
+          <p class="muted">{{ stage.sent[0] }}</p>
+        {% endif %}
+        {% if stage.templates %}
+          {% for item in stage.templates %}
+            {{ stage_template_buttons(item) }}
+          {% endfor %}
+        {% else %}
+          <p class="stage-helper-note">No message template is attached to this stage yet.</p>
+        {% endif %}
+      </div>
+    </section>
+    {% endfor %}
   </div>
 </section>
 
@@ -456,11 +515,18 @@ function openCustomerToolsForHash(){
     var tools = document.getElementById('customer-message-actions');
     if(tools) tools.open = true;
   }
+  if(['#customer-details','#customer-sales','#customer-timeline','#customer-comms','#customer-feedback','#customer-reminders','#customer-sms','#customer-finance'].indexOf(location.hash) !== -1){
+    var library = document.getElementById('customer-library-record');
+    if(library) library.open = true;
+  }
 }
 window.addEventListener('hashchange', openCustomerToolsForHash);
 openCustomerToolsForHash();
 </script>
 
+<details class="hub-collapse customer-library-record" id="customer-library-record">
+  <summary>Customer library record, history and advanced details</summary>
+  <div class="hub-collapse-body">
 <div class="scope-tabs customer-tabs">
   <a class="scope-tab active" href="#customer-details">Customer details</a>
   <a class="scope-tab" href="#customer-sales">Sales and work</a>
@@ -770,4 +836,6 @@ openCustomerToolsForHash();
     </section>
   </div>
 </div>
+</div>
+</details>
 {% endblock %}
