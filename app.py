@@ -9488,9 +9488,18 @@ def xero_contact_addresses(address_line, city="", postcode="", what3words=""):
         spare_line = next((f"AddressLine{index}" for index in range(2, 5) if not base.get(f"AddressLine{index}")), "")
         if spare_line:
             base[spare_line] = f"What3Words: {what3words}"
+    blank_street = {
+        "AddressType": "STREET",
+        "AddressLine1": "",
+        "AddressLine2": "",
+        "AddressLine3": "",
+        "AddressLine4": "",
+        "City": "",
+        "PostalCode": "",
+    }
     return [
         {"AddressType": "POBOX", **base},
-        {"AddressType": "STREET", **base},
+        blank_street,
     ]
 
 
@@ -10700,8 +10709,8 @@ def xero_test():
 def xero_sync_contact(customer_id):
     try:
         contact_id = ensure_xero_contact_for_customer(customer_id)
-        set_customer_workflow(customer_id, "xero_synced", f"Xero contact ready: {contact_id}", "Xero contact synced")
-        flash(f"Customer linked to Xero ContactID {contact_id}.")
+        set_customer_workflow(customer_id, "xero_synced", f"Xero contact details sent to Xero: {contact_id}", "Xero contact updated")
+        flash(f"Customer details sent to Xero ContactID {contact_id}.")
     except Exception as exc:
         logger.exception("Xero customer sync failed for customer %s", customer_id)
         run("UPDATE customers SET xero_contact_error=? WHERE id=?", (str(exc), customer_id))

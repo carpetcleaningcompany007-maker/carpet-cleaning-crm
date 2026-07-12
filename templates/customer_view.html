@@ -258,14 +258,14 @@
       <div class="stage-section-head">
         <span class="stage-number">2</span>
         <span class="stage-card-copy">
-          <span class="stage-card-title">Stage 2 - Upload contact to Xero</span>
-          <span class="stage-card-subtitle">One button once Stage 1 is complete.</span>
+          <span class="stage-card-title">Stage 2 - Upload or update Xero</span>
+          <span class="stage-card-subtitle">Create the Xero contact, or refresh it if details were only partly done.</span>
         </span>
         <span class="stage-mini-status">{{ customer_hub.stages[1].completed_count }}/{{ customer_hub.stages[1].total_count }} complete</span>
       </div>
       {% if customer.xero_contact_id %}
-        <div class="stage-done-banner"><span class="stage-check-mark">&#10003;</span><span>Uploaded to Xero</span></div>
-        <p class="stage-helper-note">Xero ContactID: {{ customer.xero_contact_id }}. This customer has already been linked to Xero, either from the Stage 2 button or an earlier approval/Xero action.</p>
+        <div class="stage-done-banner"><span class="stage-check-mark">&#10003;</span><span>Linked to Xero</span></div>
+        <p class="stage-helper-note">Xero ContactID: {{ customer.xero_contact_id }}. If the Xero contact is missing an address, phone number, email, or other detail, press Update Xero details to send the latest CRM details again.</p>
         <div class="stage-action-row">
           <form method="post" action="{{ url_for('xero_sync_contact', customer_id=customer.id) }}">
             <input type="hidden" name="next_url" value="{{ url_for('customer_view', customer_id=customer.id) }}#customer-stage-2">
