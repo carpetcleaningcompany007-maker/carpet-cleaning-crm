@@ -1466,7 +1466,7 @@ DEFAULT_MESSAGE_TEMPLATES = {
     },
     "appointment_reminder_sms": {"name": "Appointment reminder SMS", "subject": "", "body": "Hi {{name}}, just a quick reminder that your carpet clean is booked in for {{date}} at {{time}}. Thanks, Paul."},
     "thank_you_message": {"name": "Thank you message", "subject": "Thank you", "body": "Hi {{name}},\n\nThank you for choosing The Carpet Cleaning Company today. I hope you are happy with the clean.\n\nIf you notice anything you are unsure about, please message me and I will be happy to help.\n\nThanks\nPaul"},
-    "review_request_message": {"name": "Review request message", "subject": "Review request", "body": "Hi {{name}},\n\nThank you again for choosing The Carpet Cleaning Company.\n\nIf you are happy with the work, I would really appreciate a quick Google review. It helps a small local business and helps new customers see the results we achieve.\n\nGoogle review link:\n{{review_link}}\n\nThanks\nPaul"},
+    "review_request_message": {"name": "Review request message", "subject": "Review request", "body": "Hi {{name}},\n\nThank you again for choosing The Carpet Cleaning Company.\n\nIf you are happy with the work, I would really appreciate a quick Google review. It helps a small local business and helps new customers see the results we achieve.\n\nPlease click the button below to leave a Google review.\n\nThanks\nPaul"},
     "review_request_sms": {"name": "Review request SMS", "subject": "", "body": "Hi {{name}}, thank you again for choosing The Carpet Cleaning Company. If you are happy with the work, I would really appreciate a quick Google review. It helps a small local business and helps new customers see the results we achieve.\n\nHere is the link to my Google reviews:\n{{review_link}}\n\nThanks, Paul Nicholas\nThe Carpet Cleaning Company"},
     "payment_received_email": {"name": "Payment received email", "subject": "Thank you for your payment", "body": "Hi {{name}},\n\nThank you very much for your payment. It's greatly appreciated.\n\nThank you for choosing The Carpet Cleaning Company. We really appreciate your business and your continued support.\n\nIf you were happy with the service, we'd be very grateful if you could leave us a Google review. You can also follow us on Facebook to see our latest work, videos and cleaning tips.\n\nGoogle Reviews:\n{{review_link}}\n\nFacebook:\n{{facebook}}\n\nThanks\nPaul\n{{business_name}}"},
     "payment_received_sms": {"name": "Payment received SMS", "subject": "", "body": "Hi {{name}}, thank you very much for your payment. It's greatly appreciated. If you were happy with the service, a Google review would really help: {{review_link}} Thanks, Paul - {{business_name}}"},
@@ -3074,7 +3074,7 @@ def day_run_template_key(kind, channel):
         ("finished", "email"): "thank_you_message",
         ("finished", "sms"): "thank_you_message",
         ("review", "email"): "review_request_message",
-        ("review", "sms"): "review_request_message",
+        ("review", "sms"): "review_request_sms",
     }
     return mapped.get((kind, channel), "")
 
@@ -3724,15 +3724,16 @@ def day_run_email_html(kind, job, plain_body):
                     <h2 style="margin:0 0 8px;font-size:21px;line-height:1.25;color:#071524">Would you leave us a Google review?</h2>
                     <p style="margin:0 0 14px;font-size:16px;line-height:1.6;color:#385066">If you are happy with the clean, a quick review really helps a local business and helps new customers feel confident booking with us.</p>
                     <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
-                      {email_action_button("Leave a Google review", reviews_url, "#0f7b63", "#ffffff")}
+                      {email_action_button("Please click here to leave us a Google review", reviews_url, "#0f7b63", "#ffffff")}
                     </table>
-                    {email_text_link("Google review link", reviews_url)}
                   </td>
                 </tr>
               </table>
             </td>
           </tr>
         """
+    useful_review_button = "" if kind == "review" else email_action_button("Read our Google reviews", reviews_url, "#0f7b63", "#ffffff")
+    useful_review_text = "" if kind == "review" else email_text_link("Google reviews", reviews_url)
     return f"""<!doctype html>
 <html>
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
@@ -3790,10 +3791,10 @@ def day_run_email_html(kind, job, plain_body):
                     <p style="margin:0 0 12px;font-size:15px;line-height:1.55;color:#071524;font-weight:800">↓ Click these links ↓</p>
                     <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
                       {email_action_button("Follow us on Facebook", facebook_url, "#1457a8", "#ffffff")}
-                      {email_action_button("Read our Google reviews", reviews_url, "#0f7b63", "#ffffff")}
+                      {useful_review_button}
                       {email_action_button("Visit our website", website_url, "#d8af55", "#071524")}
                     </table>
-                    {email_text_link("Google reviews", reviews_url)}
+                    {useful_review_text}
                   </td>
                 </tr>
               </table>
@@ -5057,7 +5058,7 @@ def init_db():
         "today_run_reminder_sms": "%Just a quick reminder that your carpet clean is booked in%",
         "appointment_reminder_sms": "%just a quick reminder that your carpet clean is booked in%",
         "thank_you_message": "%If you notice anything you are unsure about%",
-        "review_request_message": "%Google review link:%",
+        "review_request_message": "%Please click the button below to leave a Google review.%",
         "review_request_sms": "%Here is the link to my Google reviews:%",
         "unable_to_reach_email": "%I really appreciate you getting in touch%",
         "unable_to_reach_sms": "%thanks for your enquiry%",
@@ -5641,7 +5642,7 @@ def customer_hub_stage_context(customer, quotes=None, jobs=None, invoices=None, 
                 f"Job status: {clean_str(row_value(latest_job, 'status')) or 'Not set'}" if latest_job else "No job status yet",
                 "Thank-you sent" if thank_you_sent else "Thank-you not sent",
             ],
-            "template_keys": ["thank_you_message"],
+            "template_keys": [],
             "sent_key": "thank_you",
             "sent_done": thank_you_sent,
         },
@@ -5660,7 +5661,7 @@ def customer_hub_stage_context(customer, quotes=None, jobs=None, invoices=None, 
             "sent": [
                 "Review request sent" if review_sent else "Review request not sent",
             ],
-            "template_keys": ["payment_received_email", "review_request_message"],
+            "template_keys": ["review_request_message"],
             "sent_key": "review",
             "sent_done": review_sent,
         },
