@@ -118,17 +118,20 @@
   .stage-action-head .stage-number{width:32px;height:32px;flex:0 0 32px}
   .stage-action-head strong{display:block;font-size:18px;color:#071524}
   .stage-action-head span{display:block;font-size:14px;color:#617083;margin-top:3px}
-  .stage-template-list{display:grid;gap:10px}
-  .stage-template-card{border:1px solid #dce8f1;background:#fff;border-radius:12px;padding:10px;margin-top:10px}
-  .stage-template-card strong{display:block;font-size:16px;color:#102033}
-  .stage-template-card p{margin:4px 0 8px;color:#617083;font-size:13px;line-height:1.3}
-  .stage-template-actions{display:flex;flex-wrap:wrap;gap:6px}
+  .stage-template-list{display:grid;gap:12px}
+  .stage-template-card{border:1px solid #cfe0ee;background:linear-gradient(180deg,#fff,#f8fbff);border-radius:16px;padding:14px;margin-top:10px;box-shadow:0 12px 28px rgba(15,35,58,.06)}
+  .stage-template-card strong{display:block;font-size:17px;color:#102033}
+  .stage-template-card p{margin:5px 0 10px;color:#617083;font-size:13px;line-height:1.35}
+  .stage-template-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
   .stage-template-actions form{margin:0}
-  .stage-template-actions .btn{padding:8px 10px;font-size:13px;border-radius:9px;min-height:38px}
-  .stage-template-card .template-preview{margin-top:8px}
-  .stage-template-card .template-preview summary{font-size:13px;padding:7px 9px}
+  .stage-template-actions .btn{padding:9px 12px;font-size:13px;border-radius:10px;min-height:40px}
+  .stage-template-actions .btn.primary{box-shadow:0 10px 20px rgba(28,104,210,.16)}
+  .template-send-row{border:1px solid #d8e8f4;background:#fff;border-radius:13px;padding:10px;margin:10px 0 8px}
+  .template-send-row .muted{margin:0 0 8px;font-size:12px}
+  .stage-template-card .template-preview{margin-top:9px;border:1px solid #d8e8f4;background:#fff;border-radius:13px;overflow:hidden}
+  .stage-template-card .template-preview summary{font-size:13px;padding:10px 12px;font-weight:900;cursor:pointer;color:#102033;background:#f7fbff}
   .stage-template-card .template-preview-body pre{font-size:13px;white-space:pre-wrap}
-  .template-edit-form{display:grid;gap:9px;margin-top:8px}
+  .template-edit-form{display:grid;gap:10px;padding:10px;margin:0}
   .template-edit-form label{display:grid;gap:5px;font-weight:900;color:#102033;font-size:13px}
   .template-edit-form input,.template-edit-form textarea{width:100%;border:1px solid #cbdfea;border-radius:9px;padding:9px;font:inherit;font-size:14px;background:#fff;color:#102033}
   .template-edit-form textarea{min-height:110px;resize:vertical;line-height:1.4}
@@ -149,8 +152,21 @@
     {% if not item.has_job and item.key in ['booking_confirmation_email','today_run_reminder_email','today_run_coming_email'] %}
       <p class="muted">No job is saved yet, so date and time placeholders will stay generic.</p>
     {% endif %}
-    <div class="stage-template-actions">
-      <a class="btn secondary btn-small" href="{{ url_for('customer_email_template_preview', customer_id=customer.id, template_key=item.key) }}" target="_blank">Preview Email</a>
+    <div class="template-send-row">
+      <p class="muted">Preview first if needed, then send the email or text from here.</p>
+      <div class="stage-template-actions">
+        <a class="btn secondary btn-small" href="{{ url_for('customer_email_template_preview', customer_id=customer.id, template_key=item.key) }}" target="_blank">Preview Email</a>
+        <form method="post" action="{{ url_for('customer_send_message_template', customer_id=customer.id) }}">
+          <input type="hidden" name="template_key" value="{{ item.key }}">
+          <input type="hidden" name="channel" value="email">
+          <button class="btn primary btn-small" type="submit" {% if not customer.email %}disabled{% endif %}>Send Email</button>
+        </form>
+        <form method="post" action="{{ url_for('customer_send_message_template', customer_id=customer.id) }}">
+          <input type="hidden" name="template_key" value="{{ item.key }}">
+          <input type="hidden" name="channel" value="sms">
+          <button class="btn primary btn-small" type="submit" {% if not customer.phone or customer.sms_opt_out %}disabled{% endif %}>Send Text</button>
+        </form>
+      </div>
     </div>
     <details class="template-preview">
       <summary>View/edit email wording</summary>
