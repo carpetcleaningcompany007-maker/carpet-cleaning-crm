@@ -1467,6 +1467,7 @@ DEFAULT_MESSAGE_TEMPLATES = {
     "appointment_reminder_sms": {"name": "Appointment reminder SMS", "subject": "", "body": "Hi {{name}}, just a quick reminder that your carpet clean is booked in for {{date}} at {{time}}. Thanks, Paul."},
     "thank_you_message": {"name": "Thank you message", "subject": "Thank you", "body": "Hi {{name}},\n\nThank you for choosing The Carpet Cleaning Company today. I hope you are happy with the clean.\n\nIf you notice anything you are unsure about, please message me and I will be happy to help.\n\nThanks\nPaul"},
     "review_request_message": {"name": "Review request message", "subject": "Review request", "body": "Hi {{name}},\n\nThank you again for choosing The Carpet Cleaning Company.\n\nIf you are happy with the work, I would really appreciate a quick Google review. It helps a small local business and helps new customers see the results we achieve.\n\nGoogle review link:\n{{review_link}}\n\nThanks\nPaul"},
+    "review_request_sms": {"name": "Review request SMS", "subject": "", "body": "Hi {{name}}, thank you again for choosing The Carpet Cleaning Company. If you are happy with the work, I would really appreciate a quick Google review. It helps a small local business and helps new customers see the results we achieve.\n\nHere is the link to my Google reviews:\n{{review_link}}\n\nThanks, Paul Nicholas\nThe Carpet Cleaning Company"},
     "payment_received_email": {"name": "Payment received email", "subject": "Thank you for your payment", "body": "Hi {{name}},\n\nThank you very much for your payment. It's greatly appreciated.\n\nThank you for choosing The Carpet Cleaning Company. We really appreciate your business and your continued support.\n\nIf you were happy with the service, we'd be very grateful if you could leave us a Google review. You can also follow us on Facebook to see our latest work, videos and cleaning tips.\n\nGoogle Reviews:\n{{review_link}}\n\nFacebook:\n{{facebook}}\n\nThanks\nPaul\n{{business_name}}"},
     "payment_received_sms": {"name": "Payment received SMS", "subject": "", "body": "Hi {{name}}, thank you very much for your payment. It's greatly appreciated. If you were happy with the service, a Google review would really help: {{review_link}} Thanks, Paul - {{business_name}}"},
     "unable_to_reach_email": {"name": "Unable to reach customer email", "subject": "I tried to contact you", "body": "Hi {{name}},\n\nThank you very much for your enquiry. I really appreciate you getting in touch with The Carpet Cleaning Company.\n\nI have tried to contact you so we can discuss your carpet or upholstery cleaning requirements, but I have not been able to get hold of you yet. I did not want you to think your message had been missed.\n\nIf you would still like a quote or would like to talk through the best cleaning options, please reply to this email or call/text me on 07802 563213. I will be happy to help.\n\nIf it is easier, you can also send over a few photos of the areas you would like cleaned, along with your address and any useful parking or access details. That helps me give better advice and a more accurate quote.\n\nYou can also see recent cleans, videos and before-and-after photos on Facebook:\n{{facebook}}\n\nGoogle reviews:\n{{review_link}}\n\nThanks again for contacting us.\n\nPaul\nThe Carpet Cleaning Company\n07802 563213"},
@@ -3093,7 +3094,7 @@ CUSTOMER_ACTION_TEMPLATES = [
     {"key": "today_run_reminder_email", "sms_key": "today_run_reminder_sms", "label": "Appointment reminder", "note": "Use before the visit, or test the reminder flow."},
     {"key": "today_run_coming_email", "sms_key": "today_run_coming_sms", "label": "We are on our way", "note": "Send manually on the day."},
     {"key": "thank_you_message", "sms_key": "thank_you_message", "label": "Thank you after job", "note": "Send once the work is finished."},
-    {"key": "review_request_message", "sms_key": "review_request_message", "label": "Review request", "note": "Send after the customer is happy."},
+    {"key": "review_request_message", "sms_key": "review_request_sms", "label": "Review request", "note": "Send after the customer is happy."},
     {"key": "payment_received_email", "sms_key": "payment_received_sms", "label": "Payment received", "note": "Send after the customer has paid."},
     {"key": "unable_to_reach_email", "sms_key": "unable_to_reach_sms", "label": "Tried to contact", "note": "Use when they contacted you but you cannot get hold of them."},
     {"key": "carpet_cleaning_options_guide_email", "sms_key": "carpet_cleaning_options_guide_sms", "label": "Package selector guide", "note": "Send the website guide that explains the package choices and prices."},
@@ -3171,7 +3172,7 @@ AUTOMATION_RULE_DEFAULTS = [
         "label": "Review request after completion",
         "description": "Send a review request a set number of days after completion.",
         "template_key": "review_request_message",
-        "sms_template_key": "review_request_message",
+        "sms_template_key": "review_request_sms",
         "timing_type": "days_after_completion",
         "timing_value": "2",
         "send_time": "10:00",
@@ -4969,6 +4970,12 @@ def init_db():
                 rule["owner_email_copy"], 1,
             ),
         )
+    conn.execute(
+        """UPDATE communication_automation_settings
+              SET sms_template_key='review_request_sms', updated_at=datetime('now')
+            WHERE rule_key='review_request_after_completion'
+              AND sms_template_key='review_request_message'"""
+    )
     seed_visual_email_templates(conn)
     conn.execute(
         """UPDATE message_templates
@@ -5051,6 +5058,7 @@ def init_db():
         "appointment_reminder_sms": "%just a quick reminder that your carpet clean is booked in%",
         "thank_you_message": "%If you notice anything you are unsure about%",
         "review_request_message": "%Google review link:%",
+        "review_request_sms": "%Here is the link to my Google reviews:%",
         "unable_to_reach_email": "%I really appreciate you getting in touch%",
         "unable_to_reach_sms": "%thanks for your enquiry%",
     }
