@@ -164,7 +164,7 @@
         <form method="post" action="{{ url_for('customer_send_message_template', customer_id=customer.id) }}">
           <input type="hidden" name="template_key" value="{{ item.key }}">
           <input type="hidden" name="channel" value="sms">
-          <button class="btn primary btn-small" type="submit" {% if not customer.phone or customer.sms_opt_out %}disabled{% endif %}>Send Text</button>
+          <button class="btn primary btn-small" type="submit" {% if not customer.phone or customer.sms_opt_out %}disabled{% endif %}>Send SMS / Text</button>
         </form>
       </div>
     </div>
