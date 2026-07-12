@@ -9908,7 +9908,7 @@ def ensure_xero_contact_for_customer(customer_id):
             XERO_CONTACTS_URL,
             method="POST",
             payload=payload,
-            idempotency_key=f"crm-contact-update-{customer_id}-{contact_id}",
+            idempotency_key=f"crm-contact-update-{customer_id}-{contact_id}-{uuid.uuid4().hex}",
         )
         run("""UPDATE customers SET xero_contact_id=?, xero_contact_synced_at=datetime('now'), xero_contact_error='' WHERE id=?""", (contact_id, customer_id))
         log_xero_sync("customer", customer_id, "update_contact", "ok", "Updated existing Xero contact", result)
