@@ -2132,6 +2132,9 @@ def clean_intake_job_notes(lead):
         "access notes:",
         "access / parking:",
         "access information:",
+        "missing details:",
+        "phone number needs checking:",
+        "consent to contact:",
     )
     lines = []
     for line in raw_notes.splitlines():
@@ -2553,8 +2556,14 @@ def run_website_enquiry_automation(lead_id, customer_id, data):
     else:
         update_intake_delivery_status(lead_id, owner_sms_status=status_text(False, "OWNER_ALERT_MOBILE not set", skipped=True))
 
-    update_intake_delivery_status(lead_id, follow_up_status="Follow up required")
-    run("INSERT INTO customer_timeline(customer_id, note_text, created_at) VALUES (?,?,datetime('now'))", (customer_id, "Follow up required after website enquiry."))
+    current_missing_details = intake_missing_details(q("SELECT * FROM intake_submissions WHERE id=?", (lead_id,), one=True))
+    if current_missing_details:
+        update_intake_delivery_status(lead_id, follow_up_status="Request missing details")
+        timeline_note = "Request missing details after website enquiry: " + ", ".join(current_missing_details)
+    else:
+        update_intake_delivery_status(lead_id, follow_up_status="Follow up required")
+        timeline_note = "Follow up required after website enquiry."
+    run("INSERT INTO customer_timeline(customer_id, note_text, created_at) VALUES (?,?,datetime('now'))", (customer_id, timeline_note))
     results["follow_up_sms_queue"] = schedule_enquiry_follow_up_sms(lead_id, customer_id, data)
     return results
 
@@ -6241,6 +6250,55 @@ def request_value(data, *names):
     return ""
 
 
+def website_enquiry_missing_details(data, photo_filename=""):
+    missing = []
+    if not request_value(data, "name", "full_name", "customer_name", "fullname"):
+        missing.append("name")
+    phone = request_value(data, "phone", "phone_number", "telephone", "tel")
+    email = request_value(data, "email", "email_address")
+    if not is_valid_uk_phone(phone) and not is_valid_email(email):
+        missing.append("valid phone or email")
+    if not request_value(data, "postcode", "post_code", "zip"):
+        missing.append("postcode")
+    if not request_value(data, "what_cleaned", "what_would_you_like_cleaned", "service", "service_required", "cleaning_required"):
+        missing.append("service required")
+    if not request_value(data, "rooms_areas", "rooms_or_items", "rooms_items", "items_required", "areas", "room_areas", "number_rooms", "rooms", "number_of_rooms", "room_count"):
+        missing.append("rooms or areas")
+    if not request_value(data, "address", "full_address", "street_address"):
+        missing.append("address")
+    if not request_value(data, "parking", "parking_information", "access_info"):
+        missing.append("access or parking notes")
+    if not request_value(data, "preferred_days_times", "preferred_days", "preferred_time", "preferred_times", "availability", "preferred_date", "date"):
+        missing.append("preferred day or time")
+    if not request_value(data, "additional_notes", "notes", "message", "comments", "job_notes", "stains", "problem_areas", "stains_problem_areas"):
+        missing.append("job notes, stains or problem areas")
+    return missing
+
+
+def intake_missing_details(lead):
+    if not lead:
+        return []
+    data = {
+        "name": row_get(lead, "name"),
+        "phone": row_get(lead, "phone"),
+        "email": row_get(lead, "email"),
+        "postcode": row_get(lead, "postcode"),
+        "what_cleaned": row_get(lead, "what_cleaned"),
+        "rooms_areas": row_get(lead, "rooms_areas") or row_get(lead, "number_rooms"),
+        "address": row_get(lead, "full_address"),
+        "parking": row_get(lead, "parking"),
+        "preferred_days_times": row_get(lead, "preferred_days_times") or row_get(lead, "preferred_date") or row_get(lead, "preferred_time"),
+        "additional_notes": row_get(lead, "additional_notes") or clean_intake_job_notes(lead) or row_get(lead, "stains"),
+    }
+    return website_enquiry_missing_details(data, photo_filename=row_get(lead, "photo_filename"))
+
+
+def missing_details_note(missing):
+    if not missing:
+        return ""
+    return "Missing details: " + ", ".join(missing)
+
+
 def create_intake_from_website_payload(data, source="Website form", photo_filename="", require_valid_phone=False):
     name = request_value(data, "name", "full_name", "customer_name", "fullname")
     phone = request_value(data, "phone", "phone_number", "telephone", "tel")
@@ -6276,12 +6334,16 @@ def create_intake_from_website_payload(data, source="Website form", photo_filena
         phone_warning = f"Phone number needs checking: {phone}"
     elif require_valid_phone and not phone and not is_valid_email(email):
         raise ValueError("Please enter a valid UK phone number, for example 07802 563213, or a valid email address.")
+    missing_details = website_enquiry_missing_details(data, photo_filename=photo_filename)
     notes = "\n".join([part for part in [
         f"Town: {town}" if town else "",
         f"Consent to contact: {contact_consent}" if contact_consent else "",
         phone_warning,
+        missing_details_note(missing_details),
         additional_notes,
     ] if part])
+    status = "Needs missing details" if missing_details else "Waiting for review"
+    follow_up_status = "Request missing details" if missing_details else "Follow up required"
     lead_id = run("""INSERT INTO intake_submissions
            (name, phone, email, full_address, postcode, agreed_quote_price, google_maps_link, what3words, job_notes, rooms_areas,
             what_cleaned, number_rooms, upholstery, rugs, stains, pets, parking, preferred_days_times, additional_notes,
@@ -6290,15 +6352,16 @@ def create_intake_from_website_payload(data, source="Website form", photo_filena
            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", (
         name, phone, email, address, postcode, agreed_quote_price, google_maps_link, what3words, notes, rooms_areas,
         what_cleaned, number_rooms, upholstery, rugs, stains, pets, parking, preferred, additional_notes,
-        preferred_date, preferred_time, photo_filename, "Waiting for review", source, marketing_consent,
+        preferred_date, preferred_time, photo_filename, status, source, marketing_consent,
         "Pending", "Pending", "Pending", "Pending", "Pending", "Follow up required",
     ))
     lead = q("SELECT * FROM intake_submissions WHERE id=?", (lead_id,), one=True)
     customer_id = create_customer_from_intake(lead)
     if town:
         run("UPDATE customers SET town=CASE WHEN IFNULL(town,'')='' THEN ? ELSE town END WHERE id=?", (town, customer_id))
-    run("UPDATE intake_submissions SET customer_id=?, status='Waiting for review', updated_at=datetime('now') WHERE id=?", (customer_id, lead_id))
-    run("UPDATE customers SET source=?, next_action='Review website form and approve customer for Xero' WHERE id=?", (source, customer_id))
+    run("UPDATE intake_submissions SET customer_id=?, status=?, follow_up_status=?, updated_at=datetime('now') WHERE id=?", (customer_id, status, follow_up_status, lead_id))
+    next_action = "Request missing details from customer: " + ", ".join(missing_details) if missing_details else "Review website form and approve customer for Xero"
+    run("UPDATE customers SET source=?, next_action=? WHERE id=?", (source, next_action, customer_id))
     return lead_id, customer_id
 
 
@@ -11401,12 +11464,15 @@ def website_form_submit():
     if request.is_json or request.path.startswith("/api/"):
         customer = q("SELECT * FROM customers WHERE id=?", (customer_id,), one=True)
         lead = q("SELECT * FROM intake_submissions WHERE id=?", (lead_id,), one=True)
+        missing_details = intake_missing_details(lead)
         return {
             "ok": True,
             "lead_id": lead_id,
             "customer_id": customer_id,
             "customer_url": url_for("customer_view", customer_id=customer_id, _external=True),
             "next_action": customer["next_action"] if customer else "Review website form and approve customer for Xero",
+            "complete": not missing_details,
+            "missing_details": missing_details,
             "xero_status": lead["xero_sync_status"] if lead else "",
             "customer_email_status": lead["customer_email_status"] if lead else "",
             "customer_sms_status": lead["customer_sms_status"] if lead else "",
@@ -11482,7 +11548,16 @@ def intake_form_view(lead_id):
     if not lead:
         flash("Intake form not found.")
         return redirect(url_for("intake_forms"))
-    return render_template("intake_form_view.html", lead=lead, display_job_notes=clean_intake_job_notes(lead), xero_configured=xero_is_configured(), xero_connected=bool(xero_token_row()), lead_checklist=intake_lead_checklist(lead), lead_next_action=intake_lead_next_action(lead))
+    return render_template(
+        "intake_form_view.html",
+        lead=lead,
+        display_job_notes=clean_intake_job_notes(lead),
+        xero_configured=xero_is_configured(),
+        xero_connected=bool(xero_token_row()),
+        lead_checklist=intake_lead_checklist(lead),
+        lead_next_action=intake_lead_next_action(lead),
+        missing_details=intake_missing_details(lead),
+    )
 
 
 @app.route("/intake-forms/<int:lead_id>/request-missing-details", methods=["POST"])
@@ -11565,6 +11640,9 @@ def intake_lead_checklist(lead):
 
 
 def intake_lead_next_action(lead):
+    missing_details = intake_missing_details(lead)
+    if missing_details:
+        return "Request missing details: " + ", ".join(missing_details)
     if not row_get(lead, "customer_id"):
         return "Create or open the customer record."
     if clean_str(row_get(lead, "follow_up_status")) in {"", "Follow up required", "Pending"}:

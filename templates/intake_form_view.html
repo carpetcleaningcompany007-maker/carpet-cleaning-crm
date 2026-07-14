@@ -34,6 +34,9 @@
   .lead-check.missing span{background:#ffe9bf;color:#8a4f00}
   .lead-check strong{display:block}
   .lead-check em{display:block;margin-top:4px;color:#64748b;font-style:normal;font-size:13px}
+  .missing-warning{border:1px solid #f0c36a;background:#fff8e8;border-radius:14px;padding:14px;color:#5a3700}
+  .missing-warning strong{display:block;font-size:15px;margin-bottom:8px}
+  .missing-warning ul{margin:0;padding-left:18px;display:grid;gap:4px}
   .lead-action-buttons{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
   .lead-action-buttons form,.lead-action-buttons a{margin:0}
   .lead-action-buttons .btn{width:100%;min-height:48px}
@@ -72,11 +75,22 @@
         </a>
       {% endfor %}
     </div>
+    {% if missing_details %}
+      <div class="missing-warning">
+        <strong>This enquiry is not complete yet.</strong>
+        <ul>
+          {% for detail in missing_details %}<li>{{ detail }}</li>{% endfor %}
+        </ul>
+      </div>
+    {% endif %}
     <div class="lead-action-buttons">
       {% if lead.phone %}<a class="btn primary" href="tel:{{ lead.phone|replace(' ', '') }}">Call customer</a>{% endif %}
       {% if lead.phone %}<a class="btn secondary" href="sms:{{ lead.phone|replace(' ', '') }}">Text customer</a>{% endif %}
       {% if lead.email %}<a class="btn secondary" href="mailto:{{ lead.email }}">Email customer</a>{% endif %}
-      <form method="post" action="{{ url_for('intake_request_missing_details', lead_id=lead.id) }}"><button class="btn primary" type="submit" {% if not lead.email and not lead.phone %}disabled{% endif %}>Request missing details</button></form>
+      <form method="post" action="{{ url_for('intake_request_missing_details', lead_id=lead.id) }}">
+        {% for detail in missing_details %}<input type="hidden" name="missing_fields" value="{{ detail }}">{% endfor %}
+        <button class="btn primary" type="submit" {% if not lead.email and not lead.phone %}disabled{% endif %}>Request missing details</button>
+      </form>
       <form method="post" action="{{ url_for('intake_form_quick_action', lead_id=lead.id) }}"><input type="hidden" name="action" value="contacted"><button class="btn secondary" type="submit">Mark contacted</button></form>
       <form method="post" action="{{ url_for('intake_form_quick_action', lead_id=lead.id) }}"><input type="hidden" name="action" value="waiting_customer"><button class="btn secondary" type="submit">Waiting for customer</button></form>
       <form method="post" action="{{ url_for('intake_form_quick_action', lead_id=lead.id) }}"><input type="hidden" name="action" value="quoted"><button class="btn secondary" type="submit">Mark quoted</button></form>

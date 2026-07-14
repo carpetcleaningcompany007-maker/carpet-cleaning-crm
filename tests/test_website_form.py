@@ -34,6 +34,7 @@ class WebsiteFormTests(unittest.TestCase):
             "email": "customer@example.com",
             "postcode": "SY8 1AA",
             "service": "Carpet cleaning",
+            "areas": "1",
             "contact_consent": "Yes",
         }
         payload.update(overrides)
@@ -47,9 +48,15 @@ class WebsiteFormTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         body = response.get_json()
         self.assertTrue(body["ok"])
+        self.assertFalse(body["complete"])
+        self.assertIn("address", body["missing_details"])
+        self.assertIn("Request missing details", body["next_action"])
 
         lead = self.appmod.q("SELECT * FROM intake_submissions WHERE id=?", (body["lead_id"],), one=True)
         self.assertIn("Phone number needs checking", lead["job_notes"])
+        self.assertIn("Missing details:", lead["job_notes"])
+        self.assertEqual(lead["status"], "Needs missing details")
+        self.assertEqual(lead["follow_up_status"], "Request missing details")
         self.assertEqual(lead["customer_sms_status"], "Skipped: Customer phone number is missing or needs checking.")
 
     def test_website_form_rejects_invalid_phone_without_valid_email(self):
@@ -66,3 +73,19 @@ class WebsiteFormTests(unittest.TestCase):
         lead = self.appmod.q("SELECT * FROM intake_submissions WHERE id=?", (body["lead_id"],), one=True)
         self.assertEqual(lead["xero_sync_status"], "Pending manual approval")
         self.assertIn("manual approval required", body["automation"]["xero"]["message"])
+
+    def test_complete_website_form_marks_enquiry_ready_for_review(self):
+        response = self.post_form(
+            phone="07802 563213",
+            address="1 High Street",
+            parking="Driveway parking",
+            preferred_days_times="Tuesday morning",
+            notes="Lounge carpet with coffee stain",
+        )
+        self.assertEqual(response.status_code, 200)
+        body = response.get_json()
+        self.assertTrue(body["complete"])
+        self.assertEqual(body["missing_details"], [])
+        lead = self.appmod.q("SELECT * FROM intake_submissions WHERE id=?", (body["lead_id"],), one=True)
+        self.assertEqual(lead["status"], "Waiting for review")
+        self.assertEqual(lead["follow_up_status"], "Follow up required")
