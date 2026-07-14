@@ -5213,6 +5213,7 @@ def lead_email_html(lead):
     phone = clean_str(row_value(app_settings, "phone")) or "07802 563213"
     website = clean_str(row_value(app_settings, "website")) or "https://www.thecarpetcleaningcrew.co.uk"
     logo_url = crm_email_logo_url() or public_static_or_live_url("site/email-logo-white.png")
+    hero_url = public_static_or_live_url("site/hero-carpet-cleaning.webp")
     subject = clean_str(row_value(lead, "email_subject")) or f"Professional carpet and upholstery cleaning for {lead_display_name(lead)}"
     body = clean_str(row_value(lead, "draft_message")) or generate_lead_draft(lead)[1]
     contact_name = lead_contact_name(lead)
@@ -5271,6 +5272,7 @@ def lead_email_html(lead):
             <p style="margin:10px 0 0;color:#5b6b7b;font-size:15px;line-height:1.55">Professional carpet and upholstery cleaning in your area.</p>
           </td>
         </tr>
+        {f'<tr><td style="padding:0 32px 20px"><img src="{html_lib.escape(hero_url)}" alt="Freshly cleaned carpet" width="656" style="display:block;width:100%;max-width:656px;height:auto;border:0;border-radius:14px"></td></tr>' if hero_url else ''}
         <tr><td style="padding:0 32px"><div style="height:1px;background:#e3edf2"></div></td></tr>
         <tr>
           <td style="padding:24px 32px 8px;font-size:16px;line-height:1.68;color:#263746">
