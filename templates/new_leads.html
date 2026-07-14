@@ -18,7 +18,7 @@
     <form method="post" action="{{ url_for('new_leads_generate_drafts') }}">
       <input type="hidden" name="status" value="{{ current_status }}">
       <input type="hidden" name="next" value="{{ request.full_path }}">
-      <button class="btn secondary" type="submit">Generate / Show Drafts</button>
+      <button class="btn secondary" type="submit">Generate / Refresh Drafts</button>
     </form>
     <a class="btn secondary" href="{{ url_for('new_leads_daily_summary') }}">Daily Summary</a>
   </div>

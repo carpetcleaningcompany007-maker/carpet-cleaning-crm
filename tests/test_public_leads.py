@@ -198,6 +198,25 @@ class PublicLeadTests(unittest.TestCase):
         lead = self.appmod.q("SELECT draft_message FROM public_leads WHERE id=?", (lead_id,), one=True)
         self.assertIn("before costly replacement is considered", lead["draft_message"])
 
+    def test_generate_drafts_button_refreshes_existing_drafts(self):
+        lead_id, _ = self.appmod.save_public_lead({
+            "business_name": "Example Pub",
+            "source_website": "Expedia search result",
+            "source_url": "https://example.test/reviews/refresh-draft",
+            "date_published": self.appmod.uk_today().isoformat(),
+            "summary": "Stained carpet in the bar area.",
+            "location": "Hereford",
+        })
+        self.appmod.run("UPDATE public_leads SET draft_message='Old draft text' WHERE id=?", (lead_id,))
+        with self.app.test_client() as client:
+            with client.session_transaction() as sess:
+                sess["logged_in"] = True
+            response = client.post("/new-leads/generate-drafts", data={"status": "New"})
+        self.assertEqual(response.status_code, 302)
+        lead = self.appmod.q("SELECT draft_message FROM public_leads WHERE id=?", (lead_id,), one=True)
+        self.assertNotIn("Old draft text", lead["draft_message"])
+        self.assertNotIn("public post", lead["draft_message"].lower())
+
     def test_new_leads_page_auto_generates_visible_drafts(self):
         lead_id, _ = self.appmod.save_public_lead({
             "person_name": "Public Request",

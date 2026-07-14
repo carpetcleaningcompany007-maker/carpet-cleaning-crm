@@ -10215,7 +10215,7 @@ def new_leads_run_wide():
 def new_leads_generate_drafts():
     status = clean_str(request.form.get("status"))
     params = []
-    where_parts = ["IFNULL(archived_at,'')=''", "IFNULL(draft_message,'')=''"]
+    where_parts = ["IFNULL(archived_at,'')=''"]
     if status:
         where_parts.append("status=?")
         params.append(status)
@@ -10226,7 +10226,7 @@ def new_leads_generate_drafts():
     for row in rows:
         save_generated_lead_draft(row["id"])
         created += 1
-    flash(f"Generated {created} draft message(s). You can now read and edit them on the lead cards before anything is sent.")
+    flash(f"Generated/refreshed {created} draft message(s). You can now read and edit them on the lead cards before anything is sent.")
     return redirect(request.form.get("next") or url_for("new_leads"))
 
 
