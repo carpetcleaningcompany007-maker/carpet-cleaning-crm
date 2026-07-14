@@ -2498,31 +2498,11 @@ def run_website_enquiry_automation(lead_id, customer_id, data):
         return {}
     results = {}
 
-    try:
-        missing = missing_lead_fields_for_xero(lead)
-        if missing:
-            raise RuntimeError("Xero upload stopped. Missing: " + ", ".join(missing) + ". Add these details before uploading to Xero.")
-        match = find_xero_contact_match_for_lead(lead, block_possible_duplicates=True)
-        contact_id = match.get("contact_id", "")
-        payload = xero_contact_payload_from_lead(lead)
-        if contact_id:
-            payload["Contacts"][0]["ContactID"] = contact_id
-        result = xero_api_request(XERO_CONTACTS_URL, method="POST", payload=payload, idempotency_key=f"website-enquiry-contact-{lead_id}-{contact_id or 'new'}")
-        contact = (result.get("Contacts") or [{}])[0]
-        contact_id = contact.get("ContactID") or contact_id
-        if not contact_id:
-            raise RuntimeError("Xero did not return a ContactID.")
-        run("""UPDATE intake_submissions SET xero_contact_id=?, xero_sent_at=datetime('now'), xero_error='', xero_sync_status=?, updated_at=datetime('now') WHERE id=?""", (contact_id, "Sent: Xero contact created or updated", lead_id))
-        run("""UPDATE customers SET xero_contact_id=?, xero_contact_synced_at=datetime('now'), xero_contact_error='' WHERE id=?""", (contact_id, customer_id))
-        run("INSERT INTO customer_timeline(customer_id, note_text, created_at) VALUES (?,?,datetime('now'))", (customer_id, "Xero contact created or updated from website enquiry."))
-        results["xero"] = (True, f"Xero contact ready: {contact_id}")
-    except Exception as exc:
-        friendly = friendly_xero_error(exc)
-        run("""UPDATE intake_submissions SET xero_error=?, xero_sync_status=?, updated_at=datetime('now') WHERE id=?""", (friendly, f"Failed: {friendly}", lead_id))
-        run("UPDATE customers SET xero_contact_error=? WHERE id=?", (friendly, customer_id))
-        run("INSERT INTO customer_timeline(customer_id, note_text, created_at) VALUES (?,?,datetime('now'))", (customer_id, f"Xero sync failed: {friendly}"))
-        log_xero_sync("customer", customer_id, "sync_contact_from_enquiry", "error", str(exc))
-        results["xero"] = (False, friendly)
+    xero_message = "Skipped: manual approval required before creating or updating a Xero contact."
+    run("""UPDATE intake_submissions SET xero_error='', xero_sync_status=?, updated_at=datetime('now') WHERE id=?""", ("Pending manual approval", lead_id))
+    run("UPDATE customers SET xero_contact_error='' WHERE id=?", (customer_id,))
+    run("INSERT INTO customer_timeline(customer_id, note_text, created_at) VALUES (?,?,datetime('now'))", (customer_id, xero_message))
+    results["xero"] = (True, xero_message)
 
     customer_email = request_value(data, "email", "email_address")
     if customer_email:
@@ -2542,11 +2522,16 @@ def run_website_enquiry_automation(lead_id, customer_id, data):
 
     customer_phone = request_value(data, "phone", "phone_number", "telephone", "tel")
     customer_sms = render_simple_template(message_template("customer_enquiry_sms")["body"], template_context_for_enquiry(data, customer_id=customer_id, lead_id=lead_id))
-    ok, msg = send_clicksend_env_sms(customer_phone, customer_sms, customer=customer, category="Service")
-    if ok:
-        send_owner_customer_message_copy("sms", customer_phone, "Customer enquiry SMS", customer_sms, customer=customer, context="Website enquiry customer SMS")
-    update_intake_delivery_status(lead_id, customer_sms_status=status_text(ok, msg))
-    results["customer_sms"] = (ok, msg)
+    if customer_phone and is_valid_uk_phone(customer_phone):
+        ok, msg = send_clicksend_env_sms(customer_phone, customer_sms, customer=customer, category="Service")
+        if ok:
+            send_owner_customer_message_copy("sms", customer_phone, "Customer enquiry SMS", customer_sms, customer=customer, context="Website enquiry customer SMS")
+        update_intake_delivery_status(lead_id, customer_sms_status=status_text(ok, msg))
+        results["customer_sms"] = (ok, msg)
+    else:
+        msg = "Customer phone number is missing or needs checking."
+        update_intake_delivery_status(lead_id, customer_sms_status=status_text(False, msg, skipped=True))
+        results["customer_sms"] = (False, msg)
 
     owner_email = os.environ.get("OWNER_ALERT_EMAIL", "").strip()
     owner_email_template = message_template("owner_enquiry_alert_email")
@@ -6284,11 +6269,17 @@ def create_intake_from_website_payload(data, source="Website form", photo_filena
         name = "Website Customer"
     if not phone and not email:
         raise ValueError("Please enter at least a phone number or email address.")
-    if require_valid_phone and not is_valid_uk_phone(phone):
-        raise ValueError("Please enter a valid UK phone number, for example 07802 563213.")
+    phone_warning = ""
+    if require_valid_phone and phone and not is_valid_uk_phone(phone):
+        if not is_valid_email(email):
+            raise ValueError("Please enter a valid UK phone number, for example 07802 563213, or a valid email address.")
+        phone_warning = f"Phone number needs checking: {phone}"
+    elif require_valid_phone and not phone and not is_valid_email(email):
+        raise ValueError("Please enter a valid UK phone number, for example 07802 563213, or a valid email address.")
     notes = "\n".join([part for part in [
         f"Town: {town}" if town else "",
         f"Consent to contact: {contact_consent}" if contact_consent else "",
+        phone_warning,
         additional_notes,
     ] if part])
     lead_id = run("""INSERT INTO intake_submissions
