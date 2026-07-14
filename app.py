@@ -6,6 +6,7 @@ import ssl
 import logging
 import secrets
 import time
+import email.utils
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from datetime import date, timedelta, datetime
@@ -21,6 +22,7 @@ import base64
 import urllib.parse
 import urllib.request
 import urllib.error
+import xml.etree.ElementTree as ET
 import uuid
 import calendar as pycalendar
 import threading
@@ -120,6 +122,7 @@ LEAD_WORKFLOW_STAGES = [
 ]
 
 LEAD_PUBLIC_SOURCES = [
+    {"key": "live_search_rss", "name": "Live web search RSS candidates", "requires_api": False, "collector": "bing_rss"},
     {"key": "google_reviews", "name": "Google Reviews", "requires_api": True},
     {"key": "google_maps_reviews", "name": "Google Maps reviews", "requires_api": True},
     {"key": "hotel_reviews", "name": "Public hotel reviews", "requires_api": True},
@@ -129,6 +132,21 @@ LEAD_PUBLIC_SOURCES = [
     {"key": "reddit", "name": "Reddit", "requires_api": False},
     {"key": "community_forums", "name": "Local community forums", "requires_api": False},
     {"key": "business_review_sites", "name": "Public business review websites", "requires_api": True},
+]
+
+LEAD_LOCAL_SEARCH_PLACES = [
+    "Ludlow", "Shrewsbury", "Telford", "Bridgnorth", "Hereford", "Leominster",
+    "Worcester", "Kidderminster", "Bromyard", "Tenbury Wells", "Newport Shropshire",
+    "Ironbridge", "Market Drayton", "West Midlands", "Shropshire", "Herefordshire",
+    "Worcestershire", "Staffordshire", "Warwickshire", "Powys", "Gloucestershire",
+]
+
+LEAD_RSS_QUERY_PHRASES = [
+    "need carpet cleaner", "recommend carpet cleaner", "looking for carpet cleaner",
+    "upholstery cleaner wanted", "sofa cleaner wanted", "end of tenancy carpet cleaning",
+    "pet urine carpet", "dog wee carpet", "carpet smells", "stained carpet",
+    "dirty carpet", "filthy carpet", "carpet needs replacing", "dirty upholstery",
+    "stained sofa", "hotel carpet cleaning", "pub carpet cleaning",
 ]
 
 LEAD_SEARCH_TERMS = [
@@ -4510,13 +4528,18 @@ def update_sms_status_by_external(external_id, status='', payload=None, error_te
 def lead_generation_settings():
     row = q("SELECT * FROM lead_generation_settings WHERE id=1", one=True)
     if row:
+        enabled = {part.strip() for part in clean_str(row["enabled_sources"]).split(",") if part.strip()}
+        if "live_search_rss" not in enabled:
+            enabled.add("live_search_rss")
+            run("UPDATE lead_generation_settings SET enabled_sources=? WHERE id=1", (",".join(source["key"] for source in LEAD_PUBLIC_SOURCES if source["key"] in enabled),))
+            row = q("SELECT * FROM lead_generation_settings WHERE id=1", one=True)
         return row
     return {
         "search_radius_miles": 75,
         "counties": ", ".join(LEAD_DEFAULT_COUNTIES),
-        "post_max_age_days": 3,
-        "review_max_age_days": 7,
-        "selected_date_range_days": 3,
+        "post_max_age_days": 90,
+        "review_max_age_days": 90,
+        "selected_date_range_days": 90,
         "enabled_sources": ",".join(source["key"] for source in LEAD_PUBLIC_SOURCES),
     }
 
@@ -4781,6 +4804,121 @@ def record_lead_source_status(source_key, source_name, status, message):
            VALUES (?,?,?,?,datetime('now'))""", (source_key, source_name, status, message))
 
 
+def http_get_text(url, timeout=20):
+    req = urllib.request.Request(url, headers={
+        "User-Agent": "Mozilla/5.0 TheCarpetCleaningCompanyCRM/1.0 lead-discovery",
+        "Accept": "application/rss+xml, application/xml, text/xml;q=0.9, */*;q=0.8",
+    })
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return resp.read().decode("utf-8", "replace")
+
+
+def parse_rss_pub_date(value):
+    value = clean_str(value)
+    if not value:
+        return None
+    try:
+        return email.utils.parsedate_to_datetime(value).astimezone(ZoneInfo("Europe/London")).date()
+    except Exception:
+        return parse_lead_date(value)
+
+
+def lead_candidate_location(text):
+    lowered = normalise_lead_text(text)
+    for place in LEAD_LOCAL_SEARCH_PLACES:
+        if normalise_lead_text(place) in lowered:
+            return place
+    return ""
+
+
+def is_useful_live_search_candidate(title, description, link):
+    text = normalise_lead_text(f"{title} {description}")
+    if not any(term in text for term in ["carpet", "upholstery", "sofa", "rug"]):
+        return False
+    if not any(normalise_lead_text(term) in text for term in LEAD_SEARCH_TERMS):
+        return False
+    if not lead_candidate_location(text):
+        return False
+    domain = lead_domain(link)
+    blocked_domains = (
+        "dictionary.", "wikipedia.org", "merriam-webster.com", "cambridge.org",
+        "collinsdictionary.com", "thesaurus.com", "youtube.com", "thecarpetcleaningcrew.co.uk",
+    )
+    if any(blocked in domain for blocked in blocked_domains):
+        return False
+    advert_terms = ("carpetright", "carpet warehouse", "flooring superstore", "b&q", "diy.com")
+    if any(term in text or term in domain for term in advert_terms):
+        return False
+    return True
+
+
+def bing_rss_period_for_days(days):
+    try:
+        days = int(days)
+    except (TypeError, ValueError):
+        days = 3
+    if days <= 1:
+        return "day"
+    if days <= 7:
+        return "week"
+    return "month"
+
+
+def live_search_rss_candidates(settings_row=None):
+    settings_row = settings_row or lead_generation_settings()
+    max_days = int(row_value(settings_row, "selected_date_range_days") or row_value(settings_row, "post_max_age_days") or 3)
+    period = bing_rss_period_for_days(max_days)
+    checked = rejected = 0
+    candidates = []
+    seen_urls = set()
+    places = LEAD_LOCAL_SEARCH_PLACES[:12]
+    phrases = LEAD_RSS_QUERY_PHRASES[:10]
+    for phrase in phrases:
+        for place in places:
+            query = f'"{phrase}" "{place}"'
+            url = "https://www.bing.com/search?format=rss&t=" + urllib.parse.quote(period) + "&q=" + urllib.parse.quote(query)
+            try:
+                xml_text = http_get_text(url, timeout=15)
+                root = ET.fromstring(xml_text)
+            except Exception as exc:
+                log_lead_event("source_error", None, "Live web search RSS candidates", "Error", f"{query}: {exc}")
+                continue
+            for item in root.findall("./channel/item"):
+                checked += 1
+                title = clean_str(item.findtext("title"))
+                link = clean_str(item.findtext("link"))
+                description = clean_str(html_lib.unescape(item.findtext("description") or ""))
+                pub_date = parse_rss_pub_date(item.findtext("pubDate"))
+                if not link or link in seen_urls:
+                    rejected += 1
+                    continue
+                seen_urls.add(link)
+                if not pub_date or lead_age_days(pub_date.isoformat()) > max_days:
+                    rejected += 1
+                    continue
+                if not is_useful_live_search_candidate(title, description, link):
+                    rejected += 1
+                    continue
+                text = f"{title}. {description}"
+                location = lead_candidate_location(text) or place
+                candidates.append({
+                    "person_name": title[:120],
+                    "location": location,
+                    "county": location if location in LEAD_DEFAULT_COUNTIES else "",
+                    "lead_type": detect_lead_type(text),
+                    "source_website": "Live web search RSS candidates",
+                    "source_url": link,
+                    "source_uid": normalise_lead_text(link)[:180],
+                    "date_published": pub_date.isoformat(),
+                    "exact_issue": extract_lead_issue(text),
+                    "summary": (
+                        f"Needs checking: live search found a recent public result mentioning carpet/upholstery issues near {location}. "
+                        f"Verify the source page before contacting. {description[:240]}"
+                    ),
+                })
+    return candidates, {"checked": checked, "rejected": rejected}
+
+
 def run_public_lead_scan():
     settings_row = lead_generation_settings()
     enabled = {part.strip() for part in clean_str(settings_row["enabled_sources"]).split(",") if part.strip()}
@@ -4790,7 +4928,20 @@ def run_public_lead_scan():
         if enabled and source["key"] not in enabled:
             continue
         results["checked"] += 1
-        if source["requires_api"]:
+        if source.get("collector") == "bing_rss":
+            candidates, stats = live_search_rss_candidates(settings_row=settings_row)
+            for candidate in candidates:
+                lead_id, action = save_public_lead(candidate)
+                if action == "created":
+                    run("UPDATE public_leads SET status='Needs Checking', updated_at=datetime('now') WHERE id=? AND status='New'", (lead_id,))
+                    results["created"] += 1
+                elif action == "updated":
+                    results["updated"] += 1
+            record_lead_source_status(
+                source["key"], source["name"], "Live",
+                f"Checked {stats['checked']} RSS result(s); saved {len(candidates)} needs-checking candidate(s); rejected {stats['rejected']} irrelevant/old result(s).",
+            )
+        elif source["requires_api"]:
             results["unavailable"] += 1
             record_lead_source_status(
                 source["key"], source["name"], "Unavailable",
@@ -4798,8 +4949,8 @@ def run_public_lead_scan():
             )
         else:
             record_lead_source_status(
-                source["key"], source["name"], "Ready",
-                "Connector is enabled for compliant public feeds/imports. Paste JSON exports or wire an approved API to ingest.",
+                source["key"], source["name"], "Needs setup",
+                "No live connector is configured yet. Add an approved API/feed/export before this source can return leads.",
             )
     log_lead_event("search_completed", None, "", "Completed", f"Checked {results['checked']} source(s); {results['unavailable']} unavailable pending compliant API/export.", results)
     return results
@@ -5608,10 +5759,10 @@ def init_db():
         id INTEGER PRIMARY KEY CHECK (id=1),
         search_radius_miles INTEGER DEFAULT 75,
         counties TEXT DEFAULT 'Shropshire, Herefordshire, Worcestershire, West Midlands, Staffordshire, Warwickshire, Powys, Gloucestershire, Cheshire',
-        post_max_age_days INTEGER DEFAULT 3,
-        review_max_age_days INTEGER DEFAULT 7,
-        selected_date_range_days INTEGER DEFAULT 3,
-        enabled_sources TEXT DEFAULT 'google_reviews,google_maps_reviews,hotel_reviews,pub_reviews,inn_reviews,facebook_public_posts,reddit,community_forums,business_review_sites',
+        post_max_age_days INTEGER DEFAULT 90,
+        review_max_age_days INTEGER DEFAULT 90,
+        selected_date_range_days INTEGER DEFAULT 90,
+        enabled_sources TEXT DEFAULT 'live_search_rss,google_reviews,google_maps_reviews,hotel_reviews,pub_reviews,inn_reviews,facebook_public_posts,reddit,community_forums,business_review_sites',
         excluded_locations TEXT DEFAULT '',
         search_frequency TEXT DEFAULT 'Daily',
         maximum_leads_per_day INTEGER DEFAULT 25,
@@ -5792,8 +5943,8 @@ def init_db():
         ("customer_feedback", "review_link_sent_at", "TEXT DEFAULT ''"),
         ("future_reminders", "reminder_type", "TEXT DEFAULT 'Follow up'"),
         ("future_reminders", "completed_at", "TEXT DEFAULT ''"),
-        ("lead_generation_settings", "selected_date_range_days", "INTEGER DEFAULT 3"),
-        ("lead_generation_settings", "enabled_sources", "TEXT DEFAULT 'google_reviews,google_maps_reviews,hotel_reviews,pub_reviews,inn_reviews,facebook_public_posts,reddit,community_forums,business_review_sites'"),
+        ("lead_generation_settings", "selected_date_range_days", "INTEGER DEFAULT 90"),
+        ("lead_generation_settings", "enabled_sources", "TEXT DEFAULT 'live_search_rss,google_reviews,google_maps_reviews,hotel_reviews,pub_reviews,inn_reviews,facebook_public_posts,reddit,community_forums,business_review_sites'"),
         ("lead_generation_settings", "excluded_locations", "TEXT DEFAULT ''"),
         ("lead_generation_settings", "search_frequency", "TEXT DEFAULT 'Daily'"),
         ("lead_generation_settings", "maximum_leads_per_day", "INTEGER DEFAULT 25"),
@@ -10116,10 +10267,10 @@ def new_lead_xero_confirm(lead_id):
 @login_required
 def lead_generation_settings_update():
     enabled_sources = ",".join(request.form.getlist("enabled_sources"))
-    allowed_ranges = {1, 3, 7, 14, 30}
-    selected_days = int(request.form.get("selected_date_range_days") or 3)
+    allowed_ranges = {1, 3, 7, 14, 30, 90}
+    selected_days = int(request.form.get("selected_date_range_days") or 90)
     if selected_days not in allowed_ranges:
-        selected_days = 3
+        selected_days = 90
     run("""UPDATE lead_generation_settings
               SET search_radius_miles=?, counties=?, post_max_age_days=?, review_max_age_days=?,
                   selected_date_range_days=?, enabled_sources=?, excluded_locations=?, search_frequency=?,
@@ -10129,8 +10280,8 @@ def lead_generation_settings_update():
             WHERE id=1""", (
         request.form.get("search_radius_miles") or 75,
         request.form.get("counties") or ", ".join(LEAD_DEFAULT_COUNTIES),
-        request.form.get("post_max_age_days") or 3,
-        request.form.get("review_max_age_days") or 7,
+        request.form.get("post_max_age_days") or 90,
+        request.form.get("review_max_age_days") or 90,
         selected_days,
         enabled_sources,
         request.form.get("excluded_locations") or "",

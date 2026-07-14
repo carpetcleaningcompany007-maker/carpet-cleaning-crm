@@ -2,6 +2,7 @@ import importlib
 import os
 import tempfile
 import unittest
+from unittest import mock
 
 
 class PublicLeadTests(unittest.TestCase):
@@ -58,7 +59,7 @@ class PublicLeadTests(unittest.TestCase):
         self.assertEqual(count, 1)
 
     def test_old_public_post_is_expired(self):
-        old_date = (self.appmod.uk_today() - self.appmod.timedelta(days=10)).isoformat()
+        old_date = (self.appmod.uk_today() - self.appmod.timedelta(days=100)).isoformat()
         lead_id, _ = self.appmod.save_public_lead({
             "person_name": "Public Request",
             "source_website": "Reddit",
@@ -68,13 +69,58 @@ class PublicLeadTests(unittest.TestCase):
         })
         row = self.appmod.q("SELECT status, lead_age_days FROM public_leads WHERE id=?", (lead_id,), one=True)
         self.assertEqual(row["status"], "Expired")
-        self.assertGreaterEqual(row["lead_age_days"], 10)
+        self.assertGreaterEqual(row["lead_age_days"], 100)
 
     def test_scan_records_blocked_sources_as_unavailable(self):
         result = self.appmod.run_public_lead_scan()
         unavailable = self.appmod.q("SELECT COUNT(*) AS c FROM lead_source_status WHERE status='Unavailable'", one=True)["c"]
         self.assertGreater(result["checked"], 0)
         self.assertGreater(unavailable, 0)
+
+    def test_live_search_rss_saves_needs_checking_candidate(self):
+        pub_date = self.appmod.uk_today().strftime("%a, %d %b %Y 10:00:00 GMT")
+        rss = f"""<?xml version="1.0" encoding="utf-8"?>
+        <rss version="2.0"><channel>
+          <item>
+            <title>Looking for carpet cleaner in Ludlow</title>
+            <link>https://community.example/post/carpet-cleaner-ludlow</link>
+            <description>Need carpet cleaner for stained carpet in Ludlow this week.</description>
+            <pubDate>{pub_date}</pubDate>
+          </item>
+        </channel></rss>"""
+        with mock.patch.object(self.appmod, "http_get_text", return_value=rss):
+            result = self.appmod.run_public_lead_scan()
+
+        lead = self.appmod.q("SELECT * FROM public_leads WHERE source_website='Live web search RSS candidates'", one=True)
+        status = self.appmod.q("SELECT * FROM lead_source_status WHERE source_key='live_search_rss' ORDER BY id DESC LIMIT 1", one=True)
+        self.assertIsNotNone(lead)
+        self.assertEqual(lead["status"], "Needs Checking")
+        self.assertEqual(lead["lead_age_days"], 0)
+        self.assertIn("Needs checking", lead["summary"])
+        self.assertGreaterEqual(result["created"], 1)
+        self.assertEqual(status["status"], "Live")
+
+    def test_lead_settings_accept_three_month_search_window(self):
+        with self.app.test_client() as client:
+            with client.session_transaction() as sess:
+                sess["logged_in"] = True
+            response = client.post("/lead-generation-settings", data={
+                "search_radius_miles": "75",
+                "counties": "Shropshire",
+                "post_max_age_days": "90",
+                "review_max_age_days": "90",
+                "selected_date_range_days": "90",
+                "enabled_sources": ["live_search_rss"],
+                "search_frequency": "Daily",
+                "maximum_leads_per_day": "25",
+                "minimum_lead_score": "40",
+                "follow_up_timing_days": "3",
+            })
+        self.assertEqual(response.status_code, 302)
+        row = self.appmod.lead_generation_settings()
+        self.assertEqual(row["selected_date_range_days"], 90)
+        self.assertEqual(row["post_max_age_days"], 90)
+        self.assertEqual(row["review_max_age_days"], 90)
 
     def test_due_lead_generation_check_runs_once_per_day(self):
         first = self.appmod.run_due_lead_generation_check(force=True)
