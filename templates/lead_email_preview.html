@@ -1,0 +1,53 @@
+{% extends "layout.html" %}
+{% block title %}Lead Email Preview{% endblock %}
+{% block page_title %}Email Preview{% endblock %}
+{% block body_content %}
+<div class="workspace-grid">
+  <section class="panel">
+    <div class="panel-head">
+      <div>
+        <h3>{{ lead.business_name or lead.venue_name or lead.person_name or 'Lead preview' }}</h3>
+        <p>{{ lead.draft_channel or 'Draft' }} preview · score {{ lead.lead_score }} · {{ lead.lead_age_days }} days old</p>
+      </div>
+      <div class="lead-toolbar-actions">
+        <a class="btn secondary" href="{{ url_for('new_leads', status=lead.status) }}">Back to Leads</a>
+        <a class="btn secondary" href="{{ url_for('new_lead_edit_draft', lead_id=lead.id) }}">Edit Draft</a>
+      </div>
+    </div>
+    <div class="email-screen-preview">
+      {{ preview_html|safe }}
+    </div>
+  </section>
+  <aside class="utility-rail">
+    <div class="utility-card">
+      <h4>Before Sending</h4>
+      {% if validation_ok %}
+        <p>Passed. This lead currently satisfies the email sending checks.</p>
+      {% else %}
+        <div class="report-summary-list">
+          {% for error in validation_errors %}
+            <div><strong>Blocked</strong><span>{{ error }}</span></div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    </div>
+    <div class="utility-card">
+      <h4>Draft Controls</h4>
+      <div class="lead-button-grid">
+        <form method="post" action="{{ url_for('new_lead_approve', lead_id=lead.id) }}"><button class="btn primary" type="submit">Approve</button></form>
+        <form method="post" action="{{ url_for('new_lead_approve_send_email', lead_id=lead.id) }}"><button class="btn secondary" type="submit">Approve and Send Email</button></form>
+      </div>
+      <p class="form-help">No email is sent unless you approve it manually.</p>
+    </div>
+    <div class="utility-card">
+      <h4>Lead Details</h4>
+      <div class="report-summary-list">
+        <div><strong>Subject</strong><span>{{ lead.email_subject or 'Message draft' }}</span></div>
+        <div><strong>Email</strong><span>{{ lead.public_email or 'Not found' }}</span></div>
+        <div><strong>Source</strong><span>{{ lead.source_website or 'Public source' }}</span></div>
+        <div><strong>Issue</strong><span>{{ lead.exact_issue or lead.summary or 'Not found' }}</span></div>
+      </div>
+    </div>
+  </aside>
+</div>
+{% endblock %}

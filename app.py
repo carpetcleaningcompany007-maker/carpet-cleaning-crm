@@ -5119,10 +5119,12 @@ def lead_is_public_post(lead):
 def default_business_email_template():
     return (
         "Hi {contact_name},\n\n"
-        "I hope you are well. I run The Carpet Cleaning Company near Ludlow, and we help local hotels, pubs, holiday lets, offices and homes with professional carpet and upholstery cleaning.\n\n"
+        "I hope you are well.\n\n"
+        "I run The Carpet Cleaning Company, based near Ludlow. We help local hotels, pubs, holiday lets, offices and homes restore carpets and upholstery with professional carpet and upholstery cleaning.\n\n"
         "{personal_line}\n\n"
-        "We focus on improving appearance, freshness and odour issues where possible, especially before costly replacement is considered. We can help with high-traffic areas, stained carpets, upholstery, entrance areas, bedrooms, stairs and end-of-tenancy work.\n\n"
-        "I would not want to assume what is needed from a short public mention, but if it would be useful I can take a quick look and give honest advice on what can realistically be improved.\n\n"
+        "Where carpets or upholstery are looking tired, marked, or carrying odours, a specialist clean can often make a noticeable difference before costly replacement is considered. We can help with high-traffic areas, stained carpets, upholstery, entrance areas, bedrooms, stairs and end-of-tenancy work.\n\n"
+        "I would not want to assume what is needed from a short public mention, but if it would be useful I can take a quick look and give honest advice on what can realistically be improved. We can also work around quieter times where that helps the business.\n\n"
+        "If you would like me to have a look, just reply with a few details or photos and I will come back to you with sensible next steps.\n\n"
         "Kind regards,\n"
         "Paul Nicholas\n"
         "The Carpet Cleaning Company\n"
@@ -5203,6 +5205,100 @@ def render_lead_template(template, lead):
         text = text.replace("{" + key + "}", value)
         text = text.replace("{{" + key + "}}", value)
     return text.strip()
+
+
+def lead_email_html(lead):
+    app_settings = settings()
+    business = clean_str(row_value(app_settings, "business_name")) or "The Carpet Cleaning Company"
+    phone = clean_str(row_value(app_settings, "phone")) or "07802 563213"
+    website = clean_str(row_value(app_settings, "website")) or "https://www.thecarpetcleaningcrew.co.uk"
+    logo_url = crm_email_logo_url() or public_static_or_live_url("site/email-logo-white.png")
+    subject = clean_str(row_value(lead, "email_subject")) or f"Professional carpet and upholstery cleaning for {lead_display_name(lead)}"
+    body = clean_str(row_value(lead, "draft_message")) or generate_lead_draft(lead)[1]
+    contact_name = lead_contact_name(lead)
+    location = clean_str(row_value(lead, "location") or row_value(lead, "county") or row_value(lead, "postcode"))
+    issue = lead_issue_short(lead)
+    issue_detail = clean_str(row_value(lead, "exact_issue") or row_value(lead, "summary"))
+    source = clean_str(row_value(lead, "source_website"))
+    body_html = "".join(f"<p>{html_lib.escape(part).replace(chr(10), '<br>')}</p>" for part in re.split(r"\n\s*\n", body) if part.strip())
+    detail_rows = []
+    for label, value in [
+        ("Lead", lead_display_name(lead)),
+        ("Location", location),
+        ("Relevant service", issue),
+        ("Source", source),
+    ]:
+        if value:
+            detail_rows.append(
+                f"<tr><td style='padding:9px 0;color:#5b6b7b;font-size:13px'>{html_lib.escape(label)}</td>"
+                f"<td style='padding:9px 0;color:#102033;font-size:13px;font-weight:700;text-align:right'>{html_lib.escape(value)}</td></tr>"
+            )
+    issue_block = ""
+    if issue_detail:
+        issue_block = (
+            "<div style='margin:18px 0 0;padding:14px 16px;border-left:4px solid #d8af55;background:#fff9e9;color:#3e4651;font-size:14px;line-height:1.55'>"
+            "<strong style='display:block;color:#102033;margin-bottom:5px'>Internal note for preview</strong>"
+            f"{html_lib.escape(issue_detail[:360])}"
+            "</div>"
+        )
+    return f"""<!doctype html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;background:#eef4f7;padding:0;font-family:Arial,Helvetica,sans-serif;color:#102033">
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent">A friendly note from {html_lib.escape(business)} about professional carpet and upholstery cleaning.</div>
+  <table role="presentation" cellspacing="0" cellpadding="0" width="100%" style="background:#eef4f7;padding:26px 10px">
+    <tr><td align="center">
+      <table role="presentation" cellspacing="0" cellpadding="0" width="100%" style="max-width:720px;background:#ffffff;border:1px solid #dce7ee;border-radius:12px;overflow:hidden;box-shadow:0 14px 34px rgba(16,32,51,.12)">
+        <tr><td style="height:8px;background:linear-gradient(90deg,#071524 0%,#0d5c4e 60%,#d8af55 100%);font-size:0;line-height:0">&nbsp;</td></tr>
+        <tr>
+          <td style="background:#071524;padding:22px 30px;color:#ffffff">
+            <table role="presentation" cellspacing="0" cellpadding="0" width="100%">
+              <tr>
+                <td style="vertical-align:middle">
+                  {'<img src="' + html_lib.escape(logo_url) + '" alt="' + html_lib.escape(business) + '" width="132" style="display:block;width:132px;max-width:132px;height:auto;border:0">' if logo_url else '<strong style="font-size:20px">' + html_lib.escape(business) + '</strong>'}
+                </td>
+                <td align="right" style="vertical-align:middle;color:#d8af55;font-size:12px;line-height:1.5;font-weight:800;text-transform:uppercase;letter-spacing:.06em">
+                  Professional carpet & upholstery cleaning
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:28px 32px 18px">
+            <div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#0d6b58;font-weight:800">{html_lib.escape(business)}</div>
+            <h1 style="margin:9px 0 0;font-size:25px;line-height:1.22;color:#102033">{html_lib.escape(subject)}</h1>
+            <p style="margin:10px 0 0;color:#5b6b7b;font-size:15px;line-height:1.55">Professional carpet and upholstery cleaning across Ludlow and the surrounding counties.</p>
+          </td>
+        </tr>
+        <tr><td style="padding:0 32px"><div style="height:1px;background:#e3edf2"></div></td></tr>
+        <tr>
+          <td style="padding:24px 32px 8px;font-size:16px;line-height:1.68;color:#263746">
+            {body_html}
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:12px 32px 26px">
+            <table role="presentation" cellspacing="0" cellpadding="0" width="100%" style="border-top:1px solid #e3edf2;border-bottom:1px solid #e3edf2;margin:4px 0 16px">
+              {''.join(detail_rows)}
+            </table>
+            <table role="presentation" cellspacing="0" cellpadding="0" width="100%" style="background:#f5faf8;border:1px solid #d6e9e1;border-radius:10px">
+              <tr>
+                <td style="padding:16px 18px">
+                  <strong style="display:block;color:#0d5c4e;font-size:15px;margin-bottom:7px">Paul Nicholas</strong>
+                  <div style="font-size:14px;color:#33475b;line-height:1.55">{html_lib.escape(business)}<br>{html_lib.escape(phone)}<br><a href="{html_lib.escape(website)}" style="color:#0d5c4e;font-weight:700">{html_lib.escape(website.replace('https://', '').replace('http://', ''))}</a></div>
+                </td>
+                <td align="right" style="padding:16px 18px;color:#8a6a24;font-size:13px;font-weight:800">Carpets · Upholstery · Stains · Odours</td>
+              </tr>
+            </table>
+            {issue_block}
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>"""
 
 
 def generate_lead_draft(lead):
@@ -5303,7 +5399,7 @@ def send_approved_lead_email(lead_id):
         return False, "Email not sent: " + "; ".join(errors)
     subject = clean_str(row_value(lead, "email_subject")) or f"Professional carpet and upholstery cleaning for {lead_display_name(lead)}"
     body = clean_str(row_value(lead, "draft_message"))
-    html_body = "<div style='font-family:Arial,sans-serif;line-height:1.55;color:#102033;white-space:pre-wrap'>" + html_lib.escape(body) + "</div>"
+    html_body = lead_email_html(lead)
     sent, msg = send_env_email(clean_str(row_value(lead, "public_email")), subject, body, html_body)
     if sent:
         run("""UPDATE public_leads
@@ -10313,6 +10409,26 @@ def new_lead_edit_draft(lead_id):
         lead = q("SELECT * FROM public_leads WHERE id=?", (lead_id,), one=True)
     ok, errors = validate_lead_for_email(lead)
     return render_template("lead_draft.html", lead=lead, validation_ok=ok, validation_errors=errors)
+
+
+@app.route("/new-leads/<int:lead_id>/preview")
+@login_required
+def new_lead_email_preview(lead_id):
+    lead = q("SELECT * FROM public_leads WHERE id=?", (lead_id,), one=True)
+    if not lead:
+        flash("Lead not found.")
+        return redirect(url_for("new_leads"))
+    if not clean_str(row_value(lead, "draft_message")):
+        save_generated_lead_draft(lead_id)
+        lead = q("SELECT * FROM public_leads WHERE id=?", (lead_id,), one=True)
+    ok, errors = validate_lead_for_email(lead)
+    return render_template(
+        "lead_email_preview.html",
+        lead=lead,
+        preview_html=lead_email_html(lead),
+        validation_ok=ok,
+        validation_errors=errors,
+    )
 
 
 @app.route("/new-leads/<int:lead_id>/quick-action", methods=["POST"])

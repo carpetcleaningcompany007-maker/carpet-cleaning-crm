@@ -109,6 +109,7 @@
           <div class="lead-primary-actions">
             <form method="post" action="{{ url_for('new_lead_approve', lead_id=lead.id) }}"><button class="btn primary" type="submit">Approve</button></form>
             <form method="post" action="{{ url_for('new_lead_approve_send_email', lead_id=lead.id) }}"><button class="btn secondary" type="submit">Approve and Send Email</button></form>
+            <a class="btn secondary" href="{{ url_for('new_lead_email_preview', lead_id=lead.id) }}">Screen Preview</a>
             <a class="btn secondary" href="{{ url_for('new_lead_edit_draft', lead_id=lead.id) }}">Edit Draft</a>
           </div>
 

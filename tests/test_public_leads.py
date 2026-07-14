@@ -248,6 +248,43 @@ class PublicLeadTests(unittest.TestCase):
         self.assertNotIn("public post", body.lower())
         self.assertIn("example pub", body.lower())
 
+    def test_lead_email_preview_is_branded(self):
+        lead_id, _ = self.appmod.save_public_lead({
+            "business_name": "Example Hotel",
+            "source_website": "Public hotel review",
+            "source_url": "https://example.test/reviews/preview",
+            "date_published": self.appmod.uk_today().isoformat(),
+            "summary": "Stained carpet in reception.",
+            "location": "Shrewsbury",
+            "public_email": "hello@examplehotel.test",
+            "website": "https://examplehotel.test",
+        })
+        self.appmod.save_generated_lead_draft(lead_id)
+        with self.app.test_client() as client:
+            with client.session_transaction() as sess:
+                sess["logged_in"] = True
+            response = client.get(f"/new-leads/{lead_id}/preview")
+        self.assertEqual(response.status_code, 200)
+        html = response.get_data(as_text=True)
+        self.assertIn("The Carpet Cleaning Company", html)
+        self.assertIn("Professional carpet & upholstery cleaning", html)
+        self.assertIn("email-screen-preview", html)
+
+    def test_new_leads_card_has_screen_preview_link(self):
+        self.appmod.save_public_lead({
+            "business_name": "Example Venue",
+            "source_website": "Public review",
+            "source_url": "https://example.test/reviews/card-preview",
+            "date_published": self.appmod.uk_today().isoformat(),
+            "summary": "Dirty carpet in entrance.",
+        })
+        with self.app.test_client() as client:
+            with client.session_transaction() as sess:
+                sess["logged_in"] = True
+            response = client.get("/new-leads?status=New")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Screen Preview", response.get_data(as_text=True))
+
     def test_email_send_is_blocked_for_duplicate_lead(self):
         lead_id, _ = self.appmod.save_public_lead({
             "business_name": "Duplicate Hotel",
