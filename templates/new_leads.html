@@ -12,6 +12,9 @@
     <form method="post" action="{{ url_for('new_leads_run') }}">
       <button class="btn primary" type="submit">Run Check Now</button>
     </form>
+    <form method="post" action="{{ url_for('new_leads_run_wide') }}">
+      <button class="btn secondary" type="submit">Run Wider Search</button>
+    </form>
     <a class="btn secondary" href="{{ url_for('new_leads_daily_summary') }}">Daily Summary</a>
   </div>
 </section>

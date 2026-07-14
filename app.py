@@ -149,6 +149,29 @@ LEAD_RSS_QUERY_PHRASES = [
     "stained sofa", "hotel carpet cleaning", "pub carpet cleaning",
 ]
 
+LEAD_WIDER_SEARCH_PLACES = [
+    "Ludlow", "Shrewsbury", "Telford", "Bridgnorth", "Hereford", "Leominster",
+    "Worcester", "Kidderminster", "Bromyard", "Tenbury Wells", "Newport Shropshire",
+    "Ironbridge", "Market Drayton", "West Midlands", "Shropshire", "Herefordshire",
+    "Worcestershire", "Staffordshire", "Warwickshire", "Powys", "Gloucestershire",
+    "Cheshire", "Birmingham", "Wolverhampton", "Walsall", "Dudley", "Stourbridge",
+    "Coventry", "Solihull", "Stratford upon Avon", "Gloucester", "Cheltenham",
+    "Evesham", "Malvern", "Droitwich", "Redditch", "Wrexham", "Chester",
+    "Monmouth", "Abergavenny", "Brecon", "Ross-on-Wye", "Ledbury",
+]
+
+LEAD_WIDER_RSS_QUERY_PHRASES = [
+    "dirty carpet hotel review", "stained carpet hotel review", "sticky carpet hotel review",
+    "dirty carpet inn review", "stained carpet pub review", "dirty carpet holiday cottage",
+    "stained carpet holiday cottage", "holiday cottage carpet smells", "lounge carpet needs replacing",
+    "carpet needs replacing let alone cleaning", "dirty upholstery hotel", "stained chairs pub",
+    "stained sofa holiday cottage", "dog wee carpet cleaner", "pet urine carpet cleaner",
+    "cat urine carpet cleaner", "musty carpet", "wet carpet leak", "water damaged carpet",
+    "end of tenancy carpet cleaner", "recommend carpet cleaner", "looking for carpet cleaner",
+    "care home dirty carpet", "school dirty carpet", "nursery dirty carpet",
+    "wedding venue stained carpet", "restaurant dirty upholstery", "office stained carpet",
+]
+
 LEAD_SEARCH_TERMS = [
     "dirty carpet", "stained carpet", "filthy carpet", "grubby carpet", "carpet smells",
     "wet carpet", "musty carpet", "dirty upholstery", "stained upholstery", "dirty sofa",
@@ -4729,8 +4752,8 @@ def lead_exclusion_reason(candidate, settings_row=None):
     return ""
 
 
-def save_public_lead(candidate, discovered_at=None):
-    settings_row = lead_generation_settings()
+def save_public_lead(candidate, discovered_at=None, settings_row=None):
+    settings_row = settings_row or lead_generation_settings()
     discovered_at = discovered_at or datetime.now(ZoneInfo("Europe/London")).isoformat(timespec="seconds")
     today = uk_today()
     published = parse_lead_date(candidate.get("date_published"))
@@ -4825,7 +4848,7 @@ def parse_rss_pub_date(value):
 
 def lead_candidate_location(text):
     lowered = normalise_lead_text(text)
-    for place in LEAD_LOCAL_SEARCH_PLACES:
+    for place in LEAD_WIDER_SEARCH_PLACES:
         if normalise_lead_text(place) in lowered:
             return place
     return ""
@@ -4864,15 +4887,38 @@ def bing_rss_period_for_days(days):
     return "month"
 
 
-def live_search_rss_candidates(settings_row=None):
+def lead_scan_settings(settings_row=None, mode="standard"):
+    base = settings_row or lead_generation_settings()
+    row = {key: row_value(base, key) for key in (
+        "search_radius_miles", "counties", "post_max_age_days", "review_max_age_days",
+        "selected_date_range_days", "enabled_sources", "excluded_locations", "search_frequency",
+        "maximum_leads_per_day", "minimum_lead_score", "excluded_businesses", "excluded_domains",
+        "excluded_keywords", "email_template", "facebook_message_template", "follow_up_timing_days",
+        "daily_summary_email", "automatic_emailing", "manual_approval_mode",
+    )}
+    if mode == "wide":
+        row["search_radius_miles"] = max(int(row.get("search_radius_miles") or 75), 150)
+        row["post_max_age_days"] = max(int(row.get("post_max_age_days") or 3), 365)
+        row["review_max_age_days"] = max(int(row.get("review_max_age_days") or 7), 365)
+        row["selected_date_range_days"] = max(int(row.get("selected_date_range_days") or 3), 365)
+        row["maximum_leads_per_day"] = max(int(row.get("maximum_leads_per_day") or 25), 75)
+        row["minimum_lead_score"] = min(int(row.get("minimum_lead_score") or 40), 25)
+    return row
+
+
+def live_search_rss_candidates(settings_row=None, mode="standard"):
     settings_row = settings_row or lead_generation_settings()
     max_days = int(row_value(settings_row, "selected_date_range_days") or row_value(settings_row, "post_max_age_days") or 3)
     period = bing_rss_period_for_days(max_days)
     checked = rejected = 0
     candidates = []
     seen_urls = set()
-    places = LEAD_LOCAL_SEARCH_PLACES[:12]
-    phrases = LEAD_RSS_QUERY_PHRASES[:10]
+    if mode == "wide":
+        places = LEAD_WIDER_SEARCH_PLACES[:]
+        phrases = LEAD_WIDER_RSS_QUERY_PHRASES[:]
+    else:
+        places = LEAD_LOCAL_SEARCH_PLACES[:12]
+        phrases = LEAD_RSS_QUERY_PHRASES[:10]
     for phrase in phrases:
         for place in places:
             query = f'"{phrase}" "{place}"'
@@ -4919,19 +4965,19 @@ def live_search_rss_candidates(settings_row=None):
     return candidates, {"checked": checked, "rejected": rejected}
 
 
-def run_public_lead_scan():
-    settings_row = lead_generation_settings()
+def run_public_lead_scan(mode="standard"):
+    settings_row = lead_scan_settings(mode=mode)
     enabled = {part.strip() for part in clean_str(settings_row["enabled_sources"]).split(",") if part.strip()}
     archive_expired_public_leads()
-    results = {"created": 0, "updated": 0, "unavailable": 0, "checked": 0}
+    results = {"created": 0, "updated": 0, "unavailable": 0, "checked": 0, "mode": mode}
     for source in LEAD_PUBLIC_SOURCES:
         if enabled and source["key"] not in enabled:
             continue
         results["checked"] += 1
         if source.get("collector") == "bing_rss":
-            candidates, stats = live_search_rss_candidates(settings_row=settings_row)
+            candidates, stats = live_search_rss_candidates(settings_row=settings_row, mode=mode)
             for candidate in candidates:
-                lead_id, action = save_public_lead(candidate)
+                lead_id, action = save_public_lead(candidate, settings_row=settings_row)
                 if action == "created":
                     run("UPDATE public_leads SET status='Needs Checking', updated_at=datetime('now') WHERE id=? AND status='New'", (lead_id,))
                     results["created"] += 1
@@ -4939,7 +4985,7 @@ def run_public_lead_scan():
                     results["updated"] += 1
             record_lead_source_status(
                 source["key"], source["name"], "Live",
-                f"Checked {stats['checked']} RSS result(s); saved {len(candidates)} needs-checking candidate(s); rejected {stats['rejected']} irrelevant/old result(s).",
+                f"{'Wide search: ' if mode == 'wide' else ''}Checked {stats['checked']} RSS result(s); saved {len(candidates)} needs-checking candidate(s); rejected {stats['rejected']} irrelevant/old result(s).",
             )
         elif source["requires_api"]:
             results["unavailable"] += 1
@@ -10080,6 +10126,18 @@ def new_leads():
 def new_leads_run():
     result = run_public_lead_scan()
     flash(f"Lead scan checked {result['checked']} sources. {result['unavailable']} source(s) need a compliant API/export before automated collection.")
+    return redirect(url_for("new_leads"))
+
+
+@app.route("/new-leads/run-wide", methods=["POST"])
+@login_required
+def new_leads_run_wide():
+    result = run_public_lead_scan(mode="wide")
+    flash(
+        f"Wider search checked {result['checked']} sources across a 150-mile, 12-month window. "
+        f"Added {result['created']} new needs-checking lead(s), updated {result['updated']} duplicate/existing lead(s). "
+        f"{result['unavailable']} source(s) still need a compliant API/export."
+    )
     return redirect(url_for("new_leads"))
 
 

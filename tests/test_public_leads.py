@@ -100,6 +100,35 @@ class PublicLeadTests(unittest.TestCase):
         self.assertGreaterEqual(result["created"], 1)
         self.assertEqual(status["status"], "Live")
 
+    def test_wider_search_uses_expanded_window_and_threshold(self):
+        row = self.appmod.lead_scan_settings(mode="wide")
+        self.assertGreaterEqual(row["search_radius_miles"], 150)
+        self.assertGreaterEqual(row["selected_date_range_days"], 365)
+        self.assertGreaterEqual(row["post_max_age_days"], 365)
+        self.assertGreaterEqual(row["review_max_age_days"], 365)
+        self.assertLessEqual(row["minimum_lead_score"], 25)
+
+    def test_wider_search_button_runs_scan(self):
+        pub_date = self.appmod.uk_today().strftime("%a, %d %b %Y 10:00:00 GMT")
+        rss = f"""<?xml version="1.0" encoding="utf-8"?>
+        <rss version="2.0"><channel>
+          <item>
+            <title>Dirty carpet hotel review in Birmingham</title>
+            <link>https://reviews.example/hotel-dirty-carpet-birmingham</link>
+            <description>Hotel review says stained carpet and dirty upholstery in Birmingham.</description>
+            <pubDate>{pub_date}</pubDate>
+          </item>
+        </channel></rss>"""
+        with mock.patch.object(self.appmod, "http_get_text", return_value=rss):
+            with self.app.test_client() as client:
+                with client.session_transaction() as sess:
+                    sess["logged_in"] = True
+                response = client.post("/new-leads/run-wide")
+        self.assertEqual(response.status_code, 302)
+        lead = self.appmod.q("SELECT * FROM public_leads WHERE source_url=?", ("https://reviews.example/hotel-dirty-carpet-birmingham",), one=True)
+        self.assertIsNotNone(lead)
+        self.assertEqual(lead["status"], "Needs Checking")
+
     def test_lead_settings_accept_twelve_month_search_window(self):
         with self.app.test_client() as client:
             with client.session_transaction() as sess:
