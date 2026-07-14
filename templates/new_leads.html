@@ -1,0 +1,203 @@
+{% extends "layout.html" %}
+{% block title %}New Leads{% endblock %}
+{% block page_title %}New Leads{% endblock %}
+{% block body_content %}
+<div class="page-intro">
+  <div class="page-intro-copy">
+    <div class="section-kicker">Approval queue</div>
+    <h3>Public carpet and upholstery opportunities</h3>
+    <p>Leads found from public sources are filtered, scored, de-duplicated and held here for approval before any contact or Xero action.</p>
+  </div>
+  <form method="post" action="{{ url_for('new_leads_run') }}">
+    <button class="btn primary" type="submit">Run Source Check</button>
+    <a class="btn secondary" href="{{ url_for('new_leads_daily_summary') }}">Daily Summary</a>
+  </form>
+</div>
+
+<section class="cc-stat-grid">
+  {% for stage in lead_stages %}
+    <a href="{{ url_for('new_leads', status=stage) }}"><span>{{ stage }}</span><strong>{{ stats.get(stage, 0) }}</strong></a>
+  {% endfor %}
+</section>
+
+<div class="workspace-grid">
+  <section class="panel">
+    <div class="panel-head">
+      <div>
+        <h3>{{ current_status or 'All leads' }}</h3>
+        <p>{{ leads|length }} visible lead{{ '' if leads|length == 1 else 's' }}</p>
+      </div>
+      {% if current_status %}<a class="btn secondary" href="{{ url_for('new_leads') }}">Clear Filter</a>{% endif %}
+      {% if show_archived %}
+        <a class="btn secondary" href="{{ url_for('new_leads') }}">Hide Archived</a>
+      {% else %}
+        <a class="btn secondary" href="{{ url_for('new_leads', archived=1) }}">Show Archived</a>
+      {% endif %}
+    </div>
+
+    <div class="lead-board">
+      {% for lead in leads %}
+      <article class="lead-row status-{{ lead.status|lower|replace(' ', '-') }}">
+        <div class="lead-main">
+          <div class="lead-title-line">
+            <strong>{{ lead.business_name or lead.venue_name or lead.person_name or 'Public lead' }}</strong>
+            <span class="score-pill">{{ lead.lead_score }}</span>
+          </div>
+          <p>{{ lead.summary or lead.exact_issue }}</p>
+          <div class="lead-meta">
+            <span>{{ lead.lead_type or 'Lead' }}</span>
+            <span>{{ lead.county or 'County unknown' }}</span>
+            <span>{% if lead.distance_miles is not none %}{{ lead.distance_miles }} miles{% else %}Distance unknown{% endif %}</span>
+            <span>{{ lead.lead_age_days }} days old</span>
+          </div>
+          <div class="lead-meta">
+            <span>Published {{ lead.date_published or 'unknown' }}</span>
+            <span>Found {{ lead.date_discovered or 'unknown' }}</span>
+            <span>{{ lead.source_website or 'Public source' }}</span>
+          </div>
+          {% if lead.exact_issue %}<p class="lead-issue">{{ lead.exact_issue }}</p>{% endif %}
+          <div class="lead-contact-line">
+            {% if lead.public_phone %}<span>{{ lead.public_phone }}</span>{% endif %}
+            {% if lead.public_email %}<span>{{ lead.public_email }}</span>{% endif %}
+            {% if lead.website %}<a href="{{ lead.website }}" target="_blank" rel="noopener">Website</a>{% endif %}
+            {% if lead.source_url %}<a href="{{ lead.source_url }}" target="_blank" rel="noopener">Source</a>{% endif %}
+          </div>
+          {% if lead.already_exists_crm or lead.already_exists_xero or lead.status == 'Duplicate' %}
+            <p class="lead-warning">Duplicate check: {% if lead.already_exists_crm %}already in CRM{% endif %}{% if lead.already_exists_xero %} already in Xero{% endif %}{% if lead.status == 'Duplicate' %} previous search match{% endif %}</p>
+          {% endif %}
+          {% if lead.draft_message %}
+            <div class="lead-draft-preview" id="lead-message-{{ lead.id }}">{{ lead.draft_message }}</div>
+          {% endif %}
+        </div>
+        <div class="lead-actions">
+          <form method="post" action="{{ url_for('new_lead_status', lead_id=lead.id) }}" class="compact-form">
+            <input type="hidden" name="next" value="{{ request.full_path }}">
+            <label>Stage</label>
+            <select name="status">
+              {% for stage in lead_stages %}
+                <option value="{{ stage }}" {% if lead.status == stage %}selected{% endif %}>{{ stage }}</option>
+              {% endfor %}
+            </select>
+            <label class="check-line"><input type="checkbox" name="previously_contacted" value="1" {% if lead.previously_contacted %}checked{% endif %}> Previously contacted</label>
+            <button class="btn secondary" type="submit">Update</button>
+          </form>
+          <div class="lead-button-grid">
+            <form method="post" action="{{ url_for('new_lead_approve', lead_id=lead.id) }}"><button class="btn primary" type="submit">Approve</button></form>
+            <form method="post" action="{{ url_for('new_lead_approve_send_email', lead_id=lead.id) }}"><button class="btn secondary" type="submit">Approve and Send Email</button></form>
+            <a class="btn secondary" href="{{ url_for('new_lead_edit_draft', lead_id=lead.id) }}">Edit Draft</a>
+            <form method="post" action="{{ url_for('new_lead_quick_action', lead_id=lead.id) }}"><input type="hidden" name="action" value="reject"><button class="btn secondary" type="submit">Reject</button></form>
+            <form method="post" action="{{ url_for('new_lead_quick_action', lead_id=lead.id) }}"><input type="hidden" name="action" value="duplicate"><button class="btn secondary" type="submit">Mark as Duplicate</button></form>
+            <form method="post" action="{{ url_for('new_lead_quick_action', lead_id=lead.id) }}"><input type="hidden" name="action" value="expired"><button class="btn secondary" type="submit">Mark as Expired</button></form>
+            {% if lead.public_phone %}<a class="btn secondary" href="tel:{{ lead.public_phone }}">Call</a>{% else %}<button class="btn secondary" type="button" disabled>Call</button>{% endif %}
+            {% if lead.website %}<a class="btn secondary" href="{{ lead.website }}" target="_blank" rel="noopener">Open Website</a>{% else %}<button class="btn secondary" type="button" disabled>Open Website</button>{% endif %}
+            {% if lead.source_url %}<a class="btn secondary" href="{{ lead.source_url }}" target="_blank" rel="noopener">Open Source Review</a>{% else %}<button class="btn secondary" type="button" disabled>Open Source Review</button>{% endif %}
+            <button class="btn secondary" type="button" data-copy-target="lead-message-{{ lead.id }}">Copy Message</button>
+            <form method="post" action="{{ url_for('new_lead_quick_action', lead_id=lead.id) }}"><input type="hidden" name="action" value="follow_up"><button class="btn secondary" type="submit">Create Follow Up</button></form>
+            <a class="btn secondary" href="{{ url_for('new_lead_xero_confirm', lead_id=lead.id) }}">Create Xero Contact</a>
+            <form method="post" action="{{ url_for('new_lead_quick_action', lead_id=lead.id) }}"><input type="hidden" name="action" value="archive"><button class="btn secondary" type="submit">Archive</button></form>
+          </div>
+        </div>
+      </article>
+      {% else %}
+      <div class="empty-state">
+        <h3>No leads in this view.</h3>
+        <p>Run a source check or import a compliant public-feed export to populate the approval queue.</p>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <aside class="utility-rail">
+    <div class="utility-card">
+      <h4>Source status</h4>
+      <div class="report-summary-list">
+        {% for source in source_statuses %}
+          <div><strong>{{ source.source_name }}</strong><span>{{ source.status }} · {{ source.message }}</span></div>
+        {% else %}
+          <div><strong>No checks yet</strong><span>Run a source check to record source availability.</span></div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="utility-card">
+      <h4>Lead settings</h4>
+      <form method="post" action="{{ url_for('lead_generation_settings_update') }}" class="form compact-form">
+        <input type="hidden" name="next" value="{{ url_for('new_leads') }}">
+        <label>Radius from Ludlow</label>
+        <input name="search_radius_miles" type="number" min="1" max="200" value="{{ lead_settings.search_radius_miles }}">
+        <label>Date range</label>
+        <select name="selected_date_range_days">
+          {% for days in [1, 3, 7, 14, 30] %}
+            <option value="{{ days }}" {% if lead_settings.selected_date_range_days == days %}selected{% endif %}>Last {{ '24 hours' if days == 1 else days ~ ' days' }}</option>
+          {% endfor %}
+        </select>
+        <label>Public post max age</label>
+        <input name="post_max_age_days" type="number" min="1" max="30" value="{{ lead_settings.post_max_age_days }}">
+        <label>Review max age</label>
+        <input name="review_max_age_days" type="number" min="1" max="30" value="{{ lead_settings.review_max_age_days }}">
+        <label>Minimum score</label>
+        <input name="minimum_lead_score" type="number" min="0" max="100" value="{{ lead_settings.minimum_lead_score }}">
+        <label>Maximum leads per day</label>
+        <input name="maximum_leads_per_day" type="number" min="1" max="500" value="{{ lead_settings.maximum_leads_per_day }}">
+        <label>Search frequency</label>
+        <select name="search_frequency">
+          {% for option in ['Daily', 'Twice daily', 'Weekly', 'Manual only'] %}
+            <option value="{{ option }}" {% if lead_settings.search_frequency == option %}selected{% endif %}>{{ option }}</option>
+          {% endfor %}
+        </select>
+        <label>Counties</label>
+        <textarea name="counties">{{ lead_settings.counties }}</textarea>
+        <label>Excluded locations</label>
+        <textarea name="excluded_locations">{{ lead_settings.excluded_locations }}</textarea>
+        <label>Excluded businesses</label>
+        <textarea name="excluded_businesses">{{ lead_settings.excluded_businesses }}</textarea>
+        <label>Excluded domains</label>
+        <textarea name="excluded_domains">{{ lead_settings.excluded_domains }}</textarea>
+        <label>Excluded keywords</label>
+        <textarea name="excluded_keywords">{{ lead_settings.excluded_keywords }}</textarea>
+        <label>Follow up timing in days</label>
+        <input name="follow_up_timing_days" type="number" min="1" max="60" value="{{ lead_settings.follow_up_timing_days }}">
+        <label class="check-line"><input type="checkbox" name="daily_summary_email" value="1" {% if lead_settings.daily_summary_email %}checked{% endif %}> Daily summary email</label>
+        <label class="check-line"><input type="checkbox" name="manual_approval_mode" value="1" {% if lead_settings.manual_approval_mode %}checked{% endif %}> Manual approval mode</label>
+        <label class="check-line"><input type="checkbox" name="automatic_emailing" value="1" {% if lead_settings.automatic_emailing %}checked{% endif %}> Automatic emailing</label>
+        {% set enabled = (lead_settings.enabled_sources or '').split(',') %}
+        {% for source in public_sources %}
+          <label class="check-line"><input type="checkbox" name="enabled_sources" value="{{ source.key }}" {% if source.key in enabled %}checked{% endif %}> {{ source.name }}</label>
+        {% endfor %}
+        <button class="btn primary" type="submit">Save Lead Settings</button>
+      </form>
+    </div>
+
+    <div class="utility-card">
+      <h4>Import public-feed JSON</h4>
+      <form method="post" action="{{ url_for('new_leads_import') }}" class="form compact-form">
+        <textarea name="leads_json" rows="8" placeholder='[{"business_name":"Example Hotel","source_website":"Public hotel review","source_url":"https://example.com/review/1","date_published":"2026-07-13","summary":"Guest complained about stained carpets","postcode":"SY8 1AA","county":"Shropshire"}]'></textarea>
+        <button class="btn secondary" type="submit">Import Leads</button>
+      </form>
+    </div>
+    <div class="utility-card">
+      <h4>Recent log</h4>
+      <div class="report-summary-list">
+        {% for log in logs %}
+          <div><strong>{{ log.event_type }}</strong><span>{{ log.status }} · {{ log.message }} · {{ log.created_at }}</span></div>
+        {% else %}
+          <div><strong>No log entries yet</strong><span>Lead actions and source checks will appear here.</span></div>
+        {% endfor %}
+      </div>
+    </div>
+  </aside>
+</div>
+<script>
+document.addEventListener('click', function(e){
+  var btn = e.target.closest('[data-copy-target]');
+  if(!btn) return;
+  var el = document.getElementById(btn.getAttribute('data-copy-target'));
+  var text = el ? el.innerText : '';
+  if(navigator.clipboard && text){
+    navigator.clipboard.writeText(text);
+    btn.textContent = 'Copied';
+    setTimeout(function(){ btn.textContent = 'Copy Message'; }, 1400);
+  }
+});
+</script>
+{% endblock %}

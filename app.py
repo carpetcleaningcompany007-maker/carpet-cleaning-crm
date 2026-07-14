@@ -24,9 +24,10 @@ import urllib.error
 import uuid
 import calendar as pycalendar
 import threading
+import math
 from difflib import SequenceMatcher
 
-from flask import Flask, render_template, request, redirect, url_for, flash, session, g, Response, send_file, send_from_directory
+from flask import Flask, render_template, request, redirect, url_for, flash, session, g, Response, send_file, send_from_directory, has_request_context
 from itsdangerous import BadSignature, URLSafeSerializer
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -112,6 +113,42 @@ EXPENSE_CATEGORY_OPTIONS = [
 RECURRING_COLLECTION_OPTIONS = [
     "Direct Debit", "Standing Order", "Bank Transfer", "Card", "Cash", "Invoice", "Other"
 ]
+
+LEAD_WORKFLOW_STAGES = [
+    "New", "Needs Checking", "Ready to Contact", "Approved", "Email Drafted",
+    "Email Sent", "Replied", "Follow Up", "Won", "Not Suitable", "Duplicate", "Expired"
+]
+
+LEAD_PUBLIC_SOURCES = [
+    {"key": "google_reviews", "name": "Google Reviews", "requires_api": True},
+    {"key": "google_maps_reviews", "name": "Google Maps reviews", "requires_api": True},
+    {"key": "hotel_reviews", "name": "Public hotel reviews", "requires_api": True},
+    {"key": "pub_reviews", "name": "Public pub reviews", "requires_api": True},
+    {"key": "inn_reviews", "name": "Public inn reviews", "requires_api": True},
+    {"key": "facebook_public_posts", "name": "Public Facebook posts", "requires_api": True},
+    {"key": "reddit", "name": "Reddit", "requires_api": False},
+    {"key": "community_forums", "name": "Local community forums", "requires_api": False},
+    {"key": "business_review_sites", "name": "Public business review websites", "requires_api": True},
+]
+
+LEAD_SEARCH_TERMS = [
+    "dirty carpet", "stained carpet", "filthy carpet", "grubby carpet", "carpet smells",
+    "wet carpet", "musty carpet", "dirty upholstery", "stained upholstery", "dirty sofa",
+    "need carpet cleaner", "recommend carpet cleaner", "looking for carpet cleaner",
+    "professional carpet cleaning", "upholstery cleaner", "sofa cleaner",
+    "end of tenancy carpet cleaning", "replace carpet", "carpet replacement",
+    "new carpets too expensive", "carpet beyond saving", "hotel carpet cleaning",
+    "pub carpet cleaning", "commercial carpet cleaning", "pet urine carpet",
+    "dog wee carpet", "cat urine carpet", "flooded carpet", "water damaged carpet",
+]
+
+LEAD_DEFAULT_COUNTIES = [
+    "Shropshire", "Herefordshire", "Worcestershire", "West Midlands", "Staffordshire",
+    "Warwickshire", "Powys", "Gloucestershire", "Cheshire"
+]
+
+LUDLOW_LAT = 52.3670
+LUDLOW_LON = -2.7180
 
 PRICING_DEFAULTS = {
     "domestic": [
@@ -4476,6 +4513,684 @@ def update_sms_status_by_external(external_id, status='', payload=None, error_te
     run("UPDATE sms_events SET status=?, payload_json=?, error_text=CASE WHEN ?<>'' THEN ? ELSE error_text END, updated_at=datetime('now') WHERE external_id=?", (status or 'Updated', json.dumps(payload or {}), error_text or '', error_text or '', external_id))
 
 
+def lead_generation_settings():
+    row = q("SELECT * FROM lead_generation_settings WHERE id=1", one=True)
+    if row:
+        return row
+    return {
+        "search_radius_miles": 75,
+        "counties": ", ".join(LEAD_DEFAULT_COUNTIES),
+        "post_max_age_days": 3,
+        "review_max_age_days": 7,
+        "selected_date_range_days": 3,
+        "enabled_sources": ",".join(source["key"] for source in LEAD_PUBLIC_SOURCES),
+    }
+
+
+def parse_lead_date(value):
+    value = clean_str(value)
+    if not value:
+        return None
+    for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S"):
+        try:
+            return datetime.strptime(value[:19], fmt).date()
+        except ValueError:
+            continue
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00")).date()
+    except ValueError:
+        return None
+
+
+def lead_age_days(date_published, today=None):
+    published = parse_lead_date(date_published)
+    if not published:
+        return 9999
+    return max(0, ((today or uk_today()) - published).days)
+
+
+def distance_from_ludlow_miles(lat=None, lon=None):
+    try:
+        lat = float(lat)
+        lon = float(lon)
+    except (TypeError, ValueError):
+        return None
+    radius = 3958.8
+    lat1 = math.radians(LUDLOW_LAT)
+    lat2 = math.radians(lat)
+    dlat = math.radians(lat - LUDLOW_LAT)
+    dlon = math.radians(lon - LUDLOW_LON)
+    a = math.sin(dlat / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
+    return round(radius * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a)), 1)
+
+
+def normalise_lead_text(value):
+    return re.sub(r"[^a-z0-9]+", " ", clean_str(value).lower()).strip()
+
+
+def lead_duplicate_fingerprint(candidate):
+    parts = [
+        candidate.get("business_name"), candidate.get("person_name"), candidate.get("venue_name"),
+        candidate.get("website"), normalize_phone(candidate.get("public_phone")),
+        (candidate.get("public_email") or "").lower(), candidate.get("address"),
+        candidate.get("postcode"), candidate.get("source_url"),
+    ]
+    base = "|".join(normalise_lead_text(part) for part in parts if clean_str(part))
+    return base or normalise_lead_text(candidate.get("summary") or candidate.get("exact_issue") or str(uuid.uuid4()))
+
+
+def detect_lead_type(text):
+    haystack = normalise_lead_text(text)
+    if any(term in haystack for term in ["upholstery", "sofa", "chair"]):
+        return "Upholstery"
+    if any(term in haystack for term in ["hotel", "pub", "inn", "restaurant", "office", "school", "care home", "wedding venue"]):
+        return "Commercial carpet"
+    if any(term in haystack for term in ["end of tenancy", "tenant", "landlord"]):
+        return "End of tenancy"
+    if any(term in haystack for term in ["flood", "water damaged", "wet carpet"]):
+        return "Water damage"
+    return "Carpet cleaning"
+
+
+def extract_lead_issue(text):
+    haystack = clean_str(text)
+    lowered = haystack.lower()
+    for term in LEAD_SEARCH_TERMS:
+        if term in lowered:
+            return term
+    if "pet" in lowered or "urine" in lowered or "wee" in lowered:
+        return "pet urine or odour problem"
+    return haystack[:180]
+
+
+def score_public_lead(candidate, settings_row=None, today=None):
+    settings_row = settings_row or lead_generation_settings()
+    text = normalise_lead_text(" ".join(clean_str(candidate.get(k)) for k in ("business_name", "venue_name", "lead_type", "summary", "exact_issue")))
+    age = lead_age_days(candidate.get("date_published"), today=today)
+    distance = candidate.get("distance_miles")
+    score = 20
+    if age <= 1:
+        score += 30
+    elif age <= 3:
+        score += 22
+    elif age <= 7:
+        score += 12
+    else:
+        score -= 18
+    try:
+        distance = float(distance)
+        if distance <= 20:
+            score += 20
+        elif distance <= float(settings_row["search_radius_miles"] or 75):
+            score += 12
+        else:
+            score -= 25
+    except (TypeError, ValueError):
+        score -= 4
+    boost_terms = {
+        "hotel": 18, "pub": 15, "inn": 15, "care home": 18, "school": 16,
+        "restaurant": 14, "office": 12, "wedding venue": 16, "commercial": 14,
+        "multiple rooms": 12, "carpet and upholstery": 15, "pet": 12,
+        "urine": 14, "odour": 12, "end of tenancy": 14, "looking for": 18,
+        "recommend": 14, "need carpet cleaner": 20, "dirty": 8, "stained": 8,
+        "complaint": 10, "flood": 12, "water damaged": 12,
+    }
+    for term, boost in boost_terms.items():
+        if term in text:
+            score += boost
+    if not clean_str(candidate.get("public_email")) and not clean_str(candidate.get("public_phone")) and not clean_str(candidate.get("website")):
+        score -= 18
+    if "competitor" in text or "advert" in text:
+        score -= 30
+    return max(0, min(100, int(score)))
+
+
+def lead_existing_match(candidate):
+    fingerprint = lead_duplicate_fingerprint(candidate)
+    source_url = clean_str(candidate.get("source_url"))
+    source_uid = clean_str(candidate.get("source_uid"))
+    if source_url:
+        existing = q("SELECT id, status FROM public_leads WHERE source_url=? ORDER BY id DESC LIMIT 1", (source_url,), one=True)
+        if existing:
+            return "previous_search", existing["id"]
+    if source_uid:
+        existing = q("SELECT id, status FROM public_leads WHERE source_uid=? ORDER BY id DESC LIMIT 1", (source_uid,), one=True)
+        if existing:
+            return "previous_search", existing["id"]
+    existing = q("SELECT id, status FROM public_leads WHERE duplicate_fingerprint=? ORDER BY id DESC LIMIT 1", (fingerprint,), one=True)
+    if existing:
+        return "previous_search", existing["id"]
+    email = clean_str(candidate.get("public_email")).lower()
+    phone = normalize_phone(candidate.get("public_phone"))
+    postcode = normalise_match_text(candidate.get("postcode")).replace(" ", "")
+    if email:
+        existing_customer = q("SELECT id FROM customers WHERE lower(IFNULL(email,''))=? ORDER BY id DESC LIMIT 1", (email,), one=True)
+        if existing_customer:
+            return "crm", existing_customer["id"]
+    if phone:
+        for row in q("SELECT id, phone FROM customers WHERE IFNULL(phone,'')<>''"):
+            if normalize_phone(row["phone"]) == phone:
+                return "crm", row["id"]
+    if postcode and clean_str(candidate.get("business_name") or candidate.get("person_name") or candidate.get("venue_name")):
+        name_text = normalise_match_text(candidate.get("business_name") or candidate.get("person_name") or candidate.get("venue_name"))
+        rows = q("SELECT id, first_name, last_name, postcode FROM customers WHERE IFNULL(postcode,'')<>''")
+        for row in rows:
+            customer_name = normalise_match_text(f"{row['first_name']} {row['last_name']}")
+            customer_postcode = normalise_match_text(row["postcode"]).replace(" ", "")
+            if customer_postcode == postcode and (name_text in customer_name or customer_name in name_text):
+                return "crm", row["id"]
+    return "", 0
+
+
+def selected_lead_max_age(candidate, settings_row=None):
+    settings_row = settings_row or lead_generation_settings()
+    selected = int(settings_row["selected_date_range_days"] or 3)
+    source_type = normalise_lead_text(row_value(candidate, "source_website"))
+    if any(word in source_type for word in ["review", "hotel", "pub", "inn", "business"]):
+        return min(selected, int(settings_row["review_max_age_days"] or 7))
+    return min(selected, int(settings_row["post_max_age_days"] or 3))
+
+
+def lead_setting_terms(settings_row, key):
+    return [normalise_lead_text(part) for part in re.split(r"[\n,]+", clean_str(row_value(settings_row, key))) if normalise_lead_text(part)]
+
+
+def lead_exclusion_reason(candidate, settings_row=None):
+    settings_row = settings_row or lead_generation_settings()
+    text = normalise_lead_text(" ".join(clean_str(candidate.get(k)) for k in ("business_name", "person_name", "venue_name", "summary", "exact_issue", "location", "county", "postcode", "website", "source_url")))
+    domain_text = normalise_lead_text(lead_domain(candidate.get("website")) + " " + lead_domain(candidate.get("public_email")) + " " + lead_domain(candidate.get("source_url")))
+    checks = [
+        ("excluded business", lead_setting_terms(settings_row, "excluded_businesses"), text),
+        ("excluded location", lead_setting_terms(settings_row, "excluded_locations"), text),
+        ("excluded keyword", lead_setting_terms(settings_row, "excluded_keywords"), text),
+        ("excluded domain", lead_setting_terms(settings_row, "excluded_domains"), domain_text),
+    ]
+    for label, terms, haystack in checks:
+        for term in terms:
+            if term and term in haystack:
+                return f"Matched {label}: {term}"
+    return ""
+
+
+def save_public_lead(candidate, discovered_at=None):
+    settings_row = lead_generation_settings()
+    discovered_at = discovered_at or datetime.now(ZoneInfo("Europe/London")).isoformat(timespec="seconds")
+    today = uk_today()
+    published = parse_lead_date(candidate.get("date_published"))
+    age = lead_age_days(candidate.get("date_published"), today=today)
+    lat = candidate.get("latitude")
+    lon = candidate.get("longitude")
+    distance = candidate.get("distance_miles")
+    if distance in (None, ""):
+        distance = distance_from_ludlow_miles(lat, lon)
+    text = " ".join(clean_str(candidate.get(k)) for k in ("summary", "exact_issue", "lead_type", "business_name", "venue_name"))
+    candidate = dict(candidate)
+    candidate["distance_miles"] = distance
+    candidate["lead_type"] = clean_str(candidate.get("lead_type")) or detect_lead_type(text)
+    candidate["exact_issue"] = clean_str(candidate.get("exact_issue")) or extract_lead_issue(text)
+    candidate["lead_score"] = score_public_lead(candidate, settings_row=settings_row, today=today)
+    fingerprint = lead_duplicate_fingerprint(candidate)
+    duplicate_type, duplicate_id = lead_existing_match(candidate)
+    status = "New"
+    if age > selected_lead_max_age(candidate, settings_row=settings_row):
+        status = "Expired"
+    elif duplicate_type:
+        status = "Duplicate"
+    exclusion = lead_exclusion_reason(candidate, settings_row=settings_row)
+    if status == "New" and exclusion:
+        status = "Not Suitable"
+    elif status == "New" and candidate["lead_score"] < int(row_value(settings_row, "minimum_lead_score") or 0):
+        status = "Not Suitable"
+    existing_id = duplicate_id if duplicate_type == "previous_search" else 0
+    payload = json.dumps(candidate, sort_keys=True)
+    if existing_id:
+        run("""UPDATE public_leads
+                  SET date_discovered=?, lead_age_days=?, lead_score=?, status=CASE WHEN status IN ('Duplicate','Expired') THEN status ELSE ? END,
+                      previously_contacted=COALESCE(previously_contacted,0), already_exists_crm=?, already_exists_xero=?, duplicate_of_id=COALESCE(NULLIF(duplicate_of_id,0), ?),
+                      raw_payload_json=?, updated_at=datetime('now')
+                WHERE id=?""",
+            (discovered_at, age, candidate["lead_score"], status, 1 if duplicate_type == "crm" else 0,
+             1 if duplicate_type == "xero" else 0, duplicate_id or 0, payload, existing_id))
+        return existing_id, "updated"
+    lead_id = run("""INSERT INTO public_leads(
+            business_name, person_name, venue_name, address, postcode, county, website, public_email, public_phone,
+            location, latitude, longitude, distance_miles, lead_type, source_website, source_url, source_uid,
+            date_published, date_discovered, lead_age_days, exact_issue, summary, lead_score, status,
+            previously_contacted, already_exists_crm, already_exists_xero, duplicate_fingerprint, duplicate_of_id, raw_payload_json
+        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+        (
+            clean_str(candidate.get("business_name")), clean_str(candidate.get("person_name")), clean_str(candidate.get("venue_name")),
+            clean_str(candidate.get("address")), clean_str(candidate.get("postcode")), clean_str(candidate.get("county")),
+            clean_str(candidate.get("website")), clean_str(candidate.get("public_email")), clean_str(candidate.get("public_phone")),
+            clean_str(candidate.get("location")), clean_str(candidate.get("latitude")), clean_str(candidate.get("longitude")),
+            distance if distance is not None else None, candidate["lead_type"], clean_str(candidate.get("source_website")),
+            clean_str(candidate.get("source_url")), clean_str(candidate.get("source_uid")),
+            published.isoformat() if published else clean_str(candidate.get("date_published")), discovered_at, age,
+            candidate["exact_issue"], clean_str(candidate.get("summary")), candidate["lead_score"], status,
+            0, 1 if duplicate_type == "crm" else 0, 1 if duplicate_type == "xero" else 0, fingerprint, duplicate_id or 0, payload,
+        ))
+    log_lead_event("lead_found", lead_id, clean_str(candidate.get("source_website")), status, exclusion or f"Lead {status.lower()} with score {candidate['lead_score']}.")
+    return lead_id, "created"
+
+
+def archive_expired_public_leads():
+    settings_row = lead_generation_settings()
+    max_age = max(int(settings_row["post_max_age_days"] or 3), int(settings_row["review_max_age_days"] or 7), int(settings_row["selected_date_range_days"] or 3))
+    run("""UPDATE public_leads
+              SET status='Expired', updated_at=datetime('now')
+            WHERE status NOT IN ('Won','Not Suitable','Duplicate','Expired')
+              AND IFNULL(lead_age_days, 9999) > ?""", (max_age,))
+
+
+def record_lead_source_status(source_key, source_name, status, message):
+    run("""INSERT INTO lead_source_status(source_key, source_name, status, message, checked_at)
+           VALUES (?,?,?,?,datetime('now'))""", (source_key, source_name, status, message))
+
+
+def run_public_lead_scan():
+    settings_row = lead_generation_settings()
+    enabled = {part.strip() for part in clean_str(settings_row["enabled_sources"]).split(",") if part.strip()}
+    archive_expired_public_leads()
+    results = {"created": 0, "updated": 0, "unavailable": 0, "checked": 0}
+    for source in LEAD_PUBLIC_SOURCES:
+        if enabled and source["key"] not in enabled:
+            continue
+        results["checked"] += 1
+        if source["requires_api"]:
+            results["unavailable"] += 1
+            record_lead_source_status(
+                source["key"], source["name"], "Unavailable",
+                "Automated access needs a compliant API, export, or permission. No scraping or bypass attempted.",
+            )
+        else:
+            record_lead_source_status(
+                source["key"], source["name"], "Ready",
+                "Connector is enabled for compliant public feeds/imports. Paste JSON exports or wire an approved API to ingest.",
+            )
+    log_lead_event("search_completed", None, "", "Completed", f"Checked {results['checked']} source(s); {results['unavailable']} unavailable pending compliant API/export.", results)
+    return results
+
+
+def lead_search_already_ran_today():
+    today = uk_today().isoformat()
+    row = q("""SELECT id FROM lead_generation_log
+               WHERE event_type='search_completed'
+                 AND substr(created_at, 1, 10)=?
+               ORDER BY id DESC LIMIT 1""", (today,), one=True)
+    return bool(row)
+
+
+def lead_daily_check_due(now=None):
+    settings_row = lead_generation_settings()
+    frequency = clean_str(row_value(settings_row, "search_frequency") or "Daily").lower()
+    if frequency == "manual only":
+        return False
+    now = now or datetime.now(ZoneInfo("Europe/London"))
+    if lead_search_already_ran_today():
+        return False
+    if frequency == "twice daily":
+        return now.hour >= 8
+    if frequency == "weekly":
+        return now.weekday() == 0 and now.hour >= 8
+    return now.hour >= 8
+
+
+def run_due_lead_generation_check(force=False):
+    if not force and not lead_daily_check_due():
+        return None
+    try:
+        result = run_public_lead_scan()
+        if result:
+            logger.info("Lead generation daily check completed: %s", result)
+        return result
+    except Exception as exc:
+        log_lead_event("search_error", None, "", "Error", str(exc))
+        logger.exception("Lead generation daily check failed")
+        return {"error": str(exc)}
+
+
+def ingest_public_leads_json(text):
+    data = json.loads(text or "[]")
+    if isinstance(data, dict):
+        data = data.get("leads") or data.get("items") or [data]
+    settings_row = lead_generation_settings()
+    max_leads = int(row_value(settings_row, "maximum_leads_per_day") or 25)
+    results = {"created": 0, "updated": 0, "errors": []}
+    for idx, item in enumerate(list(data)[:max_leads], start=1):
+        try:
+            _, action = save_public_lead(item)
+            results[action] = results.get(action, 0) + 1
+        except Exception as exc:
+            results["errors"].append(f"Lead {idx}: {exc}")
+    if len(data) > max_leads:
+        log_lead_event("maximum_leads_per_day", None, "", "Limited", f"Imported first {max_leads} of {len(data)} supplied leads.")
+    return results
+
+
+def log_lead_event(event_type, lead_id=None, source_key="", status="", message="", payload=None):
+    try:
+        run("""INSERT INTO lead_generation_log(event_type, lead_id, source_key, status, message, payload_json, created_at)
+               VALUES (?,?,?,?,?,?,datetime('now'))""",
+            (event_type, lead_id, source_key, status, message, json.dumps(payload or {}, sort_keys=True)))
+    except Exception:
+        logger.exception("Could not write lead generation log event")
+
+
+def lead_display_name(lead):
+    return clean_str(row_value(lead, "business_name") or row_value(lead, "venue_name") or row_value(lead, "person_name") or "there")
+
+
+def lead_contact_name(lead):
+    return clean_str(row_value(lead, "person_name") or row_value(lead, "business_name") or row_value(lead, "venue_name") or "Lead contact")
+
+
+def lead_full_address(lead):
+    return ", ".join(part for part in [
+        clean_str(row_value(lead, "address")),
+        clean_str(row_value(lead, "location")),
+        clean_str(row_value(lead, "county")),
+        clean_str(row_value(lead, "postcode")),
+    ] if part)
+
+
+def lead_domain(value):
+    value = clean_str(value).lower()
+    if not value:
+        return ""
+    if "@" in value:
+        return value.rsplit("@", 1)[1]
+    parsed = urllib.parse.urlparse(value if "://" in value else "https://" + value)
+    return parsed.netloc.replace("www.", "")
+
+
+def email_matches_lead_business(lead):
+    email = clean_str(row_value(lead, "public_email")).lower()
+    if not is_valid_email(email):
+        return False
+    website_domain = lead_domain(row_value(lead, "website"))
+    email_domain = lead_domain(email)
+    if website_domain and email_domain:
+        return email_domain == website_domain or email_domain.endswith("." + website_domain)
+    public_domains = {"gmail.com", "hotmail.com", "outlook.com", "icloud.com", "yahoo.com", "aol.com", "live.co.uk", "btinternet.com"}
+    if email_domain in public_domains and clean_str(row_value(lead, "person_name")):
+        return True
+    return bool(clean_str(row_value(lead, "business_name") or row_value(lead, "venue_name") or row_value(lead, "person_name")))
+
+
+def lead_is_public_post(lead):
+    source = normalise_lead_text(row_value(lead, "source_website"))
+    return any(word in source for word in ["facebook", "reddit", "forum", "community", "post"])
+
+
+def default_business_email_template():
+    return (
+        "Hi {contact_name},\n\n"
+        "I hope you are well. I run The Carpet Cleaning Company near Ludlow, and we specialise in professional carpet and upholstery cleaning for homes and commercial premises across the local area.\n\n"
+        "If you are considering refreshing carpets or upholstery, or weighing that up against replacement, we may be able to help improve the appearance and freshness before expensive replacement is considered.\n\n"
+        "We regularly help hotels, pubs, offices, venues and residential customers with stained carpets, high traffic areas, upholstery, odour issues and end of tenancy work.\n\n"
+        "If useful, I would be happy to take a quick look and advise what can realistically be improved.\n\n"
+        "Kind regards,\n"
+        "Paul\n"
+        "The Carpet Cleaning Company\n"
+        "07802 563213"
+    )
+
+
+def default_public_post_template():
+    return (
+        "Hi {contact_name}, I saw you were looking into carpet or upholstery cleaning. "
+        "I run The Carpet Cleaning Company near Ludlow and may be able to help with stains, odours, end of tenancy cleans or upholstery. "
+        "If you would like, send over a few details or photos and I can advise."
+    )
+
+
+def lead_template_context(lead):
+    return {
+        "business_name": clean_str(row_value(lead, "business_name")),
+        "contact_name": lead_contact_name(lead),
+        "venue_name": clean_str(row_value(lead, "venue_name")),
+        "location": clean_str(row_value(lead, "location") or row_value(lead, "county")),
+        "lead_type": clean_str(row_value(lead, "lead_type")),
+        "issue": clean_str(row_value(lead, "exact_issue")),
+        "score": clean_str(row_value(lead, "lead_score")),
+    }
+
+
+def render_lead_template(template, lead):
+    text = template or ""
+    for key, value in lead_template_context(lead).items():
+        text = text.replace("{" + key + "}", value)
+        text = text.replace("{{" + key + "}}", value)
+    return text.strip()
+
+
+def generate_lead_draft(lead):
+    settings_row = lead_generation_settings()
+    is_short = lead_is_public_post(lead) or not clean_str(row_value(lead, "public_email"))
+    if is_short:
+        template = clean_str(row_value(settings_row, "facebook_message_template")) or default_public_post_template()
+        subject = ""
+        channel = "Message"
+    else:
+        template = clean_str(row_value(settings_row, "email_template")) or default_business_email_template()
+        subject = f"Professional carpet and upholstery cleaning for {lead_display_name(lead)}"
+        channel = "Email"
+    body = render_lead_template(template, lead)
+    return subject, body, channel
+
+
+def save_generated_lead_draft(lead_id):
+    lead = q("SELECT * FROM public_leads WHERE id=?", (lead_id,), one=True)
+    if not lead:
+        raise RuntimeError("Lead not found.")
+    subject, body, channel = generate_lead_draft(lead)
+    run("""UPDATE public_leads
+              SET email_subject=?, draft_message=?, draft_channel=?, draft_created_at=datetime('now'),
+                  status=CASE WHEN status='Approved' THEN 'Email Drafted' ELSE status END,
+                  updated_at=datetime('now')
+            WHERE id=?""", (subject, body, channel, lead_id))
+    log_lead_event("email_drafted", lead_id, row_value(lead, "source_website"), "Drafted", f"{channel} draft generated.")
+    return subject, body, channel
+
+
+def validate_lead_for_email(lead):
+    settings_row = lead_generation_settings()
+    errors = []
+    age = int(row_value(lead, "lead_age_days") or lead_age_days(row_value(lead, "date_published")))
+    if age > selected_lead_max_age(lead, settings_row=settings_row):
+        errors.append("Lead is outside the selected date range.")
+    if clean_str(row_value(lead, "status")) in {"Expired", "Duplicate", "Rejected", "Not Suitable", "Archived"}:
+        errors.append(f"Lead status is {row_value(lead, 'status')}.")
+    if int(row_value(lead, "already_exists_crm") or 0) or int(row_value(lead, "already_exists_xero") or 0) or int(row_value(lead, "duplicate_of_id") or 0):
+        errors.append("Lead is marked as a duplicate or existing contact.")
+    if int(row_value(lead, "previously_contacted") or 0) or clean_str(row_value(lead, "email_sent_at")):
+        errors.append("This lead has already been contacted.")
+    email = clean_str(row_value(lead, "public_email"))
+    if not email or not is_valid_email(email):
+        errors.append("No valid public email address is available.")
+    elif not email_matches_lead_business(lead):
+        errors.append("The email address could not be confirmed as belonging to this lead.")
+    if int(row_value(settings_row, "automatic_emailing") or 0):
+        errors.append("Automatic emailing must remain off for lead generation.")
+    if not int(row_value(settings_row, "manual_approval_mode") or 1):
+        errors.append("Manual approval mode must be enabled.")
+    if clean_str(row_value(lead, "status")) not in {"Approved", "Email Drafted", "Ready to Contact"}:
+        errors.append("Manual lead approval has not been recorded.")
+    if not clean_str(row_value(lead, "draft_message")):
+        errors.append("No editable draft message exists.")
+    return not errors, errors
+
+
+def update_lead_validation(lead_id):
+    lead = q("SELECT * FROM public_leads WHERE id=?", (lead_id,), one=True)
+    if not lead:
+        raise RuntimeError("Lead not found.")
+    ok, errors = validate_lead_for_email(lead)
+    run("""UPDATE public_leads
+              SET validation_status=?, validation_errors=?, validation_checked_at=datetime('now'), updated_at=datetime('now')
+            WHERE id=?""", ("Passed" if ok else "Failed", "\n".join(errors), lead_id))
+    if not ok:
+        log_lead_event("validation_failed", lead_id, row_value(lead, "source_website"), "Failed", "; ".join(errors))
+    return ok, errors
+
+
+def send_approved_lead_email(lead_id):
+    lead = q("SELECT * FROM public_leads WHERE id=?", (lead_id,), one=True)
+    if not lead:
+        raise RuntimeError("Lead not found.")
+    ok, errors = validate_lead_for_email(lead)
+    if not ok:
+        run("""UPDATE public_leads SET validation_status='Failed', validation_errors=?, validation_checked_at=datetime('now') WHERE id=?""", ("\n".join(errors), lead_id))
+        log_lead_event("validation_failed", lead_id, row_value(lead, "source_website"), "Failed", "; ".join(errors))
+        return False, "Email not sent: " + "; ".join(errors)
+    subject = clean_str(row_value(lead, "email_subject")) or f"Professional carpet and upholstery cleaning for {lead_display_name(lead)}"
+    body = clean_str(row_value(lead, "draft_message"))
+    html_body = "<div style='font-family:Arial,sans-serif;line-height:1.55;color:#102033;white-space:pre-wrap'>" + html_lib.escape(body) + "</div>"
+    sent, msg = send_env_email(clean_str(row_value(lead, "public_email")), subject, body, html_body)
+    if sent:
+        run("""UPDATE public_leads
+                  SET status='Email Sent', previously_contacted=1, email_sent_at=datetime('now'),
+                      validation_status='Passed', validation_errors='', validation_checked_at=datetime('now'), updated_at=datetime('now')
+                WHERE id=?""", (lead_id,))
+        log_lead_event("email_sent", lead_id, row_value(lead, "source_website"), "Sent", msg)
+    else:
+        log_lead_event("email_error", lead_id, row_value(lead, "source_website"), "Error", msg)
+    return sent, msg
+
+
+def daily_summary_reason(lead):
+    reasons = []
+    if int(row_value(lead, "lead_age_days") or 0) <= 3:
+        reasons.append("recent")
+    if int(row_value(lead, "lead_score") or 0) >= 70:
+        reasons.append("high score")
+    if clean_str(row_value(lead, "lead_type")):
+        reasons.append(clean_str(row_value(lead, "lead_type")).lower())
+    if clean_str(row_value(lead, "exact_issue")):
+        reasons.append(clean_str(row_value(lead, "exact_issue")))
+    return ", ".join(reasons[:3]) or "matched lead rules"
+
+
+def generate_daily_lead_summary(limit=5, mark_sent=True):
+    rows = q("""SELECT * FROM public_leads
+                WHERE IFNULL(daily_summary_sent_at,'')=''
+                  AND status IN ('New','Needs Checking','Ready to Contact','Approved','Email Drafted')
+                ORDER BY lead_score DESC, date_published DESC, id DESC""")
+    top = rows[:limit]
+    if mark_sent and rows:
+        ids = [row["id"] for row in rows]
+        placeholders = ",".join("?" for _ in ids)
+        db().execute(f"UPDATE public_leads SET daily_summary_sent_at=datetime('now') WHERE id IN ({placeholders})", ids)
+        db().commit()
+    log_lead_event("daily_summary", None, "", "Generated", f"{len(rows)} new leads included in daily summary.", {"lead_ids": [row["id"] for row in rows]})
+    return {
+        "count": len(rows),
+        "top": [
+            {
+                "id": row["id"],
+                "business_name": lead_display_name(row),
+                "location": clean_str(row["location"] or row["county"] or row["postcode"]),
+                "lead_score": row["lead_score"],
+                "lead_age_days": row["lead_age_days"],
+                "reason": daily_summary_reason(row),
+                "source_website": row["source_website"],
+                "source_url": row["source_url"],
+                "crm_url": (crm_external_url("new_leads") if has_request_context() else "/new-leads"),
+            }
+            for row in top
+        ],
+    }
+
+
+def xero_contact_payload_from_public_lead(lead):
+    name = lead_display_name(lead)
+    email = clean_str(row_value(lead, "public_email"))
+    phone = clean_str(row_value(lead, "public_phone"))
+    address = lead_full_address(lead)
+    payload = {
+        "Contacts": [{
+            "Name": name,
+            "EmailAddress": email,
+            "Phones": [{"PhoneType": "DEFAULT", "PhoneNumber": phone}] if phone else [],
+            "Addresses": xero_contact_addresses(address, "", clean_str(row_value(lead, "postcode")), ""),
+        }]
+    }
+    return payload
+
+
+def xero_contact_summary_from_public_lead(lead):
+    return {
+        "business_name": clean_str(row_value(lead, "business_name") or row_value(lead, "venue_name")),
+        "contact_name": lead_contact_name(lead),
+        "email": clean_str(row_value(lead, "public_email")),
+        "phone": clean_str(row_value(lead, "public_phone")),
+        "address": lead_full_address(lead),
+        "summary": clean_str(row_value(lead, "summary")),
+        "notes": clean_str(row_value(lead, "draft_message") or row_value(lead, "exact_issue")),
+    }
+
+
+def find_xero_contact_matches_for_public_lead(lead):
+    if not xero_is_configured():
+        return []
+    search_terms = []
+    for key in ("public_email", "public_phone", "business_name", "person_name", "venue_name", "website", "address", "postcode"):
+        value = clean_str(row_value(lead, key))
+        if value:
+            search_terms.append(value)
+    matches = []
+    seen = set()
+    for term in search_terms[:6]:
+        try:
+            result = xero_api_request(f"{XERO_CONTACTS_URL}?searchTerm={urllib.parse.quote(term)}")
+            for contact in result.get("Contacts", []) or []:
+                contact_id = clean_str(contact.get("ContactID"))
+                if contact_id and contact_id not in seen:
+                    seen.add(contact_id)
+                    matches.append({
+                        "contact_id": contact_id,
+                        "summary": xero_contact_summary(contact),
+                        "raw": contact,
+                    })
+        except Exception as exc:
+            log_lead_event("xero_duplicate_search_error", row_value(lead, "id"), "", "Error", str(exc))
+            raise
+    return matches
+
+
+def create_xero_contact_for_public_lead(lead_id, create_anyway=False, link_contact_id=""):
+    lead = q("SELECT * FROM public_leads WHERE id=?", (lead_id,), one=True)
+    if not lead:
+        raise RuntimeError("Lead not found.")
+    if clean_str(link_contact_id):
+        run("""UPDATE public_leads
+                  SET xero_contact_id=?, already_exists_xero=1, xero_action_status='Linked',
+                      xero_action_message='Linked to existing Xero contact', updated_at=datetime('now')
+                WHERE id=?""", (link_contact_id, lead_id))
+        log_lead_event("xero_linked", lead_id, row_value(lead, "source_website"), "Linked", link_contact_id)
+        return link_contact_id
+    matches = find_xero_contact_matches_for_public_lead(lead)
+    if matches and not create_anyway:
+        raise RuntimeError("A matching contact already exists.")
+    payload = xero_contact_payload_from_public_lead(lead)
+    result = xero_api_request(
+        XERO_CONTACTS_URL,
+        method="POST",
+        payload=payload,
+        idempotency_key=f"public-lead-contact-{lead_id}-{uuid.uuid4()}",
+    )
+    contacts = result.get("Contacts") or []
+    contact_id = clean_str((contacts[0] if contacts else {}).get("ContactID"))
+    if not contact_id:
+        raise RuntimeError("Xero did not return a ContactID.")
+    run("""UPDATE public_leads
+              SET xero_contact_id=?, already_exists_xero=1, xero_action_status='Created',
+                  xero_action_message='Created manually after approval', updated_at=datetime('now')
+            WHERE id=?""", (contact_id, lead_id))
+    log_lead_event("xero_contact_created", lead_id, row_value(lead, "source_website"), "Created", contact_id, payload)
+    return contact_id
+
+
 def init_db():
     conn = sqlite3.connect(DB_PATH)
     conn.executescript("""
@@ -4895,6 +5610,97 @@ def init_db():
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
+    CREATE TABLE IF NOT EXISTS lead_generation_settings (
+        id INTEGER PRIMARY KEY CHECK (id=1),
+        search_radius_miles INTEGER DEFAULT 75,
+        counties TEXT DEFAULT 'Shropshire, Herefordshire, Worcestershire, West Midlands, Staffordshire, Warwickshire, Powys, Gloucestershire, Cheshire',
+        post_max_age_days INTEGER DEFAULT 3,
+        review_max_age_days INTEGER DEFAULT 7,
+        selected_date_range_days INTEGER DEFAULT 3,
+        enabled_sources TEXT DEFAULT 'google_reviews,google_maps_reviews,hotel_reviews,pub_reviews,inn_reviews,facebook_public_posts,reddit,community_forums,business_review_sites',
+        excluded_locations TEXT DEFAULT '',
+        search_frequency TEXT DEFAULT 'Daily',
+        maximum_leads_per_day INTEGER DEFAULT 25,
+        minimum_lead_score INTEGER DEFAULT 40,
+        excluded_businesses TEXT DEFAULT '',
+        excluded_domains TEXT DEFAULT '',
+        excluded_keywords TEXT DEFAULT '',
+        email_template TEXT DEFAULT '',
+        facebook_message_template TEXT DEFAULT '',
+        follow_up_timing_days INTEGER DEFAULT 3,
+        daily_summary_email INTEGER DEFAULT 0,
+        automatic_emailing INTEGER DEFAULT 0,
+        manual_approval_mode INTEGER DEFAULT 1,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS public_leads (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        business_name TEXT DEFAULT '',
+        person_name TEXT DEFAULT '',
+        venue_name TEXT DEFAULT '',
+        address TEXT DEFAULT '',
+        postcode TEXT DEFAULT '',
+        county TEXT DEFAULT '',
+        website TEXT DEFAULT '',
+        public_email TEXT DEFAULT '',
+        public_phone TEXT DEFAULT '',
+        location TEXT DEFAULT '',
+        latitude TEXT DEFAULT '',
+        longitude TEXT DEFAULT '',
+        distance_miles REAL,
+        lead_type TEXT DEFAULT '',
+        source_website TEXT DEFAULT '',
+        source_url TEXT DEFAULT '',
+        source_uid TEXT DEFAULT '',
+        date_published TEXT DEFAULT '',
+        date_discovered TEXT DEFAULT '',
+        lead_age_days INTEGER DEFAULT 0,
+        exact_issue TEXT DEFAULT '',
+        summary TEXT DEFAULT '',
+        lead_score INTEGER DEFAULT 0,
+        status TEXT DEFAULT 'New',
+        previously_contacted INTEGER DEFAULT 0,
+        already_exists_crm INTEGER DEFAULT 0,
+        already_exists_xero INTEGER DEFAULT 0,
+        duplicate_fingerprint TEXT DEFAULT '',
+        duplicate_of_id INTEGER DEFAULT 0,
+        raw_payload_json TEXT DEFAULT '',
+        email_subject TEXT DEFAULT '',
+        draft_message TEXT DEFAULT '',
+        draft_channel TEXT DEFAULT '',
+        draft_created_at TEXT DEFAULT '',
+        validation_status TEXT DEFAULT '',
+        validation_errors TEXT DEFAULT '',
+        validation_checked_at TEXT DEFAULT '',
+        email_sent_at TEXT DEFAULT '',
+        xero_contact_id TEXT DEFAULT '',
+        xero_action_status TEXT DEFAULT '',
+        xero_action_message TEXT DEFAULT '',
+        follow_up_at TEXT DEFAULT '',
+        daily_summary_sent_at TEXT DEFAULT '',
+        archived_at TEXT DEFAULT '',
+        rejection_reason TEXT DEFAULT '',
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS lead_source_status (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        source_key TEXT DEFAULT '',
+        source_name TEXT DEFAULT '',
+        status TEXT DEFAULT '',
+        message TEXT DEFAULT '',
+        checked_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS lead_generation_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        event_type TEXT DEFAULT '',
+        lead_id INTEGER,
+        source_key TEXT DEFAULT '',
+        status TEXT DEFAULT '',
+        message TEXT DEFAULT '',
+        payload_json TEXT DEFAULT '',
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
     """)
     cur = conn.cursor()
     # Safe additive migrations for older databases
@@ -4992,6 +5798,41 @@ def init_db():
         ("customer_feedback", "review_link_sent_at", "TEXT DEFAULT ''"),
         ("future_reminders", "reminder_type", "TEXT DEFAULT 'Follow up'"),
         ("future_reminders", "completed_at", "TEXT DEFAULT ''"),
+        ("lead_generation_settings", "selected_date_range_days", "INTEGER DEFAULT 3"),
+        ("lead_generation_settings", "enabled_sources", "TEXT DEFAULT 'google_reviews,google_maps_reviews,hotel_reviews,pub_reviews,inn_reviews,facebook_public_posts,reddit,community_forums,business_review_sites'"),
+        ("lead_generation_settings", "excluded_locations", "TEXT DEFAULT ''"),
+        ("lead_generation_settings", "search_frequency", "TEXT DEFAULT 'Daily'"),
+        ("lead_generation_settings", "maximum_leads_per_day", "INTEGER DEFAULT 25"),
+        ("lead_generation_settings", "minimum_lead_score", "INTEGER DEFAULT 40"),
+        ("lead_generation_settings", "excluded_businesses", "TEXT DEFAULT ''"),
+        ("lead_generation_settings", "excluded_domains", "TEXT DEFAULT ''"),
+        ("lead_generation_settings", "excluded_keywords", "TEXT DEFAULT ''"),
+        ("lead_generation_settings", "email_template", "TEXT DEFAULT ''"),
+        ("lead_generation_settings", "facebook_message_template", "TEXT DEFAULT ''"),
+        ("lead_generation_settings", "follow_up_timing_days", "INTEGER DEFAULT 3"),
+        ("lead_generation_settings", "daily_summary_email", "INTEGER DEFAULT 0"),
+        ("lead_generation_settings", "automatic_emailing", "INTEGER DEFAULT 0"),
+        ("lead_generation_settings", "manual_approval_mode", "INTEGER DEFAULT 1"),
+        ("public_leads", "source_uid", "TEXT DEFAULT ''"),
+        ("public_leads", "already_exists_xero", "INTEGER DEFAULT 0"),
+        ("public_leads", "duplicate_fingerprint", "TEXT DEFAULT ''"),
+        ("public_leads", "duplicate_of_id", "INTEGER DEFAULT 0"),
+        ("public_leads", "raw_payload_json", "TEXT DEFAULT ''"),
+        ("public_leads", "email_subject", "TEXT DEFAULT ''"),
+        ("public_leads", "draft_message", "TEXT DEFAULT ''"),
+        ("public_leads", "draft_channel", "TEXT DEFAULT ''"),
+        ("public_leads", "draft_created_at", "TEXT DEFAULT ''"),
+        ("public_leads", "validation_status", "TEXT DEFAULT ''"),
+        ("public_leads", "validation_errors", "TEXT DEFAULT ''"),
+        ("public_leads", "validation_checked_at", "TEXT DEFAULT ''"),
+        ("public_leads", "email_sent_at", "TEXT DEFAULT ''"),
+        ("public_leads", "xero_contact_id", "TEXT DEFAULT ''"),
+        ("public_leads", "xero_action_status", "TEXT DEFAULT ''"),
+        ("public_leads", "xero_action_message", "TEXT DEFAULT ''"),
+        ("public_leads", "follow_up_at", "TEXT DEFAULT ''"),
+        ("public_leads", "daily_summary_sent_at", "TEXT DEFAULT ''"),
+        ("public_leads", "archived_at", "TEXT DEFAULT ''"),
+        ("public_leads", "rejection_reason", "TEXT DEFAULT ''"),
     ]
     for table, col, decl in migrations:
         try:
@@ -5000,6 +5841,10 @@ def init_db():
             pass
     conn.execute("INSERT OR IGNORE INTO settings (id) VALUES (1)")
     conn.execute("INSERT OR IGNORE INTO pricing_config (id, data_json) VALUES (1, ?)", (json.dumps(PRICING_DEFAULTS),))
+    conn.execute("INSERT OR IGNORE INTO lead_generation_settings (id) VALUES (1)")
+    conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_public_leads_source_url ON public_leads(source_url) WHERE source_url<>''")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_public_leads_status_score ON public_leads(status, lead_score DESC)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_public_leads_fingerprint ON public_leads(duplicate_fingerprint)")
     for key, template in DEFAULT_MESSAGE_TEMPLATES.items():
         conn.execute(
             "INSERT OR IGNORE INTO message_templates(template_key, name, subject, body, updated_at) VALUES (?,?,?,?,datetime('now'))",
@@ -8989,6 +9834,269 @@ def email_designer():
     templates = q("SELECT * FROM communication_templates ORDER BY id DESC")
     return render_template("email_designer.html", customers=customers, templates=templates, app_settings=settings())
 
+
+@app.route("/new-leads")
+@login_required
+def new_leads():
+    archive_expired_public_leads()
+    status = clean_str(request.args.get("status")) or ""
+    params = []
+    show_archived = request.args.get("archived") == "1"
+    where_parts = []
+    if not show_archived:
+        where_parts.append("IFNULL(archived_at,'')=''")
+    if status:
+        where_parts.append("status=?")
+        params.append(status)
+    where = ("WHERE " + " AND ".join(where_parts)) if where_parts else ""
+    rows = q(f"SELECT * FROM public_leads {where} ORDER BY CASE status WHEN 'New' THEN 0 WHEN 'Needs Checking' THEN 1 WHEN 'Ready to Contact' THEN 2 ELSE 3 END, lead_score DESC, date_published DESC, id DESC", params)
+    stats_rows = q("SELECT status, COUNT(*) AS c FROM public_leads GROUP BY status")
+    stats = {row["status"]: row["c"] for row in stats_rows}
+    source_rows = q("""SELECT lss.* FROM lead_source_status lss
+                       JOIN (SELECT source_key, MAX(id) AS id FROM lead_source_status GROUP BY source_key) latest
+                         ON latest.id=lss.id
+                       ORDER BY lss.source_name""")
+    return render_template(
+        "new_leads.html",
+        leads=rows,
+        stats=stats,
+        current_status=status,
+        lead_stages=LEAD_WORKFLOW_STAGES,
+        source_statuses=source_rows,
+        logs=q("SELECT * FROM lead_generation_log ORDER BY id DESC LIMIT 25"),
+        lead_settings=lead_generation_settings(),
+        public_sources=LEAD_PUBLIC_SOURCES,
+        show_archived=show_archived,
+    )
+
+
+@app.route("/new-leads/run", methods=["POST"])
+@login_required
+def new_leads_run():
+    result = run_public_lead_scan()
+    flash(f"Lead scan checked {result['checked']} sources. {result['unavailable']} source(s) need a compliant API/export before automated collection.")
+    return redirect(url_for("new_leads"))
+
+
+@app.route("/new-leads/import", methods=["POST"])
+@login_required
+def new_leads_import():
+    payload = request.form.get("leads_json") or ""
+    try:
+        result = ingest_public_leads_json(payload)
+        message = f"Imported {result.get('created', 0)} new lead(s), updated {result.get('updated', 0)} duplicate/existing lead(s)."
+        if result["errors"]:
+            message += " " + " ".join(result["errors"][:3])
+        flash(message)
+    except Exception as exc:
+        flash(f"Lead import failed: {exc}")
+    return redirect(url_for("new_leads"))
+
+
+@app.route("/new-leads/<int:lead_id>/status", methods=["POST"])
+@login_required
+def new_lead_status(lead_id):
+    next_status = clean_str(request.form.get("status"))
+    if next_status not in LEAD_WORKFLOW_STAGES:
+        flash("Unknown lead stage.")
+        return redirect(url_for("new_leads"))
+    contacted = 1 if request.form.get("previously_contacted") else 0
+    run("UPDATE public_leads SET status=?, previously_contacted=?, updated_at=datetime('now') WHERE id=?", (next_status, contacted, lead_id))
+    flash("Lead status updated.")
+    return redirect(request.form.get("next") or url_for("new_leads"))
+
+
+@app.route("/new-leads/<int:lead_id>/approve", methods=["POST"])
+@login_required
+def new_lead_approve(lead_id):
+    run("UPDATE public_leads SET status='Approved', updated_at=datetime('now') WHERE id=?", (lead_id,))
+    save_generated_lead_draft(lead_id)
+    log_lead_event("lead_approved", lead_id, "", "Approved", "Lead approved manually.")
+    flash("Lead approved and an editable draft was generated.")
+    return redirect(url_for("new_leads"))
+
+
+@app.route("/new-leads/<int:lead_id>/approve-send-email", methods=["POST"])
+@login_required
+def new_lead_approve_send_email(lead_id):
+    lead = q("SELECT * FROM public_leads WHERE id=?", (lead_id,), one=True)
+    if not lead:
+        flash("Lead not found.")
+        return redirect(url_for("new_leads"))
+    if not clean_str(row_value(lead, "draft_message")):
+        run("UPDATE public_leads SET status='Approved', updated_at=datetime('now') WHERE id=?", (lead_id,))
+        save_generated_lead_draft(lead_id)
+        lead = q("SELECT * FROM public_leads WHERE id=?", (lead_id,), one=True)
+    elif clean_str(row_value(lead, "status")) == "New":
+        run("UPDATE public_leads SET status='Approved', updated_at=datetime('now') WHERE id=?", (lead_id,))
+    sent, msg = send_approved_lead_email(lead_id)
+    flash(msg)
+    return redirect(url_for("new_leads"))
+
+
+@app.route("/new-leads/<int:lead_id>/draft", methods=["GET", "POST"])
+@login_required
+def new_lead_edit_draft(lead_id):
+    lead = q("SELECT * FROM public_leads WHERE id=?", (lead_id,), one=True)
+    if not lead:
+        flash("Lead not found.")
+        return redirect(url_for("new_leads"))
+    if request.method == "POST":
+        run("""UPDATE public_leads
+                  SET email_subject=?, draft_message=?, draft_channel=?, draft_created_at=COALESCE(NULLIF(draft_created_at,''), datetime('now')),
+                      status=CASE WHEN status IN ('Approved','Ready to Contact') THEN 'Email Drafted' ELSE status END,
+                      updated_at=datetime('now')
+                WHERE id=?""", (
+            clean_str(request.form.get("email_subject")),
+            clean_str(request.form.get("draft_message")),
+            clean_str(request.form.get("draft_channel") or "Email"),
+            lead_id,
+        ))
+        update_lead_validation(lead_id)
+        log_lead_event("email_draft_edited", lead_id, row_value(lead, "source_website"), "Edited", "Draft edited manually.")
+        flash("Draft saved.")
+        return redirect(url_for("new_leads"))
+    if not clean_str(row_value(lead, "draft_message")):
+        save_generated_lead_draft(lead_id)
+        lead = q("SELECT * FROM public_leads WHERE id=?", (lead_id,), one=True)
+    ok, errors = validate_lead_for_email(lead)
+    return render_template("lead_draft.html", lead=lead, validation_ok=ok, validation_errors=errors)
+
+
+@app.route("/new-leads/<int:lead_id>/quick-action", methods=["POST"])
+@login_required
+def new_lead_quick_action(lead_id):
+    action = clean_str(request.form.get("action"))
+    lead = q("SELECT * FROM public_leads WHERE id=?", (lead_id,), one=True)
+    if not lead:
+        flash("Lead not found.")
+        return redirect(url_for("new_leads"))
+    if action == "reject":
+        run("UPDATE public_leads SET status='Not Suitable', rejection_reason=?, updated_at=datetime('now') WHERE id=?", (clean_str(request.form.get("reason")), lead_id))
+        log_lead_event("lead_rejected", lead_id, row_value(lead, "source_website"), "Rejected", clean_str(request.form.get("reason")))
+        flash("Lead rejected.")
+    elif action == "duplicate":
+        run("UPDATE public_leads SET status='Duplicate', updated_at=datetime('now') WHERE id=?", (lead_id,))
+        log_lead_event("duplicate_removed", lead_id, row_value(lead, "source_website"), "Duplicate", "Marked as duplicate manually.")
+        flash("Lead marked as duplicate.")
+    elif action == "expired":
+        run("UPDATE public_leads SET status='Expired', updated_at=datetime('now') WHERE id=?", (lead_id,))
+        log_lead_event("expired_lead", lead_id, row_value(lead, "source_website"), "Expired", "Marked as expired manually.")
+        flash("Lead marked as expired.")
+    elif action == "archive":
+        run("UPDATE public_leads SET archived_at=datetime('now'), updated_at=datetime('now') WHERE id=?", (lead_id,))
+        log_lead_event("lead_archived", lead_id, row_value(lead, "source_website"), "Archived", "Lead archived manually.")
+        flash("Lead archived.")
+    elif action == "follow_up":
+        settings_row = lead_generation_settings()
+        days = int(request.form.get("days") or row_value(settings_row, "follow_up_timing_days") or 3)
+        follow_up = (uk_today() + timedelta(days=days)).isoformat()
+        run("UPDATE public_leads SET follow_up_at=?, status=CASE WHEN status IN ('New','Needs Checking') THEN 'Follow Up' ELSE status END, updated_at=datetime('now') WHERE id=?", (follow_up, lead_id))
+        log_lead_event("follow_up_created", lead_id, row_value(lead, "source_website"), "Open", f"Follow up set for {follow_up}.")
+        flash(f"Follow up set for {follow_up}.")
+    else:
+        flash("Unknown action.")
+    return redirect(request.form.get("next") or url_for("new_leads"))
+
+
+@app.route("/new-leads/daily-summary")
+@login_required
+def new_leads_daily_summary():
+    summary = generate_daily_lead_summary(mark_sent=request.args.get("mark", "1") != "0")
+    return render_template("lead_daily_summary.html", summary=summary)
+
+
+@app.route("/new-leads/<int:lead_id>/xero-confirm", methods=["GET", "POST"])
+@login_required
+def new_lead_xero_confirm(lead_id):
+    lead = q("SELECT * FROM public_leads WHERE id=?", (lead_id,), one=True)
+    if not lead:
+        flash("Lead not found.")
+        return redirect(url_for("new_leads"))
+    if request.method == "POST":
+        action = clean_str(request.form.get("action"))
+        if action == "cancel":
+            log_lead_event("xero_cancelled", lead_id, row_value(lead, "source_website"), "Cancelled", "Xero contact creation cancelled.")
+            flash("Cancelled. Nothing was sent to Xero.")
+            return redirect(url_for("new_leads"))
+        try:
+            if action == "link":
+                contact_id = clean_str(request.form.get("contact_id"))
+                if not contact_id:
+                    raise RuntimeError("No Xero contact was selected.")
+                create_xero_contact_for_public_lead(lead_id, link_contact_id=contact_id)
+                flash("Lead linked to the existing Xero contact.")
+            elif action == "create_anyway":
+                contact_id = create_xero_contact_for_public_lead(lead_id, create_anyway=True)
+                flash(f"Xero contact created after manual approval: {contact_id}.")
+            elif action == "approve_create":
+                contact_id = create_xero_contact_for_public_lead(lead_id, create_anyway=False)
+                flash(f"Xero contact created after manual approval: {contact_id}.")
+            else:
+                flash("Unknown Xero action.")
+        except Exception as exc:
+            friendly = friendly_xero_error(exc)
+            run("""UPDATE public_leads SET xero_action_status='Failed', xero_action_message=?, updated_at=datetime('now') WHERE id=?""", (friendly, lead_id))
+            log_lead_event("xero_error", lead_id, row_value(lead, "source_website"), "Error", friendly)
+            flash(friendly)
+        return redirect(url_for("new_lead_xero_confirm", lead_id=lead_id))
+    matches = []
+    xero_error = ""
+    try:
+        if xero_is_configured():
+            matches = find_xero_contact_matches_for_public_lead(lead)
+        else:
+            xero_error = "Xero is not configured. No search or upload has been attempted."
+    except Exception as exc:
+        xero_error = friendly_xero_error(exc)
+    return render_template(
+        "lead_xero_confirm.html",
+        lead=lead,
+        summary=xero_contact_summary_from_public_lead(lead),
+        matches=matches,
+        xero_error=xero_error,
+    )
+
+
+@app.route("/lead-generation-settings", methods=["POST"])
+@login_required
+def lead_generation_settings_update():
+    enabled_sources = ",".join(request.form.getlist("enabled_sources"))
+    allowed_ranges = {1, 3, 7, 14, 30}
+    selected_days = int(request.form.get("selected_date_range_days") or 3)
+    if selected_days not in allowed_ranges:
+        selected_days = 3
+    run("""UPDATE lead_generation_settings
+              SET search_radius_miles=?, counties=?, post_max_age_days=?, review_max_age_days=?,
+                  selected_date_range_days=?, enabled_sources=?, excluded_locations=?, search_frequency=?,
+                  maximum_leads_per_day=?, minimum_lead_score=?, excluded_businesses=?, excluded_domains=?,
+                  excluded_keywords=?, email_template=?, facebook_message_template=?, follow_up_timing_days=?,
+                  daily_summary_email=?, automatic_emailing=?, manual_approval_mode=?, updated_at=datetime('now')
+            WHERE id=1""", (
+        request.form.get("search_radius_miles") or 75,
+        request.form.get("counties") or ", ".join(LEAD_DEFAULT_COUNTIES),
+        request.form.get("post_max_age_days") or 3,
+        request.form.get("review_max_age_days") or 7,
+        selected_days,
+        enabled_sources,
+        request.form.get("excluded_locations") or "",
+        request.form.get("search_frequency") or "Daily",
+        request.form.get("maximum_leads_per_day") or 25,
+        request.form.get("minimum_lead_score") or 40,
+        request.form.get("excluded_businesses") or "",
+        request.form.get("excluded_domains") or "",
+        request.form.get("excluded_keywords") or "",
+        request.form.get("email_template") or "",
+        request.form.get("facebook_message_template") or "",
+        request.form.get("follow_up_timing_days") or 3,
+        1 if request.form.get("daily_summary_email") else 0,
+        1 if request.form.get("automatic_emailing") else 0,
+        1 if request.form.get("manual_approval_mode") else 0,
+    ))
+    archive_expired_public_leads()
+    flash("Lead generation settings saved.")
+    return redirect(request.form.get("next") or url_for("settings_page"))
+
 @app.route("/settings", methods=["GET", "POST"])
 @login_required
 def settings_page():
@@ -9021,7 +10129,7 @@ def settings_page():
         ))
         flash("Settings saved.")
         return redirect(url_for("settings_page"))
-    return render_template("settings.html", app_settings=s)
+    return render_template("settings.html", app_settings=s, lead_settings=lead_generation_settings(), public_sources=LEAD_PUBLIC_SOURCES)
 
 @app.route("/quotes/<int:quote_id>/print")
 @login_required
@@ -10999,6 +12107,7 @@ def automation_background_loop():
         try:
             with app.app_context():
                 init_db()
+                run_due_lead_generation_check(force=False)
                 results = run_due_communication_automations(dry_run=False)
                 if results:
                     logger.info("Background automation processed %s message(s).", len(results))

@@ -52,6 +52,65 @@
           <div class="cols"><div><label>Owner alert mobile / test phone number</label><input name="sms_test_number" value="{{ app_settings.sms_test_number or '' }}" placeholder="Where new form alerts should text"></div><div><label>Marketing STOP notice</label><input name="sms_marketing_opt_out_notice" value="{{ app_settings.sms_marketing_opt_out_notice or '' }}"></div></div>
         </div>
         <div class="settings-card">
+          <h4>Lead generation</h4>
+          <p>Change the public lead search area, freshness filters and enabled public sources.</p>
+          <input form="leadSettingsForm" type="hidden" name="next" value="{{ url_for('settings_page') }}">
+            <div class="cols">
+              <div><label>Radius from Ludlow in miles</label><input form="leadSettingsForm" name="search_radius_miles" type="number" min="1" max="200" value="{{ lead_settings.search_radius_miles }}"></div>
+              <div>
+                <label>Date range</label>
+                <select form="leadSettingsForm" name="selected_date_range_days">
+                  {% for days in [1, 3, 7, 14, 30] %}
+                    <option value="{{ days }}" {% if lead_settings.selected_date_range_days == days %}selected{% endif %}>Last {{ '24 hours' if days == 1 else days ~ ' days' }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+            <div class="cols">
+              <div><label>Public posts max age</label><input form="leadSettingsForm" name="post_max_age_days" type="number" min="1" max="30" value="{{ lead_settings.post_max_age_days }}"></div>
+              <div><label>Reviews max age</label><input form="leadSettingsForm" name="review_max_age_days" type="number" min="1" max="30" value="{{ lead_settings.review_max_age_days }}"></div>
+            </div>
+            <div class="cols">
+              <div><label>Maximum leads per day</label><input form="leadSettingsForm" name="maximum_leads_per_day" type="number" min="1" max="500" value="{{ lead_settings.maximum_leads_per_day }}"></div>
+              <div><label>Minimum lead score</label><input form="leadSettingsForm" name="minimum_lead_score" type="number" min="0" max="100" value="{{ lead_settings.minimum_lead_score }}"></div>
+            </div>
+            <div class="cols">
+              <div>
+                <label>Search frequency</label>
+                <select form="leadSettingsForm" name="search_frequency">
+                  {% for option in ['Daily', 'Twice daily', 'Weekly', 'Manual only'] %}
+                    <option value="{{ option }}" {% if lead_settings.search_frequency == option %}selected{% endif %}>{{ option }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div><label>Follow up timing in days</label><input form="leadSettingsForm" name="follow_up_timing_days" type="number" min="1" max="60" value="{{ lead_settings.follow_up_timing_days }}"></div>
+            </div>
+            <label>Counties</label>
+            <textarea form="leadSettingsForm" name="counties">{{ lead_settings.counties }}</textarea>
+            <label>Excluded locations</label>
+            <textarea form="leadSettingsForm" name="excluded_locations">{{ lead_settings.excluded_locations }}</textarea>
+            <label>Excluded businesses</label>
+            <textarea form="leadSettingsForm" name="excluded_businesses">{{ lead_settings.excluded_businesses }}</textarea>
+            <label>Excluded domains</label>
+            <textarea form="leadSettingsForm" name="excluded_domains">{{ lead_settings.excluded_domains }}</textarea>
+            <label>Excluded keywords</label>
+            <textarea form="leadSettingsForm" name="excluded_keywords">{{ lead_settings.excluded_keywords }}</textarea>
+            <label>Email template</label>
+            <textarea form="leadSettingsForm" name="email_template" rows="8">{{ lead_settings.email_template }}</textarea>
+            <label>Facebook / WhatsApp / SMS template</label>
+            <textarea form="leadSettingsForm" name="facebook_message_template" rows="5">{{ lead_settings.facebook_message_template }}</textarea>
+            {% set enabled = (lead_settings.enabled_sources or '').split(',') %}
+            <div class="source-check-grid">
+              {% for source in public_sources %}
+                <label class="check-line"><input form="leadSettingsForm" type="checkbox" name="enabled_sources" value="{{ source.key }}" {% if source.key in enabled %}checked{% endif %}> {{ source.name }}</label>
+              {% endfor %}
+            </div>
+            <label class="check-line"><input form="leadSettingsForm" type="checkbox" name="daily_summary_email" value="1" {% if lead_settings.daily_summary_email %}checked{% endif %}> Daily summary email</label>
+            <label class="check-line"><input form="leadSettingsForm" type="checkbox" name="manual_approval_mode" value="1" {% if lead_settings.manual_approval_mode %}checked{% endif %}> Manual approval mode</label>
+            <label class="check-line"><input form="leadSettingsForm" type="checkbox" name="automatic_emailing" value="1" {% if lead_settings.automatic_emailing %}checked{% endif %}> Automatic emailing</label>
+            <button class="btn secondary" type="submit" form="leadSettingsForm">Save Lead Settings</button>
+        </div>
+        <div class="settings-card">
           <h4>Login security</h4>
           <p>Saving this section updates the real CRM login details straight away.</p>
           <div class="cols"><div><label>Admin username</label><input name="username" value="{{ app_settings.username }}"></div><div><label>New password</label><input type="password" name="password" value="" placeholder="Leave blank to keep current password"></div></div>
@@ -60,6 +119,7 @@
       </div>
       <button class="btn primary" id="saveSettingsBtn">Save Settings</button>
     </form>
+    <form id="leadSettingsForm" method="post" action="{{ url_for('lead_generation_settings_update') }}"></form>
   </section>
   <aside class="utility-rail">
     <div class="utility-card"><h4>What this page controls</h4><p>Business identity, colours, email sending, SMS sending, and login security all live here. Change settings carefully and test Communications after saving.</p></div>

@@ -1,0 +1,38 @@
+{% extends "layout.html" %}
+{% block title %}Daily Lead Summary{% endblock %}
+{% block page_title %}Daily Summary{% endblock %}
+{% block body_content %}
+<section class="panel">
+  <div class="panel-head">
+    <div>
+      <h3>{{ summary.count }} new lead{{ '' if summary.count == 1 else 's' }} found</h3>
+      <p>Only leads not previously included in a daily summary are shown here.</p>
+    </div>
+    <a class="btn secondary" href="{{ url_for('new_leads') }}">Open CRM</a>
+  </div>
+  <div class="lead-board">
+    {% for lead in summary.top %}
+      <article class="lead-row">
+        <div>
+          <div class="lead-title-line"><strong>{{ lead.business_name }}</strong><span class="score-pill">{{ lead.lead_score }}</span></div>
+          <div class="lead-meta">
+            <span>{{ lead.location or 'Location unknown' }}</span>
+            <span>{{ lead.lead_age_days }} days old</span>
+            <span>{{ lead.source_website }}</span>
+          </div>
+          <p>{{ lead.reason }}</p>
+          {% if lead.source_url %}<a href="{{ lead.source_url }}" target="_blank" rel="noopener">Source link</a>{% endif %}
+        </div>
+        <div class="lead-actions">
+          <a class="btn primary" href="{{ url_for('new_leads') }}">Open CRM</a>
+        </div>
+      </article>
+    {% else %}
+      <div class="empty-state">
+        <h3>No new leads for summary.</h3>
+        <p>Every current lead has already appeared in a previous daily summary.</p>
+      </div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

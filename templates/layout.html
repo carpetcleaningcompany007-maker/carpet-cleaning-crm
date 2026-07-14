@@ -41,6 +41,7 @@
       <a class="nav-link {% if ep=='dashboard' %}active{% endif %}" href="{{ url_for('dashboard') }}"><span class="nav-icon" data-icon="home"></span><span>Today</span></a>
       <a class="nav-link {% if ep=='send_contact_form' %}active{% endif %}" href="{{ url_for('send_contact_form') }}"><span class="nav-icon" data-icon="send"></span><span>Send Form</span></a>
       <a class="nav-link {% if ep in ['customers','customer_view','customer_edit'] %}active{% endif %}" href="{{ url_for('customers') }}"><span class="nav-icon" data-icon="user"></span><span>Customers</span></a>
+      <a class="nav-link {% if ep in ['new_leads'] %}active{% endif %}" href="{{ url_for('new_leads') }}"><span class="nav-icon" data-icon="inbox"></span><span>New Leads</span></a>
       <a class="nav-link {% if ep in ['intake_forms','intake_form_view'] %}active{% endif %}" href="{{ url_for('intake_forms') }}"><span class="nav-icon" data-icon="inbox"></span><span>Replies</span></a>
       <a class="nav-link {% if ep=='today_run' %}active{% endif %}" href="{{ url_for('today_run') }}"><span class="nav-icon" data-icon="route"></span><span>Today Run</span></a>
       <a class="nav-link {% if ep in ['jobs','job_view','jobs_new'] %}active{% endif %}" href="{{ url_for('jobs') }}"><span class="nav-icon" data-icon="briefcase"></span><span>Jobs</span></a>
@@ -82,6 +83,7 @@
       <nav class="quick-dock website-quick-dock" aria-label="Quick actions">
         <a href="{{ url_for('send_contact_form') }}"><span>Text or email</span><strong>Send form</strong></a>
         <a href="{{ url_for('intake_forms') }}"><span>New enquiry</span><strong>Intake</strong></a>
+        <a href="{{ url_for('new_leads') }}"><span>Public demand</span><strong>New Leads</strong></a>
         <a href="{{ url_for('customers') }}"><span>Find or add</span><strong>Customer</strong></a>
         <a href="{{ url_for('calculator') }}"><span>Price up</span><strong>Quote</strong></a>
         <a href="{{ url_for('full_calendar') }}"><span>Plan diary</span><strong>Calendar</strong></a>
@@ -103,6 +105,7 @@
       <a href="{{ url_for('dashboard') }}">Overview</a>
       <a href="{{ url_for('send_contact_form') }}">Send Form</a>
       <a href="{{ url_for('today_run') }}">Today Run</a>
+      <a href="{{ url_for('new_leads') }}">New Leads</a>
       <a href="{{ url_for('customers') }}">Customers</a>
       <a href="{{ url_for('quotes') }}">Quotes</a>
       <a href="{{ url_for('jobs') }}">Jobs</a>

@@ -1,0 +1,57 @@
+{% extends "layout.html" %}
+{% block title %}Edit Lead Draft{% endblock %}
+{% block page_title %}Edit Draft{% endblock %}
+{% block body_content %}
+<div class="workspace-grid">
+  <section class="panel">
+    <div class="panel-head">
+      <div>
+        <h3>{{ lead.business_name or lead.venue_name or lead.person_name or 'Lead draft' }}</h3>
+        <p>{{ lead.source_website }} · score {{ lead.lead_score }} · {{ lead.lead_age_days }} days old</p>
+      </div>
+      <a class="btn secondary" href="{{ url_for('new_leads') }}">Back to Leads</a>
+    </div>
+    <form method="post" class="form">
+      <div class="cols">
+        <div>
+          <label>Channel</label>
+          <select name="draft_channel">
+            <option value="Email" {% if lead.draft_channel == 'Email' %}selected{% endif %}>Email</option>
+            <option value="Message" {% if lead.draft_channel == 'Message' %}selected{% endif %}>Facebook Messenger / WhatsApp / SMS</option>
+          </select>
+        </div>
+        <div>
+          <label>Email subject</label>
+          <input name="email_subject" value="{{ lead.email_subject or '' }}">
+        </div>
+      </div>
+      <label>Editable message</label>
+      <textarea name="draft_message" rows="16">{{ lead.draft_message or '' }}</textarea>
+      <button class="btn primary" type="submit">Save Draft</button>
+    </form>
+  </section>
+  <aside class="utility-rail">
+    <div class="utility-card">
+      <h4>Validation</h4>
+      {% if validation_ok %}
+        <p>Passed. This lead currently satisfies the sending checks.</p>
+      {% else %}
+        <div class="report-summary-list">
+          {% for error in validation_errors %}
+            <div><strong>Blocked</strong><span>{{ error }}</span></div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    </div>
+    <div class="utility-card">
+      <h4>Lead details</h4>
+      <div class="report-summary-list">
+        <div><strong>Email</strong><span>{{ lead.public_email or 'Not found' }}</span></div>
+        <div><strong>Phone</strong><span>{{ lead.public_phone or 'Not found' }}</span></div>
+        <div><strong>Address</strong><span>{{ lead.address or lead.location or 'Not found' }}</span></div>
+        <div><strong>Issue</strong><span>{{ lead.exact_issue or 'Not found' }}</span></div>
+      </div>
+    </div>
+  </aside>
+</div>
+{% endblock %}

@@ -1,0 +1,73 @@
+{% extends "layout.html" %}
+{% block title %}Confirm Xero Contact{% endblock %}
+{% block page_title %}Confirm Xero Contact{% endblock %}
+{% block body_content %}
+<div class="workspace-grid">
+  <section class="panel">
+    <div class="panel-head">
+      <div>
+        <h3>Manual Xero approval required</h3>
+        <p>No Xero record will be created unless you approve it on this screen.</p>
+      </div>
+      <a class="btn secondary" href="{{ url_for('new_leads') }}">Cancel</a>
+    </div>
+
+    <div class="settings-sections">
+      <div class="settings-card">
+        <h4>Contact details to create</h4>
+        <div class="report-summary-list">
+          <div><strong>Business name</strong><span>{{ summary.business_name or 'Not supplied' }}</span></div>
+          <div><strong>Contact name</strong><span>{{ summary.contact_name or 'Not supplied' }}</span></div>
+          <div><strong>Email address</strong><span>{{ summary.email or 'Not supplied' }}</span></div>
+          <div><strong>Telephone number</strong><span>{{ summary.phone or 'Not supplied' }}</span></div>
+          <div><strong>Address</strong><span>{{ summary.address or 'Not supplied' }}</span></div>
+          <div><strong>Lead summary</strong><span>{{ summary.summary or 'Not supplied' }}</span></div>
+          <div><strong>Notes to transfer</strong><span>{{ summary.notes or 'Not supplied' }}</span></div>
+        </div>
+      </div>
+
+      {% if xero_error %}
+      <div class="settings-card">
+        <h4>Xero status</h4>
+        <p>{{ xero_error }}</p>
+      </div>
+      {% endif %}
+
+      {% if matches %}
+      <div class="settings-card">
+        <h4>A matching contact already exists.</h4>
+        <p>Choose whether to link this lead, create a new contact anyway, or cancel.</p>
+        {% for match in matches %}
+          <form method="post" class="xero-match-row">
+            <input type="hidden" name="action" value="link">
+            <input type="hidden" name="contact_id" value="{{ match.contact_id }}">
+            <span>{{ match.summary }}</span>
+            <button class="btn secondary" type="submit">Link this lead to the existing Xero contact</button>
+          </form>
+        {% endfor %}
+        <form method="post">
+          <input type="hidden" name="action" value="create_anyway">
+          <button class="btn secondary" type="submit">Create a new contact anyway</button>
+        </form>
+      </div>
+      {% elif not xero_error %}
+      <form method="post">
+        <input type="hidden" name="action" value="approve_create">
+        <button class="btn primary" type="submit">Approve and Create in Xero</button>
+      </form>
+      {% endif %}
+
+      <form method="post">
+        <input type="hidden" name="action" value="cancel">
+        <button class="btn secondary" type="submit">Cancel</button>
+      </form>
+    </div>
+  </section>
+  <aside class="utility-rail">
+    <div class="utility-card">
+      <h4>Manual only</h4>
+      <p>Cancel sends nothing. Duplicate matches are searched before creation when Xero is configured.</p>
+    </div>
+  </aside>
+</div>
+{% endblock %}
