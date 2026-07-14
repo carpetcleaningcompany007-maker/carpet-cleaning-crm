@@ -5139,6 +5139,15 @@ def default_public_post_template():
     )
 
 
+def default_short_business_message_template():
+    return (
+        "Hi {contact_name}, I run The Carpet Cleaning Company near Ludlow. "
+        "{personal_line} "
+        "We help with carpets, upholstery, stains, odours and high-traffic areas, and can give honest advice before replacement is considered. "
+        "If useful, I would be happy to take a quick look. Paul - 07802 563213"
+    )
+
+
 def lead_issue_short(lead):
     text = normalise_lead_text(" ".join(clean_str(row_value(lead, key)) for key in ("exact_issue", "summary", "lead_type")))
     if "urine" in text or "wee" in text or "odour" in text or "odor" in text or "smell" in text:
@@ -5198,9 +5207,13 @@ def render_lead_template(template, lead):
 
 def generate_lead_draft(lead):
     settings_row = lead_generation_settings()
-    is_short = lead_is_public_post(lead) or not clean_str(row_value(lead, "public_email"))
-    if is_short:
+    has_email = bool(clean_str(row_value(lead, "public_email")))
+    if lead_is_public_post(lead):
         template = clean_str(row_value(settings_row, "facebook_message_template")) or default_public_post_template()
+        subject = ""
+        channel = "Message"
+    elif not has_email:
+        template = default_short_business_message_template()
         subject = ""
         channel = "Message"
     else:

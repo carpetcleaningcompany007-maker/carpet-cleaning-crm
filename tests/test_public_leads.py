@@ -215,6 +215,20 @@ class PublicLeadTests(unittest.TestCase):
         lead = self.appmod.q("SELECT draft_message FROM public_leads WHERE id=?", (lead_id,), one=True)
         self.assertIn("pet odour", lead["draft_message"].lower())
 
+    def test_business_review_message_without_email_is_not_called_public_post(self):
+        lead_id, _ = self.appmod.save_public_lead({
+            "business_name": "Example Pub",
+            "source_website": "Expedia search result",
+            "source_url": "https://example.test/reviews/pub-no-email",
+            "date_published": self.appmod.uk_today().isoformat(),
+            "summary": "Dirty carpet in the bar area.",
+            "location": "Hereford",
+        })
+        _subject, body, channel = self.appmod.save_generated_lead_draft(lead_id)
+        self.assertEqual(channel, "Message")
+        self.assertNotIn("public post", body.lower())
+        self.assertIn("example pub", body.lower())
+
     def test_email_send_is_blocked_for_duplicate_lead(self):
         lead_id, _ = self.appmod.save_public_lead({
             "business_name": "Duplicate Hotel",
