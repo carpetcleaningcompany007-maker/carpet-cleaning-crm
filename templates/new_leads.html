@@ -2,37 +2,45 @@
 {% block title %}New Leads{% endblock %}
 {% block page_title %}New Leads{% endblock %}
 {% block body_content %}
-<div class="page-intro">
-  <div class="page-intro-copy">
-    <div class="section-kicker">Approval queue</div>
-    <h3>Public carpet and upholstery opportunities</h3>
-    <p>Leads found from public sources are filtered, scored, de-duplicated and held here for approval before any contact or Xero action.</p>
+<section class="lead-command">
+  <div class="lead-command-copy">
+    <div class="section-kicker">Lead finder</div>
+    <h3>New public opportunities</h3>
+    <p>Verified leads stay here for review. Nothing is emailed and nothing is sent to Xero until you approve it.</p>
   </div>
-  <form method="post" action="{{ url_for('new_leads_run') }}">
-    <button class="btn primary" type="submit">Run Source Check</button>
+  <div class="lead-command-actions">
+    <form method="post" action="{{ url_for('new_leads_run') }}">
+      <button class="btn primary" type="submit">Run Check Now</button>
+    </form>
     <a class="btn secondary" href="{{ url_for('new_leads_daily_summary') }}">Daily Summary</a>
-  </form>
-</div>
+  </div>
+</section>
 
-<section class="cc-stat-grid">
+<section class="lead-status-strip" aria-label="Lead stages">
   {% for stage in lead_stages %}
-    <a href="{{ url_for('new_leads', status=stage) }}"><span>{{ stage }}</span><strong>{{ stats.get(stage, 0) }}</strong></a>
+    {% set count = stats.get(stage, 0) %}
+    <a class="lead-stage-pill {% if current_status == stage %}active{% endif %}" href="{{ url_for('new_leads', status=stage) }}">
+      <span>{{ stage }}</span>
+      <strong>{{ count }}</strong>
+    </a>
   {% endfor %}
 </section>
 
-<div class="workspace-grid">
-  <section class="panel">
-    <div class="panel-head">
+<div class="lead-layout">
+  <section class="lead-workspace">
+    <div class="lead-toolbar">
       <div>
-        <h3>{{ current_status or 'All leads' }}</h3>
-        <p>{{ leads|length }} visible lead{{ '' if leads|length == 1 else 's' }}</p>
+        <h3>{{ current_status or 'All visible leads' }}</h3>
+        <p>{{ leads|length }} lead{{ '' if leads|length == 1 else 's' }} in this view</p>
       </div>
-      {% if current_status %}<a class="btn secondary" href="{{ url_for('new_leads') }}">Clear Filter</a>{% endif %}
-      {% if show_archived %}
-        <a class="btn secondary" href="{{ url_for('new_leads') }}">Hide Archived</a>
-      {% else %}
-        <a class="btn secondary" href="{{ url_for('new_leads', archived=1) }}">Show Archived</a>
-      {% endif %}
+      <div class="lead-toolbar-actions">
+        {% if current_status %}<a class="btn secondary" href="{{ url_for('new_leads') }}">Clear Filter</a>{% endif %}
+        {% if show_archived %}
+          <a class="btn secondary" href="{{ url_for('new_leads') }}">Hide Archived</a>
+        {% else %}
+          <a class="btn secondary" href="{{ url_for('new_leads', archived=1) }}">Show Archived</a>
+        {% endif %}
+      </div>
     </div>
 
     <div class="lead-board">
@@ -40,10 +48,13 @@
       <article class="lead-row status-{{ lead.status|lower|replace(' ', '-') }}">
         <div class="lead-main">
           <div class="lead-title-line">
-            <strong>{{ lead.business_name or lead.venue_name or lead.person_name or 'Public lead' }}</strong>
+            <div>
+              <strong>{{ lead.business_name or lead.venue_name or lead.person_name or 'Public lead' }}</strong>
+              <span class="lead-status-badge">{{ lead.status }}</span>
+            </div>
             <span class="score-pill">{{ lead.lead_score }}</span>
           </div>
-          <p>{{ lead.summary or lead.exact_issue }}</p>
+          <p class="lead-summary">{{ lead.summary or lead.exact_issue }}</p>
           <div class="lead-meta">
             <span>{{ lead.lead_type or 'Lead' }}</span>
             <span>{{ lead.county or 'County unknown' }}</span>
@@ -70,7 +81,7 @@
           {% endif %}
         </div>
         <div class="lead-actions">
-          <form method="post" action="{{ url_for('new_lead_status', lead_id=lead.id) }}" class="compact-form">
+          <form method="post" action="{{ url_for('new_lead_status', lead_id=lead.id) }}" class="lead-stage-form">
             <input type="hidden" name="next" value="{{ request.full_path }}">
             <label>Stage</label>
             <select name="status">
@@ -78,24 +89,36 @@
                 <option value="{{ stage }}" {% if lead.status == stage %}selected{% endif %}>{{ stage }}</option>
               {% endfor %}
             </select>
-            <label class="check-line"><input type="checkbox" name="previously_contacted" value="1" {% if lead.previously_contacted %}checked{% endif %}> Previously contacted</label>
-            <button class="btn secondary" type="submit">Update</button>
+            <div class="lead-stage-row">
+              <label class="check-line"><input type="checkbox" name="previously_contacted" value="1" {% if lead.previously_contacted %}checked{% endif %}> Contacted</label>
+              <button class="btn secondary" type="submit">Save</button>
+            </div>
           </form>
-          <div class="lead-button-grid">
+
+          <div class="lead-primary-actions">
             <form method="post" action="{{ url_for('new_lead_approve', lead_id=lead.id) }}"><button class="btn primary" type="submit">Approve</button></form>
             <form method="post" action="{{ url_for('new_lead_approve_send_email', lead_id=lead.id) }}"><button class="btn secondary" type="submit">Approve and Send Email</button></form>
             <a class="btn secondary" href="{{ url_for('new_lead_edit_draft', lead_id=lead.id) }}">Edit Draft</a>
+          </div>
+
+          <div class="lead-link-actions">
+            {% if lead.public_phone %}<a href="tel:{{ lead.public_phone }}">Call</a>{% else %}<span>Call unavailable</span>{% endif %}
+            {% if lead.website %}<a href="{{ lead.website }}" target="_blank" rel="noopener">Website</a>{% else %}<span>No website</span>{% endif %}
+            {% if lead.source_url %}<a href="{{ lead.source_url }}" target="_blank" rel="noopener">Source</a>{% else %}<span>No source link</span>{% endif %}
+            <button type="button" data-copy-target="lead-message-{{ lead.id }}">Copy message</button>
+            <a href="{{ url_for('new_lead_xero_confirm', lead_id=lead.id) }}">Xero contact</a>
+          </div>
+
+          <details class="lead-more-actions">
+            <summary>More actions</summary>
+            <div class="lead-button-grid">
             <form method="post" action="{{ url_for('new_lead_quick_action', lead_id=lead.id) }}"><input type="hidden" name="action" value="reject"><button class="btn secondary" type="submit">Reject</button></form>
             <form method="post" action="{{ url_for('new_lead_quick_action', lead_id=lead.id) }}"><input type="hidden" name="action" value="duplicate"><button class="btn secondary" type="submit">Mark as Duplicate</button></form>
             <form method="post" action="{{ url_for('new_lead_quick_action', lead_id=lead.id) }}"><input type="hidden" name="action" value="expired"><button class="btn secondary" type="submit">Mark as Expired</button></form>
-            {% if lead.public_phone %}<a class="btn secondary" href="tel:{{ lead.public_phone }}">Call</a>{% else %}<button class="btn secondary" type="button" disabled>Call</button>{% endif %}
-            {% if lead.website %}<a class="btn secondary" href="{{ lead.website }}" target="_blank" rel="noopener">Open Website</a>{% else %}<button class="btn secondary" type="button" disabled>Open Website</button>{% endif %}
-            {% if lead.source_url %}<a class="btn secondary" href="{{ lead.source_url }}" target="_blank" rel="noopener">Open Source Review</a>{% else %}<button class="btn secondary" type="button" disabled>Open Source Review</button>{% endif %}
-            <button class="btn secondary" type="button" data-copy-target="lead-message-{{ lead.id }}">Copy Message</button>
             <form method="post" action="{{ url_for('new_lead_quick_action', lead_id=lead.id) }}"><input type="hidden" name="action" value="follow_up"><button class="btn secondary" type="submit">Create Follow Up</button></form>
-            <a class="btn secondary" href="{{ url_for('new_lead_xero_confirm', lead_id=lead.id) }}">Create Xero Contact</a>
             <form method="post" action="{{ url_for('new_lead_quick_action', lead_id=lead.id) }}"><input type="hidden" name="action" value="archive"><button class="btn secondary" type="submit">Archive</button></form>
-          </div>
+            </div>
+          </details>
         </div>
       </article>
       {% else %}
@@ -107,44 +130,32 @@
     </div>
   </section>
 
-  <aside class="utility-rail">
+  <aside class="lead-rail">
     <div class="utility-card">
       <h4>Source status</h4>
       <div class="report-summary-list">
         {% for source in source_statuses %}
-          <div><strong>{{ source.source_name }}</strong><span>{{ source.status }} · {{ source.message }}</span></div>
+          <div class="lead-source-line"><strong>{{ source.source_name }}</strong><span>{{ source.status }}</span><small>{{ source.message }}</small></div>
         {% else %}
           <div><strong>No checks yet</strong><span>Run a source check to record source availability.</span></div>
         {% endfor %}
       </div>
     </div>
 
-    <div class="utility-card">
-      <h4>Lead settings</h4>
+    <details class="utility-card lead-settings-panel">
+      <summary>Lead settings</summary>
       <form method="post" action="{{ url_for('lead_generation_settings_update') }}" class="form compact-form">
         <input type="hidden" name="next" value="{{ url_for('new_leads') }}">
-        <label>Radius from Ludlow</label>
-        <input name="search_radius_miles" type="number" min="1" max="200" value="{{ lead_settings.search_radius_miles }}">
-        <label>Date range</label>
-        <select name="selected_date_range_days">
-          {% for days in [1, 3, 7, 14, 30] %}
-            <option value="{{ days }}" {% if lead_settings.selected_date_range_days == days %}selected{% endif %}>Last {{ '24 hours' if days == 1 else days ~ ' days' }}</option>
-          {% endfor %}
-        </select>
-        <label>Public post max age</label>
-        <input name="post_max_age_days" type="number" min="1" max="30" value="{{ lead_settings.post_max_age_days }}">
-        <label>Review max age</label>
-        <input name="review_max_age_days" type="number" min="1" max="30" value="{{ lead_settings.review_max_age_days }}">
-        <label>Minimum score</label>
-        <input name="minimum_lead_score" type="number" min="0" max="100" value="{{ lead_settings.minimum_lead_score }}">
-        <label>Maximum leads per day</label>
-        <input name="maximum_leads_per_day" type="number" min="1" max="500" value="{{ lead_settings.maximum_leads_per_day }}">
+        <div class="lead-settings-grid">
+          <div><label>Radius</label><input name="search_radius_miles" type="number" min="1" max="200" value="{{ lead_settings.search_radius_miles }}"></div>
+          <div><label>Date range</label><select name="selected_date_range_days">{% for days in [1, 3, 7, 14, 30] %}<option value="{{ days }}" {% if lead_settings.selected_date_range_days == days %}selected{% endif %}>{{ '24 hours' if days == 1 else days ~ ' days' }}</option>{% endfor %}</select></div>
+          <div><label>Post age</label><input name="post_max_age_days" type="number" min="1" max="30" value="{{ lead_settings.post_max_age_days }}"></div>
+          <div><label>Review age</label><input name="review_max_age_days" type="number" min="1" max="30" value="{{ lead_settings.review_max_age_days }}"></div>
+          <div><label>Min score</label><input name="minimum_lead_score" type="number" min="0" max="100" value="{{ lead_settings.minimum_lead_score }}"></div>
+          <div><label>Daily max</label><input name="maximum_leads_per_day" type="number" min="1" max="500" value="{{ lead_settings.maximum_leads_per_day }}"></div>
+        </div>
         <label>Search frequency</label>
-        <select name="search_frequency">
-          {% for option in ['Daily', 'Twice daily', 'Weekly', 'Manual only'] %}
-            <option value="{{ option }}" {% if lead_settings.search_frequency == option %}selected{% endif %}>{{ option }}</option>
-          {% endfor %}
-        </select>
+        <select name="search_frequency">{% for option in ['Daily', 'Twice daily', 'Weekly', 'Manual only'] %}<option value="{{ option }}" {% if lead_settings.search_frequency == option %}selected{% endif %}>{{ option }}</option>{% endfor %}</select>
         <label>Counties</label>
         <textarea name="counties">{{ lead_settings.counties }}</textarea>
         <label>Excluded locations</label>
@@ -166,15 +177,15 @@
         {% endfor %}
         <button class="btn primary" type="submit">Save Lead Settings</button>
       </form>
-    </div>
+    </details>
 
-    <div class="utility-card">
-      <h4>Import public-feed JSON</h4>
+    <details class="utility-card lead-import-panel">
+      <summary>Import public-feed JSON</summary>
       <form method="post" action="{{ url_for('new_leads_import') }}" class="form compact-form">
         <textarea name="leads_json" rows="8" placeholder='[{"business_name":"Example Hotel","source_website":"Public hotel review","source_url":"https://example.com/review/1","date_published":"2026-07-13","summary":"Guest complained about stained carpets","postcode":"SY8 1AA","county":"Shropshire"}]'></textarea>
         <button class="btn secondary" type="submit">Import Leads</button>
       </form>
-    </div>
+    </details>
     <div class="utility-card">
       <h4>Recent log</h4>
       <div class="report-summary-list">
