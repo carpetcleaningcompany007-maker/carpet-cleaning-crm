@@ -4537,9 +4537,9 @@ def lead_generation_settings():
     return {
         "search_radius_miles": 75,
         "counties": ", ".join(LEAD_DEFAULT_COUNTIES),
-        "post_max_age_days": 90,
-        "review_max_age_days": 90,
-        "selected_date_range_days": 90,
+        "post_max_age_days": 180,
+        "review_max_age_days": 180,
+        "selected_date_range_days": 180,
         "enabled_sources": ",".join(source["key"] for source in LEAD_PUBLIC_SOURCES),
     }
 
@@ -5759,9 +5759,9 @@ def init_db():
         id INTEGER PRIMARY KEY CHECK (id=1),
         search_radius_miles INTEGER DEFAULT 75,
         counties TEXT DEFAULT 'Shropshire, Herefordshire, Worcestershire, West Midlands, Staffordshire, Warwickshire, Powys, Gloucestershire, Cheshire',
-        post_max_age_days INTEGER DEFAULT 90,
-        review_max_age_days INTEGER DEFAULT 90,
-        selected_date_range_days INTEGER DEFAULT 90,
+        post_max_age_days INTEGER DEFAULT 180,
+        review_max_age_days INTEGER DEFAULT 180,
+        selected_date_range_days INTEGER DEFAULT 180,
         enabled_sources TEXT DEFAULT 'live_search_rss,google_reviews,google_maps_reviews,hotel_reviews,pub_reviews,inn_reviews,facebook_public_posts,reddit,community_forums,business_review_sites',
         excluded_locations TEXT DEFAULT '',
         search_frequency TEXT DEFAULT 'Daily',
@@ -10267,10 +10267,10 @@ def new_lead_xero_confirm(lead_id):
 @login_required
 def lead_generation_settings_update():
     enabled_sources = ",".join(request.form.getlist("enabled_sources"))
-    allowed_ranges = {1, 3, 7, 14, 30, 90}
-    selected_days = int(request.form.get("selected_date_range_days") or 90)
+    allowed_ranges = {1, 3, 7, 14, 30, 90, 180, 365}
+    selected_days = int(request.form.get("selected_date_range_days") or 180)
     if selected_days not in allowed_ranges:
-        selected_days = 90
+        selected_days = 180
     run("""UPDATE lead_generation_settings
               SET search_radius_miles=?, counties=?, post_max_age_days=?, review_max_age_days=?,
                   selected_date_range_days=?, enabled_sources=?, excluded_locations=?, search_frequency=?,
@@ -10280,8 +10280,8 @@ def lead_generation_settings_update():
             WHERE id=1""", (
         request.form.get("search_radius_miles") or 75,
         request.form.get("counties") or ", ".join(LEAD_DEFAULT_COUNTIES),
-        request.form.get("post_max_age_days") or 90,
-        request.form.get("review_max_age_days") or 90,
+        request.form.get("post_max_age_days") or 180,
+        request.form.get("review_max_age_days") or 180,
         selected_days,
         enabled_sources,
         request.form.get("excluded_locations") or "",

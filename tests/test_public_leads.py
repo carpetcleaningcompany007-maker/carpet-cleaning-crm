@@ -59,7 +59,7 @@ class PublicLeadTests(unittest.TestCase):
         self.assertEqual(count, 1)
 
     def test_old_public_post_is_expired(self):
-        old_date = (self.appmod.uk_today() - self.appmod.timedelta(days=100)).isoformat()
+        old_date = (self.appmod.uk_today() - self.appmod.timedelta(days=400)).isoformat()
         lead_id, _ = self.appmod.save_public_lead({
             "person_name": "Public Request",
             "source_website": "Reddit",
@@ -69,7 +69,7 @@ class PublicLeadTests(unittest.TestCase):
         })
         row = self.appmod.q("SELECT status, lead_age_days FROM public_leads WHERE id=?", (lead_id,), one=True)
         self.assertEqual(row["status"], "Expired")
-        self.assertGreaterEqual(row["lead_age_days"], 100)
+        self.assertGreaterEqual(row["lead_age_days"], 400)
 
     def test_scan_records_blocked_sources_as_unavailable(self):
         result = self.appmod.run_public_lead_scan()
@@ -100,16 +100,16 @@ class PublicLeadTests(unittest.TestCase):
         self.assertGreaterEqual(result["created"], 1)
         self.assertEqual(status["status"], "Live")
 
-    def test_lead_settings_accept_three_month_search_window(self):
+    def test_lead_settings_accept_twelve_month_search_window(self):
         with self.app.test_client() as client:
             with client.session_transaction() as sess:
                 sess["logged_in"] = True
             response = client.post("/lead-generation-settings", data={
                 "search_radius_miles": "75",
                 "counties": "Shropshire",
-                "post_max_age_days": "90",
-                "review_max_age_days": "90",
-                "selected_date_range_days": "90",
+                "post_max_age_days": "365",
+                "review_max_age_days": "365",
+                "selected_date_range_days": "365",
                 "enabled_sources": ["live_search_rss"],
                 "search_frequency": "Daily",
                 "maximum_leads_per_day": "25",
@@ -118,9 +118,9 @@ class PublicLeadTests(unittest.TestCase):
             })
         self.assertEqual(response.status_code, 302)
         row = self.appmod.lead_generation_settings()
-        self.assertEqual(row["selected_date_range_days"], 90)
-        self.assertEqual(row["post_max_age_days"], 90)
-        self.assertEqual(row["review_max_age_days"], 90)
+        self.assertEqual(row["selected_date_range_days"], 365)
+        self.assertEqual(row["post_max_age_days"], 365)
+        self.assertEqual(row["review_max_age_days"], 365)
 
     def test_due_lead_generation_check_runs_once_per_day(self):
         first = self.appmod.run_due_lead_generation_check(force=True)

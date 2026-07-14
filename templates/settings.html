@@ -60,15 +60,15 @@
               <div>
                 <label>Date range</label>
                 <select form="leadSettingsForm" name="selected_date_range_days">
-                  {% for days in [1, 3, 7, 14, 30, 90] %}
-                    <option value="{{ days }}" {% if lead_settings.selected_date_range_days == days %}selected{% endif %}>Last {{ '24 hours' if days == 1 else '3 months' if days == 90 else days ~ ' days' }}</option>
+                  {% for days in [1, 3, 7, 14, 30, 90, 180, 365] %}
+                    <option value="{{ days }}" {% if lead_settings.selected_date_range_days == days %}selected{% endif %}>Last {{ '24 hours' if days == 1 else '3 months' if days == 90 else '6 months' if days == 180 else '12 months' if days == 365 else days ~ ' days' }}</option>
                   {% endfor %}
                 </select>
               </div>
             </div>
             <div class="cols">
-              <div><label>Public posts max age</label><input form="leadSettingsForm" name="post_max_age_days" type="number" min="1" max="90" value="{{ lead_settings.post_max_age_days }}"></div>
-              <div><label>Reviews max age</label><input form="leadSettingsForm" name="review_max_age_days" type="number" min="1" max="90" value="{{ lead_settings.review_max_age_days }}"></div>
+              <div><label>Public posts max age</label><input form="leadSettingsForm" name="post_max_age_days" type="number" min="1" max="365" value="{{ lead_settings.post_max_age_days }}"></div>
+              <div><label>Reviews max age</label><input form="leadSettingsForm" name="review_max_age_days" type="number" min="1" max="365" value="{{ lead_settings.review_max_age_days }}"></div>
             </div>
             <div class="cols">
               <div><label>Maximum leads per day</label><input form="leadSettingsForm" name="maximum_leads_per_day" type="number" min="1" max="500" value="{{ lead_settings.maximum_leads_per_day }}"></div>
