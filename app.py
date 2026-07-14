@@ -4980,6 +4980,7 @@ def run_public_lead_scan(mode="standard"):
                 lead_id, action = save_public_lead(candidate, settings_row=settings_row)
                 if action == "created":
                     run("UPDATE public_leads SET status='Needs Checking', updated_at=datetime('now') WHERE id=? AND status='New'", (lead_id,))
+                    save_generated_lead_draft(lead_id)
                     results["created"] += 1
                 elif action == "updated":
                     results["updated"] += 1
@@ -5049,7 +5050,9 @@ def ingest_public_leads_json(text):
     results = {"created": 0, "updated": 0, "errors": []}
     for idx, item in enumerate(list(data)[:max_leads], start=1):
         try:
-            _, action = save_public_lead(item)
+            lead_id, action = save_public_lead(item)
+            if action == "created":
+                save_generated_lead_draft(lead_id)
             results[action] = results.get(action, 0) + 1
         except Exception as exc:
             results["errors"].append(f"Lead {idx}: {exc}")
@@ -5116,23 +5119,59 @@ def lead_is_public_post(lead):
 def default_business_email_template():
     return (
         "Hi {contact_name},\n\n"
-        "I hope you are well. I run The Carpet Cleaning Company near Ludlow, and we specialise in professional carpet and upholstery cleaning for homes and commercial premises across the local area.\n\n"
-        "If you are considering refreshing carpets or upholstery, or weighing that up against replacement, we may be able to help improve the appearance and freshness before expensive replacement is considered.\n\n"
-        "We regularly help hotels, pubs, offices, venues and residential customers with stained carpets, high traffic areas, upholstery, odour issues and end of tenancy work.\n\n"
-        "If useful, I would be happy to take a quick look and advise what can realistically be improved.\n\n"
+        "I hope you are well. I run The Carpet Cleaning Company near Ludlow, and we help local hotels, pubs, holiday lets, offices and homes with professional carpet and upholstery cleaning.\n\n"
+        "{personal_line}\n\n"
+        "We focus on improving appearance, freshness and odour issues where possible, especially before costly replacement is considered. We can help with high-traffic areas, stained carpets, upholstery, entrance areas, bedrooms, stairs and end-of-tenancy work.\n\n"
+        "I would not want to assume what is needed from a short public mention, but if it would be useful I can take a quick look and give honest advice on what can realistically be improved.\n\n"
         "Kind regards,\n"
-        "Paul\n"
+        "Paul Nicholas\n"
         "The Carpet Cleaning Company\n"
-        "07802 563213"
+        "07802 563213\n"
+        "www.thecarpetcleaningcrew.co.uk"
     )
 
 
 def default_public_post_template():
     return (
-        "Hi {contact_name}, I saw you were looking into carpet or upholstery cleaning. "
-        "I run The Carpet Cleaning Company near Ludlow and may be able to help with stains, odours, end of tenancy cleans or upholstery. "
-        "If you would like, send over a few details or photos and I can advise."
+        "Hi {contact_name}, I saw your public post about {issue_short}. "
+        "I run The Carpet Cleaning Company near Ludlow and may be able to help with carpet cleaning, upholstery, stains, odours or end-of-tenancy work. "
+        "If useful, send me a few details or photos and I can give honest advice on what can be improved. Paul - 07802 563213"
     )
+
+
+def lead_issue_short(lead):
+    text = normalise_lead_text(" ".join(clean_str(row_value(lead, key)) for key in ("exact_issue", "summary", "lead_type")))
+    if "urine" in text or "wee" in text or "odour" in text or "odor" in text or "smell" in text:
+        return "pet odour or carpet smell"
+    if "upholstery" in text or "sofa" in text or "chair" in text:
+        return "upholstery or fabric cleaning"
+    if "end of tenancy" in text or "tenancy" in text:
+        return "end-of-tenancy carpet cleaning"
+    if "replace" in text or "replacing" in text or "replacement" in text:
+        return "whether cleaning could help before carpet replacement"
+    if "water" in text or "wet" in text or "flood" in text or "leak" in text or "musty" in text:
+        return "wet or musty carpet"
+    if "stain" in text:
+        return "carpet staining"
+    if "dirty" in text or "grubby" in text or "filthy" in text:
+        return "carpet cleaning"
+    return "carpet or upholstery cleaning"
+
+
+def lead_personal_line(lead):
+    name = lead_display_name(lead)
+    location = clean_str(row_value(lead, "location") or row_value(lead, "county"))
+    issue = lead_issue_short(lead)
+    lead_type = normalise_lead_text(f"{row_value(lead, 'lead_type')} {row_value(lead, 'source_website')}")
+    place = f" in {location}" if location else ""
+    if any(term in lead_type for term in ["hotel", "pub", "inn", "holiday", "cottage", "venue", "restaurant", "office", "care home", "school"]):
+        return (
+            f"I noticed {name}{place} may be worth checking for {issue}. "
+            "I will not quote or refer to any individual review; this is simply a friendly note in case professional cleaning support would be useful."
+        )
+    if lead_is_public_post(lead):
+        return f"I noticed a public request around {issue}{place}, so I wanted to offer help without any pressure."
+    return f"I noticed {issue}{place} may be relevant, so I wanted to introduce our local cleaning service."
 
 
 def lead_template_context(lead):
@@ -5143,6 +5182,8 @@ def lead_template_context(lead):
         "location": clean_str(row_value(lead, "location") or row_value(lead, "county")),
         "lead_type": clean_str(row_value(lead, "lead_type")),
         "issue": clean_str(row_value(lead, "exact_issue")),
+        "issue_short": lead_issue_short(lead),
+        "personal_line": lead_personal_line(lead),
         "score": clean_str(row_value(lead, "lead_score")),
     }
 
@@ -5164,7 +5205,10 @@ def generate_lead_draft(lead):
         channel = "Message"
     else:
         template = clean_str(row_value(settings_row, "email_template")) or default_business_email_template()
+        location = clean_str(row_value(lead, "location") or row_value(lead, "county"))
         subject = f"Professional carpet and upholstery cleaning for {lead_display_name(lead)}"
+        if location:
+            subject += f" in {location}"
         channel = "Email"
     body = render_lead_template(template, lead)
     return subject, body, channel
@@ -5182,6 +5226,16 @@ def save_generated_lead_draft(lead_id):
             WHERE id=?""", (subject, body, channel, lead_id))
     log_lead_event("email_drafted", lead_id, row_value(lead, "source_website"), "Drafted", f"{channel} draft generated.")
     return subject, body, channel
+
+
+def ensure_lead_drafts_for_rows(rows, limit=75):
+    created = 0
+    for row in list(rows or [])[:limit]:
+        if clean_str(row_value(row, "draft_message")):
+            continue
+        save_generated_lead_draft(row["id"])
+        created += 1
+    return created
 
 
 def validate_lead_for_email(lead):
@@ -10101,6 +10155,8 @@ def new_leads():
         params.append(status)
     where = ("WHERE " + " AND ".join(where_parts)) if where_parts else ""
     rows = q(f"SELECT * FROM public_leads {where} ORDER BY CASE status WHEN 'New' THEN 0 WHEN 'Needs Checking' THEN 1 WHEN 'Ready to Contact' THEN 2 ELSE 3 END, lead_score DESC, date_published DESC, id DESC", params)
+    if ensure_lead_drafts_for_rows(rows):
+        rows = q(f"SELECT * FROM public_leads {where} ORDER BY CASE status WHEN 'New' THEN 0 WHEN 'Needs Checking' THEN 1 WHEN 'Ready to Contact' THEN 2 ELSE 3 END, lead_score DESC, date_published DESC, id DESC", params)
     stats_rows = q("SELECT status, COUNT(*) AS c FROM public_leads GROUP BY status")
     stats = {row["status"]: row["c"] for row in stats_rows}
     source_rows = q("""SELECT lss.* FROM lead_source_status lss
@@ -10139,6 +10195,26 @@ def new_leads_run_wide():
         f"{result['unavailable']} source(s) still need a compliant API/export."
     )
     return redirect(url_for("new_leads"))
+
+
+@app.route("/new-leads/generate-drafts", methods=["POST"])
+@login_required
+def new_leads_generate_drafts():
+    status = clean_str(request.form.get("status"))
+    params = []
+    where_parts = ["IFNULL(archived_at,'')=''", "IFNULL(draft_message,'')=''"]
+    if status:
+        where_parts.append("status=?")
+        params.append(status)
+    else:
+        where_parts.append("status IN ('New','Needs Checking','Ready to Contact','Approved')")
+    rows = q(f"SELECT id FROM public_leads WHERE {' AND '.join(where_parts)} ORDER BY lead_score DESC, id DESC LIMIT 75", params)
+    created = 0
+    for row in rows:
+        save_generated_lead_draft(row["id"])
+        created += 1
+    flash(f"Generated {created} draft message(s). You can now read and edit them on the lead cards before anything is sent.")
+    return redirect(request.form.get("next") or url_for("new_leads"))
 
 
 @app.route("/new-leads/import", methods=["POST"])

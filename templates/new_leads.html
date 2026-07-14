@@ -15,6 +15,11 @@
     <form method="post" action="{{ url_for('new_leads_run_wide') }}">
       <button class="btn secondary" type="submit">Run Wider Search</button>
     </form>
+    <form method="post" action="{{ url_for('new_leads_generate_drafts') }}">
+      <input type="hidden" name="status" value="{{ current_status }}">
+      <input type="hidden" name="next" value="{{ request.full_path }}">
+      <button class="btn secondary" type="submit">Generate / Show Drafts</button>
+    </form>
     <a class="btn secondary" href="{{ url_for('new_leads_daily_summary') }}">Daily Summary</a>
   </div>
 </section>
@@ -80,7 +85,10 @@
             <p class="lead-warning">Duplicate check: {% if lead.already_exists_crm %}already in CRM{% endif %}{% if lead.already_exists_xero %} already in Xero{% endif %}{% if lead.status == 'Duplicate' %} previous search match{% endif %}</p>
           {% endif %}
           {% if lead.draft_message %}
-            <div class="lead-draft-preview" id="lead-message-{{ lead.id }}">{{ lead.draft_message }}</div>
+            <div class="lead-draft-preview" id="lead-message-{{ lead.id }}">
+              <strong>{{ lead.draft_channel or 'Draft' }} draft{% if lead.email_subject %}: {{ lead.email_subject }}{% endif %}</strong>
+              <span>{{ lead.draft_message }}</span>
+            </div>
           {% endif %}
         </div>
         <div class="lead-actions">

@@ -162,6 +162,7 @@ class PublicLeadTests(unittest.TestCase):
     def test_business_email_draft_does_not_quote_bad_review(self):
         lead_id, _ = self.appmod.save_public_lead({
             "business_name": "Example Inn",
+            "location": "Ludlow",
             "source_website": "Public inn review",
             "source_url": "https://example.test/reviews/draft",
             "date_published": self.appmod.uk_today().isoformat(),
@@ -169,11 +170,50 @@ class PublicLeadTests(unittest.TestCase):
             "public_email": "hello@exampleinn.test",
             "website": "https://exampleinn.test",
         })
-        _subject, body, channel = self.appmod.save_generated_lead_draft(lead_id)
+        subject, body, channel = self.appmod.save_generated_lead_draft(lead_id)
         self.assertEqual(channel, "Email")
         self.assertIn("professional carpet and upholstery cleaning", body.lower())
+        self.assertIn("example inn", subject.lower())
+        self.assertIn("ludlow", subject.lower())
+        self.assertIn("I will not quote or refer to any individual review".lower(), body.lower())
         self.assertNotIn("disgusting", body.lower())
         self.assertNotIn("embarrassing", body.lower())
+
+    def test_generate_drafts_button_populates_visible_leads(self):
+        lead_id, _ = self.appmod.save_public_lead({
+            "business_name": "Example Holiday Cottage",
+            "source_website": "Public holiday cottage review",
+            "source_url": "https://example.test/reviews/draft-button",
+            "date_published": self.appmod.uk_today().isoformat(),
+            "summary": "Lounge carpet needs replacing and smells musty.",
+            "location": "Leominster",
+            "public_email": "hello@examplecottage.test",
+            "website": "https://examplecottage.test",
+        })
+        with self.app.test_client() as client:
+            with client.session_transaction() as sess:
+                sess["logged_in"] = True
+            response = client.post("/new-leads/generate-drafts", data={"status": "New"})
+        self.assertEqual(response.status_code, 302)
+        lead = self.appmod.q("SELECT draft_message FROM public_leads WHERE id=?", (lead_id,), one=True)
+        self.assertIn("before costly replacement is considered", lead["draft_message"])
+
+    def test_new_leads_page_auto_generates_visible_drafts(self):
+        lead_id, _ = self.appmod.save_public_lead({
+            "person_name": "Public Request",
+            "source_website": "Facebook public post",
+            "source_url": "https://example.test/social/request",
+            "date_published": self.appmod.uk_today().isoformat(),
+            "summary": "Looking for carpet cleaner for dog wee on carpet.",
+            "location": "Hereford",
+        })
+        with self.app.test_client() as client:
+            with client.session_transaction() as sess:
+                sess["logged_in"] = True
+            response = client.get("/new-leads?status=New")
+        self.assertEqual(response.status_code, 200)
+        lead = self.appmod.q("SELECT draft_message FROM public_leads WHERE id=?", (lead_id,), one=True)
+        self.assertIn("pet odour", lead["draft_message"].lower())
 
     def test_email_send_is_blocked_for_duplicate_lead(self):
         lead_id, _ = self.appmod.save_public_lead({
