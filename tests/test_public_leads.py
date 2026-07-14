@@ -269,6 +269,10 @@ class PublicLeadTests(unittest.TestCase):
         self.assertIn("The Carpet Cleaning Company", html)
         self.assertIn("Professional carpet & upholstery cleaning", html)
         self.assertIn("email-screen-preview", html)
+        self.assertNotIn("background:#071524;padding:22px 30px", html)
+        self.assertIn("background:#fffaf0", html)
+        self.assertIn("Professional carpet and upholstery cleaning in your area.", html)
+        self.assertNotIn("surrounding counties", html)
 
     def test_new_leads_card_has_screen_preview_link(self):
         self.appmod.save_public_lead({

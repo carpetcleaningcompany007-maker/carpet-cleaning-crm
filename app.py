@@ -5251,13 +5251,13 @@ def lead_email_html(lead):
       <table role="presentation" cellspacing="0" cellpadding="0" width="100%" style="max-width:720px;background:#ffffff;border:1px solid #dce7ee;border-radius:12px;overflow:hidden;box-shadow:0 14px 34px rgba(16,32,51,.12)">
         <tr><td style="height:8px;background:linear-gradient(90deg,#071524 0%,#0d5c4e 60%,#d8af55 100%);font-size:0;line-height:0">&nbsp;</td></tr>
         <tr>
-          <td style="background:#071524;padding:22px 30px;color:#ffffff">
+          <td style="background:#fffaf0;padding:22px 30px;color:#102033;border-bottom:1px solid #eadfcb">
             <table role="presentation" cellspacing="0" cellpadding="0" width="100%">
               <tr>
                 <td style="vertical-align:middle">
                   {'<img src="' + html_lib.escape(logo_url) + '" alt="' + html_lib.escape(business) + '" width="132" style="display:block;width:132px;max-width:132px;height:auto;border:0">' if logo_url else '<strong style="font-size:20px">' + html_lib.escape(business) + '</strong>'}
                 </td>
-                <td align="right" style="vertical-align:middle;color:#d8af55;font-size:12px;line-height:1.5;font-weight:800;text-transform:uppercase;letter-spacing:.06em">
+                <td align="right" style="vertical-align:middle;color:#8a6a24;font-size:12px;line-height:1.5;font-weight:800;text-transform:uppercase;letter-spacing:.06em">
                   Professional carpet & upholstery cleaning
                 </td>
               </tr>
@@ -5268,7 +5268,7 @@ def lead_email_html(lead):
           <td style="padding:28px 32px 18px">
             <div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#0d6b58;font-weight:800">{html_lib.escape(business)}</div>
             <h1 style="margin:9px 0 0;font-size:25px;line-height:1.22;color:#102033">{html_lib.escape(subject)}</h1>
-            <p style="margin:10px 0 0;color:#5b6b7b;font-size:15px;line-height:1.55">Professional carpet and upholstery cleaning across Ludlow and the surrounding counties.</p>
+            <p style="margin:10px 0 0;color:#5b6b7b;font-size:15px;line-height:1.55">Professional carpet and upholstery cleaning in your area.</p>
           </td>
         </tr>
         <tr><td style="padding:0 32px"><div style="height:1px;background:#e3edf2"></div></td></tr>
