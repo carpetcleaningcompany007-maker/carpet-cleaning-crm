@@ -1497,6 +1497,8 @@ def public_static_or_live_url(filename):
 
 
 CUSTOMER_FORM_SENDING_PAUSED = False
+CUSTOMER_SMS_START_HOUR = 10
+CUSTOMER_SMS_END_HOUR = 20
 
 
 DEFAULT_MESSAGE_TEMPLATES = {
@@ -1659,7 +1661,27 @@ def enquiry_follow_up_sms_text(data):
     )
 
 
-def schedule_enquiry_follow_up_sms(lead_id, customer_id=None, data=None, delay_minutes=4):
+def customer_sms_allowed_now(now=None):
+    now = now or datetime.now(ZoneInfo("Europe/London"))
+    return CUSTOMER_SMS_START_HOUR <= now.hour < CUSTOMER_SMS_END_HOUR
+
+
+def next_customer_sms_allowed_at(now=None):
+    now = now or datetime.now(ZoneInfo("Europe/London"))
+    start = now.replace(hour=CUSTOMER_SMS_START_HOUR, minute=0, second=0, microsecond=0)
+    end = now.replace(hour=CUSTOMER_SMS_END_HOUR, minute=0, second=0, microsecond=0)
+    if now < start:
+        return start
+    if now >= end:
+        return start + timedelta(days=1)
+    return now
+
+
+def customer_sms_window_note(due_at):
+    return f"Customer SMS queued for {due_at.strftime('%Y-%m-%d %H:%M')} because customer texts only send between 10:00 and 20:00."
+
+
+def schedule_enquiry_follow_up_sms(lead_id, customer_id=None, data=None, delay_minutes=4, body=None, due_at=None):
     if not lead_id:
         return False, "No enquiry ID to schedule."
     existing = q("SELECT status FROM enquiry_follow_up_queue WHERE lead_id=?", (lead_id,), one=True)
@@ -1673,8 +1695,11 @@ def schedule_enquiry_follow_up_sms(lead_id, customer_id=None, data=None, delay_m
     phone = normalize_phone(request_value(payload, "phone", "phone_number", "telephone", "tel"))
     if not phone:
         return False, "No customer phone number supplied."
-    due_at = datetime.now(ZoneInfo("Europe/London")) + timedelta(minutes=delay_minutes)
-    body = enquiry_follow_up_sms_text(payload)
+    due_at = due_at or (datetime.now(ZoneInfo("Europe/London")) + timedelta(minutes=delay_minutes))
+    if due_at.tzinfo is None:
+        due_at = due_at.replace(tzinfo=ZoneInfo("Europe/London"))
+    due_at = next_customer_sms_allowed_at(due_at)
+    body = body or enquiry_follow_up_sms_text(payload)
     try:
         run("""INSERT INTO enquiry_follow_up_queue
                (lead_id, customer_id, phone, body, due_at, status, created_at)
@@ -1700,6 +1725,22 @@ def run_due_enquiry_follow_up_sms(dry_run=False):
                 LIMIT 50""", (now.isoformat(timespec="seconds"),))
     results = []
     for row in rows:
+        if not customer_sms_allowed_now(now):
+            next_due = next_customer_sms_allowed_at(now)
+            if not dry_run:
+                run("""UPDATE enquiry_follow_up_queue
+                       SET due_at=?, status='Queued', message=?, updated_at=datetime('now')
+                       WHERE id=?""",
+                    (next_due.isoformat(timespec="seconds"), customer_sms_window_note(next_due), row_value(row, "id")))
+            results.append({
+                "rule": "enquiry_follow_up_sms",
+                "lead_id": row_value(row, "lead_id"),
+                "customer_id": row_value(row, "customer_id") or row_value(row, "lead_customer_id"),
+                "channel": "sms",
+                "status": "Queued",
+                "message": customer_sms_window_note(next_due),
+            })
+            continue
         if not dry_run:
             cur = db().execute(
                 """UPDATE enquiry_follow_up_queue
@@ -2567,11 +2608,20 @@ def run_website_enquiry_automation(lead_id, customer_id, data):
     customer_phone = request_value(data, "phone", "phone_number", "telephone", "tel")
     customer_sms = render_simple_template(message_template("customer_enquiry_sms")["body"], template_context_for_enquiry(data, customer_id=customer_id, lead_id=lead_id))
     if customer_phone and is_valid_uk_phone(customer_phone):
-        ok, msg = send_clicksend_env_sms(customer_phone, customer_sms, customer=customer, category="Service")
-        if ok:
-            send_owner_customer_message_copy("sms", customer_phone, "Customer enquiry SMS", customer_sms, customer=customer, context="Website enquiry customer SMS")
-        update_intake_delivery_status(lead_id, customer_sms_status=status_text(ok, msg))
-        results["customer_sms"] = (ok, msg)
+        now = datetime.now(ZoneInfo("Europe/London"))
+        if customer_sms_allowed_now(now):
+            ok, msg = send_clicksend_env_sms(customer_phone, customer_sms, customer=customer, category="Service")
+            if ok:
+                send_owner_customer_message_copy("sms", customer_phone, "Customer enquiry SMS", customer_sms, customer=customer, context="Website enquiry customer SMS")
+            update_intake_delivery_status(lead_id, customer_sms_status=status_text(ok, msg))
+            results["customer_sms"] = (ok, msg)
+        else:
+            due_at = next_customer_sms_allowed_at(now)
+            ok, msg = schedule_enquiry_follow_up_sms(lead_id, customer_id, data, body=customer_sms, due_at=due_at)
+            queue_msg = customer_sms_window_note(due_at)
+            update_intake_delivery_status(lead_id, customer_sms_status=status_text(True, queue_msg, skipped=True))
+            run("INSERT INTO customer_timeline(customer_id, note_text, created_at) VALUES (?,?,datetime('now'))", (customer_id, queue_msg))
+            results["customer_sms"] = (ok, msg if ok else queue_msg)
     else:
         msg = "Customer phone number is missing or needs checking."
         update_intake_delivery_status(lead_id, customer_sms_status=status_text(False, msg, skipped=True))
