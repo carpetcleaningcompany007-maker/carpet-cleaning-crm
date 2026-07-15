@@ -249,6 +249,26 @@ class PublicLeadTests(unittest.TestCase):
         self.assertNotIn("public post", body.lower())
         self.assertIn("example pub", body.lower())
 
+    def test_business_review_preview_without_email_uses_full_letter(self):
+        lead_id, _ = self.appmod.save_public_lead({
+            "business_name": "Example Pub",
+            "source_website": "Expedia search result",
+            "source_url": "https://example.test/reviews/pub-preview-no-email",
+            "date_published": self.appmod.uk_today().isoformat(),
+            "summary": "Stained carpet in the bar area.",
+            "location": "Hereford",
+        })
+        self.appmod.save_generated_lead_draft(lead_id)
+        with self.app.test_client() as client:
+            with client.session_transaction() as sess:
+                sess["logged_in"] = True
+            response = client.get(f"/new-leads/{lead_id}/preview")
+        self.assertEqual(response.status_code, 200)
+        html = response.get_data(as_text=True)
+        self.assertIn("My name is Paul and I own The Carpet Cleaning Company", html)
+        self.assertIn("hotels, pubs, inns, wedding venues", html)
+        self.assertIn("free demonstration", html)
+
     def test_lead_email_preview_is_branded(self):
         lead_id, _ = self.appmod.save_public_lead({
             "business_name": "Example Hotel",

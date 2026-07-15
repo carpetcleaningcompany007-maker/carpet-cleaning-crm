@@ -5222,6 +5222,8 @@ def lead_email_html(lead):
     subject = generated_subject if re.search(r"\s+in\s+\w", saved_subject, re.I) else saved_subject or generated_subject
     saved_body = clean_str(row_value(lead, "draft_message"))
     generated_body = generate_lead_draft(lead)[1]
+    if not lead_is_public_post(lead):
+        generated_body = render_lead_template(default_business_email_template(), lead)
     legacy_markers = (
         "based near ludlow",
         "near ludlow",
