@@ -109,35 +109,26 @@
     </div>
     <div class="message-approval" id="customer-message-approval">
       <div>
-        <h5>Prepared customer message</h5>
-        <p>The CRM has not sent this automatically. Read it, then choose whether to send it now.</p>
+        <h5>Follow-up SMS approval</h5>
+        <p>The first thank-you message is sent automatically. This later call-back text only sends if you approve it.</p>
       </div>
       <div class="status-line">
         <div><strong>Customer email</strong>{{ lead.customer_email_status or 'Pending Paul approval' }}</div>
         <div><strong>Customer SMS / Text</strong>{{ lead.customer_sms_status or 'Pending Paul approval' }}</div>
+        <div><strong>Follow-up SMS / Text</strong>{{ prepared_follow_up_status }}</div>
       </div>
-      <div class="message-preview-grid">
-        <div class="message-preview">
-          <strong>Email preview</strong>
-          <pre>{{ prepared_customer_email }}</pre>
-        </div>
-        <div class="message-preview">
-          <strong>SMS / Text preview</strong>
-          <pre>{{ prepared_customer_sms }}</pre>
-        </div>
+      <div class="message-preview">
+        <strong>Follow-up SMS / Text preview</strong>
+        <pre>{{ prepared_follow_up_sms }}</pre>
       </div>
       <div class="lead-action-buttons">
         <form method="post" action="{{ url_for('intake_customer_message_action', lead_id=lead.id) }}">
-          <input type="hidden" name="action" value="send_prepared_email">
-          <button class="btn primary" type="submit" {% if not lead.email %}disabled{% endif %}>Send prepared email</button>
+          <input type="hidden" name="action" value="send_follow_up_sms">
+          <button class="btn primary" type="submit" {% if not lead.phone %}disabled{% endif %}>Send follow-up SMS / Text now</button>
         </form>
         <form method="post" action="{{ url_for('intake_customer_message_action', lead_id=lead.id) }}">
-          <input type="hidden" name="action" value="send_prepared_sms">
-          <button class="btn primary" type="submit" {% if not lead.phone %}disabled{% endif %}>Send prepared SMS / Text</button>
-        </form>
-        <form method="post" action="{{ url_for('intake_customer_message_action', lead_id=lead.id) }}">
-          <input type="hidden" name="action" value="skip_prepared_message">
-          <button class="btn secondary" type="submit">Skip prepared message</button>
+          <input type="hidden" name="action" value="skip_follow_up_sms">
+          <button class="btn secondary" type="submit">Do not send follow-up text</button>
         </form>
       </div>
     </div>

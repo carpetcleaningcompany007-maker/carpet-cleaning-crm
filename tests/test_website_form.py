@@ -92,7 +92,7 @@ class WebsiteFormTests(unittest.TestCase):
         self.assertEqual(lead["status"], "Waiting for review")
         self.assertEqual(lead["follow_up_status"], "Follow up required")
 
-    def test_website_form_prepares_customer_messages_but_waits_for_approval(self):
+    def test_website_form_sends_thank_you_but_holds_follow_up_sms_for_approval(self):
         class FixedLateDateTime(datetime):
             @classmethod
             def now(cls, tz=None):
@@ -109,34 +109,41 @@ class WebsiteFormTests(unittest.TestCase):
         }
         with mock.patch.object(self.appmod, "datetime", FixedLateDateTime), \
              mock.patch.object(self.appmod, "send_env_email", return_value=(False, "Email disabled for test")), \
-             mock.patch.object(self.appmod, "send_clicksend_env_sms", return_value=(False, "SMS should not send automatically")) as sms_send:
+             mock.patch.object(self.appmod, "send_clicksend_env_sms", return_value=(True, "Thank-you SMS sent")) as sms_send:
             response = self.app.test_client().post("/api/website-form", data=payload)
 
         self.assertEqual(response.status_code, 200)
         body = response.get_json()
         lead = self.appmod.q("SELECT * FROM intake_submissions WHERE id=?", (body["lead_id"],), one=True)
         queued = self.appmod.q("SELECT * FROM enquiry_follow_up_queue WHERE lead_id=?", (body["lead_id"],), one=True)
-        self.assertIsNone(queued)
-        self.assertIn("Pending Paul approval", lead["customer_email_status"])
-        self.assertIn("Pending Paul approval", lead["customer_sms_status"])
-        self.assertIn("Paul approval is required", body["automation"]["follow_up_sms_queue"]["message"])
-        sms_send.assert_not_called()
+        self.assertIsNotNone(queued)
+        self.assertEqual(queued["status"], "Awaiting approval")
+        self.assertIn("quick call", queued["body"].lower())
+        self.assertIn("Sent: Thank-you SMS sent", lead["customer_sms_status"])
+        self.assertIn("Pending Paul approval", body["automation"]["follow_up_sms_queue"]["message"])
+        sms_send.assert_called_once()
 
-    def test_approved_customer_sms_button_sends_prepared_message(self):
+    def test_approved_follow_up_sms_button_sends_follow_up_message(self):
         lead_id = self.appmod.run("""INSERT INTO intake_submissions
             (name, phone, email, status, source, customer_sms_status, follow_up_status)
             VALUES (?,?,?,?,?,?,?)""",
-            ("Approved Customer", "07802 563213", "approved@example.com", "Waiting for review", "Website form", "Pending Paul approval", "Follow up required"))
+            ("Approved Customer", "07802 563213", "approved@example.com", "Waiting for review", "Website form", "Sent: Thank-you SMS sent", "Follow up required"))
+        self.appmod.run("""INSERT INTO enquiry_follow_up_queue
+            (lead_id, phone, body, due_at, status)
+            VALUES (?,?,?,?,?)""",
+            (lead_id, "07802 563213", "Can I give you a quick call?", "2026-07-16T10:00:00+01:00", "Awaiting approval"))
         with self.app.test_client() as client:
             with client.session_transaction() as sess:
                 sess["logged_in"] = True
             with mock.patch.object(self.appmod, "send_clicksend_env_sms", return_value=(True, "SMS sent")) as sms_send, \
                  mock.patch.object(self.appmod, "send_owner_customer_message_copy", return_value=(True, "copy sent")):
-                response = client.post(f"/intake-forms/{lead_id}/customer-message", data={"action": "send_prepared_sms"})
+                response = client.post(f"/intake-forms/{lead_id}/customer-message", data={"action": "send_follow_up_sms"})
 
         self.assertEqual(response.status_code, 302)
         lead = self.appmod.q("SELECT * FROM intake_submissions WHERE id=?", (lead_id,), one=True)
-        self.assertIn("Sent: SMS sent", lead["customer_sms_status"])
+        queued = self.appmod.q("SELECT * FROM enquiry_follow_up_queue WHERE lead_id=?", (lead_id,), one=True)
+        self.assertEqual(queued["status"], "Sent")
+        self.assertIn("Follow-up SMS sent", lead["follow_up_status"])
         sms_send.assert_called_once()
 
     def test_due_enquiry_sms_is_not_sent_before_ten_am(self):

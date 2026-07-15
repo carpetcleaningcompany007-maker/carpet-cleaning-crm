@@ -1685,7 +1685,11 @@ def customer_message_approval_note(channel):
     return f"Pending Paul approval: prepared {channel} saved. Nothing has been sent to the customer."
 
 
-def schedule_enquiry_follow_up_sms(lead_id, customer_id=None, data=None, delay_minutes=4, body=None, due_at=None):
+def enquiry_follow_up_approval_note():
+    return "Pending Paul approval: follow-up SMS / Text prepared. It will not send unless Paul presses send."
+
+
+def schedule_enquiry_follow_up_sms(lead_id, customer_id=None, data=None, delay_minutes=4, body=None, due_at=None, status="Queued"):
     if not lead_id:
         return False, "No enquiry ID to schedule."
     existing = q("SELECT status FROM enquiry_follow_up_queue WHERE lead_id=?", (lead_id,), one=True)
@@ -1702,14 +1706,17 @@ def schedule_enquiry_follow_up_sms(lead_id, customer_id=None, data=None, delay_m
     due_at = due_at or (datetime.now(ZoneInfo("Europe/London")) + timedelta(minutes=delay_minutes))
     if due_at.tzinfo is None:
         due_at = due_at.replace(tzinfo=ZoneInfo("Europe/London"))
-    due_at = next_customer_sms_allowed_at(due_at)
+    if status == "Queued":
+        due_at = next_customer_sms_allowed_at(due_at)
     body = body or enquiry_follow_up_sms_text(payload)
     try:
         run("""INSERT INTO enquiry_follow_up_queue
                (lead_id, customer_id, phone, body, due_at, status, created_at)
-               VALUES (?,?,?,?,?,'Queued',datetime('now'))
+               VALUES (?,?,?,?,?,?,datetime('now'))
                ON CONFLICT(lead_id) DO NOTHING""",
-            (lead_id, customer_id or row_get(lead, "customer_id"), phone, body, due_at.isoformat(timespec="seconds")))
+            (lead_id, customer_id or row_get(lead, "customer_id"), phone, body, due_at.isoformat(timespec="seconds"), status))
+        if status == "Awaiting approval":
+            return True, enquiry_follow_up_approval_note()
         return True, "Follow-up SMS queued."
     except sqlite3.OperationalError:
         return False, "Follow-up queue is not ready."
@@ -2121,8 +2128,9 @@ def owner_enquiry_alert_text(data, customer_id=None, lead_id=None):
     ]
     if review_url:
         lines.append("")
-        lines.append("Customer message is prepared but NOT sent.")
-        lines.append("Open this link if you want to approve the prepared email or text:")
+        lines.append("Initial thank-you message is handled automatically.")
+        lines.append("Follow-up call-back SMS / Text is prepared but NOT sent.")
+        lines.append("Open this link if you want to approve the follow-up text:")
         lines.append(f"{review_url}#customer-message-approval")
     if customer_url:
         lines.append(f"Open in CRM: {customer_url}")
@@ -2598,21 +2606,30 @@ def run_website_enquiry_automation(lead_id, customer_id, data):
 
     customer_email = request_value(data, "email", "email_address")
     if customer_email:
+        customer_email_template = message_template("customer_enquiry_email")
+        subject = render_simple_template(customer_email_template["subject"] or "Thank you for your enquiry", template_context_for_enquiry(data, customer_id=customer_id, lead_id=lead_id))
         email_text = enquiry_customer_email_text(data)
-        update_intake_delivery_status(lead_id, customer_email_status=customer_message_approval_note("email"))
+        email_html = enquiry_customer_email_html(data)
+        ok, msg = send_env_email(customer_email, subject, email_text, email_html, customer=customer)
+        if ok:
+            send_owner_customer_message_copy("email", customer_email, subject, email_text, html_body=email_html, customer=customer, context="Website enquiry customer email")
+        update_intake_delivery_status(lead_id, customer_email_status=status_text(ok, msg))
         run("INSERT INTO communications(customer_id, channel, subject, body, created_at) VALUES (?,?,?,?,datetime('now'))", (customer_id, "Email", "Customer enquiry thank you", email_text))
-        run("INSERT INTO customer_timeline(customer_id, note_text, created_at) VALUES (?,?,datetime('now'))", (customer_id, "Customer enquiry email prepared and waiting for Paul approval."))
-        results["customer_email"] = (True, customer_message_approval_note("email"))
+        run("INSERT INTO customer_timeline(customer_id, note_text, created_at) VALUES (?,?,datetime('now'))", (customer_id, ("Customer welcome email sent. " if ok else "Customer welcome email failed. ") + clean_str(msg)))
+        results["customer_email"] = (ok, msg)
     else:
         update_intake_delivery_status(lead_id, customer_email_status=status_text(False, "No customer email supplied", skipped=True))
 
     customer_phone = request_value(data, "phone", "phone_number", "telephone", "tel")
     customer_sms = render_simple_template(message_template("customer_enquiry_sms")["body"], template_context_for_enquiry(data, customer_id=customer_id, lead_id=lead_id))
     if customer_phone and is_valid_uk_phone(customer_phone):
-        update_intake_delivery_status(lead_id, customer_sms_status=customer_message_approval_note("SMS / Text"))
+        ok, msg = send_clicksend_env_sms(customer_phone, customer_sms, customer=customer, category="Service")
+        if ok:
+            send_owner_customer_message_copy("sms", customer_phone, "Customer enquiry SMS", customer_sms, customer=customer, context="Website enquiry customer SMS")
+        update_intake_delivery_status(lead_id, customer_sms_status=status_text(ok, msg))
         run("INSERT INTO communications(customer_id, channel, subject, body, created_at) VALUES (?,?,?,?,datetime('now'))", (customer_id, "SMS", "Customer enquiry SMS / Text", customer_sms))
-        run("INSERT INTO customer_timeline(customer_id, note_text, created_at) VALUES (?,?,datetime('now'))", (customer_id, "Customer enquiry SMS / Text prepared and waiting for Paul approval."))
-        results["customer_sms"] = (True, customer_message_approval_note("SMS / Text"))
+        run("INSERT INTO customer_timeline(customer_id, note_text, created_at) VALUES (?,?,datetime('now'))", (customer_id, ("Customer enquiry SMS sent. " if ok else "Customer enquiry SMS failed. ") + clean_str(msg)))
+        results["customer_sms"] = (ok, msg)
     else:
         msg = "Customer phone number is missing or needs checking."
         update_intake_delivery_status(lead_id, customer_sms_status=status_text(False, msg, skipped=True))
@@ -2646,7 +2663,14 @@ def run_website_enquiry_automation(lead_id, customer_id, data):
         update_intake_delivery_status(lead_id, follow_up_status="Follow up required")
         timeline_note = "Follow up required after website enquiry."
     run("INSERT INTO customer_timeline(customer_id, note_text, created_at) VALUES (?,?,datetime('now'))", (customer_id, timeline_note))
-    results["follow_up_sms_queue"] = (False, "Automatic customer follow-up SMS is off. Paul approval is required.")
+    results["follow_up_sms_queue"] = schedule_enquiry_follow_up_sms(
+        lead_id,
+        customer_id,
+        data,
+        delay_minutes=4,
+        body=enquiry_follow_up_sms_text(data),
+        status="Awaiting approval",
+    )
     return results
 
 
@@ -12044,11 +12068,8 @@ def intake_form_view(lead_id):
         lead_checklist=intake_lead_checklist(lead),
         lead_next_action=intake_lead_next_action(lead),
         missing_details=intake_missing_details(lead),
-        prepared_customer_email=enquiry_customer_email_text(dict(lead)),
-        prepared_customer_sms=render_simple_template(
-            message_template("customer_enquiry_sms")["body"],
-            template_context_for_enquiry(dict(lead), customer_id=row_get(lead, "customer_id"), lead_id=lead_id),
-        ),
+        prepared_follow_up_sms=prepared_enquiry_follow_up_sms(lead),
+        prepared_follow_up_status=prepared_enquiry_follow_up_status(lead_id),
     )
 
 
@@ -12117,6 +12138,29 @@ def intake_request_missing_details(lead_id):
     return redirect(url_for("intake_form_view", lead_id=lead_id))
 
 
+def prepared_enquiry_follow_up_row(lead_id):
+    return q("""SELECT * FROM enquiry_follow_up_queue
+                WHERE lead_id=?
+                ORDER BY id DESC
+                LIMIT 1""", (lead_id,), one=True)
+
+
+def prepared_enquiry_follow_up_sms(lead):
+    queued = prepared_enquiry_follow_up_row(row_get(lead, "id"))
+    if queued and clean_str(row_get(queued, "body")):
+        return clean_str(row_get(queued, "body"))
+    return enquiry_follow_up_sms_text(dict(lead))
+
+
+def prepared_enquiry_follow_up_status(lead_id):
+    queued = prepared_enquiry_follow_up_row(lead_id)
+    if not queued:
+        return "Not prepared yet"
+    status = clean_str(row_get(queued, "status")) or "Pending"
+    message = clean_str(row_get(queued, "message"))
+    return status + (f": {message}" if message else "")
+
+
 @app.route("/intake-forms/<int:lead_id>/customer-message", methods=["POST"])
 @login_required
 def intake_customer_message_action(lead_id):
@@ -12130,28 +12174,7 @@ def intake_customer_message_action(lead_id):
     if customer_id and not row_get(lead, "customer_id"):
         run("UPDATE intake_submissions SET customer_id=?, updated_at=datetime('now') WHERE id=?", (customer_id, lead_id))
     data = dict(lead)
-    if action == "send_prepared_email":
-        recipient = clean_str(row_get(lead, "email"))
-        if not recipient:
-            flash("This enquiry has no customer email address.")
-            return redirect(url_for("intake_form_view", lead_id=lead_id) + "#customer-message-approval")
-        template = message_template("customer_enquiry_email")
-        subject = render_simple_template(template["subject"] or "Thank you for your enquiry", template_context_for_enquiry(data, customer_id=customer_id, lead_id=lead_id))
-        body = enquiry_customer_email_text(data)
-        html_body = enquiry_customer_email_html(data)
-        ok, msg = send_env_email(recipient, subject, body, html_body, customer=customer)
-        if ok:
-            send_owner_customer_message_copy("email", recipient, subject, body, html_body=html_body, customer=customer, context="Approved website enquiry customer email")
-            run("INSERT INTO communications(customer_id, channel, subject, body, created_at) VALUES (?,?,?,?,datetime('now'))",
-                (customer_id, "Email", subject, body))
-            run("INSERT INTO customer_timeline(customer_id, note_text, created_at) VALUES (?,?,datetime('now'))",
-                (customer_id, "Paul approved and sent the prepared enquiry email."))
-            update_intake_delivery_status(lead_id, customer_email_status=status_text(True, msg), follow_up_status="Customer email sent - waiting for reply")
-        else:
-            update_intake_delivery_status(lead_id, customer_email_status=status_text(False, msg))
-        flash(("Sent: " if ok else "Failed: ") + msg)
-        return redirect(url_for("intake_form_view", lead_id=lead_id) + "#customer-message-approval")
-    if action == "send_prepared_sms":
+    if action == "send_follow_up_sms":
         recipient = clean_str(row_get(lead, "phone"))
         if not recipient or not is_valid_uk_phone(recipient):
             flash("This enquiry does not have a valid customer mobile number.")
@@ -12159,32 +12182,41 @@ def intake_customer_message_action(lead_id):
         if is_customer_sms_opted_out(customer):
             flash("This customer is opted out of SMS.")
             return redirect(url_for("intake_form_view", lead_id=lead_id) + "#customer-message-approval")
-        body = render_simple_template(message_template("customer_enquiry_sms")["body"], template_context_for_enquiry(data, customer_id=customer_id, lead_id=lead_id))
+        queued = prepared_enquiry_follow_up_row(lead_id)
+        body = clean_str(row_get(queued, "body")) if queued else enquiry_follow_up_sms_text(data)
         ok, msg = send_clicksend_env_sms(recipient, body, customer=customer, category="Service")
         if ok:
-            send_owner_customer_message_copy("sms", recipient, "Customer enquiry SMS", body, customer=customer, context="Approved website enquiry customer SMS")
+            send_owner_customer_message_copy("sms", recipient, "Enquiry follow-up SMS", body, customer=customer, context="Approved enquiry follow-up SMS")
             run("INSERT INTO communications(customer_id, channel, subject, body, created_at) VALUES (?,?,?,?,datetime('now'))",
-                (customer_id, "SMS", "Customer enquiry SMS / Text", body))
+                (customer_id, "SMS", "Enquiry follow-up SMS / Text", body))
             run("INSERT INTO customer_timeline(customer_id, note_text, created_at) VALUES (?,?,datetime('now'))",
-                (customer_id, "Paul approved and sent the prepared enquiry SMS / Text."))
-            update_intake_delivery_status(lead_id, customer_sms_status=status_text(True, msg), follow_up_status="Customer SMS sent - waiting for reply")
+                (customer_id, "Paul approved and sent the enquiry follow-up SMS / Text."))
+            if queued:
+                run("""UPDATE enquiry_follow_up_queue
+                       SET status='Sent', message=?, sent_at=datetime('now'), updated_at=datetime('now')
+                       WHERE id=?""", (clean_str(msg), row_get(queued, "id")))
+            update_intake_delivery_status(lead_id, follow_up_status="Follow-up SMS sent - waiting for reply")
         else:
-            update_intake_delivery_status(lead_id, customer_sms_status=status_text(False, msg))
+            if queued:
+                run("""UPDATE enquiry_follow_up_queue
+                       SET status='Failed', message=?, updated_at=datetime('now')
+                       WHERE id=?""", (clean_str(msg), row_get(queued, "id")))
+            update_intake_delivery_status(lead_id, follow_up_status="Follow-up SMS failed")
         flash(("Sent: " if ok else "Failed: ") + msg)
         return redirect(url_for("intake_form_view", lead_id=lead_id) + "#customer-message-approval")
-    if action == "skip_prepared_message":
-        reason = clean_str(request.form.get("reason")) or "Paul chose not to send the prepared customer message."
-        update_intake_delivery_status(
-            lead_id,
-            customer_email_status="Skipped: " + reason,
-            customer_sms_status="Skipped: " + reason,
-            follow_up_status="Manual follow up only",
-        )
+    if action == "skip_follow_up_sms":
+        reason = clean_str(request.form.get("reason")) or "Paul chose not to send the follow-up SMS / Text."
+        queued = prepared_enquiry_follow_up_row(lead_id)
+        if queued:
+            run("""UPDATE enquiry_follow_up_queue
+                   SET status='Skipped', message=?, updated_at=datetime('now')
+                   WHERE id=?""", (reason, row_get(queued, "id")))
+        update_intake_delivery_status(lead_id, follow_up_status="Manual follow up only")
         if customer_id:
             run("INSERT INTO customer_timeline(customer_id, note_text, created_at) VALUES (?,?,datetime('now'))", (customer_id, reason))
-        flash("Prepared customer message skipped. Nothing was sent.")
+        flash("Follow-up SMS / Text skipped. Nothing was sent.")
         return redirect(url_for("intake_form_view", lead_id=lead_id) + "#customer-message-approval")
-    flash("Choose whether to send or skip the prepared customer message.")
+    flash("Choose whether to send or skip the follow-up SMS / Text.")
     return redirect(url_for("intake_form_view", lead_id=lead_id) + "#customer-message-approval")
 
 
