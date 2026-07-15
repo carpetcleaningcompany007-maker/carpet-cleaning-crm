@@ -40,10 +40,17 @@
   .lead-action-buttons{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
   .lead-action-buttons form,.lead-action-buttons a{margin:0}
   .lead-action-buttons .btn{width:100%;min-height:48px}
+  .message-approval{border:1px solid #bddbed;background:#f8fcff;border-radius:14px;padding:14px;display:grid;gap:12px}
+  .message-approval h5{margin:0;color:#071524;font-size:18px}
+  .message-approval p{margin:0;color:#486174}
+  .message-preview-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .message-preview{border:1px solid #dce8f1;background:#fff;border-radius:12px;padding:12px;display:grid;gap:8px}
+  .message-preview strong{color:#24384b}
+  .message-preview pre{margin:0;white-space:pre-wrap;font-family:inherit;color:#132238;line-height:1.45;max-height:260px;overflow:auto}
   @media (max-width:860px){
     .review-hero{display:block}
     .review-pill{margin-top:14px}
-    .review-card-grid,.status-line{grid-template-columns:1fr}
+    .review-card-grid,.status-line,.message-preview-grid{grid-template-columns:1fr}
     .lead-action-head{display:block}
     .lead-next-pill{margin-top:12px;white-space:normal}
   }
@@ -99,6 +106,40 @@
       <form method="post" action="{{ url_for('intake_form_quick_action', lead_id=lead.id) }}"><input type="hidden" name="action" value="send_unable_sms"><button class="btn secondary" type="submit" {% if not lead.phone %}disabled{% endif %}>Send unable-to-reach text</button></form>
       <form method="post" action="{{ url_for('intake_create_job', lead_id=lead.id) }}"><button class="btn primary" type="submit">Create job</button></form>
       <form method="post" action="{{ url_for('intake_form_quick_action', lead_id=lead.id) }}"><input type="hidden" name="action" value="lost"><button class="btn danger" type="submit">Close no reply</button></form>
+    </div>
+    <div class="message-approval" id="customer-message-approval">
+      <div>
+        <h5>Prepared customer message</h5>
+        <p>The CRM has not sent this automatically. Read it, then choose whether to send it now.</p>
+      </div>
+      <div class="status-line">
+        <div><strong>Customer email</strong>{{ lead.customer_email_status or 'Pending Paul approval' }}</div>
+        <div><strong>Customer SMS / Text</strong>{{ lead.customer_sms_status or 'Pending Paul approval' }}</div>
+      </div>
+      <div class="message-preview-grid">
+        <div class="message-preview">
+          <strong>Email preview</strong>
+          <pre>{{ prepared_customer_email }}</pre>
+        </div>
+        <div class="message-preview">
+          <strong>SMS / Text preview</strong>
+          <pre>{{ prepared_customer_sms }}</pre>
+        </div>
+      </div>
+      <div class="lead-action-buttons">
+        <form method="post" action="{{ url_for('intake_customer_message_action', lead_id=lead.id) }}">
+          <input type="hidden" name="action" value="send_prepared_email">
+          <button class="btn primary" type="submit" {% if not lead.email %}disabled{% endif %}>Send prepared email</button>
+        </form>
+        <form method="post" action="{{ url_for('intake_customer_message_action', lead_id=lead.id) }}">
+          <input type="hidden" name="action" value="send_prepared_sms">
+          <button class="btn primary" type="submit" {% if not lead.phone %}disabled{% endif %}>Send prepared SMS / Text</button>
+        </form>
+        <form method="post" action="{{ url_for('intake_customer_message_action', lead_id=lead.id) }}">
+          <input type="hidden" name="action" value="skip_prepared_message">
+          <button class="btn secondary" type="submit">Skip prepared message</button>
+        </form>
+      </div>
     </div>
   </section>
 

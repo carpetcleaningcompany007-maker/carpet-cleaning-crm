@@ -92,7 +92,7 @@ class WebsiteFormTests(unittest.TestCase):
         self.assertEqual(lead["status"], "Waiting for review")
         self.assertEqual(lead["follow_up_status"], "Follow up required")
 
-    def test_late_evening_website_form_queues_customer_sms_for_next_morning(self):
+    def test_website_form_prepares_customer_messages_but_waits_for_approval(self):
         class FixedLateDateTime(datetime):
             @classmethod
             def now(cls, tz=None):
@@ -109,18 +109,35 @@ class WebsiteFormTests(unittest.TestCase):
         }
         with mock.patch.object(self.appmod, "datetime", FixedLateDateTime), \
              mock.patch.object(self.appmod, "send_env_email", return_value=(False, "Email disabled for test")), \
-             mock.patch.object(self.appmod, "send_clicksend_env_sms", return_value=(False, "SMS should not send late")) as sms_send:
+             mock.patch.object(self.appmod, "send_clicksend_env_sms", return_value=(False, "SMS should not send automatically")) as sms_send:
             response = self.app.test_client().post("/api/website-form", data=payload)
 
         self.assertEqual(response.status_code, 200)
         body = response.get_json()
         lead = self.appmod.q("SELECT * FROM intake_submissions WHERE id=?", (body["lead_id"],), one=True)
         queued = self.appmod.q("SELECT * FROM enquiry_follow_up_queue WHERE lead_id=?", (body["lead_id"],), one=True)
-        self.assertIsNotNone(queued)
-        self.assertIn("2026-07-16T10:00:00", queued["due_at"])
-        self.assertNotIn("call", queued["body"].lower())
-        self.assertIn("queued for 2026-07-16 10:00", lead["customer_sms_status"])
+        self.assertIsNone(queued)
+        self.assertIn("Pending Paul approval", lead["customer_email_status"])
+        self.assertIn("Pending Paul approval", lead["customer_sms_status"])
+        self.assertIn("Paul approval is required", body["automation"]["follow_up_sms_queue"]["message"])
         sms_send.assert_not_called()
+
+    def test_approved_customer_sms_button_sends_prepared_message(self):
+        lead_id = self.appmod.run("""INSERT INTO intake_submissions
+            (name, phone, email, status, source, customer_sms_status, follow_up_status)
+            VALUES (?,?,?,?,?,?,?)""",
+            ("Approved Customer", "07802 563213", "approved@example.com", "Waiting for review", "Website form", "Pending Paul approval", "Follow up required"))
+        with self.app.test_client() as client:
+            with client.session_transaction() as sess:
+                sess["logged_in"] = True
+            with mock.patch.object(self.appmod, "send_clicksend_env_sms", return_value=(True, "SMS sent")) as sms_send, \
+                 mock.patch.object(self.appmod, "send_owner_customer_message_copy", return_value=(True, "copy sent")):
+                response = client.post(f"/intake-forms/{lead_id}/customer-message", data={"action": "send_prepared_sms"})
+
+        self.assertEqual(response.status_code, 302)
+        lead = self.appmod.q("SELECT * FROM intake_submissions WHERE id=?", (lead_id,), one=True)
+        self.assertIn("Sent: SMS sent", lead["customer_sms_status"])
+        sms_send.assert_called_once()
 
     def test_due_enquiry_sms_is_not_sent_before_ten_am(self):
         class FixedMorningDateTime(datetime):
