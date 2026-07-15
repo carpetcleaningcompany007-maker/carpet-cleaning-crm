@@ -4901,12 +4901,28 @@ def save_public_lead(candidate, discovered_at=None, settings_row=None):
     payload = json.dumps(candidate, sort_keys=True)
     if existing_id:
         run("""UPDATE public_leads
-                  SET date_discovered=?, lead_age_days=?, lead_score=?, status=CASE WHEN status IN ('Duplicate','Expired') THEN status ELSE ? END,
+                  SET source_website=CASE WHEN ?<>'' THEN ? ELSE source_website END,
+                      source_url=CASE WHEN ?<>'' THEN ? ELSE source_url END,
+                      source_uid=CASE WHEN ?<>'' THEN ? ELSE source_uid END,
+                      date_published=CASE WHEN ?<>'' THEN ? ELSE date_published END,
+                      date_discovered=?, lead_age_days=?, lead_score=?,
+                      exact_issue=CASE WHEN ?<>'' THEN ? ELSE exact_issue END,
+                      summary=CASE WHEN ?<>'' THEN ? ELSE summary END,
+                      status=CASE WHEN status IN ('Duplicate','Expired') THEN status WHEN ?='Duplicate' THEN status ELSE ? END,
                       previously_contacted=COALESCE(previously_contacted,0), already_exists_crm=?, already_exists_xero=?, duplicate_of_id=COALESCE(NULLIF(duplicate_of_id,0), ?),
                       source_text=CASE WHEN ?<>'' THEN ? ELSE source_text END,
                       raw_payload_json=?, updated_at=datetime('now')
                 WHERE id=?""",
-            (discovered_at, age, candidate["lead_score"], status, 1 if duplicate_type == "crm" else 0,
+            (
+             clean_str(candidate.get("source_website")), clean_str(candidate.get("source_website")),
+             clean_str(candidate.get("source_url")), clean_str(candidate.get("source_url")),
+             clean_str(candidate.get("source_uid")), clean_str(candidate.get("source_uid")),
+             published.isoformat() if published else clean_str(candidate.get("date_published")),
+             published.isoformat() if published else clean_str(candidate.get("date_published")),
+             discovered_at, age, candidate["lead_score"],
+             candidate["exact_issue"], candidate["exact_issue"],
+             clean_str(candidate.get("summary")), clean_str(candidate.get("summary")),
+             status, status, 1 if duplicate_type == "crm" else 0,
              1 if duplicate_type == "xero" else 0, duplicate_id or 0,
              candidate["source_text"], candidate["source_text"], payload, existing_id))
         return existing_id, "updated"

@@ -60,6 +60,30 @@ class PublicLeadTests(unittest.TestCase):
         self.assertEqual(first_id, second_id)
         self.assertEqual(count, 1)
 
+    def test_existing_source_update_keeps_active_status_and_updates_source_text(self):
+        payload = {
+            "business_name": "Example Inn",
+            "source_website": "Public inn review",
+            "source_url": "https://example.test/reviews/source-refresh",
+            "date_published": self.appmod.uk_today().isoformat(),
+            "summary": "Needs manual source verification.",
+        }
+        lead_id, _ = self.appmod.save_public_lead(payload)
+        self.appmod.run("UPDATE public_leads SET status='New', source_text='' WHERE id=?", (lead_id,))
+        updated_id, action = self.appmod.save_public_lead({
+            **payload,
+            "exact_issue": "Dirty carpet in the bar area.",
+            "review_text": "Exact source review text about dirty carpet in the bar area.",
+            "summary": "Verified public source text saved.",
+        })
+        row = self.appmod.q("SELECT status, source_text, exact_issue, summary FROM public_leads WHERE id=?", (lead_id,), one=True)
+        self.assertEqual(action, "updated")
+        self.assertEqual(updated_id, lead_id)
+        self.assertEqual(row["status"], "New")
+        self.assertIn("Exact source review text", row["source_text"])
+        self.assertIn("Dirty carpet", row["exact_issue"])
+        self.assertIn("Verified public source text", row["summary"])
+
     def test_old_public_post_is_expired(self):
         old_date = (self.appmod.uk_today() - self.appmod.timedelta(days=400)).isoformat()
         lead_id, _ = self.appmod.save_public_lead({
