@@ -5118,18 +5118,21 @@ def lead_is_public_post(lead):
 
 def default_business_email_template():
     return (
-        "Hi {contact_name},\n\n"
-        "I hope you are well.\n\n"
-        "Your business came to my attention because recent public reviews mentioned {issue_short}. That is what led me to contact you.\n\n"
-        "I do not want to quote, criticise, or draw attention to any individual review. I am simply getting in touch because professional carpet and upholstery cleaning may help improve the appearance and freshness of the areas customers notice most.\n\n"
-        "Where carpets or upholstery are looking tired, marked, or carrying odours, a specialist clean can often make a noticeable difference before costly replacement is considered. We can help with high-traffic areas, stained carpets, upholstery, entrance areas, bedrooms, stairs and end-of-tenancy work.\n\n"
-        "I would not want to assume what is needed from a short public mention, but if it would be useful I can take a quick look and give honest advice on what can realistically be improved. We can also work around quieter times where that helps the business.\n\n"
-        "If you would like me to have a look, just reply with a few details or photos and I will come back to you with sensible next steps.\n\n"
-        "Kind regards,\n"
-        "Paul Nicholas\n"
+        "Hi,\n\n"
+        "My name is Paul and I own The Carpet Cleaning Company, a professional carpet and upholstery cleaning business covering Shropshire, Herefordshire, Worcestershire and the surrounding areas.\n\n"
+        "A large part of my work is with hotels, pubs, inns, wedding venues and other commercial premises, helping them maintain high standards of cleanliness and presentation for their guests.\n\n"
+        "As part of my business, I monitor publicly available guest feedback relating to carpets, upholstery and general presentation. When I see recent comments suggesting there may be an opportunity to improve these areas, I like to introduce myself in case I can help.\n\n"
+        "As a business owner myself, I know how important online reviews are. It only takes a few negative comments about cleanliness or presentation to influence potential customers, especially in the hospitality industry where first impressions are everything.\n\n"
+        "Professional carpet and upholstery cleaning is often a much more cost-effective alternative to replacement and can make a significant difference to the appearance, freshness and lifespan of your furnishings.\n\n"
+        "I'd be delighted to offer you a free demonstration in a small area so you can judge the results for yourself. I can also show you examples of previous commercial work and the standards we achieve.\n\n"
+        "My aim is to build long-term relationships with local businesses, helping them present their premises at their very best and, where possible, reduce the likelihood of future negative comments relating to carpets and upholstery.\n\n"
+        "If you feel I may be able to help, I'd be pleased to arrange a convenient time to visit for a free, no-obligation assessment.\n\n"
+        "I look forward to hearing from you.\n\n"
+        "Kind regards,\n\n"
+        "Paul\n"
         "The Carpet Cleaning Company\n"
-        "07802 563213\n"
-        "www.thecarpetcleaningcrew.co.uk"
+        "Phone: 07802 563213\n"
+        "Website: https://www.thecarpetcleaningcompany.uk"
     )
 
 
@@ -5209,7 +5212,7 @@ def lead_email_html(lead):
     app_settings = settings()
     business = clean_str(row_value(app_settings, "business_name")) or "The Carpet Cleaning Company"
     phone = clean_str(row_value(app_settings, "phone")) or "07802 563213"
-    website = clean_str(row_value(app_settings, "website")) or "https://www.thecarpetcleaningcrew.co.uk"
+    website = clean_str(row_value(app_settings, "website")) or "https://www.thecarpetcleaningcompany.uk"
     facebook_url = "https://www.facebook.com/profile.php?id=61559013150413"
     reviews_url = clean_str(row_value(app_settings, "review_link")) or "https://share.google/XHQjHHLwpmlugHP0c"
     logo_url = crm_email_logo_url() or public_static_or_live_url("site/email-logo-white.png")
@@ -5219,7 +5222,14 @@ def lead_email_html(lead):
     subject = generated_subject if re.search(r"\s+in\s+\w", saved_subject, re.I) else saved_subject or generated_subject
     saved_body = clean_str(row_value(lead, "draft_message"))
     generated_body = generate_lead_draft(lead)[1]
-    legacy_markers = ("based near ludlow", "near ludlow", "in your area", "areas we cover", "surrounding counties")
+    legacy_markers = (
+        "based near ludlow",
+        "near ludlow",
+        "in your area",
+        "areas we cover",
+        "surrounding counties",
+        "your business came to my attention because recent public reviews mentioned",
+    )
     body = generated_body if saved_body and any(marker in saved_body.lower() for marker in legacy_markers) else saved_body or generated_body
     contact_name = lead_contact_name(lead)
     issue = lead_issue_short(lead)

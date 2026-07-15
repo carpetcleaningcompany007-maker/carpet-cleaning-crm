@@ -175,8 +175,8 @@ class PublicLeadTests(unittest.TestCase):
         self.assertIn("professional carpet and upholstery cleaning", body.lower())
         self.assertIn("example inn", subject.lower())
         self.assertNotIn("ludlow", subject.lower())
-        self.assertIn("recent public reviews mentioned", body.lower())
-        self.assertIn("I do not want to quote".lower(), body.lower())
+        self.assertIn("publicly available guest feedback", body.lower())
+        self.assertIn("free demonstration", body.lower())
         self.assertNotIn("disgusting", body.lower())
         self.assertNotIn("embarrassing", body.lower())
 
@@ -197,7 +197,7 @@ class PublicLeadTests(unittest.TestCase):
             response = client.post("/new-leads/generate-drafts", data={"status": "New"})
         self.assertEqual(response.status_code, 302)
         lead = self.appmod.q("SELECT draft_message FROM public_leads WHERE id=?", (lead_id,), one=True)
-        self.assertIn("before costly replacement is considered", lead["draft_message"])
+        self.assertIn("cost-effective alternative to replacement", lead["draft_message"])
 
     def test_generate_drafts_button_refreshes_existing_drafts(self):
         lead_id, _ = self.appmod.save_public_lead({
@@ -275,7 +275,8 @@ class PublicLeadTests(unittest.TestCase):
         self.assertIn("Professional carpet and upholstery cleaning for businesses that want cleaner", html)
         self.assertNotIn("Professional carpet and upholstery cleaning in your area.", html)
         self.assertNotIn("Location</td>", html)
-        self.assertNotIn("surrounding counties", html)
+        self.assertIn("Shropshire, Herefordshire, Worcestershire and the surrounding areas", html)
+        self.assertIn("free demonstration", html)
         self.assertIn("hero-carpet-cleaning.webp", html)
         self.assertIn("Freshly cleaned carpet", html)
         self.assertIn("View our Facebook page", html)
