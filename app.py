@@ -5120,8 +5120,8 @@ def default_business_email_template():
     return (
         "Hi {contact_name},\n\n"
         "I hope you are well.\n\n"
-        "I run The Carpet Cleaning Company, based near Ludlow. We help local hotels, pubs, holiday lets, offices and homes restore carpets and upholstery with professional carpet and upholstery cleaning.\n\n"
-        "{personal_line}\n\n"
+        "Your business came to my attention because recent public reviews mentioned {issue_short}. That is what led me to contact you.\n\n"
+        "I do not want to quote, criticise, or draw attention to any individual review. I am simply getting in touch because professional carpet and upholstery cleaning may help improve the appearance and freshness of the areas customers notice most.\n\n"
         "Where carpets or upholstery are looking tired, marked, or carrying odours, a specialist clean can often make a noticeable difference before costly replacement is considered. We can help with high-traffic areas, stained carpets, upholstery, entrance areas, bedrooms, stairs and end-of-tenancy work.\n\n"
         "I would not want to assume what is needed from a short public mention, but if it would be useful I can take a quick look and give honest advice on what can realistically be improved. We can also work around quieter times where that helps the business.\n\n"
         "If you would like me to have a look, just reply with a few details or photos and I will come back to you with sensible next steps.\n\n"
@@ -5136,15 +5136,15 @@ def default_business_email_template():
 def default_public_post_template():
     return (
         "Hi {contact_name}, I saw your public post about {issue_short}. "
-        "I run The Carpet Cleaning Company near Ludlow and may be able to help with carpet cleaning, upholstery, stains, odours or end-of-tenancy work. "
+        "I run The Carpet Cleaning Company and may be able to help with carpet cleaning, upholstery, stains, odours or end-of-tenancy work. "
         "If useful, send me a few details or photos and I can give honest advice on what can be improved. Paul - 07802 563213"
     )
 
 
 def default_short_business_message_template():
     return (
-        "Hi {contact_name}, I run The Carpet Cleaning Company near Ludlow. "
-        "{personal_line} "
+        "Hi {contact_name}, your business came to my attention because recent public reviews mentioned {issue_short}. "
+        "I run The Carpet Cleaning Company. "
         "We help with carpets, upholstery, stains, odours and high-traffic areas, and can give honest advice before replacement is considered. "
         "If useful, I would be happy to take a quick look. Paul - 07802 563213"
     )
@@ -5171,18 +5171,16 @@ def lead_issue_short(lead):
 
 def lead_personal_line(lead):
     name = lead_display_name(lead)
-    location = clean_str(row_value(lead, "location") or row_value(lead, "county"))
     issue = lead_issue_short(lead)
     lead_type = normalise_lead_text(f"{row_value(lead, 'lead_type')} {row_value(lead, 'source_website')}")
-    place = f" in {location}" if location else ""
     if any(term in lead_type for term in ["hotel", "pub", "inn", "holiday", "cottage", "venue", "restaurant", "office", "care home", "school"]):
         return (
-            f"I noticed {name}{place} may be worth checking for {issue}. "
+            f"I noticed {name} may be worth checking for {issue}. "
             "I will not quote or refer to any individual review; this is simply a friendly note in case professional cleaning support would be useful."
         )
     if lead_is_public_post(lead):
-        return f"I noticed a public request around {issue}{place}, so I wanted to offer help without any pressure."
-    return f"I noticed {issue}{place} may be relevant, so I wanted to introduce our local cleaning service."
+        return f"I noticed a public request around {issue}, so I wanted to offer help without any pressure."
+    return f"I noticed {issue} may be relevant, so I wanted to introduce our cleaning service."
 
 
 def lead_template_context(lead):
@@ -5212,12 +5210,18 @@ def lead_email_html(lead):
     business = clean_str(row_value(app_settings, "business_name")) or "The Carpet Cleaning Company"
     phone = clean_str(row_value(app_settings, "phone")) or "07802 563213"
     website = clean_str(row_value(app_settings, "website")) or "https://www.thecarpetcleaningcrew.co.uk"
+    facebook_url = "https://www.facebook.com/profile.php?id=61559013150413"
+    reviews_url = clean_str(row_value(app_settings, "review_link")) or "https://share.google/XHQjHHLwpmlugHP0c"
     logo_url = crm_email_logo_url() or public_static_or_live_url("site/email-logo-white.png")
     hero_url = public_static_or_live_url("site/hero-carpet-cleaning.webp")
-    subject = clean_str(row_value(lead, "email_subject")) or f"Professional carpet and upholstery cleaning for {lead_display_name(lead)}"
-    body = clean_str(row_value(lead, "draft_message")) or generate_lead_draft(lead)[1]
+    generated_subject = f"Professional carpet and upholstery cleaning for {lead_display_name(lead)}"
+    saved_subject = clean_str(row_value(lead, "email_subject"))
+    subject = generated_subject if re.search(r"\s+in\s+\w", saved_subject, re.I) else saved_subject or generated_subject
+    saved_body = clean_str(row_value(lead, "draft_message"))
+    generated_body = generate_lead_draft(lead)[1]
+    legacy_markers = ("based near ludlow", "near ludlow", "in your area", "areas we cover", "surrounding counties")
+    body = generated_body if saved_body and any(marker in saved_body.lower() for marker in legacy_markers) else saved_body or generated_body
     contact_name = lead_contact_name(lead)
-    location = clean_str(row_value(lead, "location") or row_value(lead, "county") or row_value(lead, "postcode"))
     issue = lead_issue_short(lead)
     issue_detail = clean_str(row_value(lead, "exact_issue") or row_value(lead, "summary"))
     source = clean_str(row_value(lead, "source_website"))
@@ -5225,7 +5229,6 @@ def lead_email_html(lead):
     detail_rows = []
     for label, value in [
         ("Lead", lead_display_name(lead)),
-        ("Location", location),
         ("Relevant service", issue),
         ("Source", source),
     ]:
@@ -5269,7 +5272,7 @@ def lead_email_html(lead):
           <td style="padding:28px 32px 18px">
             <div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#0d6b58;font-weight:800">{html_lib.escape(business)}</div>
             <h1 style="margin:9px 0 0;font-size:25px;line-height:1.22;color:#102033">{html_lib.escape(subject)}</h1>
-            <p style="margin:10px 0 0;color:#5b6b7b;font-size:15px;line-height:1.55">Professional carpet and upholstery cleaning in your area.</p>
+            <p style="margin:10px 0 0;color:#5b6b7b;font-size:15px;line-height:1.55">Professional carpet and upholstery cleaning for businesses that want cleaner, fresher-looking spaces.</p>
           </td>
         </tr>
         {f'<tr><td style="padding:0 32px 20px"><img src="{html_lib.escape(hero_url)}" alt="Freshly cleaned carpet" width="656" style="display:block;width:100%;max-width:656px;height:auto;border:0;border-radius:14px"></td></tr>' if hero_url else ''}
@@ -5277,6 +5280,24 @@ def lead_email_html(lead):
         <tr>
           <td style="padding:24px 32px 8px;font-size:16px;line-height:1.68;color:#263746">
             {body_html}
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:4px 32px 22px">
+            <table role="presentation" cellspacing="0" cellpadding="0" width="100%" style="background:#f7fbff;border:1px solid #d8e7f6;border-radius:10px">
+              <tr>
+                <td style="padding:18px 18px 10px">
+                  <strong style="display:block;color:#102033;font-size:17px;margin-bottom:6px">See our work and customer feedback</strong>
+                  <p style="margin:0 0 14px;font-size:15px;line-height:1.55;color:#42566c">You can see recent carpet and upholstery cleaning work on Facebook, and read customer feedback on Google before deciding whether you would like to talk.</p>
+                  <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                    {email_action_button("View our Facebook page", facebook_url, "#1877f2", "#ffffff")}
+                    {email_action_button("Read our Google reviews", reviews_url, "#0d6b58", "#ffffff")}
+                  </table>
+                  {email_text_link("Facebook", facebook_url)}
+                  {email_text_link("Google reviews", reviews_url)}
+                </td>
+              </tr>
+            </table>
           </td>
         </tr>
         <tr>
@@ -5316,10 +5337,7 @@ def generate_lead_draft(lead):
         channel = "Message"
     else:
         template = clean_str(row_value(settings_row, "email_template")) or default_business_email_template()
-        location = clean_str(row_value(lead, "location") or row_value(lead, "county"))
         subject = f"Professional carpet and upholstery cleaning for {lead_display_name(lead)}"
-        if location:
-            subject += f" in {location}"
         channel = "Email"
     body = render_lead_template(template, lead)
     return subject, body, channel

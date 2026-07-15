@@ -174,8 +174,9 @@ class PublicLeadTests(unittest.TestCase):
         self.assertEqual(channel, "Email")
         self.assertIn("professional carpet and upholstery cleaning", body.lower())
         self.assertIn("example inn", subject.lower())
-        self.assertIn("ludlow", subject.lower())
-        self.assertIn("I will not quote or refer to any individual review".lower(), body.lower())
+        self.assertNotIn("ludlow", subject.lower())
+        self.assertIn("recent public reviews mentioned", body.lower())
+        self.assertIn("I do not want to quote".lower(), body.lower())
         self.assertNotIn("disgusting", body.lower())
         self.assertNotIn("embarrassing", body.lower())
 
@@ -271,10 +272,14 @@ class PublicLeadTests(unittest.TestCase):
         self.assertIn("email-screen-preview", html)
         self.assertNotIn("background:#071524;padding:22px 30px", html)
         self.assertIn("background:#fffaf0", html)
-        self.assertIn("Professional carpet and upholstery cleaning in your area.", html)
+        self.assertIn("Professional carpet and upholstery cleaning for businesses that want cleaner", html)
+        self.assertNotIn("Professional carpet and upholstery cleaning in your area.", html)
+        self.assertNotIn("Location</td>", html)
         self.assertNotIn("surrounding counties", html)
         self.assertIn("hero-carpet-cleaning.webp", html)
         self.assertIn("Freshly cleaned carpet", html)
+        self.assertIn("View our Facebook page", html)
+        self.assertIn("Read our Google reviews", html)
 
     def test_new_leads_card_has_screen_preview_link(self):
         self.appmod.save_public_lead({
