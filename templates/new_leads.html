@@ -20,6 +20,10 @@
       <input type="hidden" name="next" value="{{ request.full_path }}">
       <button class="btn secondary" type="submit">Generate / Refresh Drafts</button>
     </form>
+    <form method="post" action="{{ url_for('new_leads_refresh_sources') }}">
+      <input type="hidden" name="next" value="{{ request.full_path }}">
+      <button class="btn secondary" type="submit">Refresh Source Text</button>
+    </form>
     <a class="btn secondary" href="{{ url_for('new_leads_daily_summary') }}">Daily Summary</a>
   </div>
 </section>
@@ -75,6 +79,27 @@
             <span>{{ lead.source_website or 'Public source' }}</span>
           </div>
           {% if lead.exact_issue %}<p class="lead-issue">{{ lead.exact_issue }}</p>{% endif %}
+          <div class="lead-source-proof">
+            <div class="lead-source-proof-head">
+              <strong>Source verification</strong>
+              {% if lead.source_url %}
+                <a class="btn secondary" href="{{ lead.source_url }}" target="_blank" rel="noopener">Open source review</a>
+              {% else %}
+                <span>No source link saved</span>
+              {% endif %}
+            </div>
+            {% if lead.source_text %}
+              <div class="lead-source-text" id="lead-source-text-{{ lead.id }}">
+                <strong>Exact source / review text saved by the CRM</strong>
+                <p>{{ lead.source_text }}</p>
+              </div>
+            {% else %}
+              <div class="lead-source-text missing">
+                <strong>Exact source text not saved yet</strong>
+                <p>This lead still needs manual source verification before contact. Open the source link, confirm the review/post is live, and paste or import the exact text.</p>
+              </div>
+            {% endif %}
+          </div>
           <div class="lead-contact-line">
             {% if lead.public_phone %}<span>{{ lead.public_phone }}</span>{% endif %}
             {% if lead.public_email %}<span>{{ lead.public_email }}</span>{% endif %}
@@ -118,6 +143,7 @@
             {% if lead.website %}<a href="{{ lead.website }}" target="_blank" rel="noopener">Website</a>{% else %}<span>No website</span>{% endif %}
             {% if lead.source_url %}<a href="{{ lead.source_url }}" target="_blank" rel="noopener">Source</a>{% else %}<span>No source link</span>{% endif %}
             <button type="button" data-copy-target="lead-message-{{ lead.id }}">Copy message</button>
+            {% if lead.source_text %}<button type="button" data-copy-target="lead-source-text-{{ lead.id }}">Copy source text</button>{% endif %}
             <a href="{{ url_for('new_lead_xero_confirm', lead_id=lead.id) }}">Xero contact</a>
           </div>
 

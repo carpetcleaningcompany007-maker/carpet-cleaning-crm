@@ -31,6 +31,7 @@ class PublicLeadTests(unittest.TestCase):
             "source_website": "Public hotel review",
             "source_url": "https://example.test/reviews/1",
             "date_published": self.appmod.uk_today().isoformat(),
+            "review_text": "Exact guest review text: stained carpets and dirty upholstery in multiple rooms.",
             "summary": "Guest complained about stained carpets and dirty upholstery in multiple rooms.",
             "postcode": "SY8 1AA",
             "county": "Shropshire",
@@ -41,6 +42,7 @@ class PublicLeadTests(unittest.TestCase):
         self.assertEqual(row["status"], "New")
         self.assertGreaterEqual(row["lead_score"], 60)
         self.assertEqual(row["lead_age_days"], 0)
+        self.assertIn("Exact guest review text", row["source_text"])
 
     def test_duplicate_source_url_updates_existing_lead(self):
         payload = {
@@ -97,8 +99,46 @@ class PublicLeadTests(unittest.TestCase):
         self.assertEqual(lead["status"], "Needs Checking")
         self.assertEqual(lead["lead_age_days"], 0)
         self.assertIn("Needs checking", lead["summary"])
+        self.assertIn("Need carpet cleaner for stained carpet", lead["source_text"])
         self.assertGreaterEqual(result["created"], 1)
         self.assertEqual(status["status"], "Live")
+
+    def test_new_leads_card_shows_source_review_link_and_exact_text(self):
+        self.appmod.save_public_lead({
+            "business_name": "Source Proof Inn",
+            "source_website": "Public inn review",
+            "source_url": "https://example.test/reviews/source-proof",
+            "date_published": self.appmod.uk_today().isoformat(),
+            "review_text": "Exact saved review text about stained carpets in the bar area.",
+            "summary": "Hospitality prospect with carpet staining.",
+        })
+        with self.app.test_client() as client:
+            with client.session_transaction() as sess:
+                sess["logged_in"] = True
+            response = client.get("/new-leads?status=New")
+        html = response.get_data(as_text=True)
+        self.assertIn("Open source review", html)
+        self.assertIn("Exact saved review text about stained carpets", html)
+        self.assertIn("Copy source text", html)
+
+    def test_refresh_sources_backfills_from_raw_payload_and_regenerates_drafts(self):
+        lead_id, _ = self.appmod.save_public_lead({
+            "business_name": "Backfill Pub",
+            "source_website": "Public pub review",
+            "source_url": "https://example.test/reviews/backfill",
+            "date_published": self.appmod.uk_today().isoformat(),
+            "review_text": "Exact source text to backfill.",
+            "summary": "Dirty carpet in entrance.",
+        })
+        self.appmod.run("UPDATE public_leads SET source_text='', draft_message='Old draft text' WHERE id=?", (lead_id,))
+        with self.app.test_client() as client:
+            with client.session_transaction() as sess:
+                sess["logged_in"] = True
+            response = client.post("/new-leads/refresh-sources")
+        row = self.appmod.q("SELECT source_text, draft_message FROM public_leads WHERE id=?", (lead_id,), one=True)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("Exact source text to backfill", row["source_text"])
+        self.assertNotIn("Old draft text", row["draft_message"])
 
     def test_wider_search_uses_expanded_window_and_threshold(self):
         row = self.appmod.lead_scan_settings(mode="wide")

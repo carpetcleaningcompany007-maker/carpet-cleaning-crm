@@ -4708,6 +4708,56 @@ def extract_lead_issue(text):
     return haystack[:180]
 
 
+def lead_source_text_from_candidate(candidate):
+    for key in (
+        "source_text", "exact_source_text", "review_text", "post_text", "full_review",
+        "full_text", "raw_text", "content", "description", "snippet",
+    ):
+        value = clean_str(candidate.get(key))
+        if value:
+            return value
+    payload = candidate.get("raw_payload")
+    if isinstance(payload, dict):
+        nested = lead_source_text_from_candidate(payload)
+        if nested:
+            return nested
+    return ""
+
+
+def lead_source_text_from_row(lead):
+    text = clean_str(row_value(lead, "source_text"))
+    if text:
+        return text
+    raw = clean_str(row_value(lead, "raw_payload_json"))
+    if raw:
+        try:
+            payload = json.loads(raw)
+        except Exception:
+            payload = {}
+        if isinstance(payload, dict):
+            text = lead_source_text_from_candidate(payload)
+            if text:
+                return text
+    return ""
+
+
+def backfill_public_lead_source_text(limit=500):
+    rows = q("""SELECT * FROM public_leads
+                WHERE IFNULL(source_text,'')=''
+                ORDER BY id DESC
+                LIMIT ?""", (int(limit or 500),))
+    updated = missing = 0
+    for lead in rows:
+        text = lead_source_text_from_row(lead)
+        if text:
+            run("UPDATE public_leads SET source_text=?, updated_at=datetime('now') WHERE id=?", (text, row_get(lead, "id")))
+            updated += 1
+        else:
+            missing += 1
+    log_lead_event("source_text_refresh", None, "", "Completed", f"Updated {updated} lead source text field(s); {missing} still need manual source verification.")
+    return {"updated": updated, "missing": missing}
+
+
 def score_public_lead(candidate, settings_row=None, today=None):
     settings_row = settings_row or lead_generation_settings()
     text = normalise_lead_text(" ".join(clean_str(candidate.get(k)) for k in ("business_name", "venue_name", "lead_type", "summary", "exact_issue")))
@@ -4833,6 +4883,7 @@ def save_public_lead(candidate, discovered_at=None, settings_row=None):
     candidate["distance_miles"] = distance
     candidate["lead_type"] = clean_str(candidate.get("lead_type")) or detect_lead_type(text)
     candidate["exact_issue"] = clean_str(candidate.get("exact_issue")) or extract_lead_issue(text)
+    candidate["source_text"] = lead_source_text_from_candidate(candidate)
     candidate["lead_score"] = score_public_lead(candidate, settings_row=settings_row, today=today)
     fingerprint = lead_duplicate_fingerprint(candidate)
     duplicate_type, duplicate_id = lead_existing_match(candidate)
@@ -4852,17 +4903,19 @@ def save_public_lead(candidate, discovered_at=None, settings_row=None):
         run("""UPDATE public_leads
                   SET date_discovered=?, lead_age_days=?, lead_score=?, status=CASE WHEN status IN ('Duplicate','Expired') THEN status ELSE ? END,
                       previously_contacted=COALESCE(previously_contacted,0), already_exists_crm=?, already_exists_xero=?, duplicate_of_id=COALESCE(NULLIF(duplicate_of_id,0), ?),
+                      source_text=CASE WHEN ?<>'' THEN ? ELSE source_text END,
                       raw_payload_json=?, updated_at=datetime('now')
                 WHERE id=?""",
             (discovered_at, age, candidate["lead_score"], status, 1 if duplicate_type == "crm" else 0,
-             1 if duplicate_type == "xero" else 0, duplicate_id or 0, payload, existing_id))
+             1 if duplicate_type == "xero" else 0, duplicate_id or 0,
+             candidate["source_text"], candidate["source_text"], payload, existing_id))
         return existing_id, "updated"
     lead_id = run("""INSERT INTO public_leads(
             business_name, person_name, venue_name, address, postcode, county, website, public_email, public_phone,
             location, latitude, longitude, distance_miles, lead_type, source_website, source_url, source_uid,
-            date_published, date_discovered, lead_age_days, exact_issue, summary, lead_score, status,
+            date_published, date_discovered, lead_age_days, exact_issue, source_text, summary, lead_score, status,
             previously_contacted, already_exists_crm, already_exists_xero, duplicate_fingerprint, duplicate_of_id, raw_payload_json
-        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
         (
             clean_str(candidate.get("business_name")), clean_str(candidate.get("person_name")), clean_str(candidate.get("venue_name")),
             clean_str(candidate.get("address")), clean_str(candidate.get("postcode")), clean_str(candidate.get("county")),
@@ -4871,7 +4924,7 @@ def save_public_lead(candidate, discovered_at=None, settings_row=None):
             distance if distance is not None else None, candidate["lead_type"], clean_str(candidate.get("source_website")),
             clean_str(candidate.get("source_url")), clean_str(candidate.get("source_uid")),
             published.isoformat() if published else clean_str(candidate.get("date_published")), discovered_at, age,
-            candidate["exact_issue"], clean_str(candidate.get("summary")), candidate["lead_score"], status,
+            candidate["exact_issue"], candidate["source_text"], clean_str(candidate.get("summary")), candidate["lead_score"], status,
             0, 1 if duplicate_type == "crm" else 0, 1 if duplicate_type == "xero" else 0, fingerprint, duplicate_id or 0, payload,
         ))
     log_lead_event("lead_found", lead_id, clean_str(candidate.get("source_website")), status, exclusion or f"Lead {status.lower()} with score {candidate['lead_score']}.")
@@ -5022,6 +5075,8 @@ def live_search_rss_candidates(settings_row=None, mode="standard"):
                     "source_uid": normalise_lead_text(link)[:180],
                     "date_published": pub_date.isoformat(),
                     "exact_issue": extract_lead_issue(text),
+                    "source_text": description,
+                    "snippet": description,
                     "summary": (
                         f"Needs checking: live search found a recent public result mentioning carpet/upholstery issues near {location}. "
                         f"Verify the source page before contacting. {description[:240]}"
@@ -6107,6 +6162,7 @@ def init_db():
         date_discovered TEXT DEFAULT '',
         lead_age_days INTEGER DEFAULT 0,
         exact_issue TEXT DEFAULT '',
+        source_text TEXT DEFAULT '',
         summary TEXT DEFAULT '',
         lead_score INTEGER DEFAULT 0,
         status TEXT DEFAULT 'New',
@@ -6269,6 +6325,7 @@ def init_db():
         ("public_leads", "duplicate_fingerprint", "TEXT DEFAULT ''"),
         ("public_leads", "duplicate_of_id", "INTEGER DEFAULT 0"),
         ("public_leads", "raw_payload_json", "TEXT DEFAULT ''"),
+        ("public_leads", "source_text", "TEXT DEFAULT ''"),
         ("public_leads", "email_subject", "TEXT DEFAULT ''"),
         ("public_leads", "draft_message", "TEXT DEFAULT ''"),
         ("public_leads", "draft_channel", "TEXT DEFAULT ''"),
@@ -10420,6 +10477,26 @@ def new_leads_generate_drafts():
         save_generated_lead_draft(row["id"])
         created += 1
     flash(f"Generated/refreshed {created} draft message(s). You can now read and edit them on the lead cards before anything is sent.")
+    return redirect(request.form.get("next") or url_for("new_leads"))
+
+
+@app.route("/new-leads/refresh-sources", methods=["POST"])
+@login_required
+def new_leads_refresh_sources():
+    result = backfill_public_lead_source_text()
+    rows = q("""SELECT id FROM public_leads
+                WHERE IFNULL(archived_at,'')=''
+                  AND status IN ('New','Needs Checking','Ready to Contact','Approved','Email Drafted')
+                ORDER BY lead_score DESC, id DESC
+                LIMIT 100""")
+    refreshed = 0
+    for row in rows:
+        save_generated_lead_draft(row["id"])
+        refreshed += 1
+    flash(
+        f"Refreshed source text for {result['updated']} lead(s); {result['missing']} still need manual source verification. "
+        f"Regenerated {refreshed} draft message(s)."
+    )
     return redirect(request.form.get("next") or url_for("new_leads"))
 
 
