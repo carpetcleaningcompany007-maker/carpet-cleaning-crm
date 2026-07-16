@@ -209,6 +209,57 @@
   font-weight: 800;
 }
 
+.lead-location-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid #d8e7f6;
+  border-radius: 8px;
+  background: #f6fbff;
+}
+
+.lead-location-box strong,
+.lead-location-box span,
+.lead-location-box small {
+  display: block;
+}
+
+.lead-location-box strong {
+  color: var(--site-ink);
+  font-size: 14px;
+  line-height: 1.25;
+}
+
+.lead-location-box span {
+  margin-top: 4px;
+  color: #17446f;
+  font-weight: 900;
+  line-height: 1.35;
+}
+
+.lead-location-box small {
+  margin-top: 3px;
+  color: var(--site-muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.lead-location-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 7px;
+}
+
+.lead-location-actions .btn {
+  min-height: 34px;
+  padding: 7px 10px;
+  white-space: nowrap;
+}
+
 .lead-warning {
   margin: 10px 0 0;
   padding: 8px 10px;
@@ -401,6 +452,19 @@
 
   .lead-row {
     grid-template-columns: 1fr;
+  }
+
+  .lead-location-box {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .lead-location-actions {
+    justify-content: stretch;
+  }
+
+  .lead-location-actions .btn {
+    flex: 1 1 130px;
   }
 
   .lead-link-actions,

@@ -202,6 +202,39 @@ class PublicLeadTests(unittest.TestCase):
         self.assertIn("Exact saved review text about stained carpets", html)
         self.assertIn("Copy source text", html)
 
+    def test_new_leads_cards_show_map_and_distance_for_each_lead(self):
+        self.appmod.save_public_lead({
+            "business_name": "Hereford Hotel",
+            "source_website": "Public hotel review",
+            "source_url": "https://example.test/reviews/hereford-location",
+            "date_published": self.appmod.uk_today().isoformat(),
+            "location": "Hereford",
+            "county": "Herefordshire",
+            "review_text": "Exact source text about dirty carpets.",
+            "summary": "Dirty carpets mentioned in a public review.",
+        })
+        self.appmod.save_public_lead({
+            "business_name": "Coleford Inn",
+            "source_website": "Public inn review",
+            "source_url": "https://example.test/reviews/coleford-location",
+            "date_published": self.appmod.uk_today().isoformat(),
+            "location": "Coleford",
+            "county": "Gloucestershire",
+            "review_text": "Exact source text about stained carpets.",
+            "summary": "Stained carpets mentioned in a public review.",
+        })
+        with self.app.test_client() as client:
+            with client.session_transaction() as sess:
+                sess["logged_in"] = True
+            response = client.get("/new-leads?status=New")
+        html = response.get_data(as_text=True)
+        self.assertEqual(html.count("Location & distance"), 2)
+        self.assertGreaterEqual(html.count("Open map"), 2)
+        self.assertGreaterEqual(html.count("Directions"), 2)
+        self.assertIn("from Ludlow", html)
+        self.assertIn("Hereford", html)
+        self.assertIn("Coleford", html)
+
     def test_refresh_sources_backfills_from_raw_payload_and_regenerates_drafts(self):
         lead_id, _ = self.appmod.save_public_lead({
             "business_name": "Backfill Pub",

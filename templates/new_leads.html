@@ -70,13 +70,26 @@
           <div class="lead-meta">
             <span>{{ lead.lead_type or 'Lead' }}</span>
             <span>{{ lead.county or 'County unknown' }}</span>
-            <span>{% if lead.distance_miles is not none %}{{ lead.distance_miles }} miles{% else %}Distance unknown{% endif %}</span>
+            <span>{{ lead.distance_display }}{% if lead.distance_is_approx %} approx{% endif %}</span>
             <span>{{ lead.lead_age_days }} days old</span>
           </div>
           <div class="lead-meta">
             <span>Published {{ lead.date_published or 'unknown' }}</span>
             <span>Found {{ lead.date_discovered or 'unknown' }}</span>
             <span>{{ lead.source_website or 'Public source' }}</span>
+          </div>
+          <div class="lead-location-box">
+            <div>
+              <strong>Location & distance</strong>
+              <span>{{ lead.location_display }}</span>
+              <small>
+                {{ lead.distance_display }} from Ludlow{% if lead.distance_is_approx and lead.distance_basis %} approx from {{ lead.distance_basis }}{% elif lead.distance_is_approx %} approx{% endif %}
+              </small>
+            </div>
+            <div class="lead-location-actions">
+              {% if lead.map_url %}<a class="btn secondary" href="{{ lead.map_url }}" target="_blank" rel="noopener">Open map</a>{% endif %}
+              {% if lead.map_query %}<a class="btn secondary" href="https://www.google.com/maps/dir/?api=1&origin=Ludlow%20SY8&destination={{ lead.map_query|urlencode }}" target="_blank" rel="noopener">Directions</a>{% endif %}
+            </div>
           </div>
           {% if lead.exact_issue %}<p class="lead-issue">{{ lead.exact_issue }}</p>{% endif %}
           <div class="lead-source-proof">

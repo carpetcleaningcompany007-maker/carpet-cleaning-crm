@@ -191,6 +191,54 @@ LEAD_DEFAULT_COUNTIES = [
 LUDLOW_LAT = 52.3670
 LUDLOW_LON = -2.7180
 
+LEAD_PLACE_COORDS = {
+    "ludlow": (52.3670, -2.7180),
+    "shrewsbury": (52.7073, -2.7553),
+    "telford": (52.6784, -2.4453),
+    "bridgnorth": (52.5365, -2.4200),
+    "hereford": (52.0567, -2.7160),
+    "leominster": (52.2257, -2.7446),
+    "worcester": (52.1920, -2.2200),
+    "kidderminster": (52.3882, -2.2500),
+    "bromyard": (52.1900, -2.5080),
+    "tenbury wells": (52.3107, -2.5967),
+    "newport shropshire": (52.7706, -2.3773),
+    "ironbridge": (52.6270, -2.4840),
+    "market drayton": (52.9040, -2.4840),
+    "birmingham": (52.4862, -1.8904),
+    "wolverhampton": (52.5862, -2.1286),
+    "walsall": (52.5862, -1.9829),
+    "dudley": (52.5123, -2.0811),
+    "stourbridge": (52.4561, -2.1479),
+    "coventry": (52.4068, -1.5197),
+    "solihull": (52.4118, -1.7776),
+    "stratford upon avon": (52.1917, -1.7083),
+    "gloucester": (51.8642, -2.2382),
+    "cheltenham": (51.8994, -2.0783),
+    "coleford": (51.7937, -2.6130),
+    "forest of dean": (51.7990, -2.5450),
+    "evesham": (52.0924, -1.9480),
+    "malvern": (52.1115, -2.3260),
+    "droitwich": (52.2666, -2.1490),
+    "redditch": (52.3080, -1.9409),
+    "wrexham": (53.0465, -2.9916),
+    "chester": (53.1934, -2.8931),
+    "monmouth": (51.8126, -2.7136),
+    "abergavenny": (51.8240, -3.0170),
+    "brecon": (51.9475, -3.3909),
+    "ross on wye": (51.9140, -2.5820),
+    "ledbury": (52.0364, -2.4264),
+    "shropshire": (52.6510, -2.7350),
+    "herefordshire": (52.0833, -2.7500),
+    "worcestershire": (52.1917, -2.2200),
+    "west midlands": (52.4751, -1.8298),
+    "staffordshire": (52.8793, -2.0572),
+    "warwickshire": (52.2671, -1.4675),
+    "powys": (52.3488, -3.4166),
+    "gloucestershire": (51.8642, -2.2382),
+    "cheshire": (53.2326, -2.6103),
+}
+
 PRICING_DEFAULTS = {
     "domestic": [
         {"id":"living","name":"Living Room","desc":"Main family room","price":79.0,"group":"Residential"},
@@ -4669,6 +4717,80 @@ def distance_from_ludlow_miles(lat=None, lon=None):
     return round(radius * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a)), 1)
 
 
+def lead_location_search_text(value):
+    return normalise_lead_text(value).replace(" upon ", " ").replace(" on ", " ")
+
+
+def lead_place_coords_from_text(text):
+    haystack = lead_location_search_text(text)
+    if not haystack:
+        return None
+    ordered_places = sorted(LEAD_PLACE_COORDS, key=len, reverse=True)
+    for place in ordered_places:
+        place_key = lead_location_search_text(place)
+        if place_key and place_key in haystack:
+            return LEAD_PLACE_COORDS[place], place.title()
+    return None
+
+
+def lead_location_query_from_row(lead):
+    parts = [
+        row_value(lead, "address"),
+        row_value(lead, "postcode"),
+        row_value(lead, "location"),
+        row_value(lead, "county"),
+    ]
+    exact_parts = [clean_str(part) for part in parts if clean_str(part)]
+    if exact_parts:
+        return ", ".join(exact_parts)
+    name_parts = [
+        row_value(lead, "business_name"),
+        row_value(lead, "venue_name"),
+        row_value(lead, "person_name"),
+        row_value(lead, "source_website"),
+    ]
+    return ", ".join(clean_str(part) for part in name_parts if clean_str(part))
+
+
+def lead_map_url_from_query(query):
+    query = clean_str(query)
+    if not query:
+        return ""
+    return "https://www.google.com/maps/search/?api=1&query=" + quote(query)
+
+
+def lead_distance_from_location_text(*parts):
+    text = " ".join(clean_str(part) for part in parts if clean_str(part))
+    match = lead_place_coords_from_text(text)
+    if not match:
+        return None, ""
+    coords, place = match
+    return distance_from_ludlow_miles(coords[0], coords[1]), place
+
+
+def enrich_public_lead_for_display(lead):
+    row = dict(lead)
+    location_query = lead_location_query_from_row(row)
+    row["location_display"] = clean_str(row.get("address") or row.get("postcode") or row.get("location") or row.get("county")) or "Location not saved"
+    row["map_query"] = location_query
+    row["map_url"] = lead_map_url_from_query(location_query)
+    distance = row.get("distance_miles")
+    approx_place = ""
+    if distance in (None, ""):
+        distance, approx_place = lead_distance_from_location_text(
+            row.get("address"), row.get("postcode"), row.get("location"), row.get("county"), row.get("summary")
+        )
+    if distance not in (None, ""):
+        row["distance_display"] = f"{float(distance):.1f} miles"
+        row["distance_is_approx"] = bool(approx_place and row.get("distance_miles") in (None, ""))
+        row["distance_basis"] = approx_place
+    else:
+        row["distance_display"] = "Distance unknown"
+        row["distance_is_approx"] = False
+        row["distance_basis"] = ""
+    return row
+
+
 def normalise_lead_text(value):
     return re.sub(r"[^a-z0-9]+", " ", clean_str(value).lower()).strip()
 
@@ -4902,6 +5024,11 @@ def save_public_lead(candidate, discovered_at=None, settings_row=None):
     distance = candidate.get("distance_miles")
     if distance in (None, ""):
         distance = distance_from_ludlow_miles(lat, lon)
+    if distance in (None, ""):
+        distance, _place = lead_distance_from_location_text(
+            candidate.get("address"), candidate.get("postcode"), candidate.get("location"),
+            candidate.get("county"), candidate.get("summary"), candidate.get("exact_issue")
+        )
     text = " ".join(clean_str(candidate.get(k)) for k in ("summary", "exact_issue", "lead_type", "business_name", "venue_name"))
     candidate = dict(candidate)
     candidate["distance_miles"] = distance
@@ -10488,6 +10615,7 @@ def new_leads():
     rows = q(f"SELECT * FROM public_leads {where} ORDER BY CASE status WHEN 'New' THEN 0 WHEN 'Needs Checking' THEN 1 WHEN 'Ready to Contact' THEN 2 ELSE 3 END, lead_score DESC, date_published DESC, id DESC", params)
     if ensure_lead_drafts_for_rows(rows):
         rows = q(f"SELECT * FROM public_leads {where} ORDER BY CASE status WHEN 'New' THEN 0 WHEN 'Needs Checking' THEN 1 WHEN 'Ready to Contact' THEN 2 ELSE 3 END, lead_score DESC, date_published DESC, id DESC", params)
+    rows = [enrich_public_lead_for_display(row) for row in rows]
     stats_rows = q("SELECT status, COUNT(*) AS c FROM public_leads GROUP BY status")
     stats = {row["status"]: row["c"] for row in stats_rows}
     source_rows = q("""SELECT lss.* FROM lead_source_status lss
