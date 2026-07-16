@@ -31,7 +31,7 @@
 <section class="lead-status-strip" aria-label="Lead stages">
   {% for stage in lead_stages %}
     {% set count = stats.get(stage, 0) %}
-    <a class="lead-stage-pill {% if current_status == stage %}active{% endif %}" href="{{ url_for('new_leads', status=stage) }}">
+    <a class="lead-stage-pill {% if current_status == stage %}active{% endif %}" href="{{ url_for('new_leads', status=stage, q=lead_filters.q, radius=lead_filters.radius) }}">
       <span>{{ stage }}</span>
       <strong>{{ count }}</strong>
     </a>
@@ -40,6 +40,35 @@
 
 <div class="lead-layout">
   <section class="lead-workspace">
+    <form class="lead-filter-bar" method="get" action="{{ url_for('new_leads') }}">
+      {% if current_status %}<input type="hidden" name="status" value="{{ current_status }}">{% endif %}
+      {% if show_archived %}<input type="hidden" name="archived" value="1">{% endif %}
+      <label>
+        <span>Search leads</span>
+        <input type="search" name="q" value="{{ lead_filters.q }}" placeholder="Telford, Shrewsbury, Hereford, pub, hotel, carpet">
+      </label>
+      <label>
+        <span>Distance from Ludlow</span>
+        <select name="radius">
+          <option value="" {% if not lead_filters.radius %}selected{% endif %}>Any distance</option>
+          {% for miles in [30, 40, 50, 60, 75, 100, 150] %}
+            <option value="{{ miles }}" {% if lead_filters.radius == miles|string %}selected{% endif %}>Within {{ miles }} miles</option>
+          {% endfor %}
+        </select>
+      </label>
+      <button class="btn primary" type="submit">Search</button>
+      {% if lead_filters.q or lead_filters.radius %}<a class="btn secondary" href="{{ url_for('new_leads', status=current_status) }}">Clear</a>{% endif %}
+      <div class="lead-filter-quick">
+        <a href="{{ url_for('new_leads', status=current_status, q='Telford', radius=60) }}">Telford</a>
+        <a href="{{ url_for('new_leads', status=current_status, q='Shrewsbury', radius=60) }}">Shrewsbury</a>
+        <a href="{{ url_for('new_leads', status=current_status, q='Hereford', radius=60) }}">Hereford</a>
+        <a href="{{ url_for('new_leads', status=current_status, q='hotel', radius=75) }}">Hotels</a>
+        <a href="{{ url_for('new_leads', status=current_status, q='pub', radius=75) }}">Pubs</a>
+        <a href="{{ url_for('new_leads', status=current_status, q='CQC', radius=75) }}">CQC reports</a>
+        <a href="{{ url_for('new_leads', status=current_status, q='PLACE', radius=100) }}">NHS PLACE</a>
+      </div>
+    </form>
+
     <div class="lead-toolbar">
       <div>
         <h3>{{ current_status or 'All visible leads' }}</h3>
@@ -70,7 +99,7 @@
           <div class="lead-meta">
             <span>{{ lead.lead_type or 'Lead' }}</span>
             <span>{{ lead.county or 'County unknown' }}</span>
-            <span>{{ lead.distance_display }}{% if lead.distance_is_approx %} approx{% endif %}</span>
+            <span>{{ lead.distance_display }}{% if lead.distance_is_approx %} straight-line approx{% endif %}</span>
             <span>{{ lead.lead_age_days }} days old</span>
           </div>
           <div class="lead-meta">
@@ -83,7 +112,7 @@
               <strong>Location & distance</strong>
               <span>{{ lead.location_display }}</span>
               <small>
-                {{ lead.distance_display }} from Ludlow{% if lead.distance_is_approx and lead.distance_basis %} approx from {{ lead.distance_basis }}{% elif lead.distance_is_approx %} approx{% endif %}
+                {{ lead.distance_display }} {{ lead.distance_context }}{% if lead.distance_is_approx and lead.distance_basis %}, based on {{ lead.distance_basis }}{% endif %}. Use Directions for driving distance.
               </small>
             </div>
             <div class="lead-location-actions">
@@ -92,9 +121,12 @@
             </div>
           </div>
           {% if lead.exact_issue %}<p class="lead-issue">{{ lead.exact_issue }}</p>{% endif %}
-          <div class="lead-source-proof">
+          <div class="lead-proof-card">
             <div class="lead-source-proof-head">
-              <strong>Source verification</strong>
+              <div>
+                <strong>Review / post copied from source</strong>
+                <small>For your checking only. This is not automatically included in the customer email.</small>
+              </div>
               {% if lead.source_direct_url %}
                 <a class="btn secondary" href="{{ lead.source_direct_url }}" target="_blank" rel="noopener">Open exact source</a>
               {% elif lead.source_url %}
@@ -102,6 +134,11 @@
               {% else %}
                 <span>No source link saved</span>
               {% endif %}
+            </div>
+            <div class="lead-proof-meta">
+              <span>From: {{ lead.source_author or lead.person_name or 'Reviewer / poster not saved' }}</span>
+              <span>Published: {{ lead.date_published or 'unknown' }}</span>
+              <span>Source: {{ lead.source_website or 'Public source' }}</span>
             </div>
             {% if lead.source_verification_note %}
               <div class="lead-source-text missing">
@@ -117,15 +154,19 @@
             {% endif %}
             {% if lead.source_text %}
               <div class="lead-source-text" id="lead-source-text-{{ lead.id }}">
-                <strong>Exact source / review text saved by the CRM</strong>
+                <strong>Exact wording saved in the CRM</strong>
                 <p>{{ lead.source_text }}</p>
               </div>
             {% else %}
               <div class="lead-source-text missing">
-                <strong>Exact source text not saved yet</strong>
-                <p>This lead still needs manual source verification before contact. Open the source link, confirm the review/post is live, and paste or import the exact text.</p>
+                <strong>Exact wording not saved yet</strong>
+                <p>This lead still needs manual source verification. Open the source link, confirm the review/post is live, then paste/import the exact wording so it appears here.</p>
               </div>
             {% endif %}
+            <div class="lead-proof-actions">
+              {% if lead.source_text %}<button type="button" class="btn secondary" data-copy-target="lead-source-text-{{ lead.id }}">Copy review/post text</button>{% endif %}
+              <a class="btn secondary" href="{{ url_for('new_lead_email_preview', lead_id=lead.id) }}#source-proof">Preview email + proof</a>
+            </div>
             {% if lead.source_screenshot_url %}
               <div class="lead-source-text">
                 <strong>Source screenshot proof</strong>
@@ -279,9 +320,10 @@ document.addEventListener('click', function(e){
   var el = document.getElementById(btn.getAttribute('data-copy-target'));
   var text = el ? el.innerText : '';
   if(navigator.clipboard && text){
+    var oldText = btn.textContent;
     navigator.clipboard.writeText(text);
     btn.textContent = 'Copied';
-    setTimeout(function(){ btn.textContent = 'Copy Message'; }, 1400);
+    setTimeout(function(){ btn.textContent = oldText; }, 1400);
   }
 });
 </script>

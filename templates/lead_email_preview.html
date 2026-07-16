@@ -48,6 +48,43 @@
         <div><strong>Issue</strong><span>{{ lead.exact_issue or lead.summary or 'Not found' }}</span></div>
       </div>
     </div>
+    <div class="utility-card" id="source-proof">
+      <h4>Source Proof</h4>
+      <p class="form-help">For your checking only. This proof is not inserted into the outgoing email automatically.</p>
+      <div class="lead-proof-meta">
+        <span>From: {{ lead.source_author or lead.person_name or 'Reviewer / poster not saved' }}</span>
+        <span>Published: {{ lead.date_published or 'unknown' }}</span>
+      </div>
+      {% if lead.source_text %}
+        <div class="lead-source-text" id="preview-source-text-{{ lead.id }}">
+          <strong>Exact wording saved in the CRM</strong>
+          <p>{{ lead.source_text }}</p>
+        </div>
+        <button type="button" class="btn secondary" data-copy-target="preview-source-text-{{ lead.id }}">Copy source proof</button>
+      {% else %}
+        <div class="lead-source-text missing">
+          <strong>Exact wording not saved yet</strong>
+          <p>Open the source and paste/import the exact wording before relying on this lead.</p>
+        </div>
+      {% endif %}
+      {% if lead.source_screenshot_url %}
+        <a class="btn secondary" href="{{ lead.source_screenshot_url }}" target="_blank" rel="noopener">Open screenshot proof</a>
+      {% endif %}
+    </div>
   </aside>
 </div>
+<script>
+document.addEventListener('click', function(e){
+  var btn = e.target.closest('[data-copy-target]');
+  if(!btn) return;
+  var el = document.getElementById(btn.getAttribute('data-copy-target'));
+  var text = el ? el.innerText : '';
+  if(navigator.clipboard && text){
+    var oldText = btn.textContent;
+    navigator.clipboard.writeText(text);
+    btn.textContent = 'Copied';
+    setTimeout(function(){ btn.textContent = oldText; }, 1400);
+  }
+});
+</script>
 {% endblock %}

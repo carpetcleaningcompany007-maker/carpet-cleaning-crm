@@ -132,6 +132,8 @@ LEAD_PUBLIC_SOURCES = [
     {"key": "reddit", "name": "Reddit", "requires_api": False},
     {"key": "community_forums", "name": "Local community forums", "requires_api": False},
     {"key": "business_review_sites", "name": "Public business review websites", "requires_api": True},
+    {"key": "cqc_inspection_reports", "name": "CQC inspection reports", "requires_api": False, "collector": "healthcare_audit_rss"},
+    {"key": "nhs_place_assessments", "name": "NHS PLACE assessments", "requires_api": False, "collector": "healthcare_audit_rss"},
 ]
 
 LEAD_LOCAL_SEARCH_PLACES = [
@@ -147,6 +149,8 @@ LEAD_RSS_QUERY_PHRASES = [
     "pet urine carpet", "dog wee carpet", "carpet smells", "stained carpet",
     "dirty carpet", "filthy carpet", "carpet needs replacing", "dirty upholstery",
     "stained sofa", "hotel carpet cleaning", "pub carpet cleaning",
+    "CQC dirty carpet", "CQC stained carpet", "CQC dirty upholstery",
+    "PLACE assessment dirty carpet", "PLACE assessment upholstery",
 ]
 
 LEAD_WIDER_SEARCH_PLACES = [
@@ -170,6 +174,32 @@ LEAD_WIDER_RSS_QUERY_PHRASES = [
     "end of tenancy carpet cleaner", "recommend carpet cleaner", "looking for carpet cleaner",
     "care home dirty carpet", "school dirty carpet", "nursery dirty carpet",
     "wedding venue stained carpet", "restaurant dirty upholstery", "office stained carpet",
+    "CQC inspection report dirty carpet GP surgery", "CQC inspection report stained carpet care home",
+    "CQC inspection report dirty upholstery dentist", "NHS PLACE assessment dirty carpet",
+    "NHS PLACE assessment stained upholstery", "patient led assessment care environment carpet",
+]
+
+LEAD_HEALTHCARE_AUDIT_QUERY_PHRASES = [
+    "CQC inspection report dirty carpet",
+    "CQC inspection report stained carpet",
+    "CQC inspection report dirty upholstery",
+    "CQC inspection report stained chairs",
+    "CQC inspection report care home carpet",
+    "CQC inspection report nursing home carpet",
+    "CQC inspection report GP surgery carpet",
+    "CQC inspection report dentist upholstery",
+    "NHS PLACE assessment dirty carpet",
+    "NHS PLACE assessment stained carpet",
+    "NHS PLACE assessment upholstery",
+    "Patient Led Assessment Care Environment carpet",
+    "Patient-Led Assessments of the Care Environment upholstery",
+    "healthcare cleanliness report dirty carpet",
+]
+
+LEAD_HEALTHCARE_AUDIT_PLACES = [
+    "Shropshire", "Herefordshire", "Worcestershire", "West Midlands", "Staffordshire",
+    "Warwickshire", "Powys", "Gloucestershire", "Cheshire", "Telford", "Shrewsbury",
+    "Hereford", "Ludlow", "Worcester", "Kidderminster", "Birmingham", "Wolverhampton",
 ]
 
 LEAD_SEARCH_TERMS = [
@@ -4665,8 +4695,9 @@ def lead_generation_settings():
     row = q("SELECT * FROM lead_generation_settings WHERE id=1", one=True)
     if row:
         enabled = {part.strip() for part in clean_str(row["enabled_sources"]).split(",") if part.strip()}
-        if "live_search_rss" not in enabled:
-            enabled.add("live_search_rss")
+        required_sources = {"live_search_rss", "cqc_inspection_reports", "nhs_place_assessments"}
+        if not required_sources.issubset(enabled):
+            enabled.update(required_sources)
             run("UPDATE lead_generation_settings SET enabled_sources=? WHERE id=1", (",".join(source["key"] for source in LEAD_PUBLIC_SOURCES if source["key"] in enabled),))
             row = q("SELECT * FROM lead_generation_settings WHERE id=1", one=True)
         return row
@@ -4788,11 +4819,34 @@ def enrich_public_lead_for_display(lead):
         row["distance_display"] = f"{float(distance):.1f} miles"
         row["distance_is_approx"] = bool(approx_place and not (row.get("latitude") and row.get("longitude")))
         row["distance_basis"] = approx_place
+        row["distance_context"] = "approx straight-line from Ludlow" if row["distance_is_approx"] else "from Ludlow"
     else:
         row["distance_display"] = "Distance unknown"
         row["distance_is_approx"] = False
         row["distance_basis"] = ""
+        row["distance_context"] = "distance not known"
     return row
+
+
+def public_lead_matches_filters(lead, search_text="", radius_miles=""):
+    search_text = normalise_lead_text(search_text)
+    if search_text:
+        haystack = normalise_lead_text(" ".join(clean_str(lead.get(key)) for key in (
+            "business_name", "person_name", "venue_name", "address", "postcode", "county", "location",
+            "lead_type", "source_website", "exact_issue", "summary", "source_text", "source_author",
+        )))
+        if search_text not in haystack:
+            return False
+    radius = clean_str(radius_miles)
+    if radius:
+        try:
+            max_radius = float(radius)
+            distance = float(lead.get("distance_miles") or 999999)
+        except (TypeError, ValueError):
+            return False
+        if distance > max_radius:
+            return False
+    return True
 
 
 def normalise_lead_text(value):
@@ -4845,6 +4899,19 @@ def lead_source_text_from_candidate(candidate):
     payload = candidate.get("raw_payload")
     if isinstance(payload, dict):
         nested = lead_source_text_from_candidate(payload)
+        if nested:
+            return nested
+    return ""
+
+
+def lead_source_author_from_candidate(candidate):
+    for key in ("source_author", "review_author", "reviewer", "author", "posted_by", "username"):
+        value = clean_str(candidate.get(key))
+        if value:
+            return value
+    payload = candidate.get("raw_payload")
+    if isinstance(payload, dict):
+        nested = lead_source_author_from_candidate(payload)
         if nested:
             return nested
     return ""
@@ -5039,6 +5106,7 @@ def save_public_lead(candidate, discovered_at=None, settings_row=None):
     candidate["lead_type"] = clean_str(candidate.get("lead_type")) or detect_lead_type(text)
     candidate["exact_issue"] = clean_str(candidate.get("exact_issue")) or extract_lead_issue(text)
     candidate["source_text"] = lead_source_text_from_candidate(candidate)
+    candidate["source_author"] = lead_source_author_from_candidate(candidate)
     candidate["source_direct_url"] = lead_source_direct_url_from_candidate(candidate)
     candidate["source_screenshot_url"] = lead_source_screenshot_url_from_candidate(candidate)
     candidate["source_verification_note"] = lead_source_verification_note_from_candidate(candidate)
@@ -5065,6 +5133,7 @@ def save_public_lead(candidate, discovered_at=None, settings_row=None):
                       venue_name=CASE WHEN ?<>'' THEN ? ELSE venue_name END,
                       county=CASE WHEN ?<>'' THEN ? ELSE county END,
                       location=CASE WHEN ?<>'' THEN ? ELSE location END,
+                      lead_type=CASE WHEN ?<>'' THEN ? ELSE lead_type END,
                       source_url=CASE WHEN ?<>'' THEN ? ELSE source_url END,
                       source_uid=CASE WHEN ?<>'' THEN ? ELSE source_uid END,
                       source_direct_url=CASE WHEN ?<>'' THEN ? ELSE source_direct_url END,
@@ -5077,6 +5146,7 @@ def save_public_lead(candidate, discovered_at=None, settings_row=None):
                       status=CASE WHEN status IN ('Duplicate','Expired') THEN status WHEN ?='Duplicate' THEN status ELSE ? END,
                       previously_contacted=COALESCE(previously_contacted,0), already_exists_crm=?, already_exists_xero=?, duplicate_of_id=COALESCE(NULLIF(duplicate_of_id,0), ?),
                       source_text=CASE WHEN ?<>'' THEN ? ELSE source_text END,
+                      source_author=CASE WHEN ?<>'' THEN ? ELSE source_author END,
                       raw_payload_json=?, updated_at=datetime('now')
                 WHERE id=?""",
             (
@@ -5086,6 +5156,7 @@ def save_public_lead(candidate, discovered_at=None, settings_row=None):
              clean_str(candidate.get("venue_name")), clean_str(candidate.get("venue_name")),
              clean_str(candidate.get("county")), clean_str(candidate.get("county")),
              clean_str(candidate.get("location")), clean_str(candidate.get("location")),
+             candidate["lead_type"], candidate["lead_type"],
              clean_str(candidate.get("source_url")), clean_str(candidate.get("source_url")),
              clean_str(candidate.get("source_uid")), clean_str(candidate.get("source_uid")),
              candidate["source_direct_url"], candidate["source_direct_url"],
@@ -5098,15 +5169,16 @@ def save_public_lead(candidate, discovered_at=None, settings_row=None):
              clean_str(candidate.get("summary")), clean_str(candidate.get("summary")),
              status, status, 1 if duplicate_type == "crm" else 0,
              1 if duplicate_type == "xero" else 0, duplicate_id or 0,
-             candidate["source_text"], candidate["source_text"], payload, existing_id))
+             candidate["source_text"], candidate["source_text"],
+             candidate["source_author"], candidate["source_author"], payload, existing_id))
         return existing_id, "updated"
     lead_id = run("""INSERT INTO public_leads(
             business_name, person_name, venue_name, address, postcode, county, website, public_email, public_phone,
             location, latitude, longitude, distance_miles, lead_type, source_website, source_url, source_uid,
             source_direct_url, source_screenshot_url, source_verification_note,
-            date_published, date_discovered, lead_age_days, exact_issue, source_text, summary, lead_score, status,
+            date_published, date_discovered, lead_age_days, exact_issue, source_text, source_author, summary, lead_score, status,
             previously_contacted, already_exists_crm, already_exists_xero, duplicate_fingerprint, duplicate_of_id, raw_payload_json
-        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
         (
             clean_str(candidate.get("business_name")), clean_str(candidate.get("person_name")), clean_str(candidate.get("venue_name")),
             clean_str(candidate.get("address")), clean_str(candidate.get("postcode")), clean_str(candidate.get("county")),
@@ -5116,7 +5188,7 @@ def save_public_lead(candidate, discovered_at=None, settings_row=None):
             clean_str(candidate.get("source_url")), clean_str(candidate.get("source_uid")),
             candidate["source_direct_url"], candidate["source_screenshot_url"], candidate["source_verification_note"],
             published.isoformat() if published else clean_str(candidate.get("date_published")), discovered_at, age,
-            candidate["exact_issue"], candidate["source_text"], clean_str(candidate.get("summary")), candidate["lead_score"], status,
+            candidate["exact_issue"], candidate["source_text"], candidate["source_author"], clean_str(candidate.get("summary")), candidate["lead_score"], status,
             0, 1 if duplicate_type == "crm" else 0, 1 if duplicate_type == "xero" else 0, fingerprint, duplicate_id or 0, payload,
         ))
     log_lead_event("lead_found", lead_id, clean_str(candidate.get("source_website")), status, exclusion or f"Lead {status.lower()} with score {candidate['lead_score']}.")
@@ -5183,6 +5255,20 @@ def is_useful_live_search_candidate(title, description, link):
     if any(term in text or term in domain for term in advert_terms):
         return False
     return True
+
+
+def is_useful_healthcare_audit_candidate(title, description, link):
+    text = normalise_lead_text(f"{title} {description} {link}")
+    audit_terms = ("cqc", "inspection report", "place assessment", "patient led assessment", "care environment", "nhs")
+    setting_terms = ("care home", "nursing home", "hospital", "gp", "surgery", "doctor", "dentist", "clinic", "health centre", "medical centre")
+    issue_terms = ("carpet", "upholstery", "sofa", "chair", "chairs", "cleanliness", "stain", "dirty", "worn", "odour", "odor")
+    if not any(term in text for term in audit_terms):
+        return False
+    if not any(term in text for term in setting_terms):
+        return False
+    if not any(term in text for term in issue_terms):
+        return False
+    return bool(lead_candidate_location(text))
 
 
 def bing_rss_period_for_days(days):
@@ -5277,29 +5363,112 @@ def live_search_rss_candidates(settings_row=None, mode="standard"):
     return candidates, {"checked": checked, "rejected": rejected}
 
 
+def healthcare_audit_rss_candidates(settings_row=None, source_key="cqc_inspection_reports", mode="standard"):
+    settings_row = settings_row or lead_generation_settings()
+    max_days = int(row_value(settings_row, "selected_date_range_days") or row_value(settings_row, "review_max_age_days") or 180)
+    period = bing_rss_period_for_days(max_days)
+    phrases = LEAD_HEALTHCARE_AUDIT_QUERY_PHRASES[:]
+    if source_key == "cqc_inspection_reports":
+        phrases = [phrase for phrase in phrases if "CQC" in phrase]
+    elif source_key == "nhs_place_assessments":
+        phrases = [phrase for phrase in phrases if "PLACE" in phrase or "Patient" in phrase or "NHS" in phrase]
+    places = LEAD_HEALTHCARE_AUDIT_PLACES if mode != "wide" else sorted(set(LEAD_HEALTHCARE_AUDIT_PLACES + LEAD_WIDER_SEARCH_PLACES))
+    checked = rejected = 0
+    candidates = []
+    seen_urls = set()
+    for phrase in phrases:
+        for place in places:
+            query = f'"{phrase}" "{place}"'
+            url = "https://www.bing.com/search?format=rss&t=" + urllib.parse.quote(period) + "&q=" + urllib.parse.quote(query)
+            try:
+                xml_text = http_get_text(url, timeout=15)
+                root = ET.fromstring(xml_text)
+            except Exception as exc:
+                log_lead_event("source_error", None, source_key, "Error", f"{query}: {exc}")
+                continue
+            for item in root.findall("./channel/item"):
+                checked += 1
+                title = clean_str(item.findtext("title"))
+                link = clean_str(item.findtext("link"))
+                description = clean_str(html_lib.unescape(item.findtext("description") or ""))
+                pub_date = parse_rss_pub_date(item.findtext("pubDate")) or uk_today()
+                if not link or link in seen_urls:
+                    rejected += 1
+                    continue
+                seen_urls.add(link)
+                if lead_age_days(pub_date.isoformat()) > max_days:
+                    rejected += 1
+                    continue
+                candidate_text = normalise_lead_text(f"{title} {description} {link}")
+                if source_key == "cqc_inspection_reports" and "cqc" not in candidate_text:
+                    rejected += 1
+                    continue
+                if source_key == "nhs_place_assessments" and not any(term in candidate_text for term in ("place assessment", "patient led assessment", "patient led assessments", "care environment")):
+                    rejected += 1
+                    continue
+                if not is_useful_healthcare_audit_candidate(title, description, link):
+                    rejected += 1
+                    continue
+                text = f"{title}. {description}"
+                location = lead_candidate_location(text) or place
+                candidates.append({
+                    "business_name": title[:120],
+                    "location": location,
+                    "county": location if location in LEAD_DEFAULT_COUNTIES else "",
+                    "lead_type": "Healthcare audit / inspection",
+                    "source_website": "CQC inspection reports" if source_key == "cqc_inspection_reports" else "NHS PLACE assessments",
+                    "source_url": link,
+                    "source_uid": normalise_lead_text(link)[:180],
+                    "date_published": pub_date.isoformat(),
+                    "exact_issue": extract_lead_issue(text),
+                    "source_text": description,
+                    "snippet": description,
+                    "summary": (
+                        f"Healthcare audit lead: public {('CQC inspection' if source_key == 'cqc_inspection_reports' else 'NHS PLACE')} result mentions "
+                        f"carpet/upholstery/cleanliness issues near {location}. Verify the report before contacting. {description[:220]}"
+                    ),
+                })
+    return candidates, {"checked": checked, "rejected": rejected}
+
+
 def run_public_lead_scan(mode="standard"):
     settings_row = lead_scan_settings(mode=mode)
     enabled = {part.strip() for part in clean_str(settings_row["enabled_sources"]).split(",") if part.strip()}
     archive_expired_public_leads()
     results = {"created": 0, "updated": 0, "unavailable": 0, "checked": 0, "mode": mode}
+
+    def save_candidate_batch(candidates):
+        saved = {"created": 0, "updated": 0}
+        for candidate in candidates:
+            lead_id, action = save_public_lead(candidate, settings_row=settings_row)
+            if action == "created":
+                run("UPDATE public_leads SET status='Needs Checking', updated_at=datetime('now') WHERE id=? AND status='New'", (lead_id,))
+                save_generated_lead_draft(lead_id)
+                saved["created"] += 1
+            elif action == "updated":
+                save_generated_lead_draft(lead_id)
+                saved["updated"] += 1
+        results["created"] += saved["created"]
+        results["updated"] += saved["updated"]
+        return saved
+
     for source in LEAD_PUBLIC_SOURCES:
         if enabled and source["key"] not in enabled:
             continue
         results["checked"] += 1
         if source.get("collector") == "bing_rss":
             candidates, stats = live_search_rss_candidates(settings_row=settings_row, mode=mode)
-            for candidate in candidates:
-                lead_id, action = save_public_lead(candidate, settings_row=settings_row)
-                if action == "created":
-                    run("UPDATE public_leads SET status='Needs Checking', updated_at=datetime('now') WHERE id=? AND status='New'", (lead_id,))
-                    save_generated_lead_draft(lead_id)
-                    results["created"] += 1
-                elif action == "updated":
-                    save_generated_lead_draft(lead_id)
-                    results["updated"] += 1
+            save_candidate_batch(candidates)
             record_lead_source_status(
                 source["key"], source["name"], "Live",
                 f"{'Wide search: ' if mode == 'wide' else ''}Checked {stats['checked']} RSS result(s); saved {len(candidates)} needs-checking candidate(s); rejected {stats['rejected']} irrelevant/old result(s).",
+            )
+        elif source.get("collector") == "healthcare_audit_rss":
+            candidates, stats = healthcare_audit_rss_candidates(settings_row=settings_row, source_key=source["key"], mode=mode)
+            save_candidate_batch(candidates)
+            record_lead_source_status(
+                source["key"], source["name"], "Live",
+                f"{'Wide search: ' if mode == 'wide' else ''}Checked {stats['checked']} public healthcare audit result(s); saved {len(candidates)} needs-checking candidate(s); rejected {stats['rejected']} irrelevant/old result(s).",
             )
         elif source["requires_api"]:
             results["unavailable"] += 1
@@ -6316,7 +6485,7 @@ def init_db():
         post_max_age_days INTEGER DEFAULT 180,
         review_max_age_days INTEGER DEFAULT 180,
         selected_date_range_days INTEGER DEFAULT 180,
-        enabled_sources TEXT DEFAULT 'live_search_rss,google_reviews,google_maps_reviews,hotel_reviews,pub_reviews,inn_reviews,facebook_public_posts,reddit,community_forums,business_review_sites',
+        enabled_sources TEXT DEFAULT 'live_search_rss,google_reviews,google_maps_reviews,hotel_reviews,pub_reviews,inn_reviews,facebook_public_posts,reddit,community_forums,business_review_sites,cqc_inspection_reports,nhs_place_assessments',
         excluded_locations TEXT DEFAULT '',
         search_frequency TEXT DEFAULT 'Daily',
         maximum_leads_per_day INTEGER DEFAULT 25,
@@ -6359,6 +6528,7 @@ def init_db():
         lead_age_days INTEGER DEFAULT 0,
         exact_issue TEXT DEFAULT '',
         source_text TEXT DEFAULT '',
+        source_author TEXT DEFAULT '',
         summary TEXT DEFAULT '',
         lead_score INTEGER DEFAULT 0,
         status TEXT DEFAULT 'New',
@@ -6502,7 +6672,7 @@ def init_db():
         ("future_reminders", "reminder_type", "TEXT DEFAULT 'Follow up'"),
         ("future_reminders", "completed_at", "TEXT DEFAULT ''"),
         ("lead_generation_settings", "selected_date_range_days", "INTEGER DEFAULT 90"),
-        ("lead_generation_settings", "enabled_sources", "TEXT DEFAULT 'live_search_rss,google_reviews,google_maps_reviews,hotel_reviews,pub_reviews,inn_reviews,facebook_public_posts,reddit,community_forums,business_review_sites'"),
+        ("lead_generation_settings", "enabled_sources", "TEXT DEFAULT 'live_search_rss,google_reviews,google_maps_reviews,hotel_reviews,pub_reviews,inn_reviews,facebook_public_posts,reddit,community_forums,business_review_sites,cqc_inspection_reports,nhs_place_assessments'"),
         ("lead_generation_settings", "excluded_locations", "TEXT DEFAULT ''"),
         ("lead_generation_settings", "search_frequency", "TEXT DEFAULT 'Daily'"),
         ("lead_generation_settings", "maximum_leads_per_day", "INTEGER DEFAULT 25"),
@@ -6525,6 +6695,7 @@ def init_db():
         ("public_leads", "duplicate_of_id", "INTEGER DEFAULT 0"),
         ("public_leads", "raw_payload_json", "TEXT DEFAULT ''"),
         ("public_leads", "source_text", "TEXT DEFAULT ''"),
+        ("public_leads", "source_author", "TEXT DEFAULT ''"),
         ("public_leads", "email_subject", "TEXT DEFAULT ''"),
         ("public_leads", "draft_message", "TEXT DEFAULT ''"),
         ("public_leads", "draft_channel", "TEXT DEFAULT ''"),
@@ -10607,6 +10778,8 @@ def email_designer():
 def new_leads():
     archive_expired_public_leads()
     status = clean_str(request.args.get("status")) or ""
+    search_text = clean_str(request.args.get("q")) or ""
+    radius_miles = clean_str(request.args.get("radius")) or ""
     params = []
     show_archived = request.args.get("archived") == "1"
     where_parts = []
@@ -10620,6 +10793,7 @@ def new_leads():
     if ensure_lead_drafts_for_rows(rows):
         rows = q(f"SELECT * FROM public_leads {where} ORDER BY CASE status WHEN 'New' THEN 0 WHEN 'Needs Checking' THEN 1 WHEN 'Ready to Contact' THEN 2 ELSE 3 END, lead_score DESC, date_published DESC, id DESC", params)
     rows = [enrich_public_lead_for_display(row) for row in rows]
+    rows = [row for row in rows if public_lead_matches_filters(row, search_text=search_text, radius_miles=radius_miles)]
     stats_rows = q("SELECT status, COUNT(*) AS c FROM public_leads GROUP BY status")
     stats = {row["status"]: row["c"] for row in stats_rows}
     source_rows = q("""SELECT lss.* FROM lead_source_status lss
@@ -10637,6 +10811,7 @@ def new_leads():
         lead_settings=lead_generation_settings(),
         public_sources=LEAD_PUBLIC_SOURCES,
         show_archived=show_archived,
+        lead_filters={"q": search_text, "radius": radius_miles},
     )
 
 

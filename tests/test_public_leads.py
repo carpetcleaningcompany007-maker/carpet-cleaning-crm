@@ -299,6 +299,50 @@ class PublicLeadTests(unittest.TestCase):
         self.assertIsNotNone(lead)
         self.assertEqual(lead["status"], "Needs Checking")
 
+    def test_healthcare_audit_scan_saves_cqc_carpet_lead(self):
+        pub_date = self.appmod.uk_today().strftime("%a, %d %b %Y 10:00:00 GMT")
+        rss = f"""<?xml version="1.0" encoding="utf-8"?>
+        <rss version="2.0"><channel>
+          <item>
+            <title>CQC inspection report Shrewsbury care home dirty carpet</title>
+            <link>https://cqc.example/reports/shrewsbury-care-home</link>
+            <description>CQC inspection report for a care home in Shrewsbury noted stained carpet and dirty upholstery in communal areas.</description>
+            <pubDate>{pub_date}</pubDate>
+          </item>
+        </channel></rss>"""
+        with mock.patch.object(self.appmod, "http_get_text", return_value=rss):
+            result = self.appmod.run_public_lead_scan()
+        lead = self.appmod.q("SELECT * FROM public_leads WHERE source_url=?", ("https://cqc.example/reports/shrewsbury-care-home",), one=True)
+        self.assertIsNotNone(lead)
+        self.assertEqual(lead["lead_type"], "Healthcare audit / inspection")
+        self.assertEqual(lead["source_website"], "CQC inspection reports")
+        self.assertIn("stained carpet", lead["source_text"])
+        self.assertGreaterEqual(result["created"], 1)
+
+    def test_new_leads_filter_and_proof_panel_show_source_author(self):
+        self.appmod.save_public_lead({
+            "business_name": "Proof Care Home",
+            "source_website": "CQC inspection reports",
+            "source_url": "https://example.test/cqc/proof-care-home",
+            "date_published": self.appmod.uk_today().isoformat(),
+            "location": "Telford",
+            "county": "Shropshire",
+            "review_author": "CQC inspector",
+            "review_text": "Inspection report says the lounge carpet was stained and chairs needed cleaning.",
+            "summary": "CQC report mentions carpet and upholstery cleaning opportunity.",
+            "lead_type": "Healthcare audit / inspection",
+        })
+        with self.app.test_client() as client:
+            with client.session_transaction() as sess:
+                sess["logged_in"] = True
+            response = client.get("/new-leads?q=CQC&radius=60")
+        html = response.get_data(as_text=True)
+        self.assertIn("Review / post copied from source", html)
+        self.assertIn("CQC inspector", html)
+        self.assertIn("Inspection report says the lounge carpet was stained", html)
+        self.assertIn("Distance from Ludlow", html)
+        self.assertIn("CQC reports", html)
+
     def test_lead_settings_accept_twelve_month_search_window(self):
         with self.app.test_client() as client:
             with client.session_transaction() as sess:
