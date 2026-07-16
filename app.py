@@ -5272,19 +5272,9 @@ def is_useful_healthcare_audit_candidate(title, description, link):
 
 
 def healthcare_audit_query(phrase, place, source_key):
-    phrase_text = normalise_lead_text(phrase)
-    issue = "carpet"
-    if "upholstery" in phrase_text or "chair" in phrase_text:
-        issue = "upholstery"
-    if "dirty" in phrase_text:
-        issue = f"dirty {issue}"
-    elif "stained" in phrase_text:
-        issue = f"stained {issue}"
-    elif "worn" in phrase_text:
-        issue = f"worn {issue}"
     if source_key == "cqc_inspection_reports":
-        return f'site:cqc.org.uk CQC inspection report "{issue}" "{place}"'
-    return f'("PLACE assessment" OR "Patient Led Assessment" OR "Patient-Led Assessment") "{issue}" "{place}"'
+        return f'site:cqc.org.uk/location/reports CQC ("dirty carpets" OR "worn carpets" OR "stained carpet" OR upholstery OR chairs) ("care home" OR "nursing home" OR hospital OR surgery OR dentist) "{place}"'
+    return f'("PLACE assessment" OR "Patient Led Assessment" OR "Patient-Led Assessment") (carpet OR carpets OR upholstery OR chairs) "{place}"'
 
 
 def bing_rss_period_for_days(days):
@@ -5383,12 +5373,11 @@ def healthcare_audit_rss_candidates(settings_row=None, source_key="cqc_inspectio
     settings_row = settings_row or lead_generation_settings()
     max_days = int(row_value(settings_row, "selected_date_range_days") or row_value(settings_row, "review_max_age_days") or 180)
     period = bing_rss_period_for_days(max_days)
-    phrases = LEAD_HEALTHCARE_AUDIT_QUERY_PHRASES[:]
-    if source_key == "cqc_inspection_reports":
-        phrases = [phrase for phrase in phrases if "CQC" in phrase]
-    elif source_key == "nhs_place_assessments":
-        phrases = [phrase for phrase in phrases if "PLACE" in phrase or "Patient" in phrase or "NHS" in phrase]
-    places = LEAD_HEALTHCARE_AUDIT_PLACES if mode != "wide" else sorted(set(LEAD_HEALTHCARE_AUDIT_PLACES + LEAD_WIDER_SEARCH_PLACES))
+    phrases = ["healthcare_audit_compound_query"]
+    if mode == "wide":
+        places = sorted(set(LEAD_HEALTHCARE_AUDIT_PLACES + LEAD_WIDER_SEARCH_PLACES))
+    else:
+        places = ["Shropshire", "Herefordshire", "Worcestershire", "Telford", "Shrewsbury", "Hereford", "Ludlow", "Bridgnorth"]
     checked = rejected = 0
     candidates = []
     seen_urls = set()
