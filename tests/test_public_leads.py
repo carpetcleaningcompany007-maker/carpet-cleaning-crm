@@ -84,6 +84,35 @@ class PublicLeadTests(unittest.TestCase):
         self.assertIn("Dirty carpet", row["exact_issue"])
         self.assertIn("Verified public source text", row["summary"])
 
+    def test_source_proof_fields_are_saved_and_displayed(self):
+        lead_id, action = self.appmod.save_public_lead({
+            "business_name": "Proof Hotel",
+            "source_website": "Public hotel review",
+            "source_url": "https://example.test/search-result",
+            "source_direct_url": "https://example.test/reviews/exact-review",
+            "source_screenshot_url": "https://example.test/proof.png",
+            "source_verification_note": "Exact review belongs to Proof Hotel and has been checked.",
+            "date_published": self.appmod.uk_today().isoformat(),
+            "review_text": "Exact proof review text about stained carpets.",
+            "summary": "Stained carpets mentioned in a public review.",
+        })
+        row = self.appmod.q("SELECT * FROM public_leads WHERE id=?", (lead_id,), one=True)
+        self.assertEqual(action, "created")
+        self.assertEqual(row["source_direct_url"], "https://example.test/reviews/exact-review")
+        self.assertEqual(row["source_screenshot_url"], "https://example.test/proof.png")
+        self.assertIn("Proof Hotel", row["source_verification_note"])
+
+        with self.app.test_client() as client:
+            with client.session_transaction() as sess:
+                sess["logged_in"] = True
+            response = client.get("/new-leads?status=New")
+        html = response.get_data(as_text=True)
+        self.assertIn("Open exact source", html)
+        self.assertIn("Original search/listing page", html)
+        self.assertIn("Screenshot proof", html)
+        self.assertIn("Source screenshot proof", html)
+        self.assertIn("Exact review belongs to Proof Hotel", html)
+
     def test_old_public_post_is_expired(self):
         old_date = (self.appmod.uk_today() - self.appmod.timedelta(days=400)).isoformat()
         lead_id, _ = self.appmod.save_public_lead({
@@ -141,7 +170,7 @@ class PublicLeadTests(unittest.TestCase):
                 sess["logged_in"] = True
             response = client.get("/new-leads?status=New")
         html = response.get_data(as_text=True)
-        self.assertIn("Open source review", html)
+        self.assertIn("Open source / search result", html)
         self.assertIn("Exact saved review text about stained carpets", html)
         self.assertIn("Copy source text", html)
 

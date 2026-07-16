@@ -82,12 +82,26 @@
           <div class="lead-source-proof">
             <div class="lead-source-proof-head">
               <strong>Source verification</strong>
-              {% if lead.source_url %}
-                <a class="btn secondary" href="{{ lead.source_url }}" target="_blank" rel="noopener">Open source review</a>
+              {% if lead.source_direct_url %}
+                <a class="btn secondary" href="{{ lead.source_direct_url }}" target="_blank" rel="noopener">Open exact source</a>
+              {% elif lead.source_url %}
+                <a class="btn secondary" href="{{ lead.source_url }}" target="_blank" rel="noopener">Open source / search result</a>
               {% else %}
                 <span>No source link saved</span>
               {% endif %}
             </div>
+            {% if lead.source_verification_note %}
+              <div class="lead-source-text missing">
+                <strong>Verification note</strong>
+                <p>{{ lead.source_verification_note }}</p>
+              </div>
+            {% endif %}
+            {% if lead.source_direct_url and lead.source_url and lead.source_direct_url != lead.source_url %}
+              <div class="lead-contact-line">
+                <a href="{{ lead.source_direct_url }}" target="_blank" rel="noopener">Exact source page</a>
+                <a href="{{ lead.source_url }}" target="_blank" rel="noopener">Original search/listing page</a>
+              </div>
+            {% endif %}
             {% if lead.source_text %}
               <div class="lead-source-text" id="lead-source-text-{{ lead.id }}">
                 <strong>Exact source / review text saved by the CRM</strong>
@@ -97,6 +111,14 @@
               <div class="lead-source-text missing">
                 <strong>Exact source text not saved yet</strong>
                 <p>This lead still needs manual source verification before contact. Open the source link, confirm the review/post is live, and paste or import the exact text.</p>
+              </div>
+            {% endif %}
+            {% if lead.source_screenshot_url %}
+              <div class="lead-source-text">
+                <strong>Source screenshot proof</strong>
+                <a href="{{ lead.source_screenshot_url }}" target="_blank" rel="noopener">
+                  <img src="{{ lead.source_screenshot_url }}" alt="Source screenshot proof" style="max-width:100%;height:auto;border:1px solid #dce8f1;border-radius:8px;margin-top:8px">
+                </a>
               </div>
             {% endif %}
           </div>
@@ -141,7 +163,8 @@
           <div class="lead-link-actions">
             {% if lead.public_phone %}<a href="tel:{{ lead.public_phone }}">Call</a>{% else %}<span>Call unavailable</span>{% endif %}
             {% if lead.website %}<a href="{{ lead.website }}" target="_blank" rel="noopener">Website</a>{% else %}<span>No website</span>{% endif %}
-            {% if lead.source_url %}<a href="{{ lead.source_url }}" target="_blank" rel="noopener">Source</a>{% else %}<span>No source link</span>{% endif %}
+            {% if lead.source_direct_url %}<a href="{{ lead.source_direct_url }}" target="_blank" rel="noopener">Exact source</a>{% elif lead.source_url %}<a href="{{ lead.source_url }}" target="_blank" rel="noopener">Source</a>{% else %}<span>No source link</span>{% endif %}
+            {% if lead.source_screenshot_url %}<a href="{{ lead.source_screenshot_url }}" target="_blank" rel="noopener">Screenshot proof</a>{% endif %}
             <button type="button" data-copy-target="lead-message-{{ lead.id }}">Copy message</button>
             {% if lead.source_text %}<button type="button" data-copy-target="lead-source-text-{{ lead.id }}">Copy source text</button>{% endif %}
             <a href="{{ url_for('new_lead_xero_confirm', lead_id=lead.id) }}">Xero contact</a>
@@ -220,7 +243,7 @@
     <details class="utility-card lead-import-panel">
       <summary>Import public-feed JSON</summary>
       <form method="post" action="{{ url_for('new_leads_import') }}" class="form compact-form">
-        <textarea name="leads_json" rows="8" placeholder='[{"business_name":"Example Hotel","source_website":"Public hotel review","source_url":"https://example.com/review/1","date_published":"2026-07-13","summary":"Guest complained about stained carpets","postcode":"SY8 1AA","county":"Shropshire"}]'></textarea>
+        <textarea name="leads_json" rows="8" placeholder='[{"business_name":"Example Hotel","source_website":"Public hotel review","source_url":"https://example.com/search-result","source_direct_url":"https://example.com/review/1","source_screenshot_url":"https://example.com/review-screenshot.png","review_text":"Exact public review text here","date_published":"2026-07-13","summary":"Guest complained about stained carpets","postcode":"SY8 1AA","county":"Shropshire"}]'></textarea>
         <button class="btn secondary" type="submit">Import Leads</button>
       </form>
     </details>

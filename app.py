@@ -4724,6 +4724,30 @@ def lead_source_text_from_candidate(candidate):
     return ""
 
 
+def lead_source_direct_url_from_candidate(candidate):
+    for key in ("source_direct_url", "direct_source_url", "review_url", "post_url", "exact_source_url"):
+        value = clean_str(candidate.get(key))
+        if value:
+            return value
+    return ""
+
+
+def lead_source_screenshot_url_from_candidate(candidate):
+    for key in ("source_screenshot_url", "screenshot_url", "proof_screenshot_url", "review_screenshot_url"):
+        value = clean_str(candidate.get(key))
+        if value:
+            return value
+    return ""
+
+
+def lead_source_verification_note_from_candidate(candidate):
+    for key in ("source_verification_note", "verification_note", "source_note", "proof_note"):
+        value = clean_str(candidate.get(key))
+        if value:
+            return value
+    return ""
+
+
 def lead_source_text_from_row(lead):
     text = clean_str(row_value(lead, "source_text"))
     if text:
@@ -4884,6 +4908,9 @@ def save_public_lead(candidate, discovered_at=None, settings_row=None):
     candidate["lead_type"] = clean_str(candidate.get("lead_type")) or detect_lead_type(text)
     candidate["exact_issue"] = clean_str(candidate.get("exact_issue")) or extract_lead_issue(text)
     candidate["source_text"] = lead_source_text_from_candidate(candidate)
+    candidate["source_direct_url"] = lead_source_direct_url_from_candidate(candidate)
+    candidate["source_screenshot_url"] = lead_source_screenshot_url_from_candidate(candidate)
+    candidate["source_verification_note"] = lead_source_verification_note_from_candidate(candidate)
     candidate["lead_score"] = score_public_lead(candidate, settings_row=settings_row, today=today)
     fingerprint = lead_duplicate_fingerprint(candidate)
     duplicate_type, duplicate_id = lead_existing_match(candidate)
@@ -4902,8 +4929,16 @@ def save_public_lead(candidate, discovered_at=None, settings_row=None):
     if existing_id:
         run("""UPDATE public_leads
                   SET source_website=CASE WHEN ?<>'' THEN ? ELSE source_website END,
+                      business_name=CASE WHEN ?<>'' THEN ? ELSE business_name END,
+                      person_name=CASE WHEN ?<>'' THEN ? ELSE person_name END,
+                      venue_name=CASE WHEN ?<>'' THEN ? ELSE venue_name END,
+                      county=CASE WHEN ?<>'' THEN ? ELSE county END,
+                      location=CASE WHEN ?<>'' THEN ? ELSE location END,
                       source_url=CASE WHEN ?<>'' THEN ? ELSE source_url END,
                       source_uid=CASE WHEN ?<>'' THEN ? ELSE source_uid END,
+                      source_direct_url=CASE WHEN ?<>'' THEN ? ELSE source_direct_url END,
+                      source_screenshot_url=CASE WHEN ?<>'' THEN ? ELSE source_screenshot_url END,
+                      source_verification_note=CASE WHEN ?<>'' THEN ? ELSE source_verification_note END,
                       date_published=CASE WHEN ?<>'' THEN ? ELSE date_published END,
                       date_discovered=?, lead_age_days=?, lead_score=?,
                       exact_issue=CASE WHEN ?<>'' THEN ? ELSE exact_issue END,
@@ -4915,8 +4950,16 @@ def save_public_lead(candidate, discovered_at=None, settings_row=None):
                 WHERE id=?""",
             (
              clean_str(candidate.get("source_website")), clean_str(candidate.get("source_website")),
+             clean_str(candidate.get("business_name")), clean_str(candidate.get("business_name")),
+             clean_str(candidate.get("person_name")), clean_str(candidate.get("person_name")),
+             clean_str(candidate.get("venue_name")), clean_str(candidate.get("venue_name")),
+             clean_str(candidate.get("county")), clean_str(candidate.get("county")),
+             clean_str(candidate.get("location")), clean_str(candidate.get("location")),
              clean_str(candidate.get("source_url")), clean_str(candidate.get("source_url")),
              clean_str(candidate.get("source_uid")), clean_str(candidate.get("source_uid")),
+             candidate["source_direct_url"], candidate["source_direct_url"],
+             candidate["source_screenshot_url"], candidate["source_screenshot_url"],
+             candidate["source_verification_note"], candidate["source_verification_note"],
              published.isoformat() if published else clean_str(candidate.get("date_published")),
              published.isoformat() if published else clean_str(candidate.get("date_published")),
              discovered_at, age, candidate["lead_score"],
@@ -4929,9 +4972,10 @@ def save_public_lead(candidate, discovered_at=None, settings_row=None):
     lead_id = run("""INSERT INTO public_leads(
             business_name, person_name, venue_name, address, postcode, county, website, public_email, public_phone,
             location, latitude, longitude, distance_miles, lead_type, source_website, source_url, source_uid,
+            source_direct_url, source_screenshot_url, source_verification_note,
             date_published, date_discovered, lead_age_days, exact_issue, source_text, summary, lead_score, status,
             previously_contacted, already_exists_crm, already_exists_xero, duplicate_fingerprint, duplicate_of_id, raw_payload_json
-        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
         (
             clean_str(candidate.get("business_name")), clean_str(candidate.get("person_name")), clean_str(candidate.get("venue_name")),
             clean_str(candidate.get("address")), clean_str(candidate.get("postcode")), clean_str(candidate.get("county")),
@@ -4939,6 +4983,7 @@ def save_public_lead(candidate, discovered_at=None, settings_row=None):
             clean_str(candidate.get("location")), clean_str(candidate.get("latitude")), clean_str(candidate.get("longitude")),
             distance if distance is not None else None, candidate["lead_type"], clean_str(candidate.get("source_website")),
             clean_str(candidate.get("source_url")), clean_str(candidate.get("source_uid")),
+            candidate["source_direct_url"], candidate["source_screenshot_url"], candidate["source_verification_note"],
             published.isoformat() if published else clean_str(candidate.get("date_published")), discovered_at, age,
             candidate["exact_issue"], candidate["source_text"], clean_str(candidate.get("summary")), candidate["lead_score"], status,
             0, 1 if duplicate_type == "crm" else 0, 1 if duplicate_type == "xero" else 0, fingerprint, duplicate_id or 0, payload,
@@ -6174,6 +6219,9 @@ def init_db():
         source_website TEXT DEFAULT '',
         source_url TEXT DEFAULT '',
         source_uid TEXT DEFAULT '',
+        source_direct_url TEXT DEFAULT '',
+        source_screenshot_url TEXT DEFAULT '',
+        source_verification_note TEXT DEFAULT '',
         date_published TEXT DEFAULT '',
         date_discovered TEXT DEFAULT '',
         lead_age_days INTEGER DEFAULT 0,
@@ -6337,6 +6385,9 @@ def init_db():
         ("lead_generation_settings", "automatic_emailing", "INTEGER DEFAULT 0"),
         ("lead_generation_settings", "manual_approval_mode", "INTEGER DEFAULT 1"),
         ("public_leads", "source_uid", "TEXT DEFAULT ''"),
+        ("public_leads", "source_direct_url", "TEXT DEFAULT ''"),
+        ("public_leads", "source_screenshot_url", "TEXT DEFAULT ''"),
+        ("public_leads", "source_verification_note", "TEXT DEFAULT ''"),
         ("public_leads", "already_exists_xero", "INTEGER DEFAULT 0"),
         ("public_leads", "duplicate_fingerprint", "TEXT DEFAULT ''"),
         ("public_leads", "duplicate_of_id", "INTEGER DEFAULT 0"),
