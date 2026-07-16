@@ -155,7 +155,8 @@ class PublicLeadTests(unittest.TestCase):
         self.assertGreaterEqual(row["lead_age_days"], 400)
 
     def test_scan_records_blocked_sources_as_unavailable(self):
-        result = self.appmod.run_public_lead_scan()
+        with mock.patch.object(self.appmod, "cqc_direct_report_candidates", return_value=([], {"checked": 0, "rejected": 0})):
+            result = self.appmod.run_public_lead_scan()
         unavailable = self.appmod.q("SELECT COUNT(*) AS c FROM lead_source_status WHERE status='Unavailable'", one=True)["c"]
         self.assertGreater(result["checked"], 0)
         self.assertGreater(unavailable, 0)
@@ -171,7 +172,8 @@ class PublicLeadTests(unittest.TestCase):
             <pubDate>{pub_date}</pubDate>
           </item>
         </channel></rss>"""
-        with mock.patch.object(self.appmod, "http_get_text", return_value=rss):
+        with mock.patch.object(self.appmod, "http_get_text", return_value=rss), \
+             mock.patch.object(self.appmod, "cqc_direct_report_candidates", return_value=([], {"checked": 0, "rejected": 0})):
             result = self.appmod.run_public_lead_scan()
 
         lead = self.appmod.q("SELECT * FROM public_leads WHERE source_website='Live web search RSS candidates'", one=True)
@@ -289,7 +291,8 @@ class PublicLeadTests(unittest.TestCase):
             <pubDate>{pub_date}</pubDate>
           </item>
         </channel></rss>"""
-        with mock.patch.object(self.appmod, "http_get_text", return_value=rss):
+        with mock.patch.object(self.appmod, "http_get_text", return_value=rss), \
+             mock.patch.object(self.appmod, "cqc_direct_report_candidates", return_value=([], {"checked": 0, "rejected": 0})):
             with self.app.test_client() as client:
                 with client.session_transaction() as sess:
                     sess["logged_in"] = True
@@ -300,17 +303,20 @@ class PublicLeadTests(unittest.TestCase):
         self.assertEqual(lead["status"], "Needs Checking")
 
     def test_healthcare_audit_scan_saves_cqc_carpet_lead(self):
-        pub_date = self.appmod.uk_today().strftime("%a, %d %b %Y 10:00:00 GMT")
-        rss = f"""<?xml version="1.0" encoding="utf-8"?>
-        <rss version="2.0"><channel>
-          <item>
-            <title>Maesbrook Nursing Home HTML report for assessment</title>
-            <link>https://www.cqc.org.uk/location/1-112522121/reports/AP21390/overall</link>
-            <description>CQC inspection report noted worn and dirty carpets and dirty upholstery in communal areas.</description>
-            <pubDate>{pub_date}</pubDate>
-          </item>
-        </channel></rss>"""
-        with mock.patch.object(self.appmod, "http_get_text", return_value=rss):
+        candidates = [{
+            "business_name": "Maesbrook Nursing Home",
+            "location": "Shrewsbury",
+            "county": "Shropshire",
+            "lead_type": "Healthcare audit / inspection",
+            "source_website": "CQC inspection reports",
+            "source_url": "https://www.cqc.org.uk/location/1-112522121/reports/AP21390/overall",
+            "source_direct_url": "https://www.cqc.org.uk/location/1-112522121/reports/AP21390/overall",
+            "date_published": self.appmod.uk_today().isoformat(),
+            "source_author": "CQC inspection report",
+            "source_text": "CQC inspection report noted worn and dirty carpets and dirty upholstery in communal areas.",
+            "summary": "CQC inspection report for Maesbrook Nursing Home mentions carpet/upholstery condition.",
+        }]
+        with mock.patch.object(self.appmod, "cqc_direct_report_candidates", return_value=(candidates, {"checked": 1, "rejected": 0})):
             result = self.appmod.run_public_lead_scan(mode="healthcare")
         lead = self.appmod.q("SELECT * FROM public_leads WHERE source_url=?", ("https://www.cqc.org.uk/location/1-112522121/reports/AP21390/overall",), one=True)
         self.assertIsNotNone(lead)
@@ -321,17 +327,18 @@ class PublicLeadTests(unittest.TestCase):
         self.assertGreaterEqual(result["created"], 1)
 
     def test_healthcare_audit_button_runs_search_and_filters_to_cqc(self):
-        pub_date = self.appmod.uk_today().strftime("%a, %d %b %Y 10:00:00 GMT")
-        rss = f"""<?xml version="1.0" encoding="utf-8"?>
-        <rss version="2.0"><channel>
-          <item>
-            <title>CQC inspection report for Telford care home</title>
-            <link>https://www.cqc.org.uk/location/test-healthcare/reports/latest</link>
-            <description>CQC report says dirty carpet and stained chairs were found in the care home.</description>
-            <pubDate>{pub_date}</pubDate>
-          </item>
-        </channel></rss>"""
-        with mock.patch.object(self.appmod, "http_get_text", return_value=rss):
+        candidates = [{
+            "business_name": "Telford Care Home",
+            "location": "Telford",
+            "county": "Shropshire",
+            "lead_type": "Healthcare audit / inspection",
+            "source_website": "CQC inspection reports",
+            "source_url": "https://www.cqc.org.uk/location/test-healthcare/reports/latest",
+            "date_published": self.appmod.uk_today().isoformat(),
+            "source_text": "CQC report says dirty carpet and stained chairs were found in the care home.",
+            "summary": "CQC report mentions carpet and chair condition.",
+        }]
+        with mock.patch.object(self.appmod, "cqc_direct_report_candidates", return_value=(candidates, {"checked": 1, "rejected": 0})):
             with self.app.test_client() as client:
                 with client.session_transaction() as sess:
                     sess["logged_in"] = True
@@ -388,8 +395,9 @@ class PublicLeadTests(unittest.TestCase):
         self.assertEqual(row["review_max_age_days"], 365)
 
     def test_due_lead_generation_check_runs_once_per_day(self):
-        first = self.appmod.run_due_lead_generation_check(force=True)
-        second = self.appmod.run_due_lead_generation_check(force=False)
+        with mock.patch.object(self.appmod, "cqc_direct_report_candidates", return_value=([], {"checked": 0, "rejected": 0})):
+            first = self.appmod.run_due_lead_generation_check(force=True)
+            second = self.appmod.run_due_lead_generation_check(force=False)
         completed = self.appmod.q("SELECT COUNT(*) AS c FROM lead_generation_log WHERE event_type='search_completed'", one=True)["c"]
         self.assertIsNotNone(first)
         self.assertIsNone(second)

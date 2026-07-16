@@ -5218,6 +5218,86 @@ def http_get_text(url, timeout=20):
         return resp.read().decode("utf-8", "replace")
 
 
+def http_get_html(url, timeout=20):
+    req = urllib.request.Request(url, headers={
+        "User-Agent": "Mozilla/5.0 TheCarpetCleaningCompanyCRM/1.0 lead-discovery",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    })
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return resp.read().decode("utf-8", "replace")
+
+
+def html_to_plain_text(html_text):
+    text = re.sub(r"(?is)<(script|style).*?</\1>", " ", html_text or "")
+    text = re.sub(r"(?s)<[^>]+>", " ", text)
+    return re.sub(r"\s+", " ", html_lib.unescape(text)).strip()
+
+
+def issue_excerpt_from_text(text, window=260):
+    text = clean_str(text)
+    lowered = text.lower()
+    issue_terms = [
+        "dirty carpets", "dirty carpet", "worn and dirty carpets", "stained carpet",
+        "stained carpets", "dirty upholstery", "stained upholstery", "stained chairs",
+        "dirty chairs", "carpet in the lounge", "carpets, bed bumpers and wheelchairs",
+        "new carpet", "new carpets",
+    ]
+    hits = [lowered.find(term) for term in issue_terms if lowered.find(term) >= 0]
+    if not hits:
+        return ""
+    index = min(hits)
+    start = max(0, index - window // 2)
+    end = min(len(text), index + window)
+    return text[start:end].strip()
+
+
+def cqc_location_rows_from_search(query, limit=8):
+    url = "https://www.cqc.org.uk/search/all?display=csv&query=" + urllib.parse.quote(query)
+    csv_text = http_get_html(url, timeout=20)
+    rows = []
+    for row in csv.reader(io.StringIO(csv_text)):
+        if len(row) < 12 or row[0] in ("Name", ""):
+            continue
+        source_url = clean_str(row[11])
+        if "/location/" not in source_url:
+            continue
+        rows.append({
+            "name": clean_str(row[0]),
+            "address": ", ".join(clean_str(part) for part in row[1:6] if clean_str(part)),
+            "town": clean_str(row[3]),
+            "county": clean_str(row[4]),
+            "postcode": clean_str(row[5]),
+            "phone": clean_str(row[6]),
+            "website": clean_str(row[7]),
+            "source_url": source_url,
+        })
+        if len(rows) >= int(limit or 8):
+            break
+    return rows
+
+
+def cqc_report_links_for_location(location_url, limit=3):
+    if location_url.startswith("/"):
+        location_url = "https://www.cqc.org.uk" + location_url
+    reports_url = location_url.rstrip("/") + "/reports"
+    html_text = http_get_html(reports_url, timeout=20)
+    links = []
+    for match in re.finditer(r'href="([^"]+)"[^>]*>(.*?)</a>', html_text, re.S):
+        href = html_lib.unescape(match.group(1))
+        label = re.sub(r"\s+", " ", html_to_plain_text(match.group(2)))
+        if "/reports/" not in href:
+            continue
+        if href.startswith("/"):
+            href = "https://www.cqc.org.uk" + href
+        if "api.cqc.org.uk" in href:
+            continue
+        if href not in links:
+            links.append(href)
+        if len(links) >= int(limit or 3):
+            break
+    return links
+
+
 def parse_rss_pub_date(value):
     value = clean_str(value)
     if not value:
@@ -5436,6 +5516,77 @@ def healthcare_audit_rss_candidates(settings_row=None, source_key="cqc_inspectio
     return candidates, {"checked": checked, "rejected": rejected}
 
 
+def cqc_direct_report_candidates(settings_row=None, mode="standard"):
+    places = ["Shropshire", "Telford", "Shrewsbury", "Hereford"]
+    if mode == "wide":
+        places = ["Shropshire", "Herefordshire", "Worcestershire", "Telford", "Shrewsbury", "Hereford", "Ludlow", "Bridgnorth", "Worcester", "Kidderminster"]
+    query_templates = [
+        "dirty carpets nursing home {place}",
+        "dirty carpets {place}",
+        "dirty upholstery care home {place}",
+        "carpet nursing home {place}",
+    ]
+    checked = rejected = 0
+    candidates = []
+    seen_locations = set()
+    seen_reports = set()
+    for place in places:
+        for template in query_templates:
+            query = template.format(place=place)
+            try:
+                row_limit = 12 if "nursing home" in query else 5
+                locations = cqc_location_rows_from_search(query, limit=row_limit)
+            except Exception as exc:
+                log_lead_event("source_error", None, "CQC direct report search", "Error", f"{query}: {exc}")
+                continue
+            for location in locations:
+                location_url = location["source_url"]
+                if location_url in seen_locations:
+                    continue
+                seen_locations.add(location_url)
+                try:
+                    report_links = cqc_report_links_for_location(location_url, limit=1)
+                except Exception as exc:
+                    log_lead_event("source_error", None, "CQC direct report search", "Error", f"{location_url}: {exc}")
+                    continue
+                for report_url in report_links:
+                    if report_url in seen_reports:
+                        continue
+                    seen_reports.add(report_url)
+                    checked += 1
+                    try:
+                        report_html = http_get_html(report_url, timeout=20)
+                    except Exception as exc:
+                        rejected += 1
+                        log_lead_event("source_error", None, "CQC direct report search", "Error", f"{report_url}: {exc}")
+                        continue
+                    report_text = html_to_plain_text(report_html)
+                    excerpt = issue_excerpt_from_text(report_text)
+                    if not excerpt:
+                        rejected += 1
+                        continue
+                    candidates.append({
+                        "business_name": location["name"],
+                        "address": location["address"],
+                        "postcode": location["postcode"],
+                        "public_phone": location["phone"],
+                        "website": location["website"],
+                        "location": location["town"] or place,
+                        "county": location["county"] or (place if place in LEAD_DEFAULT_COUNTIES else ""),
+                        "lead_type": "Healthcare audit / inspection",
+                        "source_website": "CQC inspection reports",
+                        "source_url": report_url,
+                        "source_direct_url": report_url,
+                        "source_uid": normalise_lead_text(report_url)[:180],
+                        "date_published": uk_today().isoformat(),
+                        "exact_issue": extract_lead_issue(excerpt),
+                        "source_author": "CQC inspection report",
+                        "source_text": excerpt,
+                        "summary": f"CQC inspection report for {location['name']} mentions carpet/upholstery condition. Verify the report before contacting.",
+                    })
+    return candidates, {"checked": checked, "rejected": rejected}
+
+
 def run_public_lead_scan(mode="standard"):
     settings_row = lead_scan_settings(mode=mode)
     enabled = {part.strip() for part in clean_str(settings_row["enabled_sources"]).split(",") if part.strip()}
@@ -5471,7 +5622,10 @@ def run_public_lead_scan(mode="standard"):
                 f"{'Wide search: ' if mode == 'wide' else ''}Checked {stats['checked']} RSS result(s); saved {len(candidates)} needs-checking candidate(s); rejected {stats['rejected']} irrelevant/old result(s).",
             )
         elif source.get("collector") == "healthcare_audit_rss":
-            candidates, stats = healthcare_audit_rss_candidates(settings_row=settings_row, source_key=source["key"], mode=mode)
+            if source["key"] == "cqc_inspection_reports":
+                candidates, stats = cqc_direct_report_candidates(settings_row=settings_row, mode=mode)
+            else:
+                candidates, stats = healthcare_audit_rss_candidates(settings_row=settings_row, source_key=source["key"], mode=mode)
             save_candidate_batch(candidates)
             record_lead_source_status(
                 source["key"], source["name"], "Live",
