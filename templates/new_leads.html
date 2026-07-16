@@ -15,6 +15,9 @@
     <form method="post" action="{{ url_for('new_leads_run_wide') }}">
       <button class="btn secondary" type="submit">Run Wider Search</button>
     </form>
+    <form method="post" action="{{ url_for('new_leads_run_healthcare') }}">
+      <button class="btn secondary" type="submit">Run CQC / NHS Audit Search</button>
+    </form>
     <form method="post" action="{{ url_for('new_leads_generate_drafts') }}">
       <input type="hidden" name="status" value="{{ current_status }}">
       <input type="hidden" name="next" value="{{ request.full_path }}">

@@ -5268,7 +5268,23 @@ def is_useful_healthcare_audit_candidate(title, description, link):
         return False
     if not any(term in text for term in issue_terms):
         return False
-    return bool(lead_candidate_location(text))
+    return True
+
+
+def healthcare_audit_query(phrase, place, source_key):
+    phrase_text = normalise_lead_text(phrase)
+    issue = "carpet"
+    if "upholstery" in phrase_text or "chair" in phrase_text:
+        issue = "upholstery"
+    if "dirty" in phrase_text:
+        issue = f"dirty {issue}"
+    elif "stained" in phrase_text:
+        issue = f"stained {issue}"
+    elif "worn" in phrase_text:
+        issue = f"worn {issue}"
+    if source_key == "cqc_inspection_reports":
+        return f'site:cqc.org.uk CQC inspection report "{issue}" "{place}"'
+    return f'("PLACE assessment" OR "Patient Led Assessment" OR "Patient-Led Assessment") "{issue}" "{place}"'
 
 
 def bing_rss_period_for_days(days):
@@ -5378,7 +5394,7 @@ def healthcare_audit_rss_candidates(settings_row=None, source_key="cqc_inspectio
     seen_urls = set()
     for phrase in phrases:
         for place in places:
-            query = f'"{phrase}" "{place}"'
+            query = healthcare_audit_query(phrase, place, source_key)
             url = "https://www.bing.com/search?format=rss&t=" + urllib.parse.quote(period) + "&q=" + urllib.parse.quote(query)
             try:
                 xml_text = http_get_text(url, timeout=15)
@@ -5434,6 +5450,8 @@ def healthcare_audit_rss_candidates(settings_row=None, source_key="cqc_inspectio
 def run_public_lead_scan(mode="standard"):
     settings_row = lead_scan_settings(mode=mode)
     enabled = {part.strip() for part in clean_str(settings_row["enabled_sources"]).split(",") if part.strip()}
+    if mode == "healthcare":
+        enabled = {"cqc_inspection_reports", "nhs_place_assessments"}
     archive_expired_public_leads()
     results = {"created": 0, "updated": 0, "unavailable": 0, "checked": 0, "mode": mode}
 
@@ -10833,6 +10851,17 @@ def new_leads_run_wide():
         f"{result['unavailable']} source(s) still need a compliant API/export."
     )
     return redirect(url_for("new_leads"))
+
+
+@app.route("/new-leads/run-healthcare", methods=["POST"])
+@login_required
+def new_leads_run_healthcare():
+    result = run_public_lead_scan(mode="healthcare")
+    flash(
+        f"CQC / NHS audit search checked {result['checked']} source lanes. "
+        f"Added {result['created']} new healthcare audit lead(s), updated {result['updated']} existing lead(s)."
+    )
+    return redirect(url_for("new_leads", q="CQC", radius=100))
 
 
 @app.route("/new-leads/generate-drafts", methods=["POST"])

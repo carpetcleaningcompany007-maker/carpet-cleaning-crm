@@ -304,20 +304,42 @@ class PublicLeadTests(unittest.TestCase):
         rss = f"""<?xml version="1.0" encoding="utf-8"?>
         <rss version="2.0"><channel>
           <item>
-            <title>CQC inspection report Shrewsbury care home dirty carpet</title>
-            <link>https://cqc.example/reports/shrewsbury-care-home</link>
-            <description>CQC inspection report for a care home in Shrewsbury noted stained carpet and dirty upholstery in communal areas.</description>
+            <title>Maesbrook Nursing Home HTML report for assessment</title>
+            <link>https://www.cqc.org.uk/location/1-112522121/reports/AP21390/overall</link>
+            <description>CQC inspection report noted worn and dirty carpets and dirty upholstery in communal areas.</description>
             <pubDate>{pub_date}</pubDate>
           </item>
         </channel></rss>"""
         with mock.patch.object(self.appmod, "http_get_text", return_value=rss):
-            result = self.appmod.run_public_lead_scan()
-        lead = self.appmod.q("SELECT * FROM public_leads WHERE source_url=?", ("https://cqc.example/reports/shrewsbury-care-home",), one=True)
+            result = self.appmod.run_public_lead_scan(mode="healthcare")
+        lead = self.appmod.q("SELECT * FROM public_leads WHERE source_url=?", ("https://www.cqc.org.uk/location/1-112522121/reports/AP21390/overall",), one=True)
         self.assertIsNotNone(lead)
         self.assertEqual(lead["lead_type"], "Healthcare audit / inspection")
         self.assertEqual(lead["source_website"], "CQC inspection reports")
-        self.assertIn("stained carpet", lead["source_text"])
+        self.assertIn("dirty carpets", lead["source_text"])
+        self.assertTrue(lead["location"])
         self.assertGreaterEqual(result["created"], 1)
+
+    def test_healthcare_audit_button_runs_search_and_filters_to_cqc(self):
+        pub_date = self.appmod.uk_today().strftime("%a, %d %b %Y 10:00:00 GMT")
+        rss = f"""<?xml version="1.0" encoding="utf-8"?>
+        <rss version="2.0"><channel>
+          <item>
+            <title>CQC inspection report for Telford care home</title>
+            <link>https://www.cqc.org.uk/location/test-healthcare/reports/latest</link>
+            <description>CQC report says dirty carpet and stained chairs were found in the care home.</description>
+            <pubDate>{pub_date}</pubDate>
+          </item>
+        </channel></rss>"""
+        with mock.patch.object(self.appmod, "http_get_text", return_value=rss):
+            with self.app.test_client() as client:
+                with client.session_transaction() as sess:
+                    sess["logged_in"] = True
+                response = client.post("/new-leads/run-healthcare")
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("q=CQC", response.headers["Location"])
+        lead = self.appmod.q("SELECT * FROM public_leads WHERE source_url=?", ("https://www.cqc.org.uk/location/test-healthcare/reports/latest",), one=True)
+        self.assertIsNotNone(lead)
 
     def test_new_leads_filter_and_proof_panel_show_source_author(self):
         self.appmod.save_public_lead({
