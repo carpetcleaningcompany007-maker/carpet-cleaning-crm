@@ -5164,6 +5164,7 @@ def run_public_lead_scan(mode="standard"):
                     save_generated_lead_draft(lead_id)
                     results["created"] += 1
                 elif action == "updated":
+                    save_generated_lead_draft(lead_id)
                     results["updated"] += 1
             record_lead_source_status(
                 source["key"], source["name"], "Live",
@@ -5232,7 +5233,7 @@ def ingest_public_leads_json(text):
     for idx, item in enumerate(list(data)[:max_leads], start=1):
         try:
             lead_id, action = save_public_lead(item)
-            if action == "created":
+            if action in ("created", "updated"):
                 save_generated_lead_draft(lead_id)
             results[action] = results.get(action, 0) + 1
         except Exception as exc:

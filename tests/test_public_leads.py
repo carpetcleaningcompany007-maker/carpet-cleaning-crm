@@ -113,6 +113,34 @@ class PublicLeadTests(unittest.TestCase):
         self.assertIn("Source screenshot proof", html)
         self.assertIn("Exact review belongs to Proof Hotel", html)
 
+    def test_imported_source_correction_refreshes_stale_draft(self):
+        lead_id, action = self.appmod.save_public_lead({
+            "business_name": "Old Inn Name",
+            "source_website": "Public hotel review",
+            "source_url": "https://example.test/search-result-correction",
+            "date_published": self.appmod.uk_today().isoformat(),
+            "review_text": "Exact proof review text about dirty carpets.",
+            "summary": "Dirty carpets mentioned in a public review.",
+        })
+        self.assertEqual(action, "created")
+        self.appmod.save_generated_lead_draft(lead_id)
+
+        result = self.appmod.ingest_public_leads_json("""[{
+            "business_name": "Correct Hotel Name",
+            "source_website": "Public hotel review",
+            "source_url": "https://example.test/search-result-correction",
+            "source_direct_url": "https://example.test/reviews/exact-correction",
+            "date_published": "%s",
+            "review_text": "Corrected exact source proof text about dirty carpets.",
+            "summary": "Corrected source proof belongs to the corrected hotel."
+        }]""" % self.appmod.uk_today().isoformat())
+
+        self.assertEqual(result["updated"], 1)
+        row = self.appmod.q("SELECT business_name, draft_message FROM public_leads WHERE id=?", (lead_id,), one=True)
+        self.assertEqual(row["business_name"], "Correct Hotel Name")
+        self.assertIn("Correct Hotel Name", row["draft_message"])
+        self.assertNotIn("Old Inn Name", row["draft_message"])
+
     def test_old_public_post_is_expired(self):
         old_date = (self.appmod.uk_today() - self.appmod.timedelta(days=400)).isoformat()
         lead_id, _ = self.appmod.save_public_lead({
