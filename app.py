@@ -4725,11 +4725,15 @@ def lead_place_coords_from_text(text):
     haystack = lead_location_search_text(text)
     if not haystack:
         return None
-    ordered_places = sorted(LEAD_PLACE_COORDS, key=len, reverse=True)
-    for place in ordered_places:
+    matches = []
+    for place in LEAD_PLACE_COORDS:
         place_key = lead_location_search_text(place)
-        if place_key and place_key in haystack:
-            return LEAD_PLACE_COORDS[place], place.title()
+        index = haystack.find(place_key) if place_key else -1
+        if index >= 0:
+            matches.append((index, -len(place_key), place))
+    if matches:
+        _index, _length, place = sorted(matches)[0]
+        return LEAD_PLACE_COORDS[place], place.title()
     return None
 
 
@@ -4760,12 +4764,12 @@ def lead_map_url_from_query(query):
 
 
 def lead_distance_from_location_text(*parts):
-    text = " ".join(clean_str(part) for part in parts if clean_str(part))
-    match = lead_place_coords_from_text(text)
-    if not match:
-        return None, ""
-    coords, place = match
-    return distance_from_ludlow_miles(coords[0], coords[1]), place
+    for part in parts:
+        match = lead_place_coords_from_text(part)
+        if match:
+            coords, place = match
+            return distance_from_ludlow_miles(coords[0], coords[1]), place
+    return None, ""
 
 
 def enrich_public_lead_for_display(lead):
@@ -4775,14 +4779,14 @@ def enrich_public_lead_for_display(lead):
     row["map_query"] = location_query
     row["map_url"] = lead_map_url_from_query(location_query)
     distance = row.get("distance_miles")
-    approx_place = ""
+    approx_distance, approx_place = lead_distance_from_location_text(
+        row.get("address"), row.get("postcode"), row.get("location"), row.get("county"), row.get("summary")
+    )
     if distance in (None, ""):
-        distance, approx_place = lead_distance_from_location_text(
-            row.get("address"), row.get("postcode"), row.get("location"), row.get("county"), row.get("summary")
-        )
+        distance = approx_distance
     if distance not in (None, ""):
         row["distance_display"] = f"{float(distance):.1f} miles"
-        row["distance_is_approx"] = bool(approx_place and row.get("distance_miles") in (None, ""))
+        row["distance_is_approx"] = bool(approx_place and not (row.get("latitude") and row.get("longitude")))
         row["distance_basis"] = approx_place
     else:
         row["distance_display"] = "Distance unknown"

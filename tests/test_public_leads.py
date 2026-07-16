@@ -235,6 +235,22 @@ class PublicLeadTests(unittest.TestCase):
         self.assertIn("Hereford", html)
         self.assertIn("Coleford", html)
 
+    def test_location_distance_prefers_place_before_county(self):
+        lead_id, _ = self.appmod.save_public_lead({
+            "business_name": "Forest Venue",
+            "source_website": "Public hotel review",
+            "source_url": "https://example.test/reviews/forest-location",
+            "date_published": self.appmod.uk_today().isoformat(),
+            "location": "Coleford / Forest of Dean",
+            "county": "Gloucestershire",
+            "review_text": "Exact source text about dirty carpets.",
+            "summary": "Dirty carpets mentioned in a public review.",
+        })
+        row = self.appmod.q("SELECT * FROM public_leads WHERE id=?", (lead_id,), one=True)
+        display = self.appmod.enrich_public_lead_for_display(row)
+        self.assertIn(display["distance_basis"], ("Coleford", "Forest Of Dean"))
+        self.assertNotEqual(display["distance_basis"], "Gloucestershire")
+
     def test_refresh_sources_backfills_from_raw_payload_and_regenerates_drafts(self):
         lead_id, _ = self.appmod.save_public_lead({
             "business_name": "Backfill Pub",
