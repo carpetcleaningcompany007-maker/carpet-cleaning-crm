@@ -132,8 +132,6 @@ LEAD_PUBLIC_SOURCES = [
     {"key": "reddit", "name": "Reddit", "requires_api": False},
     {"key": "community_forums", "name": "Local community forums", "requires_api": False},
     {"key": "business_review_sites", "name": "Public business review websites", "requires_api": True},
-    {"key": "cqc_inspection_reports", "name": "CQC inspection reports", "requires_api": False, "collector": "healthcare_audit_rss"},
-    {"key": "nhs_place_assessments", "name": "NHS PLACE assessments", "requires_api": False, "collector": "healthcare_audit_rss"},
 ]
 
 LEAD_LOCAL_SEARCH_PLACES = [
@@ -4695,10 +4693,10 @@ def lead_generation_settings():
     row = q("SELECT * FROM lead_generation_settings WHERE id=1", one=True)
     if row:
         enabled = {part.strip() for part in clean_str(row["enabled_sources"]).split(",") if part.strip()}
-        required_sources = {"live_search_rss", "cqc_inspection_reports", "nhs_place_assessments"}
-        if not required_sources.issubset(enabled):
-            enabled.update(required_sources)
-            run("UPDATE lead_generation_settings SET enabled_sources=? WHERE id=1", (",".join(source["key"] for source in LEAD_PUBLIC_SOURCES if source["key"] in enabled),))
+        allowed_sources = {source["key"] for source in LEAD_PUBLIC_SOURCES}
+        cleaned_enabled = [source["key"] for source in LEAD_PUBLIC_SOURCES if source["key"] in enabled or source["key"] == "live_search_rss"]
+        if enabled - allowed_sources or set(cleaned_enabled) != enabled:
+            run("UPDATE lead_generation_settings SET enabled_sources=? WHERE id=1", (",".join(cleaned_enabled),))
             row = q("SELECT * FROM lead_generation_settings WHERE id=1", one=True)
         return row
     return {
@@ -6646,7 +6644,7 @@ def init_db():
         post_max_age_days INTEGER DEFAULT 180,
         review_max_age_days INTEGER DEFAULT 180,
         selected_date_range_days INTEGER DEFAULT 180,
-        enabled_sources TEXT DEFAULT 'live_search_rss,google_reviews,google_maps_reviews,hotel_reviews,pub_reviews,inn_reviews,facebook_public_posts,reddit,community_forums,business_review_sites,cqc_inspection_reports,nhs_place_assessments',
+        enabled_sources TEXT DEFAULT 'live_search_rss,google_reviews,google_maps_reviews,hotel_reviews,pub_reviews,inn_reviews,facebook_public_posts,reddit,community_forums,business_review_sites',
         excluded_locations TEXT DEFAULT '',
         search_frequency TEXT DEFAULT 'Daily',
         maximum_leads_per_day INTEGER DEFAULT 25,
@@ -6833,7 +6831,7 @@ def init_db():
         ("future_reminders", "reminder_type", "TEXT DEFAULT 'Follow up'"),
         ("future_reminders", "completed_at", "TEXT DEFAULT ''"),
         ("lead_generation_settings", "selected_date_range_days", "INTEGER DEFAULT 90"),
-        ("lead_generation_settings", "enabled_sources", "TEXT DEFAULT 'live_search_rss,google_reviews,google_maps_reviews,hotel_reviews,pub_reviews,inn_reviews,facebook_public_posts,reddit,community_forums,business_review_sites,cqc_inspection_reports,nhs_place_assessments'"),
+        ("lead_generation_settings", "enabled_sources", "TEXT DEFAULT 'live_search_rss,google_reviews,google_maps_reviews,hotel_reviews,pub_reviews,inn_reviews,facebook_public_posts,reddit,community_forums,business_review_sites'"),
         ("lead_generation_settings", "excluded_locations", "TEXT DEFAULT ''"),
         ("lead_generation_settings", "search_frequency", "TEXT DEFAULT 'Daily'"),
         ("lead_generation_settings", "maximum_leads_per_day", "INTEGER DEFAULT 25"),
@@ -10994,17 +10992,6 @@ def new_leads_run_wide():
         f"{result['unavailable']} source(s) still need a compliant API/export."
     )
     return redirect(url_for("new_leads"))
-
-
-@app.route("/new-leads/run-healthcare", methods=["POST"])
-@login_required
-def new_leads_run_healthcare():
-    result = run_public_lead_scan(mode="healthcare")
-    flash(
-        f"CQC / NHS audit search checked {result['checked']} source lanes. "
-        f"Added {result['created']} new healthcare audit lead(s), updated {result['updated']} existing lead(s)."
-    )
-    return redirect(url_for("new_leads", q="CQC", radius=100))
 
 
 @app.route("/new-leads/generate-drafts", methods=["POST"])

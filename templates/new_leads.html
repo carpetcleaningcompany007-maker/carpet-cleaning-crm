@@ -15,9 +15,6 @@
     <form method="post" action="{{ url_for('new_leads_run_wide') }}">
       <button class="btn secondary" type="submit">Run Wider Search</button>
     </form>
-    <form method="post" action="{{ url_for('new_leads_run_healthcare') }}">
-      <button class="btn secondary" type="submit">Run CQC / NHS Audit Search</button>
-    </form>
     <form method="post" action="{{ url_for('new_leads_generate_drafts') }}">
       <input type="hidden" name="status" value="{{ current_status }}">
       <input type="hidden" name="next" value="{{ request.full_path }}">
@@ -67,8 +64,6 @@
         <a href="{{ url_for('new_leads', status=current_status, q='Hereford', radius=60) }}">Hereford</a>
         <a href="{{ url_for('new_leads', status=current_status, q='hotel', radius=75) }}">Hotels</a>
         <a href="{{ url_for('new_leads', status=current_status, q='pub', radius=75) }}">Pubs</a>
-        <a href="{{ url_for('new_leads', status=current_status, q='CQC', radius=75) }}">CQC reports</a>
-        <a href="{{ url_for('new_leads', status=current_status, q='PLACE', radius=100) }}">NHS PLACE</a>
       </div>
     </form>
 

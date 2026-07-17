@@ -302,51 +302,15 @@ class PublicLeadTests(unittest.TestCase):
         self.assertIsNotNone(lead)
         self.assertEqual(lead["status"], "Needs Checking")
 
-    def test_healthcare_audit_scan_saves_cqc_carpet_lead(self):
-        candidates = [{
-            "business_name": "Maesbrook Nursing Home",
-            "location": "Shrewsbury",
-            "county": "Shropshire",
-            "lead_type": "Healthcare audit / inspection",
-            "source_website": "CQC inspection reports",
-            "source_url": "https://www.cqc.org.uk/location/1-112522121/reports/AP21390/overall",
-            "source_direct_url": "https://www.cqc.org.uk/location/1-112522121/reports/AP21390/overall",
-            "date_published": self.appmod.uk_today().isoformat(),
-            "source_author": "CQC inspection report",
-            "source_text": "CQC inspection report noted worn and dirty carpets and dirty upholstery in communal areas.",
-            "summary": "CQC inspection report for Maesbrook Nursing Home mentions carpet/upholstery condition.",
-        }]
-        with mock.patch.object(self.appmod, "cqc_direct_report_candidates", return_value=(candidates, {"checked": 1, "rejected": 0})):
-            result = self.appmod.run_public_lead_scan(mode="healthcare")
-        lead = self.appmod.q("SELECT * FROM public_leads WHERE source_url=?", ("https://www.cqc.org.uk/location/1-112522121/reports/AP21390/overall",), one=True)
-        self.assertIsNotNone(lead)
-        self.assertEqual(lead["lead_type"], "Healthcare audit / inspection")
-        self.assertEqual(lead["source_website"], "CQC inspection reports")
-        self.assertIn("dirty carpets", lead["source_text"])
-        self.assertTrue(lead["location"])
-        self.assertGreaterEqual(result["created"], 1)
-
-    def test_healthcare_audit_button_runs_search_and_filters_to_cqc(self):
-        candidates = [{
-            "business_name": "Telford Care Home",
-            "location": "Telford",
-            "county": "Shropshire",
-            "lead_type": "Healthcare audit / inspection",
-            "source_website": "CQC inspection reports",
-            "source_url": "https://www.cqc.org.uk/location/test-healthcare/reports/latest",
-            "date_published": self.appmod.uk_today().isoformat(),
-            "source_text": "CQC report says dirty carpet and stained chairs were found in the care home.",
-            "summary": "CQC report mentions carpet and chair condition.",
-        }]
-        with mock.patch.object(self.appmod, "cqc_direct_report_candidates", return_value=(candidates, {"checked": 1, "rejected": 0})):
-            with self.app.test_client() as client:
-                with client.session_transaction() as sess:
-                    sess["logged_in"] = True
-                response = client.post("/new-leads/run-healthcare")
-        self.assertEqual(response.status_code, 302)
-        self.assertIn("q=CQC", response.headers["Location"])
-        lead = self.appmod.q("SELECT * FROM public_leads WHERE source_url=?", ("https://www.cqc.org.uk/location/test-healthcare/reports/latest",), one=True)
-        self.assertIsNotNone(lead)
+    def test_healthcare_audit_button_is_removed(self):
+        with self.app.test_client() as client:
+            with client.session_transaction() as sess:
+                sess["logged_in"] = True
+            response = client.post("/new-leads/run-healthcare")
+            page = client.get("/new-leads")
+        self.assertEqual(response.status_code, 404)
+        html = page.get_data(as_text=True)
+        self.assertNotIn("Run CQC / NHS Audit Search", html)
 
     def test_new_leads_filter_and_proof_panel_show_source_author(self):
         self.appmod.save_public_lead({
@@ -370,7 +334,7 @@ class PublicLeadTests(unittest.TestCase):
         self.assertIn("CQC inspector", html)
         self.assertIn("Inspection report says the lounge carpet was stained", html)
         self.assertIn("Distance from Ludlow", html)
-        self.assertIn("CQC reports", html)
+        self.assertNotIn("CQC reports", html)
 
     def test_lead_settings_accept_twelve_month_search_window(self):
         with self.app.test_client() as client:
