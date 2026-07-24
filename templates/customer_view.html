@@ -163,8 +163,20 @@
         </form>
         <form method="post" action="{{ url_for('customer_send_message_template', customer_id=customer.id) }}">
           <input type="hidden" name="template_key" value="{{ item.key }}">
+          <input type="hidden" name="channel" value="email">
+          <input type="hidden" name="test_mode" value="1">
+          <button class="btn secondary btn-small" type="submit">Test Email to Me</button>
+        </form>
+        <form method="post" action="{{ url_for('customer_send_message_template', customer_id=customer.id) }}">
+          <input type="hidden" name="template_key" value="{{ item.key }}">
           <input type="hidden" name="channel" value="sms">
           <button class="btn primary btn-small" type="submit" {% if not customer.phone or customer.sms_opt_out %}disabled{% endif %}>Send SMS / Text</button>
+        </form>
+        <form method="post" action="{{ url_for('customer_send_message_template', customer_id=customer.id) }}">
+          <input type="hidden" name="template_key" value="{{ item.key }}">
+          <input type="hidden" name="channel" value="sms">
+          <input type="hidden" name="test_mode" value="1">
+          <button class="btn secondary btn-small" type="submit">Test SMS to Me</button>
         </form>
       </div>
     </div>
@@ -358,9 +370,7 @@
         {% endfor %}
       </div>
       <div class="stage-current-action">
-        {% if not customer.xero_contact_id %}
-          <p class="muted">Upload the customer to Xero in Stage 2 before sending confirmations.</p>
-        {% elif customer_hub.stages[2].sent_done %}
+        {% if customer_hub.stages[2].sent_done %}
           <div class="stage-done-banner"><span class="stage-check-mark">&#10003;</span><span>Booking confirmation has already been sent.</span></div>
           <p class="stage-helper-note">Preview, test, or deliberately resend the booking confirmation below if you need to.</p>
           {% for item in customer_hub.stages[2].templates %}

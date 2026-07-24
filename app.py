@@ -7544,6 +7544,7 @@ def customer_hub_stage_context(customer, quotes=None, jobs=None, invoices=None, 
     job_time_ready = bool(latest_job and clean_str(row_value(latest_job, "job_time")))
     xero_ready = bool(clean_str(row_value(customer, "xero_contact_id")) or clean_str(row_value(latest_intake, "xero_contact_id")))
     booking_sent = communication_matches(communications, "booking confirmation", "your carpet clean is booked in")
+    on_way_sent = communication_matches(communications, "we are on our way", "on my way", "on our way")
     thank_you_sent = communication_matches(communications, "thank you")
     review_sent = communication_matches(communications, "review request", "google review")
     maintenance_sent = communication_matches(communications, "maintenance reminder", "rebook", "book in again", "while since your last clean")
@@ -7592,7 +7593,7 @@ def customer_hub_stage_context(customer, quotes=None, jobs=None, invoices=None, 
             "sent": [
                 f"Xero ContactID: {clean_str(row_value(customer, 'xero_contact_id')) or clean_str(row_value(latest_intake, 'xero_contact_id'))}" if xero_ready else "Not uploaded to Xero yet",
             ],
-            "template_keys": ["carpet_cleaning_options_guide_email"],
+            "template_keys": [],
         },
         {
             "number": 3,
@@ -7610,29 +7611,30 @@ def customer_hub_stage_context(customer, quotes=None, jobs=None, invoices=None, 
             "sent": [
                 "Booking confirmation sent" if booking_sent else "Booking confirmation not sent",
             ],
-            "template_keys": ["booking_confirmation_email", "today_run_reminder_email", "today_run_coming_email"],
+            "template_keys": ["booking_confirmation_email"],
             "sent_key": "booking_confirmation",
             "sent_done": booking_sent,
         },
         {
             "number": 4,
-            "title": "Complete the job",
-            "subtitle": "Use this once the work has been carried out.",
+            "title": "Job day messages and completion",
+            "subtitle": "Send the on-my-way message when travelling to the customer, then complete the job.",
             "href": "#stage-current-action",
             "action_href": url_for("job_view", job_id=row_value(latest_job, "id")) if latest_job else "#customer-sales",
             "action_label": "Open job" if latest_job else "Create job first",
             "items": [
                 yes_no_done("Job booked", job_ready, "No job"),
+                yes_no_done("On-my-way message sent", on_way_sent, "Not sent"),
                 yes_no_done("Job completed", completed, "Not completed"),
                 yes_no_done("Thank-you sent", thank_you_sent, "Not sent"),
             ],
             "sent": [
+                "On-my-way message sent" if on_way_sent else "On-my-way message not sent",
                 f"Job status: {clean_str(row_value(latest_job, 'status')) or 'Not set'}" if latest_job else "No job status yet",
-                "Thank-you sent" if thank_you_sent else "Thank-you not sent",
             ],
-            "template_keys": [],
-            "sent_key": "thank_you",
-            "sent_done": thank_you_sent,
+            "template_keys": ["today_run_coming_email", "thank_you_message"],
+            "sent_key": "on_way",
+            "sent_done": on_way_sent,
         },
         {
             "number": 5,
