@@ -29,7 +29,7 @@ import threading
 import math
 from difflib import SequenceMatcher
 
-from flask import Flask, render_template, request, redirect, url_for, flash, session, g, Response, send_file, send_from_directory, has_request_context
+from flask import Flask, render_template, request, redirect, url_for, flash, session, g, Response, send_file, send_from_directory, has_request_context, jsonify
 from itsdangerous import BadSignature, URLSafeSerializer
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -47,6 +47,11 @@ XERO_CONNECTIONS_URL = "https://api.xero.com/connections"
 XERO_CONTACTS_URL = "https://api.xero.com/api.xro/2.0/Contacts"
 XERO_INVOICES_URL = "https://api.xero.com/api.xro/2.0/Invoices"
 XERO_PAYMENTS_URL = "https://api.xero.com/api.xro/2.0/Payments"
+GOOGLE_AUTHORIZE_URL = "https://accounts.google.com/o/oauth2/v2/auth"
+GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
+GOOGLE_CALENDAR_API_URL = "https://www.googleapis.com/calendar/v3"
+GOOGLE_CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar"
+GOOGLE_CALENDAR_TIMEZONE = "Europe/London"
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("carpet_crm")
 
@@ -2945,6 +2950,10 @@ def inject_layout_globals():
         biz = settings()
     except Exception:
         biz = {}
+    try:
+        google_connected = bool(google_calendar_token_row()) if google_calendar_is_configured() else False
+    except Exception:
+        google_connected = False
     return {
         'biz': biz,
         'app_settings': biz,
@@ -2952,6 +2961,8 @@ def inject_layout_globals():
         'whatsapp_phone': whatsapp_phone,
         'friendly_xero_error': friendly_xero_error,
         'booking_time_options': BOOKING_TIME_OPTIONS,
+        'google_calendar_configured': google_calendar_is_configured(),
+        'google_calendar_connected': google_connected,
     }
 
 
@@ -6368,6 +6379,12 @@ def init_db():
         service_type TEXT,
         job_date TEXT,
         job_time TEXT,
+        job_end_time TEXT DEFAULT '',
+        job_duration_minutes INTEGER DEFAULT 120,
+        add_to_google_calendar INTEGER DEFAULT 0,
+        google_calendar_event_id TEXT DEFAULT '',
+        google_calendar_synced_at TEXT DEFAULT '',
+        google_calendar_sync_error TEXT DEFAULT '',
         status TEXT DEFAULT 'Booked',
         amount REAL DEFAULT 0,
         assigned_to TEXT,
@@ -6559,6 +6576,14 @@ def init_db():
         expires_at INTEGER DEFAULT 0,
         tenant_id TEXT,
         token_json TEXT,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS google_calendar_tokens (
+        id INTEGER PRIMARY KEY CHECK (id=1),
+        access_token TEXT DEFAULT '',
+        refresh_token TEXT DEFAULT '',
+        expires_at INTEGER DEFAULT 0,
+        token_json TEXT DEFAULT '',
         updated_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
     CREATE TABLE IF NOT EXISTS customer_feedback (
@@ -6830,6 +6855,12 @@ def init_db():
         ("customers", "review_request_sent_at", "TEXT DEFAULT ''"),
         ("customers", "workflow_history", "TEXT DEFAULT '[]'"),
         ("jobs", "job_time", "TEXT DEFAULT ''"),
+        ("jobs", "job_end_time", "TEXT DEFAULT ''"),
+        ("jobs", "job_duration_minutes", "INTEGER DEFAULT 120"),
+        ("jobs", "add_to_google_calendar", "INTEGER DEFAULT 0"),
+        ("jobs", "google_calendar_event_id", "TEXT DEFAULT ''"),
+        ("jobs", "google_calendar_synced_at", "TEXT DEFAULT ''"),
+        ("jobs", "google_calendar_sync_error", "TEXT DEFAULT ''"),
         ("invoices", "reminder_count", "INTEGER DEFAULT 0"),
         ("invoices", "last_reminder_sent_at", "TEXT"),
         ("invoices", "xero_invoice_id", "TEXT DEFAULT ''"),
@@ -8413,6 +8444,11 @@ def customer_view(customer_id):
         "phone": clean_str(request.args.get("form_phone")) or clean_str(row_value(customer, "phone")),
         "preferred_date": clean_str(request.args.get("preferred_date")) or clean_str(row_value(latest_job, "job_date")),
         "preferred_time": clean_str(request.args.get("preferred_time")) or clean_str(row_value(latest_job, "job_time")) or "09:30",
+        "job_end_time": clean_str(row_value(latest_job, "job_end_time")),
+        "job_duration_minutes": int(row_value(latest_job, "job_duration_minutes") or 120),
+        "add_to_google_calendar": bool(row_value(latest_job, "add_to_google_calendar")),
+        "google_calendar_event_id": clean_str(row_value(latest_job, "google_calendar_event_id")),
+        "google_calendar_sync_error": clean_str(row_value(latest_job, "google_calendar_sync_error")),
         "preferred_days_times": clean_str(request.args.get("preferred_days_times")) or clean_str(row_value(latest_job, "notes")),
         "agreed_quote_price": clean_str(request.args.get("agreed_quote_price")) or (("%.2f" % float(row_value(latest_job, "amount") or 0)) if latest_job and float(row_value(latest_job, "amount") or 0) > 0 else ""),
     }
@@ -8452,6 +8488,12 @@ def customer_save_booking_details(customer_id):
     phone = clean_str(request.form.get("phone"))
     preferred_date = clean_str(request.form.get("preferred_date"))
     preferred_time = clean_str(request.form.get("preferred_time")) or "09:30"
+    job_end_time = clean_str(request.form.get("job_end_time"))
+    try:
+        job_duration_minutes = max(15, min(1440, int(request.form.get("job_duration_minutes") or 120)))
+    except (TypeError, ValueError):
+        job_duration_minutes = 120
+    add_to_google_calendar = 1 if (request.form.get("add_to_google_calendar") or request.form.get("save_and_sync")) else 0
     booking_note = clean_str(request.form.get("preferred_days_times"))
     try:
         agreed_quote_price = parse_money(request.form.get("agreed_quote_price"), 0)
@@ -8471,22 +8513,31 @@ def customer_save_booking_details(customer_id):
     latest_job = latest_customer_job(customer_id)
     job_title = "Carpet cleaning"
     if latest_job:
-        run("""UPDATE jobs SET job_date=?, job_time=?, amount=?, notes=? WHERE id=?""", (
+        run("""UPDATE jobs SET job_date=?, job_time=?, job_end_time=?, job_duration_minutes=?,
+               add_to_google_calendar=?, amount=?, notes=? WHERE id=?""", (
             preferred_date,
             preferred_time,
+            job_end_time,
+            job_duration_minutes,
+            add_to_google_calendar,
             agreed_quote_price,
             booking_note,
             row_value(latest_job, "id"),
         ))
         job_id = row_value(latest_job, "id")
     else:
-        job_id = run("""INSERT INTO jobs(customer_id, title, service_type, job_date, job_time, status, amount, assigned_to, notes)
-                        VALUES (?,?,?,?,?,?,?,?,?)""", (
+        job_id = run("""INSERT INTO jobs(customer_id, title, service_type, job_date, job_time,
+                        job_end_time, job_duration_minutes, add_to_google_calendar,
+                        status, amount, assigned_to, notes)
+                        VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""", (
             customer_id,
             job_title,
             "Carpet cleaning",
             preferred_date,
             preferred_time,
+            job_end_time,
+            job_duration_minutes,
+            add_to_google_calendar,
             "Booked" if preferred_date or preferred_time or agreed_quote_price > 0 else "Lead",
             agreed_quote_price,
             "",
@@ -8498,6 +8549,12 @@ def customer_save_booking_details(customer_id):
     ))
     if preferred_date or preferred_time or agreed_quote_price > 0:
         set_customer_workflow(customer_id, "job_booked", "Booking details saved from Customer Hub.", "Job details saved")
+    sync_message = ""
+    refreshed_job = q("SELECT * FROM jobs WHERE id=?", (job_id,), one=True)
+    should_sync = bool(add_to_google_calendar or clean_str(row_value(refreshed_job, "google_calendar_event_id")))
+    if should_sync:
+        ok, sync_message = sync_job_to_google_calendar(job_id)
+        flash(("Google Calendar updated. " if ok else "Calendar not updated: ") + sync_message)
     flash("Booking details saved. Nothing was sent to the customer.")
     redirect_values = {
         "booking_saved": "1",
@@ -9579,9 +9636,17 @@ def job_edit(job_id):
     if status == "Archived":
         flash("Use the Archive button to archive a job.")
         return redirect(url_for("job_view", job_id=job_id))
-    run("""UPDATE jobs SET title=?, service_type=?, job_date=?, job_time=?, status=?, amount=?, assigned_to=?, notes=? WHERE id=?""", (
+    try:
+        duration_minutes = max(15, min(1440, int(request.form.get("job_duration_minutes") or 120)))
+    except (TypeError, ValueError):
+        duration_minutes = 120
+    add_to_google_calendar = 1 if request.form.get("add_to_google_calendar") else 0
+    existing = q("SELECT google_calendar_event_id FROM jobs WHERE id=?", (job_id,), one=True)
+    run("""UPDATE jobs SET title=?, service_type=?, job_date=?, job_time=?, job_end_time=?,
+           job_duration_minutes=?, add_to_google_calendar=?, status=?, amount=?, assigned_to=?, notes=? WHERE id=?""", (
         title, clean_str(request.form.get("service_type")), clean_str(request.form.get("job_date")),
         clean_str(request.form.get("job_time")),
+        clean_str(request.form.get("job_end_time")), duration_minutes, add_to_google_calendar,
         status, amount, clean_str(request.form.get("assigned_to")),
         clean_str(request.form.get("notes")), job_id
     ))
@@ -9592,6 +9657,9 @@ def job_edit(job_id):
             set_customer_workflow(job["customer_id"], "job_booked", "Job details updated.", "Job booked")
         elif status_key == "completed":
             set_customer_workflow(job["customer_id"], "job_completed", "Job marked completed.", "Job completed")
+    if add_to_google_calendar or clean_str(row_value(existing, "google_calendar_event_id")):
+        ok, message = sync_job_to_google_calendar(job_id)
+        flash(("Google Calendar updated. " if ok else "Calendar not updated: ") + message)
     flash("Job updated.")
     return redirect(url_for("job_view", job_id=job_id))
 
@@ -11685,6 +11753,534 @@ def xero_config():
 def xero_is_configured():
     client_id, client_secret, _redirect_uri = xero_config()
     return bool(client_id and client_secret)
+
+
+def google_calendar_credentials():
+    return (
+        os.environ.get("GOOGLE_CALENDAR_CLIENT_ID", "").strip(),
+        os.environ.get("GOOGLE_CALENDAR_CLIENT_SECRET", "").strip(),
+    )
+
+
+def google_calendar_is_configured():
+    client_id, client_secret = google_calendar_credentials()
+    return bool(client_id and client_secret)
+
+
+def google_calendar_id():
+    return os.environ.get("GOOGLE_CALENDAR_ID", "primary").strip() or "primary"
+
+
+def google_calendar_token_row():
+    return q("SELECT * FROM google_calendar_tokens WHERE id=1", one=True)
+
+
+def save_google_calendar_token(payload):
+    existing = google_calendar_token_row()
+    refresh_token = clean_str(payload.get("refresh_token")) or clean_str(row_value(existing, "refresh_token"))
+    expires_at = int(time.time()) + int(payload.get("expires_in") or 3600)
+    run(
+        """INSERT OR REPLACE INTO google_calendar_tokens
+           (id, access_token, refresh_token, expires_at, token_json, updated_at)
+           VALUES (1,?,?,?,?,datetime('now'))""",
+        (
+            clean_str(payload.get("access_token")),
+            refresh_token,
+            expires_at,
+            json.dumps(payload),
+        ),
+    )
+
+
+def google_calendar_token_request(data):
+    encoded = urllib.parse.urlencode(data).encode("utf-8")
+    req = urllib.request.Request(
+        GOOGLE_TOKEN_URL,
+        data=encoded,
+        method="POST",
+        headers={"Content-Type": "application/x-www-form-urlencoded", "Accept": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=30) as response:
+            return json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"Google Calendar authentication failed: {body}") from exc
+
+
+def google_calendar_access_token():
+    row = google_calendar_token_row()
+    if not row or not clean_str(row_value(row, "access_token")):
+        raise RuntimeError("Google Calendar is not connected.")
+    if int(row_value(row, "expires_at") or 0) > int(time.time()) + 90:
+        return clean_str(row_value(row, "access_token"))
+    refresh_token = clean_str(row_value(row, "refresh_token"))
+    if not refresh_token:
+        raise RuntimeError("Google Calendar access expired. Reconnect Google Calendar.")
+    client_id, client_secret = google_calendar_credentials()
+    payload = google_calendar_token_request(
+        {
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "refresh_token": refresh_token,
+            "grant_type": "refresh_token",
+        }
+    )
+    save_google_calendar_token(payload)
+    return clean_str(payload.get("access_token"))
+
+
+def google_calendar_api_request(method, path, payload=None, query=None):
+    calendar_id = urllib.parse.quote(google_calendar_id(), safe="")
+    api_path = path.format(calendar_id=calendar_id)
+    url = GOOGLE_CALENDAR_API_URL + api_path
+    if query:
+        url += "?" + urllib.parse.urlencode(query, doseq=True)
+    body = json.dumps(payload).encode("utf-8") if payload is not None else None
+    req = urllib.request.Request(
+        url,
+        data=body,
+        method=method,
+        headers={
+            "Authorization": f"Bearer {google_calendar_access_token()}",
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=30) as response:
+            raw = response.read().decode("utf-8")
+            return json.loads(raw) if raw else {}
+    except urllib.error.HTTPError as exc:
+        body_text = exc.read().decode("utf-8", errors="replace")
+        error = RuntimeError(f"Google Calendar request failed ({exc.code}): {body_text}")
+        error.status_code = exc.code
+        raise error from exc
+
+
+def booking_clock(value):
+    text = clean_str(value)
+    named = {"morning": (9, 0), "afternoon": (13, 0)}
+    if text.lower() in named:
+        return named[text.lower()]
+    if text.lower() in {"time to be confirmed", "to be confirmed", "tbc"}:
+        raise ValueError("Choose an exact start time before adding this booking to Google Calendar.")
+    match = re.fullmatch(r"([01]?\d|2[0-3]):([0-5]\d)", text)
+    if not match:
+        raise ValueError("Choose a valid booking start time.")
+    return int(match.group(1)), int(match.group(2))
+
+
+def booking_datetime_range(job_date, start_time, end_time="", duration_minutes=120):
+    parsed_date = parse_iso_date(job_date)
+    if not parsed_date:
+        raise ValueError("Choose a job date before using Google Calendar.")
+    start_hour, start_minute = booking_clock(start_time)
+    start = datetime(
+        parsed_date.year,
+        parsed_date.month,
+        parsed_date.day,
+        start_hour,
+        start_minute,
+        tzinfo=ZoneInfo(GOOGLE_CALENDAR_TIMEZONE),
+    )
+    if clean_str(end_time):
+        end_hour, end_minute = booking_clock(end_time)
+        end = datetime(
+            parsed_date.year,
+            parsed_date.month,
+            parsed_date.day,
+            end_hour,
+            end_minute,
+            tzinfo=ZoneInfo(GOOGLE_CALENDAR_TIMEZONE),
+        )
+        if end <= start:
+            raise ValueError("Finish time must be later than the start time.")
+    else:
+        try:
+            minutes = int(duration_minutes or 120)
+        except (TypeError, ValueError):
+            minutes = 120
+        minutes = max(15, min(1440, minutes))
+        end = start + timedelta(minutes=minutes)
+    return start, end
+
+
+def google_calendar_list_events(day_value):
+    parsed_day = parse_iso_date(day_value)
+    if not parsed_day:
+        raise ValueError("Choose a valid date.")
+    start = datetime(parsed_day.year, parsed_day.month, parsed_day.day, tzinfo=ZoneInfo(GOOGLE_CALENDAR_TIMEZONE))
+    end = start + timedelta(days=1)
+    result = google_calendar_api_request(
+        "GET",
+        "/calendars/{calendar_id}/events",
+        query={
+            "timeMin": start.isoformat(),
+            "timeMax": end.isoformat(),
+            "singleEvents": "true",
+            "orderBy": "startTime",
+            "maxResults": 100,
+            "timeZone": GOOGLE_CALENDAR_TIMEZONE,
+        },
+    )
+    return list(result.get("items") or [])
+
+
+def google_event_range(event):
+    start_data = event.get("start") or {}
+    end_data = event.get("end") or {}
+    if start_data.get("dateTime"):
+        start = datetime.fromisoformat(start_data["dateTime"].replace("Z", "+00:00"))
+        end = datetime.fromisoformat(end_data["dateTime"].replace("Z", "+00:00"))
+        return start.astimezone(ZoneInfo(GOOGLE_CALENDAR_TIMEZONE)), end.astimezone(ZoneInfo(GOOGLE_CALENDAR_TIMEZONE))
+    if start_data.get("date"):
+        start_date = parse_iso_date(start_data["date"])
+        end_date = parse_iso_date(end_data.get("date")) or (start_date + timedelta(days=1))
+        return (
+            datetime(start_date.year, start_date.month, start_date.day, tzinfo=ZoneInfo(GOOGLE_CALENDAR_TIMEZONE)),
+            datetime(end_date.year, end_date.month, end_date.day, tzinfo=ZoneInfo(GOOGLE_CALENDAR_TIMEZONE)),
+        )
+    return None, None
+
+
+def google_calendar_conflicts(events, proposed_start, proposed_end, exclude_event_id=""):
+    clashes = []
+    for event in events:
+        if clean_str(event.get("id")) == clean_str(exclude_event_id) or event.get("status") == "cancelled":
+            continue
+        event_start, event_end = google_event_range(event)
+        if event_start and event_end and proposed_start < event_end and proposed_end > event_start:
+            clashes.append(event)
+    return clashes
+
+
+def google_calendar_job_row(job_id):
+    return q(
+        """SELECT jobs.*,
+                  customers.first_name AS customer_first_name,
+                  customers.last_name AS customer_last_name,
+                  customers.phone AS customer_phone,
+                  customers.email AS customer_email,
+                  customers.address AS customer_address,
+                  customers.town AS customer_town,
+                  customers.postcode AS customer_postcode,
+                  (SELECT what3words FROM intake_submissions i WHERE i.customer_id=jobs.customer_id ORDER BY i.id DESC LIMIT 1) AS what3words,
+                  (SELECT rooms_areas FROM intake_submissions i WHERE i.customer_id=jobs.customer_id ORDER BY i.id DESC LIMIT 1) AS rooms_areas,
+                  (SELECT parking FROM intake_submissions i WHERE i.customer_id=jobs.customer_id ORDER BY i.id DESC LIMIT 1) AS parking_note,
+                  (SELECT additional_notes FROM intake_submissions i WHERE i.customer_id=jobs.customer_id ORDER BY i.id DESC LIMIT 1) AS access_note
+           FROM jobs
+           LEFT JOIN customers ON customers.id=jobs.customer_id
+           WHERE jobs.id=?""",
+        (job_id,),
+        one=True,
+    )
+
+
+def google_calendar_event_payload(job):
+    start, end = booking_datetime_range(
+        row_value(job, "job_date"),
+        row_value(job, "job_time"),
+        row_value(job, "job_end_time"),
+        row_value(job, "job_duration_minutes") or 120,
+    )
+    name = " ".join(
+        value for value in [
+            clean_str(row_value(job, "customer_first_name")),
+            clean_str(row_value(job, "customer_last_name")),
+        ] if value
+    ) or "Customer"
+    job_type = clean_str(row_value(job, "service_type")) or clean_str(row_value(job, "title")) or "Carpet cleaning"
+    amount = float(row_value(job, "amount") or 0)
+    title = f"{name} – {job_type} – £{amount:.2f}"
+    address = ", ".join(
+        value for value in [
+            clean_str(row_value(job, "customer_address")),
+            clean_str(row_value(job, "customer_town")),
+            clean_str(row_value(job, "customer_postcode")),
+        ] if value
+    )
+    customer_url = url_for("customer_view", customer_id=row_value(job, "customer_id"), _external=True)
+    description = "\n".join([
+        f"Phone: {clean_str(row_value(job, 'customer_phone')) or 'Not supplied'}",
+        f"Address: {address or 'Not supplied'}",
+        f"What3Words: {clean_str(row_value(job, 'what3words')) or 'Not supplied'}",
+        f"Rooms / areas: {clean_str(row_value(job, 'rooms_areas')) or 'Not supplied'}",
+        f"Access / parking: {clean_str(row_value(job, 'parking_note')) or clean_str(row_value(job, 'access_note')) or clean_str(row_value(job, 'notes')) or 'Not supplied'}",
+        f"CRM record: {customer_url}",
+    ])
+    return {
+        "summary": title,
+        "description": description,
+        "location": address,
+        "start": {"dateTime": start.isoformat(), "timeZone": GOOGLE_CALENDAR_TIMEZONE},
+        "end": {"dateTime": end.isoformat(), "timeZone": GOOGLE_CALENDAR_TIMEZONE},
+        "extendedProperties": {
+            "private": {
+                "crmJobId": str(row_value(job, "id")),
+                "crmCustomerId": str(row_value(job, "customer_id") or ""),
+            }
+        },
+    }, start, end
+
+
+def sync_job_to_google_calendar(job_id):
+    job = google_calendar_job_row(job_id)
+    if not job:
+        return False, "Job not found.", ""
+    try:
+        payload, start, end = google_calendar_event_payload(job)
+        existing_id = clean_str(row_value(job, "google_calendar_event_id"))
+        events = google_calendar_list_events(row_value(job, "job_date"))
+        if not existing_id:
+            job_marker = str(job_id)
+            existing = next(
+                (
+                    event for event in events
+                    if clean_str(((event.get("extendedProperties") or {}).get("private") or {}).get("crmJobId")) == job_marker
+                ),
+                None,
+            )
+            if existing:
+                existing_id = clean_str(existing.get("id"))
+        clashes = google_calendar_conflicts(events, start, end, existing_id)
+        if clashes:
+            names = ", ".join(clean_str(event.get("summary")) or "Busy" for event in clashes[:3])
+            message = f"Calendar clash detected with: {names}. Change the time before syncing."
+            run("UPDATE jobs SET google_calendar_sync_error=? WHERE id=?", (message, job_id))
+            return False, message, existing_id
+        if existing_id:
+            try:
+                result = google_calendar_api_request(
+                    "PUT",
+                    f"/calendars/{{calendar_id}}/events/{urllib.parse.quote(existing_id, safe='')}",
+                    payload=payload,
+                )
+                action = "updated"
+            except RuntimeError as exc:
+                if getattr(exc, "status_code", None) != 404:
+                    raise
+                result = google_calendar_api_request(
+                    "POST",
+                    "/calendars/{calendar_id}/events",
+                    payload=payload,
+                )
+                action = "recreated because the old linked event no longer existed"
+        else:
+            result = google_calendar_api_request(
+                "POST",
+                "/calendars/{calendar_id}/events",
+                payload=payload,
+            )
+            action = "created"
+        event_id = clean_str(result.get("id")) or existing_id
+        run(
+            """UPDATE jobs
+               SET google_calendar_event_id=?, add_to_google_calendar=1,
+                   google_calendar_synced_at=datetime('now'), google_calendar_sync_error=''
+               WHERE id=?""",
+            (event_id, job_id),
+        )
+        return True, f"Google Calendar event {action} successfully.", event_id
+    except Exception as exc:
+        message = str(exc)
+        run("UPDATE jobs SET google_calendar_sync_error=? WHERE id=?", (message, job_id))
+        return False, message, clean_str(row_value(job, "google_calendar_event_id"))
+
+
+def remove_job_from_google_calendar(job_id):
+    job = q("SELECT * FROM jobs WHERE id=?", (job_id,), one=True)
+    if not job:
+        return False, "Job not found."
+    event_id = clean_str(row_value(job, "google_calendar_event_id"))
+    if not event_id:
+        return True, "No linked Google Calendar event was found."
+    try:
+        google_calendar_api_request(
+            "DELETE",
+            f"/calendars/{{calendar_id}}/events/{urllib.parse.quote(event_id, safe='')}",
+        )
+    except Exception as exc:
+        if getattr(exc, "status_code", None) != 410 and getattr(exc, "status_code", None) != 404:
+            return False, str(exc)
+    run(
+        """UPDATE jobs
+           SET google_calendar_event_id='', add_to_google_calendar=0,
+               google_calendar_synced_at='', google_calendar_sync_error=''
+           WHERE id=?""",
+        (job_id,),
+    )
+    return True, "Linked Google Calendar event removed."
+
+
+@app.route("/google-calendar")
+@login_required
+def google_calendar_dashboard():
+    token = google_calendar_token_row()
+    redirect_uri = os.environ.get("GOOGLE_CALENDAR_REDIRECT_URI", "").strip() or url_for(
+        "google_calendar_callback", _external=True
+    )
+    return render_template(
+        "google_calendar.html",
+        configured=google_calendar_is_configured(),
+        connected=bool(token and clean_str(row_value(token, "access_token"))),
+        calendar_id=google_calendar_id(),
+        redirect_uri=redirect_uri,
+    )
+
+
+@app.route("/google-calendar/connect")
+@login_required
+def google_calendar_connect():
+    if not google_calendar_is_configured():
+        flash("Google Calendar credentials are not configured on the server.")
+        return redirect(url_for("google_calendar_dashboard"))
+    client_id, _ = google_calendar_credentials()
+    state = secrets.token_urlsafe(24)
+    session["google_calendar_oauth_state"] = state
+    redirect_uri = os.environ.get("GOOGLE_CALENDAR_REDIRECT_URI", "").strip() or url_for(
+        "google_calendar_callback", _external=True
+    )
+    params = {
+        "client_id": client_id,
+        "redirect_uri": redirect_uri,
+        "response_type": "code",
+        "scope": GOOGLE_CALENDAR_SCOPE,
+        "access_type": "offline",
+        "prompt": "consent",
+        "include_granted_scopes": "true",
+        "state": state,
+    }
+    return redirect(GOOGLE_AUTHORIZE_URL + "?" + urllib.parse.urlencode(params))
+
+
+@app.route("/google-calendar/callback")
+@login_required
+def google_calendar_callback():
+    if request.args.get("state") != session.pop("google_calendar_oauth_state", None):
+        flash("Google Calendar connection failed because the security state did not match.")
+        return redirect(url_for("google_calendar_dashboard"))
+    if request.args.get("error"):
+        flash("Google Calendar connection was cancelled or denied.")
+        return redirect(url_for("google_calendar_dashboard"))
+    code = clean_str(request.args.get("code"))
+    client_id, client_secret = google_calendar_credentials()
+    redirect_uri = os.environ.get("GOOGLE_CALENDAR_REDIRECT_URI", "").strip() or url_for(
+        "google_calendar_callback", _external=True
+    )
+    try:
+        payload = google_calendar_token_request(
+            {
+                "code": code,
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "redirect_uri": redirect_uri,
+                "grant_type": "authorization_code",
+            }
+        )
+        save_google_calendar_token(payload)
+        flash("Google Calendar connected successfully.")
+    except Exception as exc:
+        flash(str(exc))
+    return redirect(url_for("google_calendar_dashboard"))
+
+
+@app.route("/google-calendar/disconnect", methods=["POST"])
+@login_required
+def google_calendar_disconnect():
+    run("DELETE FROM google_calendar_tokens WHERE id=1")
+    flash("Google Calendar disconnected. Existing calendar events were not deleted.")
+    return redirect(url_for("google_calendar_dashboard"))
+
+
+@app.route("/api/google-calendar/day")
+@login_required
+def google_calendar_day_api():
+    day_value = clean_str(request.args.get("date"))
+    start_value = clean_str(request.args.get("start"))
+    end_value = clean_str(request.args.get("end"))
+    duration_value = clean_str(request.args.get("duration")) or "120"
+    exclude_event_id = clean_str(request.args.get("exclude_event_id"))
+    if not google_calendar_token_row():
+        return jsonify({"ok": False, "connected": False, "message": "Connect Google Calendar to see the live day preview."})
+    try:
+        events = google_calendar_list_events(day_value)
+        proposed = None
+        clashes = []
+        if start_value:
+            proposed_start, proposed_end = booking_datetime_range(day_value, start_value, end_value, duration_value)
+            clashes = google_calendar_conflicts(events, proposed_start, proposed_end, exclude_event_id)
+            proposed = {
+                "start": proposed_start.strftime("%H:%M"),
+                "end": proposed_end.strftime("%H:%M"),
+                "summary": "Proposed booking",
+            }
+        output_events = []
+        for event in events:
+            event_start, event_end = google_event_range(event)
+            if not event_start or not event_end:
+                continue
+            output_events.append(
+                {
+                    "id": clean_str(event.get("id")),
+                    "summary": clean_str(event.get("summary")) or "Busy",
+                    "start": event_start.strftime("%H:%M"),
+                    "end": event_end.strftime("%H:%M"),
+                    "all_day": "date" in (event.get("start") or {}),
+                }
+            )
+        return jsonify(
+            {
+                "ok": True,
+                "connected": True,
+                "events": output_events,
+                "proposed": proposed,
+                "clash": bool(clashes),
+                "clash_names": [clean_str(event.get("summary")) or "Busy" for event in clashes],
+            }
+        )
+    except Exception as exc:
+        return jsonify({"ok": False, "connected": True, "message": str(exc)}), 400
+
+
+@app.route("/jobs/<int:job_id>/google-calendar-sync", methods=["POST"])
+@login_required
+def job_google_calendar_sync(job_id):
+    ok, message, _ = sync_job_to_google_calendar(job_id)
+    flash(("Success: " if ok else "Error: ") + message)
+    return redirect(url_for("job_view", job_id=job_id) + "#google-calendar-booking")
+
+
+@app.route("/jobs/<int:job_id>/google-calendar-remove", methods=["POST"])
+@login_required
+def job_google_calendar_remove(job_id):
+    ok, message = remove_job_from_google_calendar(job_id)
+    flash(("Success: " if ok else "Error: ") + message)
+    return redirect(url_for("job_view", job_id=job_id) + "#google-calendar-booking")
+
+
+@app.route("/customers/<int:customer_id>/google-calendar-sync", methods=["POST"])
+@login_required
+def customer_google_calendar_sync(customer_id):
+    job = latest_customer_job(customer_id)
+    if not job:
+        flash("Save the booking before adding it to Google Calendar.")
+    else:
+        ok, message, _ = sync_job_to_google_calendar(row_value(job, "id"))
+        flash(("Success: " if ok else "Error: ") + message)
+    return redirect(url_for("customer_view", customer_id=customer_id) + "#customer-stage-1")
+
+
+@app.route("/customers/<int:customer_id>/google-calendar-remove", methods=["POST"])
+@login_required
+def customer_google_calendar_remove(customer_id):
+    job = latest_customer_job(customer_id)
+    if not job:
+        flash("No booking was found.")
+    else:
+        ok, message = remove_job_from_google_calendar(row_value(job, "id"))
+        flash(("Success: " if ok else "Error: ") + message)
+    return redirect(url_for("customer_view", customer_id=customer_id) + "#customer-stage-1")
 
 
 def xero_token_row():

@@ -1,0 +1,32 @@
+{% extends "layout.html" %}
+{% block page_title %}Google Calendar{% endblock %}
+{% block body_content %}
+<section class="doc-hero">
+  <div>
+    <div class="hero-tag">Diary connection</div>
+    <h3>Google Calendar</h3>
+    <p>See your real diary while booking, catch clashes, and keep one linked event per CRM job.</p>
+  </div>
+  <span class="status-pill {{ 'sent' if connected else 'draft' }}">{{ 'Connected' if connected else 'Not connected' }}</span>
+</section>
+<section class="panel">
+  {% if not configured %}
+  <div class="notice danger-notice">
+    <strong>Google credentials still need adding to Render.</strong>
+    <p>Add GOOGLE_CALENDAR_CLIENT_ID and GOOGLE_CALENDAR_CLIENT_SECRET. Use this authorised redirect URI:</p>
+    <p><code>{{ redirect_uri }}</code></p>
+  </div>
+  {% elif connected %}
+  <div class="notice"><strong>Calendar is connected.</strong><p>Bookings can now display your day, warn about overlaps and create or update linked events.</p></div>
+  <div class="row-actions">
+    <a class="btn primary" href="{{ url_for('jobs') }}">Open jobs</a>
+    <form method="post" action="{{ url_for('google_calendar_disconnect') }}" onsubmit="return confirm('Disconnect Google Calendar? Existing calendar events will not be deleted.')">
+      <button class="btn danger">Disconnect</button>
+    </form>
+  </div>
+  {% else %}
+  <div class="notice"><strong>Ready to connect.</strong><p>Sign in to the Google account containing the work diary and approve calendar access.</p></div>
+  <a class="btn primary" href="{{ url_for('google_calendar_connect') }}">Connect Google Calendar</a>
+  {% endif %}
+</section>
+{% endblock %}

@@ -84,11 +84,26 @@
         </label>
         <label>Price / agreed quote<input name="amount" type="number" min="0" step="0.01" value="{{ job.amount or 0 }}" placeholder="0.00"></label>
       </div>
+      <div class="cols">
+        <label>Private finish time<input type="time" name="job_end_time" value="{{ job.job_end_time or '' }}"><span class="form-help">Not shown to the customer.</span></label>
+        <label>Or duration (minutes)<input type="number" name="job_duration_minutes" min="15" max="1440" step="15" value="{{ job.job_duration_minutes or 120 }}"></label>
+      </div>
+      <label class="calendar-check"><input type="checkbox" name="add_to_google_calendar" value="1" {% if job.add_to_google_calendar %}checked{% endif %}> Add to Google Calendar</label>
       <label>Assigned to<input name="assigned_to" value="{{ job.assigned_to or '' }}" placeholder="Assigned to"></label>
-      <select name="status">{% for s in ['Lead','Quoted','Booked','Reminder Sent','In Progress','Completed','Invoiced','Paid'] %}<option {% if job.status==s %}selected{% endif %}>{{ s }}</option>{% endfor %}</select>
+      <select name="status">{% for s in ['Lead','Quoted','Booked','Reminder Sent','In Progress','Completed','Invoiced','Paid','Cancelled'] %}<option {% if job.status==s %}selected{% endif %}>{{ s }}</option>{% endfor %}</select>
       <textarea name="notes" placeholder="Arrival notes, access, stains, rooms, parking">{{ job.notes or '' }}</textarea>
       <button class="btn primary">Save Job</button>
     </form>
+    <div class="booking-calendar-preview" data-calendar-preview data-event-id="{{ job.google_calendar_event_id or '' }}">
+      <div class="calendar-preview-head"><div><strong>Google Calendar day view</strong><span>Live appointments plus the proposed booking</span></div><a href="{{ url_for('google_calendar_dashboard') }}">{{ 'Connected' if google_calendar_connected else 'Connect calendar' }}</a></div>
+      <div class="calendar-preview-message" data-calendar-message>Select a date and time.</div>
+      <div class="calendar-preview-list" data-calendar-events></div>
+    </div>
+    <div class="row-actions" style="margin-top:12px">
+      <form method="post" action="{{ url_for('job_google_calendar_sync', job_id=job.id) }}"><button class="btn primary">Add booking to Google Calendar</button></form>
+      {% if job.google_calendar_event_id %}<form method="post" action="{{ url_for('job_google_calendar_remove', job_id=job.id) }}" onsubmit="return confirm('Remove the linked Google Calendar event?')"><button class="btn danger">Remove calendar event</button></form>{% endif %}
+    </div>
+    {% if job.google_calendar_sync_error %}<div class="notice danger-notice">{{ job.google_calendar_sync_error }}</div>{% endif %}
     <p class="muted inline-note">Use the archive button below rather than setting archive as a normal status.</p>
     {% if is_archived %}
     <form method="post" action="{{ url_for('job_restore', job_id=job.id) }}"><button class="btn secondary">Restore Job</button></form>
@@ -261,4 +276,32 @@
     {% endfor %}
   </div>
 </section>
+<style>
+.calendar-check{display:flex!important;gap:10px;align-items:center;margin:14px 0}.calendar-check input{width:auto}
+.booking-calendar-preview{margin-top:18px;border:1px solid #cddbd5;border-radius:14px;background:#f8fbfa;overflow:hidden}
+.calendar-preview-head{padding:14px 16px;background:#eaf3ef;display:flex;justify-content:space-between;gap:12px}.calendar-preview-head span{display:block;color:#52655d;font-size:13px;margin-top:3px}
+.calendar-preview-message{padding:12px 16px;color:#52655d;border-bottom:1px solid #dce7e2}.calendar-preview-list{padding:10px 16px}
+.calendar-event{display:grid;grid-template-columns:110px 1fr;gap:12px;padding:10px 0;border-bottom:1px solid #e0e8e4}.calendar-event.proposed{background:#fff2c7;margin:8px -8px;padding:12px 8px;border:2px solid #e1a300;border-radius:9px}.calendar-event.clash{border-left:5px solid #bc2d21;padding-left:9px}.calendar-warning{color:#a4241b;font-weight:800}
+</style>
+<script>
+(function(){
+  const panel=document.querySelector('[data-calendar-preview]'); if(!panel)return;
+  const form=panel.previousElementSibling, message=panel.querySelector('[data-calendar-message]'), list=panel.querySelector('[data-calendar-events]'); let timer;
+  function esc(v){const d=document.createElement('div');d.textContent=v||'';return d.innerHTML}
+  async function refresh(){
+    const date=form.job_date.value,start=form.job_time.value,end=form.job_end_time.value,duration=form.job_duration_minutes.value;
+    if(!date||!start){message.textContent='Select a date and start time to preview the day.';list.innerHTML='';return}
+    message.textContent='Checking Google Calendar…';
+    try{
+      const p=new URLSearchParams({date,start,end,duration,exclude_event_id:panel.dataset.eventId||''}),r=await fetch('/api/google-calendar/day?'+p),data=await r.json();
+      if(!data.ok){message.textContent=data.message;list.innerHTML='';return}
+      message.innerHTML=data.clashes.length?'<span class="calendar-warning">Clash: proposed time overlaps an existing appointment.</span>':'No clash found for the proposed time.';
+      let rows=(data.events||[]).map(e=>`<div class="calendar-event"><b>${esc(e.start)}–${esc(e.end)}</b><span>${esc(e.summary||'Busy')}</span></div>`);
+      if(data.proposed)rows.push(`<div class="calendar-event proposed ${data.clashes.length?'clash':''}"><b>${esc(data.proposed.start)}–${esc(data.proposed.end)}</b><span><strong>Proposed: ${esc(form.title.value)}</strong></span></div>`);
+      list.innerHTML=rows.join('')||'<div class="calendar-event"><span></span><span>No appointments on this day.</span></div>';
+    }catch(e){message.textContent='Calendar preview could not be loaded. Please try again.'}
+  }
+  form.addEventListener('input',()=>{clearTimeout(timer);timer=setTimeout(refresh,250)});refresh();
+})();
+</script>
 {% endblock %}
