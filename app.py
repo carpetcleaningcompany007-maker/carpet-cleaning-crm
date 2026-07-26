@@ -50,6 +50,35 @@ XERO_PAYMENTS_URL = "https://api.xero.com/api.xro/2.0/Payments"
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("carpet_crm")
 
+BOOKING_TIME_OPTIONS = [
+    "Morning",
+    "Afternoon",
+    "Time to be confirmed",
+    "07:00",
+    "07:30",
+    "08:00",
+    "08:30",
+    "09:00",
+    "09:30",
+    "10:00",
+    "10:30",
+    "11:00",
+    "11:30",
+    "12:00",
+    "12:30",
+    "13:00",
+    "13:30",
+    "14:00",
+    "14:30",
+    "15:00",
+    "15:30",
+    "16:00",
+    "16:30",
+    "17:00",
+    "17:30",
+    "18:00",
+]
+
 
 def uk_today():
     return datetime.now(ZoneInfo("Europe/London")).date()
@@ -2916,7 +2945,14 @@ def inject_layout_globals():
         biz = settings()
     except Exception:
         biz = {}
-    return {'biz': biz, 'app_settings': biz, 'xero_contact_web_url': xero_contact_web_url, 'whatsapp_phone': whatsapp_phone, 'friendly_xero_error': friendly_xero_error}
+    return {
+        'biz': biz,
+        'app_settings': biz,
+        'xero_contact_web_url': xero_contact_web_url,
+        'whatsapp_phone': whatsapp_phone,
+        'friendly_xero_error': friendly_xero_error,
+        'booking_time_options': BOOKING_TIME_OPTIONS,
+    }
 
 
 def sort_rows(rows, key, reverse=False):

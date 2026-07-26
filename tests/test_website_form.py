@@ -182,3 +182,10 @@ class WebsiteFormTests(unittest.TestCase):
             {"{{time}}": "Afternoon"},
         )
         self.assertEqual(rendered, "Your booking is Afternoon.")
+
+    def test_booking_time_dropdown_contains_named_and_exact_options(self):
+        options = self.appmod.BOOKING_TIME_OPTIONS
+        self.assertIn("Morning", options)
+        self.assertIn("Afternoon", options)
+        self.assertIn("Time to be confirmed", options)
+        self.assertIn("09:30", options)

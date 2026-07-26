@@ -298,13 +298,16 @@
               <input type="date" name="preferred_date" value="{{ send_form_values.preferred_date or '' }}">
             </label>
             <label>Booking time
-              <input type="text" name="preferred_time" list="customer-booking-time-options" value="{{ send_form_values.preferred_time or '09:30' }}" placeholder="Exact time, Morning, Afternoon or TBC">
+              {% set selected_booking_time = send_form_values.preferred_time or '09:30' %}
+              <select name="preferred_time">
+                {% if selected_booking_time not in booking_time_options %}
+                  <option value="{{ selected_booking_time }}" selected>{{ selected_booking_time }}</option>
+                {% endif %}
+                {% for booking_time in booking_time_options %}
+                  <option value="{{ booking_time }}" {% if booking_time == selected_booking_time %}selected{% endif %}>{{ booking_time }}</option>
+                {% endfor %}
+              </select>
             </label>
-            <datalist id="customer-booking-time-options">
-              <option value="Morning"></option>
-              <option value="Afternoon"></option>
-              <option value="Time to be confirmed"></option>
-            </datalist>
           </div>
           <label>Booking note
             <input name="preferred_days_times" placeholder="Notes for this booking" value="{{ send_form_values.preferred_days_times or '' }}">
@@ -498,7 +501,15 @@
             <input type="date" name="preferred_date" value="{{ send_form_values.preferred_date or '' }}">
           </label>
           <label>Booking time
-            <input type="text" name="preferred_time" list="customer-booking-time-options" value="{{ send_form_values.preferred_time or '09:30' }}" placeholder="Exact time, Morning, Afternoon or TBC">
+            {% set selected_form_booking_time = send_form_values.preferred_time or '09:30' %}
+            <select name="preferred_time">
+              {% if selected_form_booking_time not in booking_time_options %}
+                <option value="{{ selected_form_booking_time }}" selected>{{ selected_form_booking_time }}</option>
+              {% endif %}
+              {% for booking_time in booking_time_options %}
+                <option value="{{ booking_time }}" {% if booking_time == selected_form_booking_time %}selected{% endif %}>{{ booking_time }}</option>
+              {% endfor %}
+            </select>
           </label>
           <label>Booking note
             <input name="preferred_days_times" placeholder="Example: Tuesday afternoon, or customer can edit" value="{{ send_form_values.preferred_days_times or '' }}">
