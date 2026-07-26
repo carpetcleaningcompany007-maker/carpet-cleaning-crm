@@ -70,7 +70,12 @@
         <label>Job date<input type="date" name="job_date" value="{{ job.job_date or '' }}"></label>
       </div>
       <div class="cols">
-        <label>Start time<input type="time" name="job_time" value="{{ job.job_time or '' }}"></label>
+        <label>Booking time<input type="text" name="job_time" list="job-time-options" value="{{ job.job_time or '' }}" placeholder="Exact time, Morning, Afternoon or TBC"></label>
+        <datalist id="job-time-options">
+          <option value="Morning"></option>
+          <option value="Afternoon"></option>
+          <option value="Time to be confirmed"></option>
+        </datalist>
         <label>Price / agreed quote<input name="amount" type="number" min="0" step="0.01" value="{{ job.amount or 0 }}" placeholder="0.00"></label>
       </div>
       <label>Assigned to<input name="assigned_to" value="{{ job.assigned_to or '' }}" placeholder="Assigned to"></label>

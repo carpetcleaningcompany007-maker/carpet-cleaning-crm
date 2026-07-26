@@ -3688,6 +3688,15 @@ def send_comms_email(to_email, subject, body, customer=None):
 
 def parse_hhmm(value, default="09:00"):
     text = clean_str(value) or default
+    named_times = {
+        "morning": (9, 0),
+        "afternoon": (13, 0),
+        "time to be confirmed": (9, 0),
+        "to be confirmed": (9, 0),
+        "tbc": (9, 0),
+    }
+    if text.lower() in named_times:
+        return named_times[text.lower()]
     try:
         hour_text, minute_text = text.split(":", 1)
         hour = max(0, min(23, int(hour_text)))

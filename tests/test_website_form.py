@@ -170,3 +170,15 @@ class WebsiteFormTests(unittest.TestCase):
         self.assertIn("2026-07-16T10:00:00", row["due_at"])
         self.assertEqual(row["sent_at"], "")
         sms_send.assert_not_called()
+
+    def test_named_booking_times_have_safe_automation_times(self):
+        self.assertEqual(self.appmod.parse_hhmm("Morning"), (9, 0))
+        self.assertEqual(self.appmod.parse_hhmm("Afternoon"), (13, 0))
+        self.assertEqual(self.appmod.parse_hhmm("Time to be confirmed"), (9, 0))
+
+    def test_named_booking_time_is_rendered_in_customer_message(self):
+        rendered = self.appmod.render_simple_template(
+            "Your booking is {{time}}.",
+            {"{{time}}": "Afternoon"},
+        )
+        self.assertEqual(rendered, "Your booking is Afternoon.")

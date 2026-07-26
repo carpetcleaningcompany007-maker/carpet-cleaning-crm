@@ -298,8 +298,13 @@
               <input type="date" name="preferred_date" value="{{ send_form_values.preferred_date or '' }}">
             </label>
             <label>Booking time
-              <input type="time" name="preferred_time" value="{{ send_form_values.preferred_time or '09:30' }}">
+              <input type="text" name="preferred_time" list="customer-booking-time-options" value="{{ send_form_values.preferred_time or '09:30' }}" placeholder="Exact time, Morning, Afternoon or TBC">
             </label>
+            <datalist id="customer-booking-time-options">
+              <option value="Morning"></option>
+              <option value="Afternoon"></option>
+              <option value="Time to be confirmed"></option>
+            </datalist>
           </div>
           <label>Booking note
             <input name="preferred_days_times" placeholder="Notes for this booking" value="{{ send_form_values.preferred_days_times or '' }}">
@@ -493,7 +498,7 @@
             <input type="date" name="preferred_date" value="{{ send_form_values.preferred_date or '' }}">
           </label>
           <label>Booking time
-            <input type="time" name="preferred_time" value="{{ send_form_values.preferred_time or '09:30' }}">
+            <input type="text" name="preferred_time" list="customer-booking-time-options" value="{{ send_form_values.preferred_time or '09:30' }}" placeholder="Exact time, Morning, Afternoon or TBC">
           </label>
           <label>Booking note
             <input name="preferred_days_times" placeholder="Example: Tuesday afternoon, or customer can edit" value="{{ send_form_values.preferred_days_times or '' }}">
