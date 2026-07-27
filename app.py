@@ -11906,12 +11906,15 @@ def booking_datetime_range(job_date, start_time, end_time="", duration_minutes=1
     return start, end
 
 
-def google_calendar_list_events(day_value):
-    parsed_day = parse_iso_date(day_value)
-    if not parsed_day:
-        raise ValueError("Choose a valid date.")
-    start = datetime(parsed_day.year, parsed_day.month, parsed_day.day, tzinfo=ZoneInfo(GOOGLE_CALENDAR_TIMEZONE))
-    end = start + timedelta(days=1)
+def google_calendar_list_events_range(start_day, end_day):
+    parsed_start = parse_iso_date(start_day)
+    parsed_end = parse_iso_date(end_day)
+    if not parsed_start or not parsed_end or parsed_end < parsed_start:
+        raise ValueError("Choose a valid calendar date range.")
+    if (parsed_end - parsed_start).days > 62:
+        raise ValueError("Calendar range cannot exceed 62 days.")
+    start = datetime(parsed_start.year, parsed_start.month, parsed_start.day, tzinfo=ZoneInfo(GOOGLE_CALENDAR_TIMEZONE))
+    end = datetime(parsed_end.year, parsed_end.month, parsed_end.day, tzinfo=ZoneInfo(GOOGLE_CALENDAR_TIMEZONE)) + timedelta(days=1)
     result = google_calendar_api_request(
         "GET",
         "/calendars/{calendar_id}/events",
@@ -11920,11 +11923,15 @@ def google_calendar_list_events(day_value):
             "timeMax": end.isoformat(),
             "singleEvents": "true",
             "orderBy": "startTime",
-            "maxResults": 100,
+            "maxResults": 2500,
             "timeZone": GOOGLE_CALENDAR_TIMEZONE,
         },
     )
     return list(result.get("items") or [])
+
+
+def google_calendar_list_events(day_value):
+    return google_calendar_list_events_range(day_value, day_value)
 
 
 def google_event_range(event):
@@ -12239,6 +12246,38 @@ def google_calendar_day_api():
                 "clash_names": [clean_str(event.get("summary")) or "Busy" for event in clashes],
             }
         )
+    except Exception as exc:
+        return jsonify({"ok": False, "connected": True, "message": str(exc)}), 400
+
+
+@app.route("/api/google-calendar/range")
+@login_required
+def google_calendar_range_api():
+    start_day = clean_str(request.args.get("start"))
+    end_day = clean_str(request.args.get("end"))
+    if not google_calendar_token_row():
+        return jsonify({"ok": False, "connected": False, "message": "Connect Google Calendar to view your diary."})
+    try:
+        events = google_calendar_list_events_range(start_day, end_day)
+        output = []
+        london = ZoneInfo(GOOGLE_CALENDAR_TIMEZONE)
+        for event in events:
+            event_start, event_end = google_event_range(event)
+            if not event_start or not event_end:
+                continue
+            event_start = event_start.astimezone(london)
+            event_end = event_end.astimezone(london)
+            output.append({
+                "id": clean_str(event.get("id")),
+                "summary": clean_str(event.get("summary")) or "Busy",
+                "date": event_start.strftime("%Y-%m-%d"),
+                "start": event_start.strftime("%H:%M"),
+                "end": event_end.strftime("%H:%M"),
+                "all_day": bool((event.get("start") or {}).get("date")),
+                "location": clean_str(event.get("location")),
+                "html_link": clean_str(event.get("htmlLink")),
+            })
+        return jsonify({"ok": True, "events": output, "timezone": GOOGLE_CALENDAR_TIMEZONE})
     except Exception as exc:
         return jsonify({"ok": False, "connected": True, "message": str(exc)}), 400
 

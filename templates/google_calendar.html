@@ -3,30 +3,79 @@
 {% block body_content %}
 <section class="doc-hero">
   <div>
-    <div class="hero-tag">Diary connection</div>
+    <div class="hero-tag">Your complete diary</div>
     <h3>Google Calendar</h3>
-    <p>See your real diary while booking, catch clashes, and keep one linked event per CRM job.</p>
+    <p>View your whole diary here, then switch between day, week and month.</p>
   </div>
-  <span class="status-pill {{ 'sent' if connected else 'draft' }}">{{ 'Connected' if connected else 'Not connected' }}</span>
-</section>
-<section class="panel">
-  {% if not configured %}
-  <div class="notice danger-notice">
-    <strong>Google credentials still need adding to Render.</strong>
-    <p>Add GOOGLE_CALENDAR_CLIENT_ID and GOOGLE_CALENDAR_CLIENT_SECRET. Use this authorised redirect URI:</p>
-    <p><code>{{ redirect_uri }}</code></p>
-  </div>
-  {% elif connected %}
-  <div class="notice"><strong>Calendar is connected.</strong><p>Bookings can now display your day, warn about overlaps and create or update linked events.</p></div>
   <div class="row-actions">
-    <a class="btn primary" href="{{ url_for('jobs') }}">Open jobs</a>
-    <form method="post" action="{{ url_for('google_calendar_disconnect') }}" onsubmit="return confirm('Disconnect Google Calendar? Existing calendar events will not be deleted.')">
+    <span class="status-pill {{ 'sent' if connected else 'draft' }}">{{ 'Connected' if connected else 'Not connected' }}</span>
+    {% if connected %}<a class="btn primary" href="https://calendar.google.com/calendar/u/0/r" target="_blank" rel="noopener">Open full Google Calendar</a>{% endif %}
+  </div>
+</section>
+
+{% if not configured %}
+<section class="panel"><div class="notice danger-notice">
+  <strong>Google credentials still need adding to Render.</strong>
+  <p>Add GOOGLE_CALENDAR_CLIENT_ID and GOOGLE_CALENDAR_CLIENT_SECRET. Authorised redirect URI:</p>
+  <p><code>{{ redirect_uri }}</code></p>
+</div></section>
+{% elif not connected %}
+<section class="panel">
+  <div class="notice"><strong>Ready to connect.</strong><p>Sign in to the Google account containing your work diary.</p></div>
+  <a class="btn primary" href="{{ url_for('google_calendar_connect') }}">Connect Google Calendar</a>
+</section>
+{% else %}
+<section class="panel google-diary" id="google-diary">
+  <div class="calendar-view-top">
+    <div><div class="section-kicker">Live Google diary</div><h3 id="diary-heading">Your calendar</h3></div>
+    <div class="row-actions">
+      <button class="btn secondary" type="button" data-move="-1">Previous</button>
+      <button class="btn secondary" type="button" data-today>Today</button>
+      <button class="btn secondary" type="button" data-move="1">Next</button>
+    </div>
+  </div>
+  <div class="scope-tabs diary-tabs">
+    <button class="scope-tab" type="button" data-view="day">Day</button>
+    <button class="scope-tab active" type="button" data-view="week">Week</button>
+    <button class="scope-tab" type="button" data-view="month">Month</button>
+  </div>
+  <div class="diary-status" data-status>Loading your calendar…</div>
+  <div class="google-agenda" data-agenda></div>
+  <div class="row-actions diary-footer">
+    <a class="btn secondary" href="{{ url_for('jobs') }}">Open CRM jobs</a>
+    <form method="post" action="{{ url_for('google_calendar_disconnect') }}" onsubmit="return confirm('Disconnect Google Calendar? Existing events will remain in Google.')">
       <button class="btn danger">Disconnect</button>
     </form>
   </div>
-  {% else %}
-  <div class="notice"><strong>Ready to connect.</strong><p>Sign in to the Google account containing the work diary and approve calendar access.</p></div>
-  <a class="btn primary" href="{{ url_for('google_calendar_connect') }}">Connect Google Calendar</a>
-  {% endif %}
 </section>
+<style>
+.calendar-view-top{display:flex;justify-content:space-between;align-items:flex-start;gap:18px}.diary-tabs{margin:18px 0}.diary-tabs button{cursor:pointer}
+.diary-status{padding:14px;background:#f3f7f5;border-radius:10px;color:#52655d}.google-agenda{margin-top:14px}.diary-footer{margin-top:20px}
+.agenda-day{border:1px solid #d9e3df;border-radius:13px;margin-bottom:12px;overflow:hidden}.agenda-day h4{margin:0;padding:12px 15px;background:#edf4f1}
+.agenda-event{display:grid;grid-template-columns:130px 1fr auto;gap:14px;padding:14px 15px;border-top:1px solid #e4ebe8;align-items:center}.agenda-event time{font-weight:900;color:#0d5c4e}.agenda-event small{display:block;color:#687a73;margin-top:4px}
+@media(max-width:700px){.calendar-view-top{display:block}.calendar-view-top .row-actions{margin-top:12px}.agenda-event{grid-template-columns:90px 1fr}.agenda-event a{grid-column:2}}
+</style>
+<script>
+(function(){
+  const root=document.getElementById('google-diary'),agenda=root.querySelector('[data-agenda]'),status=root.querySelector('[data-status]'),heading=document.getElementById('diary-heading');
+  let view='week',cursor=new Date();cursor.setHours(12,0,0,0);
+  const iso=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const esc=v=>{const d=document.createElement('div');d.textContent=v||'';return d.innerHTML};
+  function range(){let a=new Date(cursor),b=new Date(cursor);if(view==='week'){a.setDate(a.getDate()-((a.getDay()+6)%7));b=new Date(a);b.setDate(a.getDate()+6)}if(view==='month'){a=new Date(cursor.getFullYear(),cursor.getMonth(),1,12);b=new Date(cursor.getFullYear(),cursor.getMonth()+1,0,12)}return[a,b]}
+  async function load(){
+    const [a,b]=range();status.style.display='block';status.textContent='Loading appointments…';agenda.innerHTML='';
+    heading.textContent=view==='day'?a.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'}):view==='week'?`${a.toLocaleDateString('en-GB',{day:'numeric',month:'short'})} – ${b.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}`:a.toLocaleDateString('en-GB',{month:'long',year:'numeric'});
+    try{
+      const r=await fetch(`/api/google-calendar/range?start=${iso(a)}&end=${iso(b)}`),data=await r.json();if(!data.ok)throw new Error(data.message);
+      status.style.display=data.events.length?'none':'block';status.textContent='No appointments in this period.';
+      const days={};data.events.forEach(e=>(days[e.date]||(days[e.date]=[])).push(e));
+      agenda.innerHTML=Object.keys(days).sort().map(date=>`<section class="agenda-day"><h4>${new Date(date+'T12:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'})}</h4>${days[date].map(e=>`<div class="agenda-event"><time>${e.all_day?'All day':esc(e.start)+'–'+esc(e.end)}</time><div><strong>${esc(e.summary)}</strong>${e.location?`<small>${esc(e.location)}</small>`:''}</div>${e.html_link?`<a href="${esc(e.html_link)}" target="_blank" rel="noopener">Open</a>`:''}</div>`).join('')}</section>`).join('');
+    }catch(e){status.style.display='block';status.textContent=e.message||'Calendar could not be loaded.'}
+  }
+  root.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>{view=b.dataset.view;root.querySelectorAll('[data-view]').forEach(x=>x.classList.toggle('active',x===b));load()});
+  root.querySelectorAll('[data-move]').forEach(b=>b.onclick=()=>{const n=Number(b.dataset.move);if(view==='day')cursor.setDate(cursor.getDate()+n);else if(view==='week')cursor.setDate(cursor.getDate()+7*n);else cursor.setMonth(cursor.getMonth()+n);load()});
+  root.querySelector('[data-today]').onclick=()=>{cursor=new Date();cursor.setHours(12,0,0,0);load()};load();
+})();
+</script>
+{% endif %}
 {% endblock %}
