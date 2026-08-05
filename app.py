@@ -442,7 +442,7 @@ def merge_message_text(text, customer=None):
         "{{first_name}}": first_name,
         "{{business_name}}": s["business_name"] or "",
         "{{phone}}": s["phone"] or "",
-        "{{review_link}}": s["review_link"] or "",
+        "{{review_link}}": s["review_link"] or "https://share.google/XHQjHHLwpmlugHP0c",
         "{{website}}": s["website"] or "",
         "{{carpet_options_link}}": carpet_cleaning_options_url(),
         "{{email}}": customer_email,
@@ -2211,12 +2211,12 @@ def send_clicksend_env_sms(to_phone, body, customer=None, category="Website Enqu
             error_text = ""
         elif not error_text:
             error_text = response_msg
-        log_sms_event(customer["id"] if customer else None, None, "ClickSend", event_type, phone, from_name, body, ext, event_status, "outbound", data, error_text)
+        log_sms_event(row_value(customer, "id"), None, "ClickSend", event_type, phone, from_name, body, ext, event_status, "outbound", data, error_text)
         if accepted and not failed:
             return True, f"SMS accepted by ClickSend for {phone}. Message ID: {ext}. Status: {status or response_code}."
         return False, f"ClickSend send failed for {phone}. Status: {status or response_code}. {error_text}".strip()
     except Exception as exc:
-        log_sms_event(customer["id"] if customer else None, None, "ClickSend", "send_failed", phone, from_name, body, "", "Failed", "outbound", {}, str(exc))
+        log_sms_event(row_value(customer, "id"), None, "ClickSend", "send_failed", phone, from_name, body, "", "Failed", "outbound", {}, str(exc))
         return False, str(exc)
 
 
@@ -2803,7 +2803,7 @@ def send_sms_gateway(to_phone, body, customer=None, communication_id=None, messa
     api_secret = (s['sms_api_secret'] or '').strip()
     account_id = (s['sms_account_id'] or '').strip()
     gateway_url = (s['sms_gateway_url'] or '').strip()
-    customer_id = customer['id'] if customer else None
+    customer_id = row_value(customer, "id")
 
     if not provider:
         return False, 'SMS gateway is not configured yet. Save it in Settings first.'
@@ -3983,7 +3983,7 @@ def day_run_message(kind, job):
 def day_run_email_html(kind, job, plain_body):
     name = clean_str(row_value(job, "first_name")) or "there"
     business = settings()["business_name"] or "The Carpet Cleaning Company"
-    logo_url = public_static_or_live_url("site/email-logo-white.png")
+    logo_url = public_static_or_live_url("site/email-logo.png")
     hero_url = public_static_or_live_url("site/hero-carpet-cleaning.webp")
     website_url = enquiry_public_site_url()
     facebook_url = "https://www.facebook.com/profile.php?id=61559013150413"
@@ -4027,13 +4027,13 @@ def day_run_email_html(kind, job, plain_body):
         review_focus_html = f"""
           <tr>
             <td style="padding:0 30px 14px">
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f3faf6;border:1px solid #bfe5cf;border-radius:18px">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#0b5f4d !important;border:1px solid #0b5f4d;border-radius:18px">
                 <tr>
                   <td style="padding:20px">
-                    <h2 style="margin:0 0 8px;font-size:21px;line-height:1.25;color:#071524">Would you leave us a Google review?</h2>
-                    <p style="margin:0 0 14px;font-size:16px;line-height:1.6;color:#385066">If you are happy with the clean, a quick review really helps a local business and helps new customers feel confident booking with us.</p>
+                    <h2 style="margin:0 0 8px;font-size:21px;line-height:1.25;color:#ffffff !important">Would you leave us a Google review?</h2>
+                    <p style="margin:0 0 14px;font-size:16px;line-height:1.6;color:#ffffff !important">If you are happy with the clean, a quick review really helps a local business and helps new customers feel confident booking with us.</p>
                     <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
-                      {email_action_button("Please click here to leave us a Google review", reviews_url, "#0f7b63", "#ffffff")}
+                      {email_action_button("Please click here to leave us a Google review", reviews_url, "#f2c96d", "#071524")}
                     </table>
                     {email_text_link("Google review link", reviews_url)}
                   </td>
@@ -4056,15 +4056,15 @@ def day_run_email_html(kind, job, plain_body):
             <td style="height:8px;background:linear-gradient(90deg,#071524 0%,#0f4a5a 50%,#d8af55 100%);font-size:0;line-height:0">&nbsp;</td>
           </tr>
           <tr>
-            <td align="center" style="background:linear-gradient(180deg,#fff8ec 0%,#eef7fb 100%);padding:28px 30px 24px;color:#071524;border-bottom:1px solid #dce8f1">
+            <td align="center" bgcolor="#071524" style="background-color:#071524 !important;padding:28px 30px 24px;color:#ffffff !important;border-bottom:1px solid #16344c">
               <table role="presentation" cellspacing="0" cellpadding="0" style="background:#ffffff;border:1px solid #ead6a8;border-radius:999px;margin:0 auto 14px">
                 <tr>
                   <td style="padding:12px">{logo_html}</td>
                 </tr>
               </table>
-              <div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#0f7b63;font-weight:900">{html_lib.escape(business)}</div>
-              <h1 style="margin:8px 0 0;font-size:30px;line-height:1.18;color:#071524">{html_lib.escape(title)}</h1>
-              <p style="margin:9px auto 0;max-width:500px;font-size:16px;line-height:1.55;color:#385066">Hi {html_lib.escape(name)}, {html_lib.escape(strap)}</p>
+              <div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#f2c96d !important;font-weight:900">{html_lib.escape(business)}</div>
+              <h1 style="margin:8px 0 0;font-size:30px;line-height:1.18;color:#ffffff !important">{html_lib.escape(title)}</h1>
+              <p style="margin:9px auto 0;max-width:500px;font-size:16px;line-height:1.55;color:#e8f1f5 !important">Hi {html_lib.escape(name)}, {html_lib.escape(strap)}</p>
             </td>
           </tr>
           {hero_row_html}
@@ -8756,6 +8756,8 @@ def customer_send_message_template(customer_id):
         random_email = clean_str(request.form.get("random_email"))
         random_phone = clean_str(request.form.get("random_phone"))
         random_customer = {
+            "id": None,
+            "name": random_name,
             "first_name": random_name,
             "last_name": "",
             "email": random_email,
@@ -10804,7 +10806,7 @@ def comms_replacements(customer=None):
         "{{first_name}}": first_name,
         "{{business_name}}": s["business_name"] or "",
         "{{phone}}": s["phone"] or "",
-        "{{review_link}}": s["review_link"] or "",
+        "{{review_link}}": s["review_link"] or "https://share.google/XHQjHHLwpmlugHP0c",
         "{{website}}": s["website"] or "",
         "{{facebook}}": "https://www.facebook.com/profile.php?id=61559013150413",
         "{{carpet_options_link}}": carpet_cleaning_options_url(),
@@ -10819,7 +10821,7 @@ def comms_replacements(customer=None):
         "[[first_name]]": first_name,
         "[[business_name]]": s["business_name"] or "",
         "[[phone]]": s["phone"] or "",
-        "[[review_link]]": s["review_link"] or "",
+        "[[review_link]]": s["review_link"] or "https://share.google/XHQjHHLwpmlugHP0c",
         "[[website]]": s["website"] or "",
         "[[facebook]]": "https://www.facebook.com/profile.php?id=61559013150413",
         "[[carpet_options_link]]": carpet_cleaning_options_url(),
