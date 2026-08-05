@@ -4017,6 +4017,10 @@ def day_run_email_html(kind, job, plain_body):
     strap = strap_map.get(kind, "A quick update from The Carpet Cleaning Company.")
     logo_html = f'<img src="{html_lib.escape(logo_url)}" alt="{html_lib.escape(business)}" width="104" style="display:block;width:104px;height:auto;border:0;margin:0 auto">' if logo_url else ""
     hero_html = f'<img src="{html_lib.escape(hero_url)}" alt="Professional carpet cleaning" width="580" style="display:block;width:100%;max-width:580px;height:auto;border:0;border-radius:18px">' if hero_url else ""
+    hero_row_html = "" if kind == "review" else f"""
+          <tr>
+            <td style="padding:24px 30px 12px">{hero_html}</td>
+          </tr>"""
     message_html = html_lib.escape(plain_body or "").replace("\n", "<br>")
     review_focus_html = ""
     if kind == "review":
@@ -4031,6 +4035,7 @@ def day_run_email_html(kind, job, plain_body):
                     <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
                       {email_action_button("Please click here to leave us a Google review", reviews_url, "#0f7b63", "#ffffff")}
                     </table>
+                    {email_text_link("Google review link", reviews_url)}
                   </td>
                 </tr>
               </table>
@@ -4062,9 +4067,7 @@ def day_run_email_html(kind, job, plain_body):
               <p style="margin:9px auto 0;max-width:500px;font-size:16px;line-height:1.55;color:#385066">Hi {html_lib.escape(name)}, {html_lib.escape(strap)}</p>
             </td>
           </tr>
-          <tr>
-            <td style="padding:24px 30px 12px">{hero_html}</td>
-          </tr>
+          {hero_row_html}
           <tr>
             <td style="padding:24px 30px 10px">
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f8fbfd;border:1px solid #dce8f1;border-radius:18px">
