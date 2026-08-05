@@ -8071,20 +8071,26 @@ def send_contact_form():
         }
         form_link = booking_form_url(prefill=prefill)
         if action_type == "review":
-            template_context = {
-                "{{name}}": recipient_name or "there",
-                "{{first_name}}": recipient_name or "there",
-                "{{business_name}}": s["business_name"] or "The Carpet Cleaning Company",
-                "{{phone}}": s["phone"] or "07802 563213",
-                "{{review_link}}": review_link,
-                "{{website}}": enquiry_public_site_url(),
-                "{{facebook}}": "https://www.facebook.com/profile.php?id=61559013150413",
-            }
+            latest_job = latest_customer_job(selected_customer["id"]) if selected_customer else None
+            template_context = customer_message_replacements(selected_customer, latest_job) if selected_customer else {
+                    "{{name}}": recipient_name or "there",
+                    "{{first_name}}": recipient_name or "there",
+                    "{{business_name}}": s["business_name"] or "The Carpet Cleaning Company",
+                    "{{phone}}": s["phone"] or "07802 563213",
+                    "{{review_link}}": review_link,
+                    "{{website}}": enquiry_public_site_url(),
+                    "{{facebook}}": "https://www.facebook.com/profile.php?id=61559013150413",
+                }
             review_email_template = message_template("review_request_message")
             review_sms_template = message_template("review_request_sms")
-            review_email_subject = render_simple_template(review_email_template.get("subject"), template_context)
-            review_email_message = render_simple_template(review_email_template.get("body"), template_context)
-            review_sms_message = render_simple_template(review_sms_template.get("body"), template_context)
+            email_override = customer_template_override(selected_customer["id"], "review_request_message", "email") if selected_customer else None
+            sms_override = customer_template_override(selected_customer["id"], "review_request_sms", "sms") if selected_customer else None
+            email_subject_raw = (email_override["subject"] if email_override else review_email_template.get("subject")) or "Review request"
+            email_body_raw = (email_override["body"] if email_override else review_email_template.get("body")) or ""
+            sms_body_raw = (sms_override["body"] if sms_override else review_sms_template.get("body")) or ""
+            review_email_subject = render_simple_template(email_subject_raw, template_context)
+            review_email_message = render_simple_template(email_body_raw, template_context)
+            review_sms_message = render_simple_template(sms_body_raw, template_context)
             message = review_sms_message
         else:
             message = send_standalone_contact_form_message(form_link, recipient_name)
@@ -8108,8 +8114,8 @@ def send_contact_form():
                 message_for_email = review_email_message
                 email_html = visual_customer_email_html(
                     "review_request_message",
-                    {"first_name": recipient_name or "there", "email": email_to, "phone": sms_to},
-                    {"first_name": recipient_name or "there"},
+                    selected_customer or {"first_name": recipient_name or "there", "email": email_to, "phone": sms_to},
+                    latest_job,
                     review_email_message,
                 )
             else:
@@ -8153,6 +8159,7 @@ def send_contact_form():
         sent_confirmation=request.args.get("sent") == "1",
         action_type=action_type,
         review_link=review_link,
+        review_preview_url=(url_for("customer_email_template_preview", customer_id=selected_customer["id"], template_key="review_request_message") if selected_customer else ""),
         customers=q("""SELECT id, first_name, last_name, email, phone FROM customers
                        WHERE IFNULL(archived_at,'')='' ORDER BY first_name COLLATE NOCASE, last_name COLLATE NOCASE"""),
     )

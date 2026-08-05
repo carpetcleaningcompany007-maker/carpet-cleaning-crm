@@ -64,19 +64,29 @@
   </form>
 </section>
 
-<section class="panel send-contact-preview">
+<section class="panel send-contact-preview" data-preview-panel="form" {% if action_type == 'review' %}hidden{% endif %}>
   <div class="panel-head">
     <h3>Useful links</h3>
     <a class="btn secondary" href="{{ form_link }}" target="_blank" rel="noopener">Open form</a>
   </div>
   <input id="standaloneFormUrl" value="{{ form_link }}" readonly>
-  <input id="googleReviewUrl" value="{{ review_link }}" readonly>
   <textarea id="standaloneFormMessage" readonly>{{ message }}</textarea>
   <div class="row-actions">
     <button class="btn secondary" type="button" data-copy-target="standaloneFormUrl">Copy Link</button>
-    <button class="btn secondary" type="button" data-copy-target="googleReviewUrl">Copy Review Link</button>
     <button class="btn secondary" type="button" data-copy-target="standaloneFormMessage">Copy Message</button>
   </div>
+</section>
+<section class="panel send-contact-preview" data-preview-panel="review" {% if action_type != 'review' %}hidden{% endif %}>
+  <div class="panel-head">
+    <div><h3>Google review request</h3><p class="muted">This uses the same beautiful email and saved text message shown on the customer record.</p></div>
+    <a class="btn secondary" id="quickReviewPreview" href="{{ review_preview_url or '#' }}" {% if not review_preview_url %}hidden{% endif %} target="_blank" rel="noopener">Preview Beautiful Email</a>
+  </div>
+  <input id="googleReviewUrl" value="{{ review_link }}" readonly>
+  <textarea readonly>{{ message }}</textarea>
+  <div class="row-actions">
+    <button class="btn secondary" type="button" data-copy-target="googleReviewUrl">Copy Google Review Link</button>
+  </div>
+  <p class="muted" id="quickReviewChooseCustomer" {% if review_preview_url %}hidden{% endif %}>Choose a saved customer above to preview the exact personalised email before sending.</p>
 </section>
 <script>
 (function(){
@@ -85,13 +95,30 @@
   const name=document.querySelector('[name="name"]');
   const email=document.querySelector('[name="email"]');
   const phone=document.querySelector('[name="phone"]');
+  const kindInputs=document.querySelectorAll('[name="action_type"]');
+  const previewPanels=document.querySelectorAll('[data-preview-panel]');
+  const previewLink=document.getElementById('quickReviewPreview');
+  const previewHint=document.getElementById('quickReviewChooseCustomer');
+  const previewPattern='{{ url_for("customer_email_template_preview", customer_id=999999999, template_key="review_request_message") }}';
+  function refreshKind(){
+    const chosen=document.querySelector('[name="action_type"]:checked');
+    const kind=chosen ? chosen.value : 'form';
+    previewPanels.forEach(panel=>panel.hidden=panel.dataset.previewPanel!==kind);
+  }
+  kindInputs.forEach(input=>input.addEventListener('change',refreshKind));
   picker.addEventListener('change',function(){
     const option=picker.options[picker.selectedIndex];
     if(!option || !option.value)return;
     name.value=option.dataset.name || '';
     email.value=option.dataset.email || '';
     phone.value=option.dataset.phone || '';
+    if(previewLink){
+      previewLink.href=previewPattern.replace('999999999',option.value);
+      previewLink.hidden=false;
+    }
+    if(previewHint)previewHint.hidden=true;
   });
+  refreshKind();
 })();
 </script>
 {% endblock %}
