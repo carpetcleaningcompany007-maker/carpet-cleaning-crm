@@ -2511,6 +2511,8 @@ body.app-page .nav {
 .quick-send-kind strong { font-size:18px; color:#102033; padding-right:24px; }
 .quick-send-kind span { color:#52655d; line-height:1.45; }
 .optional-label { color:#6b7d75; font-size:12px; font-weight:700; }
+.saved-customer-picker { display:grid; gap:8px; color:#102033; font-weight:850; }
+.saved-customer-picker select { min-height:54px; border:1px solid #cdded6; border-radius:12px; background:#fff; padding:0 14px; font:inherit; color:#102033; }
 
 .send-contact-grid {
   display: grid;

@@ -29,6 +29,15 @@
       <label class="quick-send-kind {% if action_type == 'form' %}selected{% endif %}"><input type="radio" name="action_type" value="form" {% if action_type == 'form' %}checked{% endif %}><strong>Send customer form</strong><span>They receive a simple link to fill in their details.</span></label>
       <label class="quick-send-kind {% if action_type == 'review' %}selected{% endif %}"><input type="radio" name="action_type" value="review" {% if action_type == 'review' %}checked{% endif %}><strong>Send Google review request</strong><span>A warm thank-you with your direct review link.</span></label>
     </div>
+    <label class="saved-customer-picker">Choose a saved customer <span class="optional-label">optional — type the first letters to jump to their name</span>
+      <select name="customer_id" id="quickSendCustomer">
+        <option value="">Enter a new phone number or email below</option>
+        {% for customer in customers %}
+          {% set full_name = ((customer.first_name or '') ~ ' ' ~ (customer.last_name or ''))|trim %}
+          <option value="{{ customer.id }}" data-name="{{ full_name }}" data-email="{{ customer.email or '' }}" data-phone="{{ customer.phone or '' }}" {% if form_values.customer_id|string == customer.id|string %}selected{% endif %}>{{ full_name or 'Unnamed customer' }}{% if customer.phone %} — {{ customer.phone }}{% elif customer.email %} — {{ customer.email }}{% endif %}</option>
+        {% endfor %}
+      </select>
+    </label>
     <div class="test-send-banner">
       <div>
         <strong>Test it on yourself first</strong>
@@ -69,4 +78,20 @@
     <button class="btn secondary" type="button" data-copy-target="standaloneFormMessage">Copy Message</button>
   </div>
 </section>
+<script>
+(function(){
+  const picker=document.getElementById('quickSendCustomer');
+  if(!picker)return;
+  const name=document.querySelector('[name="name"]');
+  const email=document.querySelector('[name="email"]');
+  const phone=document.querySelector('[name="phone"]');
+  picker.addEventListener('change',function(){
+    const option=picker.options[picker.selectedIndex];
+    if(!option || !option.value)return;
+    name.value=option.dataset.name || '';
+    email.value=option.dataset.email || '';
+    phone.value=option.dataset.phone || '';
+  });
+})();
+</script>
 {% endblock %}
