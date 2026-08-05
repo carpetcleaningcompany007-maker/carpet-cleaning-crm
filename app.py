@@ -8021,15 +8021,27 @@ def dashboard():
 @login_required
 def send_contact_form():
     s = settings()
+    action_type = clean_str(request.values.get("action_type")).lower() or "form"
+    if action_type not in {"form", "review"}:
+        action_type = "form"
     form_values = {
         "name": clean_str(request.values.get("name")),
         "email": clean_str(request.values.get("email")),
         "phone": clean_str(request.values.get("phone")),
     }
     form_link = booking_form_url(prefill=form_values)
-    message = send_standalone_contact_form_message(form_link, form_values["name"])
+    review_link = clean_str(row_value(s, "review_link")) or "https://share.google/XHQjHHLwpmlugHP0c"
+    if action_type == "review":
+        greeting = f"Hi {form_values['name']}," if form_values["name"] else "Hello,"
+        message = (
+            f"{greeting} thank you again for choosing The Carpet Cleaning Company. "
+            "I hope you are happy with the clean. If you are, I would really appreciate a quick Google review — "
+            f"it helps a small local business enormously: {review_link} Thanks, Paul"
+        )
+    else:
+        message = send_standalone_contact_form_message(form_link, form_values["name"])
     if request.method == "POST":
-        if CUSTOMER_FORM_SENDING_PAUSED:
+        if action_type == "form" and CUSTOMER_FORM_SENDING_PAUSED:
             flash("Customer form sending is paused. No form link was sent.")
             return redirect(url_for("send_contact_form", **{k: v for k, v in form_values.items() if clean_str(v)}))
         recipient_name = clean_str(request.form.get("name"))
@@ -8045,7 +8057,15 @@ def send_contact_form():
             "email": email_to,
         }
         form_link = booking_form_url(prefill=prefill)
-        message = send_standalone_contact_form_message(form_link, recipient_name)
+        if action_type == "review":
+            greeting = f"Hi {recipient_name}," if recipient_name else "Hello,"
+            message = (
+                f"{greeting} thank you again for choosing The Carpet Cleaning Company. "
+                "I hope you are happy with the clean. If you are, I would really appreciate a quick Google review — "
+                f"it helps a small local business enormously: {review_link} Thanks, Paul"
+            )
+        else:
+            message = send_standalone_contact_form_message(form_link, recipient_name)
         send_email = request.form.get("send_email") == "1"
         send_sms = request.form.get("send_sms") == "1"
         if not send_email and not send_sms:
@@ -8058,21 +8078,27 @@ def send_contact_form():
 
         results = []
         if send_email:
-            subject = "Customer details form - The Carpet Cleaning Company"
-            email_html = booking_form_email_html(None, form_link, recipient_name=recipient_name)
+            if action_type == "review":
+                subject = "Thank you from The Carpet Cleaning Company"
+                safe_name = html_lib.escape(recipient_name or "there")
+                safe_review_link = html_lib.escape(review_link, quote=True)
+                email_html = f"""<!doctype html><html><body style="margin:0;background:#f3f7f5;font-family:Arial,sans-serif;color:#102033"><table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center" style="padding:28px 14px"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:620px;background:#fff;border:1px solid #dce8e2;border-radius:18px"><tr><td style="padding:34px"><div style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#0f7b63;font-weight:700">Thank you</div><h1 style="margin:10px 0 14px;font-size:28px">Hi {safe_name}, we hope you are happy with your clean.</h1><p style="font-size:17px;line-height:1.65;color:#385066">If you are, we would really appreciate a quick Google review. It helps our small local business enormously and helps other customers feel confident choosing us.</p><p style="margin:26px 0"><a href="{safe_review_link}" style="display:inline-block;background:#0f7b63;color:#fff;text-decoration:none;padding:15px 22px;border-radius:10px;font-weight:700">Leave a Google review</a></p><p style="font-size:16px;line-height:1.6">Thank you again,<br><strong>Paul Nicholas</strong><br>The Carpet Cleaning Company</p></td></tr></table></td></tr></table></body></html>"""
+            else:
+                subject = "Customer details form - The Carpet Cleaning Company"
+                email_html = booking_form_email_html(None, form_link, recipient_name=recipient_name)
             ok, msg = send_env_email(email_to, subject, message, email_html)
             if ok:
-                send_owner_customer_message_copy("email", email_to, subject, message, html_body=email_html, context="Customer form link email")
+                send_owner_customer_message_copy("email", email_to, subject, message, html_body=email_html, context="Quick-send customer email")
             results.append(("Email", ok, msg))
             run("INSERT INTO communications (customer_id, channel, subject, body, created_at) VALUES (?,?,?,?,datetime('now'))",
                 (None, "Email", subject, message))
         if send_sms:
-            ok, msg = send_clicksend_env_sms(sms_to, message, customer=None, category="Customer Form")
+            ok, msg = send_clicksend_env_sms(sms_to, message, customer=None, category="Review Request" if action_type == "review" else "Customer Form")
             if ok:
-                send_owner_customer_message_copy("sms", sms_to, "Customer details form", message, context="Customer form link SMS")
+                send_owner_customer_message_copy("sms", sms_to, "Google review request" if action_type == "review" else "Customer details form", message, context="Quick-send customer SMS")
             results.append(("SMS", ok, msg))
             run("INSERT INTO communications (customer_id, channel, subject, body, created_at) VALUES (?,?,?,?,datetime('now'))",
-                (None, "SMS", "Customer details form", message))
+                (None, "SMS", "Google review request" if action_type == "review" else "Customer details form", message))
 
         if not results:
             flash("Add an email address or mobile number, then choose email, text, or both.")
@@ -8081,6 +8107,7 @@ def send_contact_form():
         flash("; ".join(f"{label}: {'sent' if ok else 'failed'} - {msg}" for label, ok, msg in results))
         redirect_values = {k: v for k, v in prefill.items() if clean_str(v)}
         redirect_values["sent"] = "1"
+        redirect_values["action_type"] = action_type
         return redirect(url_for("send_contact_form", **redirect_values))
 
     return render_template(
@@ -8091,6 +8118,8 @@ def send_contact_form():
         form_values=form_values,
         customer_form_sending_paused=CUSTOMER_FORM_SENDING_PAUSED,
         sent_confirmation=request.args.get("sent") == "1",
+        action_type=action_type,
+        review_link=review_link,
     )
 
 
