@@ -2484,36 +2484,6 @@ body.app-page .nav {
   gap: 18px;
 }
 
-.quick-send-kinds {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
-}
-
-.quick-send-kind {
-  position: relative;
-  display: grid;
-  gap: 7px;
-  padding: 20px;
-  border: 2px solid #d9e6e0;
-  border-radius: 16px;
-  background: #f8fbfa;
-  cursor: pointer;
-}
-
-.quick-send-kind:has(input:checked) {
-  border-color: #0f7b63;
-  background: #ecf8f3;
-  box-shadow: 0 10px 24px rgba(15,123,99,.13);
-}
-
-.quick-send-kind input { position:absolute; top:16px; right:16px; width:auto; }
-.quick-send-kind strong { font-size:18px; color:#102033; padding-right:24px; }
-.quick-send-kind span { color:#52655d; line-height:1.45; }
-.optional-label { color:#6b7d75; font-size:12px; font-weight:700; }
-.saved-customer-picker { display:grid; gap:8px; color:#102033; font-weight:850; }
-.saved-customer-picker select { min-height:54px; border:1px solid #cdded6; border-radius:12px; background:#fff; padding:0 14px; font:inherit; color:#102033; }
-
 .send-contact-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -2559,9 +2529,6 @@ body.app-page .nav {
 }
 
 @media (max-width: 700px) {
-  .quick-send-kinds {
-    grid-template-columns: 1fr;
-  }
   .send-contact-grid {
     grid-template-columns: 1fr;
   }

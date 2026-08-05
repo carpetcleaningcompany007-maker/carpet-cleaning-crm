@@ -39,7 +39,6 @@
 
     <nav class="nav nav-tabler redesigned-nav simple-main-nav">
       <a class="nav-link {% if ep=='dashboard' %}active{% endif %}" href="{{ url_for('dashboard') }}"><span class="nav-icon" data-icon="home"></span><span>Today</span></a>
-      <a class="nav-link {% if ep=='send_contact_form' %}active{% endif %}" href="{{ url_for('send_contact_form') }}"><span class="nav-icon" data-icon="send"></span><span>Quick Send</span></a>
       <a class="nav-link {% if ep in ['customers','customer_view','customer_edit'] %}active{% endif %}" href="{{ url_for('customers') }}"><span class="nav-icon" data-icon="user"></span><span>Customers</span></a>
       <a class="nav-link {% if ep in ['new_leads'] %}active{% endif %}" href="{{ url_for('new_leads') }}"><span class="nav-icon" data-icon="inbox"></span><span>New Leads</span></a>
       <a class="nav-link {% if ep in ['intake_forms','intake_form_view'] %}active{% endif %}" href="{{ url_for('intake_forms') }}"><span class="nav-icon" data-icon="inbox"></span><span>Replies</span></a>
@@ -72,7 +71,7 @@
           <input type="text" name="q" placeholder="Quick find a customer">
         </form>
         <div class="top-actions">
-          <a class="pill action-pill" href="{{ url_for('send_contact_form') }}">Send Form</a>
+          <a class="pill action-pill" href="{{ url_for('customers') }}">Customers</a>
           <a class="pill action-pill" href="{{ url_for('booking_form') }}" target="_blank">Booking Form</a>
           <a class="pill action-pill" href="{{ url_for('workflow') }}">Workflow</a>
           <a class="pill action-pill" href="{{ url_for('xero_dashboard') }}">Xero</a>
@@ -82,7 +81,7 @@
 
     {% if ep == 'dashboard' %}
       <nav class="quick-dock website-quick-dock" aria-label="Quick actions">
-        <a href="{{ url_for('send_contact_form') }}"><span>Text or email</span><strong>Send form</strong></a>
+        <a href="{{ url_for('customers') }}"><span>Original messages</span><strong>Open customer</strong></a>
         <a href="{{ url_for('intake_forms') }}"><span>New enquiry</span><strong>Intake</strong></a>
         <a href="{{ url_for('new_leads') }}"><span>Public demand</span><strong>New Leads</strong></a>
         <a href="{{ url_for('customers') }}"><span>Find or add</span><strong>Customer</strong></a>
@@ -104,7 +103,6 @@
 
     <div class="mobile-quick-nav">
       <a href="{{ url_for('dashboard') }}">Overview</a>
-      <a href="{{ url_for('send_contact_form') }}">Send Form</a>
       <a href="{{ url_for('today_run') }}">Today Run</a>
       <a href="{{ url_for('new_leads') }}">New Leads</a>
       <a href="{{ url_for('customers') }}">Customers</a>
