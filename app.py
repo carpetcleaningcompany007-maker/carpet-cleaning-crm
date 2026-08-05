@@ -8744,6 +8744,45 @@ def customer_send_message_template(customer_id):
     save_only = request.form.get("save_only") == "1"
     template_key = clean_str(request.form.get("template_key"))
     saved_template_id = int(request.form.get("saved_template_id") or 0)
+
+    if request.form.get("unlinked_send") == "1":
+        if template_key != "review_request_message":
+            flash("Unlinked sending is only available for the review request.")
+            return redirect(url_for("customer_view", customer_id=customer_id) + "#customer-stage-overview")
+        random_name = clean_str(request.form.get("random_name")) or "there"
+        random_email = clean_str(request.form.get("random_email"))
+        random_phone = clean_str(request.form.get("random_phone"))
+        random_customer = {
+            "first_name": random_name,
+            "last_name": "",
+            "email": random_email,
+            "phone": random_phone,
+            "address": "",
+            "town": "",
+            "postcode": "",
+            "sms_opt_out": 0,
+        }
+        replacements = customer_message_replacements(random_customer, None)
+        actual_template_key = "review_request_sms" if channel == "sms" else "review_request_message"
+        template = message_template(actual_template_key)
+        saved_override = customer_template_override(customer_id, actual_template_key, channel)
+        subject_raw = (saved_override["subject"] if saved_override else template.get("subject")) or "Review request"
+        body_raw = (saved_override["body"] if saved_override else template.get("body")) or ""
+        subject = render_simple_template(subject_raw, replacements)
+        body = render_simple_template(body_raw, replacements)
+        if channel == "email" and not random_email:
+            flash("Add the unlinked recipient's email address. Nothing was sent.")
+            return redirect(url_for("customer_view", customer_id=customer_id) + "#customer-stage-overview")
+        if channel == "sms" and not random_phone:
+            flash("Add the unlinked recipient's mobile number. Nothing was sent.")
+            return redirect(url_for("customer_view", customer_id=customer_id) + "#customer-stage-overview")
+        html_body = visual_customer_email_html("review_request_message", random_customer, None, body) if channel == "email" else ""
+        ok, msg, recipient = send_rendered_customer_message(
+            random_customer, channel, subject, body, html_body=html_body
+        )
+        flash(("Sent without linking to this customer: " if ok else "Failed: ") + msg)
+        return redirect(url_for("customer_view", customer_id=customer_id) + "#customer-stage-overview")
+
     latest_job = latest_customer_job(customer_id)
     replacements = customer_message_replacements(customer, latest_job)
 

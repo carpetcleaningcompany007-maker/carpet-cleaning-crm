@@ -136,12 +136,17 @@
   .template-edit-form input,.template-edit-form textarea{width:100%;border:1px solid #cbdfea;border-radius:9px;padding:9px;font:inherit;font-size:14px;background:#fff;color:#102033}
   .template-edit-form textarea{min-height:110px;resize:vertical;line-height:1.4}
   .stage-no-template{margin:0;color:#617083;font-size:14px}
+  .unlinked-review-send{margin-top:16px;padding:16px;border:1px solid #d5e5dc;border-radius:14px;background:#f6fbf8}
+  .unlinked-review-send>summary{cursor:pointer;font-weight:900;color:#0b5f4d}
+  .unlinked-review-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:14px 0}
+  .unlinked-review-grid label{display:grid;gap:6px;font-weight:800;color:#102033}
+  .unlinked-review-grid input{width:100%;border:1px solid #cbdfea;border-radius:9px;padding:10px;font:inherit;background:#fff;color:#102033}
   .hub-collapse{margin:18px 0;border:1px solid #d7e3ec;border-radius:16px;background:#fff;overflow:hidden}
   .hub-collapse>summary{cursor:pointer;padding:18px 20px;font-weight:900;font-size:20px;color:#071524;background:#f8fbfd}
   .hub-collapse-body{padding:0 18px 18px}
   .extra-customer-tools{margin:18px 0 24px}
   @media(max-width:1180px){.stage-detail-panel,.stage-action-fields{grid-template-columns:1fr}}
-  @media(max-width:1000px){.workflow-main{grid-template-columns:1fr}.workflow-current{font-size:40px}.workflow-next{font-size:26px}.customer-form-send-fields{grid-template-columns:1fr}}
+  @media(max-width:1000px){.workflow-main{grid-template-columns:1fr}.workflow-current{font-size:40px}.workflow-next{font-size:26px}.customer-form-send-fields,.unlinked-review-grid{grid-template-columns:1fr}}
   @media(max-width:720px){body.app-page .customer-hero{padding:16px!important}body.app-page .customer-hero p{display:none!important}body.app-page .customer-hero>.row-actions{display:none!important}body.app-page .customer-hero .badge-row{display:none!important}body.app-page .customer-mobile-actions{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important}.stage-overview-head,.stage-section-head{grid-template-columns:auto minmax(0,1fr)}.stage-overview-head h3{font-size:28px}.customer-stage-overview{padding:16px;margin:14px 0}.stage-check-list,.stage-detail-grid{grid-template-columns:1fr}.customer-stage-card{padding:15px}.stage-mini-status{grid-column:2;white-space:normal}.stage-detail-main,.stage-next-box,.stage-current-action{padding:15px}.stage-template-actions .btn{width:100%;justify-content:center}}
 </style>
 
@@ -215,6 +220,25 @@
         </div>
       </form>
     </details>
+    {% if item.key == 'review_request_message' %}
+    <details class="unlinked-review-send">
+      <summary>Send this review request to a different person</summary>
+      <p class="muted">Uses this same beautiful email or saved review text. It will not be recorded as sent for {{ customer.first_name or 'this customer' }}.</p>
+      <form method="post" action="{{ url_for('customer_send_message_template', customer_id=customer.id) }}">
+        <input type="hidden" name="template_key" value="review_request_message">
+        <input type="hidden" name="unlinked_send" value="1">
+        <div class="unlinked-review-grid">
+          <label>Name <span class="muted">optional</span><input name="random_name" placeholder="Recipient name"></label>
+          <label>Email address<input type="email" name="random_email" placeholder="name@example.com"></label>
+          <label>Mobile number<input name="random_phone" placeholder="07..."></label>
+        </div>
+        <div class="stage-template-actions">
+          <button class="btn primary btn-small" type="submit" name="channel" value="email">Send Beautiful Email</button>
+          <button class="btn primary btn-small" type="submit" name="channel" value="sms">Send Review Text</button>
+        </div>
+      </form>
+    </details>
+    {% endif %}
   </div>
 {% endmacro %}
 
