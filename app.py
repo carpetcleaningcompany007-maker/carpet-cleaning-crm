@@ -91,7 +91,7 @@ def uk_today():
 
 @app.after_request
 def add_website_form_cors_headers(response):
-    if request.path in ("/website-form", "/api/website-form", "/api/customer-contact-form"):
+    if request.path in ("/website-form", "/api/website-form", "/api/customer-contact-form", "/api/website-engagement"):
         response.headers["Access-Control-Allow-Origin"] = "*"
         response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
         response.headers["Access-Control-Allow-Headers"] = "Content-Type, Accept"
@@ -13409,6 +13409,82 @@ def website_form_submit():
         public_mode=True,
         message="Thank you. Your enquiry has been received and we will get back to you shortly.",
     )
+
+
+@app.route("/api/website-engagement", methods=["POST", "OPTIONS"])
+def website_engagement_alert():
+    """Email the owner once when a real browsing session becomes meaningfully engaged."""
+    if request.method == "OPTIONS":
+        return ("", 204)
+    data = request.get_json(silent=True) if request.is_json else request.form
+    data = data or {}
+    if clean_str(data.get("company_website")):
+        return {"ok": True, "ignored": "honeypot"}
+
+    session_id = clean_str(data.get("session_id"))[:80]
+    landing_area = clean_str(data.get("landing_area"))[:40]
+    landing_page = clean_str(data.get("landing_page"))[:120]
+    trigger = clean_str(data.get("trigger"))[:80]
+    if not re.fullmatch(r"[A-Za-z0-9_-]{12,80}", session_id):
+        return {"ok": False, "error": "Invalid session"}, 400
+    if landing_area not in {"Ludlow", "Shrewsbury"}:
+        return {"ok": False, "error": "Invalid landing area"}, 400
+    if trigger not in {"reviews_viewed", "video_interaction", "form_started", "deep_scroll"}:
+        return {"ok": False, "error": "Invalid engagement trigger"}, 400
+
+    run("""CREATE TABLE IF NOT EXISTS website_engagement_alerts (
+             id INTEGER PRIMARY KEY AUTOINCREMENT,
+             session_id TEXT NOT NULL UNIQUE,
+             landing_area TEXT DEFAULT '', landing_page TEXT DEFAULT '',
+             trigger_name TEXT DEFAULT '', traffic_source TEXT DEFAULT '',
+             click_id_present INTEGER DEFAULT 0,
+             email_status TEXT DEFAULT '', created_at TEXT DEFAULT (datetime('now'))
+           )""")
+    if q("SELECT id FROM website_engagement_alerts WHERE session_id=?", (session_id,), one=True):
+        return {"ok": True, "duplicate": True}
+    recent = q("SELECT COUNT(*) AS c FROM website_engagement_alerts WHERE created_at >= datetime('now','-10 minutes')", one=True)
+    if recent and int(recent["c"] or 0) >= 20:
+        return {"ok": True, "rate_limited": True}
+
+    source = clean_str(data.get("utm_source"))[:80] or ("Google Ads" if data.get("gclid") or data.get("gbraid") or data.get("wbraid") else "Direct / unknown")
+    click_id_present = 1 if data.get("gclid") or data.get("gbraid") or data.get("wbraid") else 0
+    run("""INSERT INTO website_engagement_alerts
+           (session_id, landing_area, landing_page, trigger_name, traffic_source, click_id_present)
+           VALUES (?,?,?,?,?,?)""", (session_id, landing_area, landing_page, trigger, source, click_id_present))
+
+    owner_email, _ = owner_contact_form_recipients()
+    if not owner_email:
+        run("UPDATE website_engagement_alerts SET email_status=? WHERE session_id=?", ("No owner email configured", session_id))
+        return {"ok": False, "error": "Owner email is not configured"}, 503
+    trigger_labels = {
+        "reviews_viewed": "reached and viewed the Google reviews",
+        "video_interaction": "interacted with a cleaning video",
+        "form_started": "started using the enquiry form",
+        "deep_scroll": "read at least 75% of the landing page",
+    }
+    action = trigger_labels[trigger]
+    subject = f"Engaged visitor on the {landing_area} landing page"
+    text_body = (
+        f"An engaged visitor has {action}.\n\n"
+        f"Town: {landing_area}\nPage: {landing_page}\nSource: {source}\n"
+        f"Google click ID present: {'Yes' if click_id_present else 'No'}\n\n"
+        "This is an anonymous engagement alert, not a confirmed enquiry. "
+        "Only one alert is sent for this browsing session."
+    )
+    html_body = build_email_html(
+        f"<h2 style='margin-top:0'>Engaged visitor: {html_lib.escape(landing_area)}</h2>"
+        f"<p>A visitor has <strong>{html_lib.escape(action)}</strong>.</p>"
+        f"<p><strong>Page:</strong> {html_lib.escape(landing_page)}<br>"
+        f"<strong>Source:</strong> {html_lib.escape(source)}<br>"
+        f"<strong>Google click ID present:</strong> {'Yes' if click_id_present else 'No'}</p>"
+        "<p style='color:#5c6973'>Anonymous engagement only—not yet a confirmed enquiry. "
+        "Only one alert is sent for this session.</p>"
+    )
+    ok, message = send_env_email(owner_email, subject, text_body, html_body)
+    run("UPDATE website_engagement_alerts SET email_status=? WHERE session_id=?", (status_text(ok, message), session_id))
+    if not ok:
+        return {"ok": False, "error": clean_str(message)}, 502
+    return {"ok": True, "alerted": True}
 
 
 @app.route("/intake-forms")

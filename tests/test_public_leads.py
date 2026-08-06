@@ -25,6 +25,34 @@ class PublicLeadTests(unittest.TestCase):
         except OSError:
             pass
 
+    def test_engaged_visitor_email_alert_is_sent_once_per_session(self):
+        client = self.app.test_client()
+        payload = {
+            "session_id": "visitor_session_12345",
+            "landing_area": "Shrewsbury",
+            "landing_page": "landing-shrewsbury.html",
+            "trigger": "reviews_viewed",
+            "gclid": "google-click-id",
+        }
+        with mock.patch.object(self.appmod, "owner_contact_form_recipients", return_value=("owner@example.com", "")), \
+             mock.patch.object(self.appmod, "send_env_email", return_value=(True, "sent")) as send_email:
+            first = client.post("/api/website-engagement", data=payload)
+            duplicate = client.post("/api/website-engagement", data=payload)
+        self.assertEqual(first.status_code, 200)
+        self.assertTrue(first.get_json()["alerted"])
+        self.assertTrue(duplicate.get_json()["duplicate"])
+        self.assertEqual(send_email.call_count, 1)
+        self.assertIn("Shrewsbury", send_email.call_args.args[1])
+
+    def test_engagement_alert_rejects_unknown_trigger(self):
+        response = self.app.test_client().post("/api/website-engagement", data={
+            "session_id": "visitor_session_12345",
+            "landing_area": "Ludlow",
+            "landing_page": "landing-ludlow.html",
+            "trigger": "page_loaded",
+        })
+        self.assertEqual(response.status_code, 400)
+
     def test_recent_lead_is_scored_and_saved(self):
         lead_id, action = self.appmod.save_public_lead({
             "business_name": "Example Hotel",
