@@ -6570,7 +6570,19 @@ def init_db():
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
         update_form_sent_at TEXT DEFAULT '',
-        update_form_status TEXT DEFAULT ''
+        update_form_status TEXT DEFAULT '',
+        gclid TEXT DEFAULT '',
+        gbraid TEXT DEFAULT '',
+        wbraid TEXT DEFAULT '',
+        utm_source TEXT DEFAULT '',
+        utm_medium TEXT DEFAULT '',
+        utm_campaign TEXT DEFAULT '',
+        utm_term TEXT DEFAULT '',
+        utm_content TEXT DEFAULT '',
+        landing_area TEXT DEFAULT '',
+        landing_page TEXT DEFAULT '',
+        google_search_term TEXT DEFAULT '',
+        search_term_precision TEXT DEFAULT ''
     );
     CREATE TABLE IF NOT EXISTS xero_tokens (
         id INTEGER PRIMARY KEY CHECK (id=1),
@@ -6905,6 +6917,18 @@ def init_db():
         ("intake_submissions", "follow_up_status", "TEXT DEFAULT 'Follow up required'"),
         ("intake_submissions", "update_form_sent_at", "TEXT DEFAULT ''"),
         ("intake_submissions", "update_form_status", "TEXT DEFAULT ''"),
+        ("intake_submissions", "gclid", "TEXT DEFAULT ''"),
+        ("intake_submissions", "gbraid", "TEXT DEFAULT ''"),
+        ("intake_submissions", "wbraid", "TEXT DEFAULT ''"),
+        ("intake_submissions", "utm_source", "TEXT DEFAULT ''"),
+        ("intake_submissions", "utm_medium", "TEXT DEFAULT ''"),
+        ("intake_submissions", "utm_campaign", "TEXT DEFAULT ''"),
+        ("intake_submissions", "utm_term", "TEXT DEFAULT ''"),
+        ("intake_submissions", "utm_content", "TEXT DEFAULT ''"),
+        ("intake_submissions", "landing_area", "TEXT DEFAULT ''"),
+        ("intake_submissions", "landing_page", "TEXT DEFAULT ''"),
+        ("intake_submissions", "google_search_term", "TEXT DEFAULT ''"),
+        ("intake_submissions", "search_term_precision", "TEXT DEFAULT ''"),
         ("customer_feedback", "review_requested", "INTEGER DEFAULT 0"),
         ("customer_feedback", "review_link_sent_at", "TEXT DEFAULT ''"),
         ("future_reminders", "reminder_type", "TEXT DEFAULT 'Follow up'"),
@@ -7421,6 +7445,24 @@ def missing_details_note(missing):
     return "Missing details: " + ", ".join(missing)
 
 
+def google_search_intent_label(term="", service=""):
+    """Turn a captured ValueTrack keyword into a useful call-handling prompt."""
+    text = f"{clean_str(term)} {clean_str(service)}".lower()
+    if any(word in text for word in ("best", "recommended", "top rated", "five star", "5 star")):
+        return "Quality / reputation — looking for a highly recommended cleaner"
+    if any(word in text for word in ("price", "prices", "cost", "quote", "cheap", "affordable")):
+        return "Price / quotation — likely comparing costs"
+    if any(word in text for word in ("stain", "urine", "odour", "odor", "pet", "traffic lane")):
+        return "Specific cleaning problem — ask what needs treating"
+    if any(word in text for word in ("near me", "shrewsbury", "ludlow", "local")):
+        return "Local service — looking for a cleaner in their area"
+    if any(word in text for word in ("sofa", "upholstery", "settee", "chair")):
+        return "Upholstery / sofa cleaning"
+    if "carpet" in text:
+        return "Carpet cleaning"
+    return "Google Ads enquiry — intent not yet classified" if clean_str(term) else "Search wording not supplied by Google"
+
+
 def create_intake_from_website_payload(data, source="Website form", photo_filename="", require_valid_phone=False):
     name = request_value(data, "name", "full_name", "customer_name", "fullname")
     phone = request_value(data, "phone", "phone_number", "telephone", "tel")
@@ -7445,6 +7487,20 @@ def create_intake_from_website_payload(data, source="Website form", photo_filena
     agreed_quote_price = parse_money(request_value(data, "agreed_quote_price", "quote_price", "price"), 0)
     marketing_consent = request_value(data, "marketing_consent", "marketing")
     contact_consent = request_value(data, "contact_consent", "consent_to_contact")
+    gclid = request_value(data, "gclid")[:255]
+    gbraid = request_value(data, "gbraid")[:255]
+    wbraid = request_value(data, "wbraid")[:255]
+    utm_source = request_value(data, "utm_source")[:120]
+    utm_medium = request_value(data, "utm_medium")[:120]
+    utm_campaign = request_value(data, "utm_campaign")[:180]
+    utm_term = request_value(data, "utm_term")[:255]
+    utm_content = request_value(data, "utm_content")[:255]
+    landing_area = request_value(data, "landing_area")[:80]
+    landing_page = request_value(data, "landing_page")[:255]
+    google_search_term = request_value(data, "google_search_term", "search_term")[:255]
+    search_term_precision = request_value(data, "search_term_precision")[:80]
+    if not search_term_precision:
+        search_term_precision = "Google Ads matched keyword" if utm_term else ("Google click ID captured; wording unavailable" if (gclid or gbraid or wbraid) else "Not a tracked Google Ads click")
     if not name:
         name = "Website Customer"
     if not phone and not email:
@@ -7470,12 +7526,16 @@ def create_intake_from_website_payload(data, source="Website form", photo_filena
            (name, phone, email, full_address, postcode, agreed_quote_price, google_maps_link, what3words, job_notes, rooms_areas,
             what_cleaned, number_rooms, upholstery, rugs, stains, pets, parking, preferred_days_times, additional_notes,
             preferred_date, preferred_time, photo_filename, status, source, marketing_consent,
-            xero_sync_status, customer_email_status, customer_sms_status, owner_email_status, owner_sms_status, follow_up_status)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", (
+            xero_sync_status, customer_email_status, customer_sms_status, owner_email_status, owner_sms_status, follow_up_status,
+            gclid, gbraid, wbraid, utm_source, utm_medium, utm_campaign, utm_term, utm_content,
+            landing_area, landing_page, google_search_term, search_term_precision)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", (
         name, phone, email, address, postcode, agreed_quote_price, google_maps_link, what3words, notes, rooms_areas,
         what_cleaned, number_rooms, upholstery, rugs, stains, pets, parking, preferred, additional_notes,
         preferred_date, preferred_time, photo_filename, status, source, marketing_consent,
         "Pending", "Pending", "Pending", "Pending", "Pending", "Follow up required",
+        gclid, gbraid, wbraid, utm_source, utm_medium, utm_campaign, utm_term, utm_content,
+        landing_area, landing_page, google_search_term, search_term_precision,
     ))
     lead = q("SELECT * FROM intake_submissions WHERE id=?", (lead_id,), one=True)
     customer_id = create_customer_from_intake(lead)
@@ -7572,6 +7632,12 @@ def customer_hub_detail_summary(customer, latest_intake=None, latest_job=None):
     name = first_value(customer_name(customer), row_value(latest_intake, "name"))
     if name == "Customer":
         name = first_value(row_value(latest_intake, "name"))
+    matched_keyword = first_value(row_value(latest_intake, "utm_term"))
+    disclosed_search = first_value(row_value(latest_intake, "google_search_term"))
+    click_id = first_value(row_value(latest_intake, "gclid"), row_value(latest_intake, "gbraid"), row_value(latest_intake, "wbraid"))
+    search_wording = disclosed_search or (matched_keyword if matched_keyword else ("Exact search hidden or unavailable" if click_id else "Not a tracked Google Ads click"))
+    search_precision = first_value(row_value(latest_intake, "search_term_precision"))
+    search_intent = google_search_intent_label(disclosed_search or matched_keyword, first_value(row_value(latest_intake, "what_cleaned")))
     return [
         {"label": "Name", "value": name, "missing": "Name missing"},
         {"label": "Address", "value": first_value(row_value(customer, "address"), row_value(latest_intake, "full_address")), "missing": "Address missing"},
@@ -7580,6 +7646,10 @@ def customer_hub_detail_summary(customer, latest_intake=None, latest_job=None):
         {"label": "Email address", "value": first_value(row_value(customer, "email"), row_value(latest_intake, "email")), "missing": "Email missing"},
         {"label": "What3Words", "value": first_value(row_value(latest_intake, "what3words")), "missing": "What3Words missing"},
         {"label": "Service requested", "value": first_value(row_value(latest_intake, "what_cleaned"), row_value(latest_intake, "service"), row_value(latest_intake, "rooms_areas"), row_value(latest_job, "service_type"), row_value(latest_job, "title")), "missing": "Service missing"},
+        {"label": "Google search intent", "value": search_intent, "missing": "Search intent unavailable"},
+        {"label": "Search wording / matched keyword", "value": search_wording, "missing": "Search wording unavailable"},
+        {"label": "Attribution confidence", "value": search_precision, "missing": "Attribution not available"},
+        {"label": "Ads campaign", "value": first_value(row_value(latest_intake, "utm_campaign"), row_value(latest_intake, "landing_area")), "missing": "Campaign unavailable"},
         {"label": "Rooms / areas", "value": first_value(row_value(latest_intake, "rooms_areas"), row_value(latest_intake, "number_rooms")), "missing": "Rooms or areas missing"},
         {"label": "Access / parking", "value": first_value(row_value(latest_intake, "parking"), row_value(latest_intake, "additional_notes")), "missing": "Access notes missing"},
         {"label": "Photos", "value": first_value(row_value(latest_intake, "photo_filename"), row_value(latest_intake, "photo_filenames")), "missing": "Photos not supplied"},
