@@ -1,0 +1,47 @@
+{% extends "layout.html" %}
+{% block page_title %}Site Analytics{% endblock %}
+{% block body_content %}
+{% macro pct(value) -%}{{ ((value or 0) * 100 / visitors)|round|int if visitors else 0 }}%{%- endmacro %}
+<div class="report-stack">
+  <section class="report-hero">
+    <div class="page-intro" style="margin-bottom:0">
+      <div class="page-intro-copy">
+        <div class="section-kicker">Anonymous landing-page activity</div>
+        <h3>What visitors do on the new landing page</h3>
+        <p>Counts begin on {{ from_date }}. No names, contact details, form answers, cookies or stored browser identifiers are collected here.</p>
+      </div>
+      <form method="get" class="page-intro-actions"><label>From <input type="date" name="from" value="{{ from_date }}"></label><button class="btn primary">Update</button></form>
+    </div>
+  </section>
+
+  <div class="soft-stat-grid">
+    <div class="soft-stat"><span>Visitors</span><strong>{{ visitors }}</strong></div>
+    <div class="soft-stat"><span>Form Starts</span><strong>{{ counts.get('form_start', 0) }}</strong></div>
+    <div class="soft-stat"><span>Forms Sent</span><strong>{{ counts.get('form_submit', 0) }}</strong></div>
+    <div class="soft-stat"><span>Video Starts</span><strong>{{ counts.get('video_start', 0) }}</strong></div>
+    <div class="soft-stat"><span>Stayed 1 Minute</span><strong>{{ counts.get('time_60', 0) }}</strong></div>
+    <div class="soft-stat"><span>Average Time</span><strong>{{ duration['average_seconds'] or 0 }} sec</strong></div>
+  </div>
+
+  <div class="section-grid-2">
+    <section class="panel"><div class="panel-head"><h3>Page and form journey</h3></div><div class="metric-list">
+      {% for key, label in [('scroll_25','Reached 25%'),('scroll_50','Reached halfway'),('scroll_75','Reached 75%'),('scroll_90','Reached 90%'),('scroll_bottom','Reached the bottom'),('form_view','Saw the form'),('form_start','Started the form'),('form_midpoint','Reached form midpoint'),('form_final','Reached final form fields'),('form_submit','Submitted the form')] %}
+      <div class="metric-row"><strong>{{ label }}</strong><span>{{ counts.get(key,0) }} · {{ pct(counts.get(key,0)) }}</span></div>
+      {% endfor %}
+    </div></section>
+    <section class="panel"><div class="panel-head"><h3>Attention and video</h3></div><div class="metric-list">
+      {% for key, label in [('time_10','Stayed 10 seconds'),('time_20','Stayed 20 seconds'),('time_60','Stayed 1 minute'),('time_120','Stayed 2 minutes'),('video_start','Started the video'),('video_25','Watched 25%'),('video_50','Watched halfway'),('video_75','Watched 75%'),('video_complete','Finished the video')] %}
+      <div class="metric-row"><strong>{{ label }}</strong><span>{{ counts.get(key,0) }} · {{ pct(counts.get(key,0)) }}</span></div>
+      {% endfor %}
+      <div class="metric-row"><strong>Longest recorded visit</strong><span>{{ duration['maximum_seconds'] or 0 }} sec</span></div>
+    </div></section>
+  </div>
+
+  <div class="section-grid-2">
+    <section class="panel"><div class="panel-head"><h3>Traffic sources</h3></div><div class="metric-list">{% for row in sources %}<div class="metric-row"><strong>{{ row['name'] }}</strong><span>{{ row['total'] }}</span></div>{% else %}<p>No visits recorded yet.</p>{% endfor %}</div></section>
+    <section class="panel"><div class="panel-head"><h3>Devices and contact clicks</h3></div><div class="metric-list">{% for row in devices %}<div class="metric-row"><strong>{{ row['name']|title }}</strong><span>{{ row['total'] }}</span></div>{% endfor %}<div class="metric-row"><strong>Phone clicks</strong><span>{{ counts.get('phone_click',0) }}</span></div><div class="metric-row"><strong>WhatsApp clicks</strong><span>{{ counts.get('whatsapp_click',0) }}</span></div><div class="metric-row"><strong>Quote clicks</strong><span>{{ counts.get('quote_click',0) }}</span></div></div></section>
+  </div>
+
+  <section class="panel table-shell"><div class="panel-head"><h3>Daily results</h3></div><table class="table"><tr><th>Date</th><th>Visitors</th><th>Video starts</th><th>Form starts</th><th>Forms sent</th></tr>{% for row in daily %}<tr><td>{{ row['day'] }}</td><td>{{ row['visitors'] }}</td><td>{{ row['video_starts'] }}</td><td>{{ row['form_starts'] }}</td><td>{{ row['form_submits'] }}</td></tr>{% else %}<tr><td colspan="5">No visits recorded yet.</td></tr>{% endfor %}</table></section>
+</div>
+{% endblock %}

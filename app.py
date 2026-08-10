@@ -91,7 +91,7 @@ def uk_today():
 
 @app.after_request
 def add_website_form_cors_headers(response):
-    if request.path in ("/website-form", "/api/website-form", "/api/customer-contact-form", "/api/website-engagement"):
+    if request.path in ("/website-form", "/api/website-form", "/api/customer-contact-form", "/api/website-engagement", "/api/website-analytics"):
         response.headers["Access-Control-Allow-Origin"] = "*"
         response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
         response.headers["Access-Control-Allow-Headers"] = "Content-Type, Accept"
@@ -13555,6 +13555,108 @@ def website_engagement_alert():
     if not ok:
         return {"ok": False, "error": clean_str(message)}, 502
     return {"ok": True, "alerted": True}
+
+
+WEBSITE_ANALYTICS_EVENTS = {
+    "page_view", "time_10", "time_20", "time_60", "time_120",
+    "scroll_25", "scroll_50", "scroll_75", "scroll_90", "scroll_bottom",
+    "video_start", "video_25", "video_50", "video_75", "video_complete",
+    "form_view", "form_start", "form_midpoint", "form_final", "form_submit",
+    "phone_click", "email_click", "whatsapp_click", "quote_click", "page_exit",
+}
+
+
+def ensure_website_analytics_table():
+    run("""CREATE TABLE IF NOT EXISTS website_analytics_events (
+             id INTEGER PRIMARY KEY AUTOINCREMENT,
+             session_id TEXT NOT NULL,
+             landing_area TEXT DEFAULT '', landing_page TEXT DEFAULT '',
+             page_variant TEXT DEFAULT '', event_name TEXT NOT NULL,
+             event_value INTEGER DEFAULT 0, traffic_source TEXT DEFAULT '',
+             click_id_present INTEGER DEFAULT 0, device_type TEXT DEFAULT '',
+             created_at TEXT DEFAULT (datetime('now')),
+             UNIQUE(session_id, event_name)
+           )""")
+
+
+@app.route("/api/website-analytics", methods=["POST", "OPTIONS"])
+def website_analytics_event():
+    """Store anonymous landing-page events without cookies or form contents."""
+    if request.method == "OPTIONS":
+        return ("", 204)
+    data = request.get_json(silent=True) if request.is_json else request.form
+    data = data or {}
+    if clean_str(data.get("company_website")):
+        return {"ok": True, "ignored": "honeypot"}
+    session_id = clean_str(data.get("session_id"))[:80]
+    area = clean_str(data.get("landing_area"))[:40]
+    event_name = clean_str(data.get("event_name"))[:40]
+    if not re.fullmatch(r"[A-Za-z0-9_-]{12,80}", session_id):
+        return {"ok": False, "error": "Invalid session"}, 400
+    if area not in {"Ludlow", "Shrewsbury"}:
+        return {"ok": False, "error": "Invalid landing area"}, 400
+    if event_name not in WEBSITE_ANALYTICS_EVENTS:
+        return {"ok": False, "error": "Invalid analytics event"}, 400
+    ensure_website_analytics_table()
+    recent = q("SELECT COUNT(*) AS c FROM website_analytics_events WHERE created_at >= datetime('now','-10 minutes')", one=True)
+    per_session = q("SELECT COUNT(*) AS c FROM website_analytics_events WHERE session_id=?", (session_id,), one=True)
+    if (recent and int(recent["c"] or 0) >= 3000) or (per_session and int(per_session["c"] or 0) >= 30):
+        return {"ok": True, "rate_limited": True}
+    try:
+        event_value = min(86400, max(0, int(float(data.get("event_value") or 0))))
+    except (TypeError, ValueError):
+        event_value = 0
+    values = (
+        session_id, area, clean_str(data.get("landing_page"))[:120],
+        clean_str(data.get("page_variant"))[:80], event_name, event_value,
+        clean_str(data.get("traffic_source"))[:80], 1 if data.get("click_id_present") else 0,
+        clean_str(data.get("device_type"))[:20],
+    )
+    run("""INSERT INTO website_analytics_events
+           (session_id, landing_area, landing_page, page_variant, event_name,
+            event_value, traffic_source, click_id_present, device_type)
+           VALUES (?,?,?,?,?,?,?,?,?)
+           ON CONFLICT(session_id,event_name) DO UPDATE SET
+             event_value=MAX(event_value, excluded.event_value)""", values)
+    return {"ok": True}
+
+
+@app.route("/website-analytics")
+@login_required
+def website_analytics_dashboard():
+    ensure_website_analytics_table()
+    from_date = clean_str(request.args.get("from")) or "2026-08-10"
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", from_date):
+        from_date = "2026-08-10"
+    rows = q("""SELECT event_name, COUNT(DISTINCT session_id) AS total
+                FROM website_analytics_events WHERE date(created_at) >= ?
+                GROUP BY event_name""", (from_date,))
+    counts = {row["event_name"]: int(row["total"] or 0) for row in rows}
+    visitors = counts.get("page_view", 0)
+    duration = q("""SELECT ROUND(AVG(event_value)) AS average_seconds, MAX(event_value) AS maximum_seconds
+                    FROM website_analytics_events
+                    WHERE event_name='page_exit' AND date(created_at) >= ?""", (from_date,), one=True)
+    sources = q("""SELECT COALESCE(NULLIF(traffic_source,''),'Direct / unknown') AS name,
+                          COUNT(DISTINCT session_id) AS total
+                   FROM website_analytics_events
+                   WHERE event_name='page_view' AND date(created_at) >= ?
+                   GROUP BY COALESCE(NULLIF(traffic_source,''),'Direct / unknown')
+                   ORDER BY total DESC""", (from_date,))
+    devices = q("""SELECT COALESCE(NULLIF(device_type,''),'unknown') AS name,
+                          COUNT(DISTINCT session_id) AS total
+                   FROM website_analytics_events
+                   WHERE event_name='page_view' AND date(created_at) >= ?
+                   GROUP BY COALESCE(NULLIF(device_type,''),'unknown') ORDER BY total DESC""", (from_date,))
+    daily = q("""SELECT date(created_at) AS day,
+                        COUNT(DISTINCT CASE WHEN event_name='page_view' THEN session_id END) AS visitors,
+                        COUNT(DISTINCT CASE WHEN event_name='video_start' THEN session_id END) AS video_starts,
+                        COUNT(DISTINCT CASE WHEN event_name='form_start' THEN session_id END) AS form_starts,
+                        COUNT(DISTINCT CASE WHEN event_name='form_submit' THEN session_id END) AS form_submits
+                 FROM website_analytics_events WHERE date(created_at) >= ?
+                 GROUP BY date(created_at) ORDER BY day DESC""", (from_date,))
+    return render_template("website_analytics.html", counts=counts, visitors=visitors,
+                           duration=duration, sources=sources, devices=devices,
+                           daily=daily, from_date=from_date)
 
 
 @app.route("/intake-forms")
