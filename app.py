@@ -2220,32 +2220,60 @@ def send_clicksend_env_sms(to_phone, body, customer=None, category="Website Enqu
         return False, str(exc)
 
 
+def website_enquiry_source_label(data):
+    landing_page = request_value(data, "landing_page").lower()
+    landing_area = request_value(data, "landing_area")
+    if "landing-shrewsbury" in landing_page:
+        label = "Shrewsbury landing page"
+    elif "landing-ludlow" in landing_page:
+        label = "Ludlow landing page"
+    elif landing_area and "landing" in landing_page:
+        label = f"{landing_area} landing page"
+    else:
+        label = "Main website"
+    if request_value(data, "gclid", "gbraid", "wbraid"):
+        label += " (Google Ads)"
+    return label
+
+
 def owner_enquiry_alert_text(data, customer_id=None, lead_id=None):
     customer_url = url_for("customer_view", customer_id=customer_id, _external=True) if customer_id else ""
     review_url = url_for("intake_form_view", lead_id=lead_id, _external=True) if lead_id else ""
-    contact_consent = request_value(data, "contact_consent", "consent_to_contact")
+    name = request_value(data, "name", "full_name", "customer_name") or "Not supplied"
+    phone = request_value(data, "phone", "phone_number", "telephone", "tel") or "Not supplied"
+    email = request_value(data, "email", "email_address") or "Not supplied"
+    address = request_value(data, "address", "full_address", "street_address")
+    postcode = request_value(data, "postcode", "post_code", "zip")
+    address_line = ", ".join(part for part in (address, postcode) if part) or "Not supplied"
+    service = request_value(data, "service", "what_cleaned", "service_required", "cleaning_required")
+    rooms_items = enquiry_rooms_items_text(data)
+    raw_extras = data.getlist("extras") if hasattr(data, "getlist") else data.get("extras", [])
+    extras = [clean_str(item) for item in (raw_extras if isinstance(raw_extras, (list, tuple)) else [raw_extras]) if clean_str(item)]
+    stains = request_value(data, "stains", "stain_type")
+    work_parts = [part for part in (service, rooms_items) if part and part != "Not supplied"]
+    if extras:
+        work_parts.append(", ".join(extras))
+    if stains and stains.lower() != "no stains":
+        work_parts.append(stains)
+    work = " | ".join(work_parts) or "Not supplied"
+    message = request_value(data, "message", "notes", "additional_notes")
+    source = website_enquiry_source_label(data)
     lines = [
-        "New website enquiry received",
-        f"Customer name: {request_value(data, 'name', 'full_name', 'customer_name')}",
-        f"Phone number: {request_value(data, 'phone', 'phone_number', 'telephone', 'tel')}",
-        f"Email address: {request_value(data, 'email', 'email_address')}",
-        f"Address: {request_value(data, 'address', 'full_address', 'street_address')}",
-        f"Postcode: {request_value(data, 'postcode', 'post_code', 'zip')}",
-        f"Service requested: {request_value(data, 'service', 'what_cleaned', 'service_required', 'cleaning_required')}",
-        f"Rooms/items: {enquiry_rooms_items_text(data)}",
-        f"Consent to contact: {contact_consent or 'Not supplied'}",
-        f"Message: {request_value(data, 'message', 'notes', 'additional_notes')}",
+        f"NEW LEAD - {source}",
+        "",
+        f"Name: {name}",
+        f"Telephone: {phone}",
+        f"Address: {address_line}",
+        f"Work: {work}",
+        f"Email: {email}",
     ]
+    if message:
+        lines.append(f"Notes: {message}")
     if review_url:
         lines.append("")
-        lines.append("Initial thank-you message is handled automatically.")
-        lines.append("Follow-up call-back SMS / Text is prepared but NOT sent.")
-        lines.append("Open this link if you want to approve the follow-up text:")
-        lines.append(f"{review_url}#customer-message-approval")
+        lines.append(f"Approve follow-up: {review_url}#customer-message-approval")
     if customer_url:
-        lines.append(f"Open in CRM: {customer_url}")
-    if lead_id:
-        lines.append(f"Intake ID: {lead_id}")
+        lines.append(f"CRM record: {customer_url}")
     return "\n".join(lines)
 
 
@@ -2750,6 +2778,11 @@ def run_website_enquiry_automation(lead_id, customer_id, data):
     alert_body = render_simple_template(owner_email_template["body"], template_context_for_enquiry(data, customer_id=customer_id, lead_id=lead_id))
     if owner_email:
         subject = render_simple_template(owner_email_template["subject"] or "New website enquiry received", template_context_for_enquiry(data, customer_id=customer_id, lead_id=lead_id))
+        if subject.strip().lower() == "new website enquiry received":
+            lead_name = request_value(data, "name", "full_name", "customer_name") or "New customer"
+            lead_postcode = request_value(data, "postcode", "post_code", "zip")
+            subject_bits = ["New lead", lead_name, lead_postcode, website_enquiry_source_label(data)]
+            subject = " | ".join(bit for bit in subject_bits if bit)
         ok, msg = send_env_email(owner_email, subject, alert_body, "<pre style='font-family:Arial, sans-serif; white-space:pre-wrap'>" + html_lib.escape(alert_body) + "</pre>")
         update_intake_delivery_status(lead_id, owner_email_status=status_text(ok, msg))
         results["owner_email"] = (ok, msg)
@@ -2757,7 +2790,11 @@ def run_website_enquiry_automation(lead_id, customer_id, data):
         update_intake_delivery_status(lead_id, owner_email_status=status_text(False, "OWNER_ALERT_EMAIL not set", skipped=True))
 
     owner_mobile = os.environ.get("OWNER_ALERT_MOBILE", "").strip()
-    owner_sms = render_simple_template(message_template("owner_enquiry_alert_sms")["body"], template_context_for_enquiry(data, customer_id=customer_id, lead_id=lead_id))
+    owner_sms_template = message_template("owner_enquiry_alert_sms")["body"]
+    if clean_str(owner_sms_template) == "{{owner_alert_details}}":
+        owner_sms = owner_enquiry_alert_text(data)
+    else:
+        owner_sms = render_simple_template(owner_sms_template, template_context_for_enquiry(data, customer_id=customer_id, lead_id=lead_id))
     if owner_mobile:
         ok, msg = send_clicksend_env_sms(owner_mobile, owner_sms, customer=None, category="Service")
         update_intake_delivery_status(lead_id, owner_sms_status=status_text(ok, msg))
