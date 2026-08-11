@@ -13742,9 +13742,63 @@ def website_analytics_dashboard():
                         COUNT(DISTINCT CASE WHEN event_name='form_submit' THEN session_id END) AS form_submits
                  FROM website_analytics_events WHERE date(created_at) >= ?
                  GROUP BY date(created_at) ORDER BY day DESC""", (from_date,))
+    visit_rows = q("""SELECT session_id, MIN(created_at) AS started_at,
+                             MAX(created_at) AS last_event_at,
+                             MAX(traffic_source) AS traffic_source,
+                             MAX(device_type) AS device_type,
+                             GROUP_CONCAT(event_name) AS event_names,
+                             MAX(CASE WHEN event_name='page_exit' THEN event_value ELSE 0 END) AS duration_seconds
+                      FROM website_analytics_events
+                      WHERE date(created_at) >= ?
+                      GROUP BY session_id
+                      HAVING SUM(CASE WHEN event_name='page_view' THEN 1 ELSE 0 END) > 0
+                      ORDER BY started_at DESC""", (from_date,))
+    visit_summaries = []
+    for index, row in enumerate(visit_rows, start=1):
+        events = set(clean_str(row["event_names"]).split(","))
+        depth = "Page opened"
+        for event, label in (("scroll_bottom", "Reached the bottom"), ("scroll_90", "Reached 90%"),
+                             ("scroll_75", "Reached 75%"), ("scroll_50", "Reached halfway"),
+                             ("scroll_25", "Reached 25%")):
+            if event in events:
+                depth = label
+                break
+        attention = "Under 10 seconds"
+        for event, label in (("time_120", "At least 2 minutes"), ("time_60", "At least 1 minute"),
+                             ("time_20", "At least 20 seconds"), ("time_10", "At least 10 seconds")):
+            if event in events:
+                attention = label
+                break
+        form_stage = "Did not see the form"
+        for event, label in (("form_submit", "Submitted the form"), ("form_final", "Reached final form fields"),
+                             ("form_midpoint", "Reached form midpoint"), ("form_start", "Started the form"),
+                             ("form_view", "Saw the form")):
+            if event in events:
+                form_stage = label
+                break
+        video_stage = "Did not start the video"
+        for event, label in (("video_complete", "Finished the video"), ("video_75", "Watched 75%"),
+                             ("video_50", "Watched halfway"), ("video_25", "Watched 25%"),
+                             ("video_start", "Started the video")):
+            if event in events:
+                video_stage = label
+                break
+        clicks = []
+        for event, label in (("quote_click", "Quote button"), ("phone_click", "Phone"),
+                             ("whatsapp_click", "WhatsApp"), ("email_click", "Email")):
+            if event in events:
+                clicks.append(label)
+        visit_summaries.append({
+            "number": len(visit_rows) - index + 1,
+            "started_at": row["started_at"], "source": row["traffic_source"] or "Direct / unknown",
+            "device": row["device_type"] or "Unknown", "attention": attention, "depth": depth,
+            "form_stage": form_stage, "video_stage": video_stage,
+            "clicks": ", ".join(clicks) if clicks else "No tracked buttons",
+            "duration_seconds": int(row["duration_seconds"] or 0),
+        })
     return render_template("website_analytics.html", counts=counts, visitors=visitors,
                            duration=duration, sources=sources, devices=devices,
-                           daily=daily, from_date=from_date)
+                           daily=daily, visits=visit_summaries, from_date=from_date)
 
 
 @app.route("/intake-forms")

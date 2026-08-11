@@ -42,6 +42,12 @@
     <section class="panel"><div class="panel-head"><h3>Devices and contact clicks</h3></div><div class="metric-list">{% for row in devices %}<div class="metric-row"><strong>{{ row['name']|title }}</strong><span>{{ row['total'] }}</span></div>{% endfor %}<div class="metric-row"><strong>Phone clicks</strong><span>{{ counts.get('phone_click',0) }}</span></div><div class="metric-row"><strong>WhatsApp clicks</strong><span>{{ counts.get('whatsapp_click',0) }}</span></div><div class="metric-row"><strong>Quote clicks</strong><span>{{ counts.get('quote_click',0) }}</span></div></div></section>
   </div>
 
+  <section class="panel table-shell"><div class="panel-head"><h3>Individual visits</h3></div>
+    <table class="table"><tr><th>Visit</th><th>Started</th><th>Source / device</th><th>Attention</th><th>Page depth</th><th>Form</th><th>Video</th><th>Clicks</th></tr>
+      {% for visit in visits %}<tr><td><strong>#{{ visit.number }}</strong></td><td>{{ visit.started_at }}</td><td>{{ visit.source }}<br>{{ visit.device|title }}</td><td>{{ visit.attention }}{% if visit.duration_seconds %}<br>{{ visit.duration_seconds }} sec recorded{% endif %}</td><td>{{ visit.depth }}</td><td>{{ visit.form_stage }}</td><td>{{ visit.video_stage }}</td><td>{{ visit.clicks }}</td></tr>{% else %}<tr><td colspan="8">No visits recorded yet.</td></tr>{% endfor %}
+    </table>
+  </section>
+
   <section class="panel table-shell"><div class="panel-head"><h3>Daily results</h3></div><table class="table"><tr><th>Date</th><th>Visitors</th><th>Video starts</th><th>Form starts</th><th>Forms sent</th></tr>{% for row in daily %}<tr><td>{{ row['day'] }}</td><td>{{ row['visitors'] }}</td><td>{{ row['video_starts'] }}</td><td>{{ row['form_starts'] }}</td><td>{{ row['form_submits'] }}</td></tr>{% else %}<tr><td colspan="5">No visits recorded yet.</td></tr>{% endfor %}</table></section>
 </div>
 {% endblock %}
