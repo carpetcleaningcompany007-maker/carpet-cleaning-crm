@@ -2266,6 +2266,9 @@ def owner_enquiry_alert_text(data, customer_id=None, lead_id=None):
         f"Address: {address_line}",
         f"Work: {work}",
         f"Email: {email}",
+        "Price: £",
+        "Time:",
+        "what3words:",
     ]
     if message:
         lines.append(f"Notes: {message}")
