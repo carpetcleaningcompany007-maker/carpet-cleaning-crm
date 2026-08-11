@@ -2271,13 +2271,60 @@ def owner_enquiry_alert_text(data, customer_id=None, lead_id=None):
         "what3words:",
     ]
     if message:
-        lines.append(f"Notes: {message}")
+        lines.append(f"Customer notes: {message}")
     if review_url:
         lines.append("")
         lines.append(f"Approve follow-up: {review_url}#customer-message-approval")
     if customer_url:
         lines.append(f"CRM record: {customer_url}")
     return "\n".join(lines)
+
+
+def owner_enquiry_alert_html(data, customer_id=None, lead_id=None):
+    name = request_value(data, "name", "full_name", "customer_name") or "Not supplied"
+    phone = request_value(data, "phone", "phone_number", "telephone", "tel") or "Not supplied"
+    email = request_value(data, "email", "email_address") or "Not supplied"
+    address = request_value(data, "address", "full_address", "street_address")
+    postcode = request_value(data, "postcode", "post_code", "zip")
+    address_line = ", ".join(part for part in (address, postcode) if part) or "Not supplied"
+    message = request_value(data, "message", "notes", "additional_notes")
+    text_details = owner_enquiry_alert_text(data)
+    work_line = next((line.removeprefix("Work: ") for line in text_details.splitlines() if line.startswith("Work: ")), "Not supplied")
+    source = website_enquiry_source_label(data)
+    rows = [
+        ("Name", name), ("Telephone", phone), ("Address", address_line),
+        ("Work", work_line), ("Email", email),
+    ]
+    row_html = "".join(
+        "<tr><th style='padding:8px 14px 8px 0;text-align:left;vertical-align:top;color:#66757c;font-size:13px'>"
+        + html_lib.escape(label)
+        + "</th><td style='padding:8px 0;color:#202329;font-size:15px;font-weight:700'>"
+        + html_lib.escape(value)
+        + "</td></tr>"
+        for label, value in rows
+    )
+    notes_html = ""
+    if message:
+        notes_html = (
+            "<div style='margin-top:18px;padding:14px 16px;border-left:4px solid #20a766;background:#f2fbf6'>"
+            "<strong style='display:block;margin-bottom:5px;color:#243270'>Customer notes</strong>"
+            f"<div style='white-space:pre-wrap;color:#202329'>{html_lib.escape(message)}</div></div>"
+        )
+    links = []
+    if lead_id:
+        review_url = url_for("intake_form_view", lead_id=lead_id, _external=True) + "#customer-message-approval"
+        links.append(f"<a href='{html_lib.escape(review_url)}' style='display:inline-block;margin:6px 8px 0 0;padding:10px 14px;border-radius:6px;background:#20a766;color:#fff;text-decoration:none;font-weight:700'>Approve follow-up</a>")
+    if customer_id:
+        customer_url = url_for("customer_view", customer_id=customer_id, _external=True)
+        links.append(f"<a href='{html_lib.escape(customer_url)}' style='display:inline-block;margin:6px 8px 0 0;padding:10px 14px;border-radius:6px;background:#243270;color:#fff;text-decoration:none;font-weight:700'>Open CRM record</a>")
+    return (
+        "<div style='max-width:620px;margin:auto;border:1px solid #dbe2e5;border-radius:10px;overflow:hidden;font-family:Arial,sans-serif'>"
+        f"<div style='padding:18px 22px;background:#243270;color:#fff'><div style='font-size:12px;letter-spacing:.08em;text-transform:uppercase'>New lead</div><h2 style='margin:5px 0 0;font-size:22px'>{html_lib.escape(source)}</h2></div>"
+        f"<div style='padding:20px 22px'><table style='width:100%;border-collapse:collapse'>{row_html}</table>{notes_html}"
+        "<div style='margin-top:18px;padding:15px 16px;border-radius:7px;background:#f4f6f8;color:#202329;line-height:1.9'>"
+        "<strong>Diary details</strong><br>Price: £________<br>Time: ____________<br>what3words: ____________________</div>"
+        f"<div style='margin-top:14px'>{''.join(links)}</div></div></div>"
+    )
 
 
 def crm_external_url(endpoint, **values):
@@ -2786,7 +2833,8 @@ def run_website_enquiry_automation(lead_id, customer_id, data):
             lead_postcode = request_value(data, "postcode", "post_code", "zip")
             subject_bits = ["New lead", lead_name, lead_postcode, website_enquiry_source_label(data)]
             subject = " | ".join(bit for bit in subject_bits if bit)
-        ok, msg = send_env_email(owner_email, subject, alert_body, "<pre style='font-family:Arial, sans-serif; white-space:pre-wrap'>" + html_lib.escape(alert_body) + "</pre>")
+        alert_html = owner_enquiry_alert_html(data, customer_id=customer_id, lead_id=lead_id)
+        ok, msg = send_env_email(owner_email, subject, alert_body, alert_html)
         update_intake_delivery_status(lead_id, owner_email_status=status_text(ok, msg))
         results["owner_email"] = (ok, msg)
     else:
