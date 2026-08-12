@@ -8181,10 +8181,6 @@ def dashboard():
 @app.route("/send-contact-form", methods=["GET", "POST"])
 @login_required
 def send_contact_form():
-    flash("Quick Send has been removed. Open a customer record to use the original form, beautiful email and saved text message.")
-    return redirect(url_for("customers"))
-
-    # Retained temporarily below for database compatibility; this code is unreachable.
     s = settings()
     action_type = clean_str(request.values.get("action_type")).lower() or "form"
     if action_type not in {"form", "review"}:

@@ -40,6 +40,7 @@
     <nav class="nav nav-tabler redesigned-nav simple-main-nav">
       <a class="nav-link {% if ep=='dashboard' %}active{% endif %}" href="{{ url_for('dashboard') }}"><span class="nav-icon" data-icon="home"></span><span>Today</span></a>
       <a class="nav-link {% if ep in ['customers','customer_view','customer_edit'] %}active{% endif %}" href="{{ url_for('customers') }}"><span class="nav-icon" data-icon="user"></span><span>Customers</span></a>
+      <a class="nav-link {% if ep=='send_contact_form' %}active{% endif %}" href="{{ url_for('send_contact_form') }}"><span class="nav-icon" data-icon="message"></span><span>Send Customer Form</span></a>
       <a class="nav-link {% if ep in ['new_leads'] %}active{% endif %}" href="{{ url_for('new_leads') }}"><span class="nav-icon" data-icon="inbox"></span><span>New Leads</span></a>
       <a class="nav-link {% if ep in ['intake_forms','intake_form_view'] %}active{% endif %}" href="{{ url_for('intake_forms') }}"><span class="nav-icon" data-icon="inbox"></span><span>Replies</span></a>
       <a class="nav-link {% if ep=='today_run' %}active{% endif %}" href="{{ url_for('today_run') }}"><span class="nav-icon" data-icon="route"></span><span>Today Run</span></a>

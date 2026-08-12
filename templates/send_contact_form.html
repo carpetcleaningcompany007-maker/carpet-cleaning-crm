@@ -1,0 +1,66 @@
+{% extends "layout.html" %}
+{% block title %}Send Customer Form{% endblock %}
+{% block page_title %}Send Customer Form{% endblock %}
+{% block body_content %}
+<section class="page-intro-card send-form-intro">
+  <div class="section-kicker">Email, text, or both</div>
+  <h3>Send someone your customer details form</h3>
+  <p>Choose an existing customer or enter a new name and contact detail. They receive a personal link to complete their information.</p>
+</section>
+
+{% if sent_confirmation %}
+<section class="send-form-success">
+  <strong>Customer form sent</strong>
+  <span>The personal form link has been sent using the option you selected.</span>
+</section>
+{% endif %}
+
+<section class="panel send-contact-panel">
+  <div class="panel-head"><h3>Who should receive the form?</h3></div>
+  <form method="post" class="send-contact-form">
+    <input type="hidden" name="action_type" value="form">
+    <label class="saved-customer-picker">Choose a saved customer <span class="optional-label">optional</span>
+      <select name="customer_id" id="quickSendCustomer">
+        <option value="">Or enter new details below</option>
+        {% for customer in customers %}
+          {% set full_name = ((customer.first_name or '') ~ ' ' ~ (customer.last_name or ''))|trim %}
+          <option value="{{ customer.id }}" data-name="{{ full_name }}" data-email="{{ customer.email or '' }}" data-phone="{{ customer.phone or '' }}" {% if form_values.customer_id|string == customer.id|string %}selected{% endif %}>{{ full_name or 'Unnamed customer' }}{% if customer.phone %} — {{ customer.phone }}{% elif customer.email %} — {{ customer.email }}{% endif %}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <div class="send-contact-grid">
+      <label>Name <span class="optional-label">optional</span><input name="name" autocomplete="name" value="{{ form_values.name or '' }}"></label>
+      <label>Email address <span class="optional-label">optional</span><input type="email" name="email" autocomplete="email" value="{{ form_values.email or '' }}"></label>
+      <label>Mobile number <span class="optional-label">optional</span><input name="phone" autocomplete="tel" placeholder="07..." value="{{ form_values.phone or '' }}"></label>
+    </div>
+    <div class="send-contact-options">
+      <label><input type="checkbox" name="send_email" value="1"> Send by email</label>
+      <label><input type="checkbox" name="send_sms" value="1"> Send by text</label>
+    </div>
+    <div class="row-actions">
+      <button class="btn primary send-contact-submit" type="submit">Send Customer Form</button>
+      <button class="btn secondary" name="use_test_details" value="1" type="submit">Test on Me</button>
+    </div>
+  </form>
+</section>
+
+<section class="panel send-contact-preview">
+  <div class="panel-head"><h3>Form link</h3><a class="btn secondary" href="{{ form_link }}" target="_blank" rel="noopener">Preview Form</a></div>
+  <input id="standaloneFormUrl" value="{{ form_link }}" readonly>
+  <textarea id="standaloneFormMessage" readonly>{{ message }}</textarea>
+  <div class="row-actions"><button class="btn secondary" type="button" data-copy-target="standaloneFormUrl">Copy Link</button><button class="btn secondary" type="button" data-copy-target="standaloneFormMessage">Copy Message</button></div>
+</section>
+<script>
+(() => {
+  const picker = document.getElementById('quickSendCustomer');
+  if (!picker) return;
+  picker.addEventListener('change', () => {
+    const option = picker.options[picker.selectedIndex];
+    if (!option || !option.value) return;
+    document.querySelector('[name="name"]').value = option.dataset.name || '';
+    document.querySelector('[name="email"]').value = option.dataset.email || '';
+    document.querySelector('[name="phone"]').value = option.dataset.phone || '';
+  });
+})();
+</script>
+{% endblock %}
