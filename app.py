@@ -13526,9 +13526,6 @@ def website_form_submit():
     data = request.get_json(silent=True) if request.is_json else request.form
     data = data or {}
     try:
-        spam_reason = website_enquiry_spam_reason(data)
-        if spam_reason:
-            raise ValueError(f"This enquiry could not be accepted. {spam_reason}")
         photo_filename = save_uploads("photos") or save_upload("photo")
         lead_id, customer_id = create_intake_from_website_payload(
             data,
