@@ -13660,6 +13660,39 @@ def ensure_website_analytics_table():
            )""")
 
 
+def send_landing_page_visit_alert(area, landing_page, traffic_source, click_id_present, device_type):
+    """Email the owner when an anonymous landing-page visit is recorded."""
+    owner_email, _ = owner_contact_form_recipients()
+    if not owner_email:
+        return False, "Owner email is not configured"
+
+    area = clean_str(area) or "Unknown area"
+    landing_page = clean_str(landing_page) or "Unknown landing page"
+    traffic_source = clean_str(traffic_source) or "Direct / unknown"
+    device_type = clean_str(device_type) or "Unknown"
+    google_click = "Yes" if click_id_present else "No"
+    subject = f"New visitor on the {area} landing page"
+    text_body = (
+        "Someone has just opened your landing page.\n\n"
+        f"Town: {area}\n"
+        f"Page: {landing_page}\n"
+        f"Source: {traffic_source}\n"
+        f"Device: {device_type.title()}\n"
+        f"Google Ads click ID present: {google_click}\n\n"
+        "This visitor is anonymous unless they complete the enquiry form."
+    )
+    html_body = build_email_html(
+        f"<h2 style='margin-top:0'>New landing-page visitor: {html_lib.escape(area)}</h2>"
+        "<p>Someone has just opened your landing page.</p>"
+        f"<p><strong>Page:</strong> {html_lib.escape(landing_page)}<br>"
+        f"<strong>Source:</strong> {html_lib.escape(traffic_source)}<br>"
+        f"<strong>Device:</strong> {html_lib.escape(device_type.title())}<br>"
+        f"<strong>Google Ads click ID present:</strong> {google_click}</p>"
+        "<p style='color:#5c6973'>This visitor is anonymous unless they complete the enquiry form.</p>"
+    )
+    return send_env_email(owner_email, subject, text_body, html_body)
+
+
 @app.route("/api/website-analytics", methods=["POST", "OPTIONS"])
 def website_analytics_event():
     """Store anonymous landing-page events without cookies or form contents."""
@@ -13693,13 +13726,29 @@ def website_analytics_event():
         clean_str(data.get("traffic_source"))[:80], 1 if data.get("click_id_present") else 0,
         clean_str(data.get("device_type"))[:20],
     )
+    event_already_recorded = bool(q(
+        "SELECT 1 FROM website_analytics_events WHERE session_id=? AND event_name=?",
+        (session_id, event_name), one=True,
+    ))
     run("""INSERT INTO website_analytics_events
            (session_id, landing_area, landing_page, page_variant, event_name,
             event_value, traffic_source, click_id_present, device_type)
            VALUES (?,?,?,?,?,?,?,?,?)
            ON CONFLICT(session_id,event_name) DO UPDATE SET
              event_value=MAX(event_value, excluded.event_value)""", values)
-    return {"ok": True}
+    alert_status = "not_applicable"
+    if event_name == "page_view" and not event_already_recorded:
+        ok, message = send_landing_page_visit_alert(
+            area=area,
+            landing_page=values[2],
+            traffic_source=values[6],
+            click_id_present=values[7],
+            device_type=values[8],
+        )
+        alert_status = "sent" if ok else f"failed: {clean_str(message)}"
+    elif event_name == "page_view":
+        alert_status = "duplicate"
+    return {"ok": True, "visitor_email": alert_status}
 
 
 @app.route("/website-analytics")

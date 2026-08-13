@@ -53,6 +53,45 @@ class PublicLeadTests(unittest.TestCase):
         })
         self.assertEqual(response.status_code, 400)
 
+    def test_page_view_sends_owner_visitor_email(self):
+        client = self.app.test_client()
+        payload = {
+            "session_id": "landing_visit_session_12345",
+            "landing_area": "Shrewsbury",
+            "landing_page": "landing-shrewsbury.html",
+            "page_variant": "shrewsbury-new-landing-2026-08-10",
+            "event_name": "page_view",
+            "traffic_source": "Google Ads",
+            "click_id_present": 1,
+            "device_type": "mobile",
+        }
+        with mock.patch.object(self.appmod, "owner_contact_form_recipients", return_value=("owner@example.com", "")), \
+             mock.patch.object(self.appmod, "send_env_email", return_value=(True, "sent")) as send_email:
+            response = client.post("/api/website-analytics", json=payload)
+            duplicate = client.post("/api/website-analytics", json=payload)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()["visitor_email"], "sent")
+        self.assertEqual(duplicate.get_json()["visitor_email"], "duplicate")
+        self.assertEqual(send_email.call_count, 1)
+        self.assertIn("New visitor on the Shrewsbury landing page", send_email.call_args.args[1])
+        self.assertIn("Google Ads", send_email.call_args.args[2])
+
+    def test_non_page_view_does_not_send_visitor_email(self):
+        client = self.app.test_client()
+        payload = {
+            "session_id": "landing_visit_session_67890",
+            "landing_area": "Shrewsbury",
+            "landing_page": "landing-shrewsbury.html",
+            "event_name": "scroll_25",
+            "traffic_source": "Direct / unknown",
+            "device_type": "desktop",
+        }
+        with mock.patch.object(self.appmod, "send_env_email", return_value=(True, "sent")) as send_email:
+            response = client.post("/api/website-analytics", json=payload)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()["visitor_email"], "not_applicable")
+        send_email.assert_not_called()
+
     def test_recent_lead_is_scored_and_saved(self):
         lead_id, action = self.appmod.save_public_lead({
             "business_name": "Example Hotel",
