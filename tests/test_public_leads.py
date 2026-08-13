@@ -92,6 +92,24 @@ class PublicLeadTests(unittest.TestCase):
         self.assertEqual(response.get_json()["visitor_email"], "not_applicable")
         send_email.assert_not_called()
 
+    def test_generic_landing_page_visit_sends_owner_email(self):
+        client = self.app.test_client()
+        payload = {
+            "session_id": "generic_landing_visit_12345",
+            "landing_area": "Ludlow, Shrewsbury and Telford",
+            "landing_page": "landing-page.html",
+            "event_name": "page_view",
+            "traffic_source": "Google Ads",
+            "click_id_present": 1,
+            "device_type": "mobile",
+        }
+        with mock.patch.object(self.appmod, "owner_contact_form_recipients", return_value=("owner@example.com", "")), \
+             mock.patch.object(self.appmod, "send_env_email", return_value=(True, "sent")) as send_email:
+            response = client.post("/api/website-analytics", json=payload)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()["visitor_email"], "sent")
+        self.assertEqual(send_email.call_count, 1)
+
     def test_recent_lead_is_scored_and_saved(self):
         lead_id, action = self.appmod.save_public_lead({
             "business_name": "Example Hotel",

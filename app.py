@@ -13707,7 +13707,7 @@ def website_analytics_event():
     event_name = clean_str(data.get("event_name"))[:40]
     if not re.fullmatch(r"[A-Za-z0-9_-]{12,80}", session_id):
         return {"ok": False, "error": "Invalid session"}, 400
-    if area not in {"Ludlow", "Shrewsbury"}:
+    if area not in {"Ludlow", "Shrewsbury", "Ludlow, Shrewsbury and Telford"}:
         return {"ok": False, "error": "Invalid landing area"}, 400
     if event_name not in WEBSITE_ANALYTICS_EVENTS:
         return {"ok": False, "error": "Invalid analytics event"}, 400
