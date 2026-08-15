@@ -9757,6 +9757,14 @@ When offering a call, say "I can arrange for Paul to give you a quick call" or "
 If a safe and useful reply cannot be written, set needs_manual_response=true and explain why. Still provide a short holding draft when appropriate.
 Write for the requested channel: {channel}.
 
+CARPET CLEANING PRODUCT GUIDE
+- Standard Clean: the most affordable maintenance option, using hot-water extraction. Advertised prices start at £30 per room.
+- Targeted Pre Spray Treatment: includes a targeted pre spray before extraction. Advertised prices start at £50 for the first room and £35 for each additional room.
+- Professional Deep Clean: the recommended thorough option for most lived-in homes, including the fuller preparation, treatment, professional agitation and hot-water extraction process. Advertised prices start at £75 for the first room and £45 for each additional room.
+- Elite Stain Guard: an optional protection add-on after cleaning, advertised at a fixed £45 per room.
+These are starting prices and product choices, not a final quotation. The right option and final price depend on what needs cleaning, size, condition, staining and the work required.
+When a customer asks about price, cost or money, begin naturally with: "We have a few different options, depending on the condition of the carpets and the level of clean you would like." Briefly explain the most relevant options, then ask one or two useful leading questions at a time. Choose only questions not already answered, such as which rooms or items need cleaning and their approximate size; whether the carpets need a general freshen-up or a deeper restorative clean; whether there are particular stains, odours, pet marks or heavy traffic areas; and whether they can send photographs. Do not overwhelm them with a checklist. Use their answers to narrow the suitable package, and offer to arrange for Paul to discuss the best option. Do not present a starting price as a confirmed quote.
+
 BUSINESS KNOWLEDGE
 {knowledge}"""
     schema = {
