@@ -2274,7 +2274,10 @@ def owner_enquiry_alert_text(data, customer_id=None, lead_id=None):
         lines.append(f"Customer notes: {message}")
     if review_url:
         lines.append("")
-        lines.append(f"Approve follow-up: {review_url}#customer-message-approval")
+        if active_ai_draft_for_intake(lead_id):
+            lines.append(f"AI reply ready - review, edit, send, regenerate or discard: {review_url}#ai-reply")
+        else:
+            lines.append(f"Approve follow-up: {review_url}#customer-message-approval")
     if customer_url:
         lines.append(f"CRM record: {customer_url}")
     return "\n".join(lines)
@@ -2312,8 +2315,11 @@ def owner_enquiry_alert_html(data, customer_id=None, lead_id=None):
         )
     links = []
     if lead_id:
-        review_url = url_for("intake_form_view", lead_id=lead_id, _external=True) + "#customer-message-approval"
-        links.append(f"<a href='{html_lib.escape(review_url)}' style='display:inline-block;margin:6px 8px 0 0;padding:10px 14px;border-radius:6px;background:#20a766;color:#fff;text-decoration:none;font-weight:700'>Approve follow-up</a>")
+        has_ai_draft = bool(active_ai_draft_for_intake(lead_id))
+        anchor = "#ai-reply" if has_ai_draft else "#customer-message-approval"
+        label = "Review AI reply" if has_ai_draft else "Approve follow-up"
+        review_url = url_for("intake_form_view", lead_id=lead_id, _external=True) + anchor
+        links.append(f"<a href='{html_lib.escape(review_url)}' style='display:inline-block;margin:6px 8px 0 0;padding:10px 14px;border-radius:6px;background:#20a766;color:#fff;text-decoration:none;font-weight:700'>{label}</a>")
     if customer_id:
         customer_url = url_for("customer_view", customer_id=customer_id, _external=True)
         links.append(f"<a href='{html_lib.escape(customer_url)}' style='display:inline-block;margin:6px 8px 0 0;padding:10px 14px;border-radius:6px;background:#243270;color:#fff;text-decoration:none;font-weight:700'>Open CRM record</a>")
@@ -2785,6 +2791,9 @@ def run_website_enquiry_automation(lead_id, customer_id, data):
     if not lead or not customer:
         return {}
     results = {}
+
+    ai_draft, ai_message = ensure_ai_draft_for_intake(lead_id, customer_id)
+    results["ai_draft"] = (bool(ai_draft), ai_message)
 
     xero_message = "Skipped: manual approval required before creating or updating a Xero contact."
     run("""UPDATE intake_submissions SET xero_error='', xero_sync_status=?, updated_at=datetime('now') WHERE id=?""", ("Pending manual approval", lead_id))
@@ -9724,6 +9733,39 @@ BUSINESS KNOWLEDGE
             VALUES (?,?,?,?, 'Error', ?, datetime('now'))""", (resolved_customer_id, intake_id, model, int((time.time() - started) * 1000), error_text))
         db().commit()
         raise RuntimeError('The AI draft could not be generated. ' + error_text) from exc
+
+
+def active_ai_draft_for_intake(intake_id):
+    if not intake_id:
+        return None
+    return q("""SELECT * FROM ai_drafts
+                WHERE intake_id=? AND status NOT IN ('Sent','Discarded','Replaced')
+                ORDER BY id DESC LIMIT 1""", (intake_id,), one=True)
+
+
+def ensure_ai_draft_for_intake(intake_id, customer_id=None):
+    """Create one safe approval-only draft for a new enquiry.
+
+    Failures are returned to the owner alert instead of blocking the public form.
+    """
+    existing = active_ai_draft_for_intake(intake_id)
+    if existing:
+        return existing, "AI draft already prepared."
+    cfg = ai_settings_row()
+    if not int(row_get(cfg, 'enabled') or 0):
+        return None, "AI drafting is switched off."
+    if not clean_str(os.environ.get('OPENAI_API_KEY')):
+        return None, "OpenAI API key is not configured."
+    lead = q("SELECT * FROM intake_submissions WHERE id=?", (intake_id,), one=True)
+    if not lead:
+        return None, "Enquiry was not found."
+    resolved_customer_id = customer_id or row_get(lead, 'customer_id') or None
+    channel = 'SMS' if is_valid_uk_phone(row_get(lead, 'phone')) else 'Email'
+    try:
+        return generate_ai_customer_reply(resolved_customer_id, intake_id, channel), "AI draft prepared for approval."
+    except RuntimeError as exc:
+        logger.warning("Automatic AI draft failed for intake %s: %s", intake_id, exc)
+        return None, clean_str(exc)
 
 
 @app.route('/ai-settings', methods=['GET', 'POST'])

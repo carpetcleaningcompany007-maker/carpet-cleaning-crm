@@ -90,6 +90,26 @@ class AICustomerReplyTests(unittest.TestCase):
         self.assertEqual(draft['needs_manual_response'], 1)
         self.assertIn('availability', draft['manual_reason'])
 
+    def test_new_enquiry_prepares_one_approval_draft_and_alert_links_to_it(self):
+        with mock.patch.object(self.appmod.urllib.request, 'urlopen', return_value=FakeOpenAIResponse(self.fake_payload())):
+            first, message = self.appmod.ensure_ai_draft_for_intake(self.lead_id, self.customer_id)
+            second, second_message = self.appmod.ensure_ai_draft_for_intake(self.lead_id, self.customer_id)
+
+        self.assertIsNotNone(first)
+        self.assertEqual(first['id'], second['id'])
+        self.assertIn('prepared', message.lower())
+        self.assertIn('already', second_message.lower())
+        count = self.appmod.q('SELECT count(*) AS c FROM ai_drafts WHERE intake_id=?', (self.lead_id,), one=True)
+        self.assertEqual(count['c'], 1)
+        with self.app.test_request_context('/'):
+            alert = self.appmod.owner_enquiry_alert_text(
+                {'name': 'Jane Example', 'phone': '07800111222'},
+                customer_id=self.customer_id,
+                lead_id=self.lead_id,
+            )
+        self.assertIn('review, edit, send, regenerate or discard', alert.lower())
+        self.assertIn('#ai-reply', alert)
+
     def test_disabled_assistant_does_not_call_openai(self):
         self.appmod.run('UPDATE ai_settings SET enabled=0 WHERE id=1')
         with mock.patch.object(self.appmod.urllib.request, 'urlopen', side_effect=AssertionError('OpenAI must not be called')):
