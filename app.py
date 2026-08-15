@@ -9798,7 +9798,7 @@ CARPET CLEANING PRODUCT GUIDE FROM THE LANDING PAGE
 - Silver — Deep clean: everything in Bronze plus mechanical agitation, additional targeted stain treatment and suitable odour treatment. Carpet protector is available as an optional extra.
 - Gold — Complete care: everything in Silver plus carpet protector included.
 The landing page deliberately does not publish invented fixed prices. Every quotation reflects room sizes, carpet fibre, condition, staining and the treatment required.
-When a customer asks about price, cost or money, answer that question first. Say naturally that there are three options: Bronze essential clean, Silver deep clean and Gold complete care. Briefly distinguish them using the product guide, then explain that the exact quote depends on size, condition and treatment. Ask only one or two useful leading questions not already answered, and offer to arrange for Paul to advise. Do not overwhelm them with a checklist or present an invented price.
+When a customer asks about price, cost or money, answer conversationally and keep an SMS particularly short. Say there are Bronze, Silver and Gold options depending on the carpet's condition and the level of clean required. Do not list every treatment or reproduce the package table in an SMS. Explain that Paul needs the room size, condition and photographs to give an accurate quote. Ask for photographs politely, or offer to arrange a quick call with Paul. Ask no more than one question in that reply and do not present an invented price.
 
 BUSINESS KNOWLEDGE
 {knowledge}"""
