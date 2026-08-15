@@ -9560,8 +9560,8 @@ def ai_settings_row():
         allowed_questions, never_promise, manual_handoff_rules,
         sms_guidance, email_guidance, max_context_messages, max_output_tokens
     ) VALUES (1,0,'gpt-5.4-mini','','','','','','',
-        'Warm, professional, helpful and concise. Write as Paul from The Carpet Cleaning Company.',
-        'Ask only for information genuinely needed to help with the enquiry.',
+        'Friendly, polite, personal and helpful, like a small business owner speaking directly to a customer. Open with "Hi [customer name], thank you very much for your enquiry." Use please, thank you and "would you be able to" naturally. Be warm without being overly formal or unnecessarily long.',
+        'Check the original enquiry and conversation first. Ask only for information genuinely missing and needed to help. Never ask the customer to repeat information already supplied.',
         'Never invent prices, discounts, availability, appointment dates, services, guarantees, cleaning results or customer information.',
         'Use Needs manual response when the answer is uncertain, a complaint is serious, a price or availability is not recorded, or Paul must make the decision.',
         'Keep SMS replies natural and brief. Avoid long paragraphs.',
@@ -9633,8 +9633,18 @@ def ai_context_payload(customer_id=None, intake_id=None, channel='SMS'):
             value = clean_str(row_get(customer, field))
             if value:
                 customer_fields[field] = value
+    # The name submitted with this enquiry is authoritative for this reply. A
+    # customer record can contain an older, imported or account-owner name, so
+    # expose one unambiguous addressee instead of asking the model to choose.
+    enquiry_customer_name = clean_str(row_get(lead, 'name')) if lead else ''
+    if not enquiry_customer_name and customer:
+        enquiry_customer_name = ' '.join(filter(None, (
+            clean_str(row_get(customer, 'first_name')),
+            clean_str(row_get(customer, 'last_name')),
+        ))).strip()
     return {
         'channel': channel,
+        'customer_name_for_greeting': enquiry_customer_name or None,
         'customer': customer_fields,
         'original_enquiry': lead_fields,
         'recent_conversation': ai_recent_events(customer_id, row_get(cfg, 'max_context_messages') or 20),
@@ -9685,7 +9695,13 @@ def generate_ai_customer_reply(customer_id=None, intake_id=None, channel='SMS'):
     knowledge = '\n\n'.join(f'{label}:\n{clean_str(value)}' for label, value in knowledge_sections if clean_str(value))
     instructions = f"""You prepare customer-service drafts for The Carpet Cleaning Company. Nothing is sent automatically.
 Use only the supplied business knowledge and CRM facts. Never invent a price, discount, availability, appointment, service, guarantee, result or customer detail.
-Do not ask again for information already present in the original enquiry or conversation.
+Write in Paul's natural customer-service style: friendly, polite, personal and helpful, like a small-business owner speaking directly to the customer.
+Normally open with: "Hi [customer name], thank you very much for your enquiry."
+Prefer "thank you very much for your enquiry" to abrupt phrases such as "Thanks for your message."
+When requesting something, use polite conversational language such as "Would you be able to ... please?" Use "please", "thank you" and "would you be able to" naturally, without becoming overly formal or unnecessarily long.
+Before asking any question, inspect every field in original_enquiry and every item in recent_conversation. Do not ask again for information already supplied, including the requested service, rooms, stains, contact details, photos or contact preference. Acknowledge useful details already provided and ask only for genuinely missing information.
+Use customer_name_for_greeting as the addressee. It comes from the submitted enquiry and is authoritative. Never use Paul, Paul Nicholas, the CRM owner, sender, operator or business account name as the customer's name unless customer_name_for_greeting itself explicitly contains that name. If customer_name_for_greeting is empty, omit the name rather than guessing one.
+Do not issue blunt commands such as "Please send photos." Prefer a warm request, for example: "Would you be able to send me some photographs please of the rooms and any stains, via WhatsApp, SMS or email?"
 If a safe and useful reply cannot be written, set needs_manual_response=true and explain why. Still provide a short holding draft when appropriate.
 Write for the requested channel: {channel}.
 

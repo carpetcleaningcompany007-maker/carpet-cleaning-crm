@@ -76,13 +76,32 @@ class AICustomerReplyTests(unittest.TestCase):
         self.assertEqual(draft['status'], 'Generated')
         self.assertEqual(draft['body'], 'Hi Jane, thank you for the details. Paul will review your two-room carpet enquiry.')
         prompt = captured['request']['input']
+        instructions = captured['request']['instructions']
+        context = json.loads(prompt.split('\n', 1)[1])
+        self.assertEqual(context['customer_name_for_greeting'], 'Jane Example')
         self.assertIn('Coffee', prompt)
         self.assertIn('Please advise on the lounge carpet', prompt)
         self.assertIn('Can you help next week?', prompt)
+        self.assertIn('thank you very much for your enquiry', instructions)
+        self.assertIn('Do not ask again for information already supplied', instructions)
+        self.assertIn('customer_name_for_greeting', instructions)
         self.assertFalse(captured['request']['store'])
         usage = self.appmod.q('SELECT * FROM ai_usage_log WHERE draft_id=?', (draft['id'],), one=True)
         self.assertEqual(usage['status'], 'Success')
         self.assertGreater(usage['estimated_cost_usd'], 0)
+
+    def test_submitted_enquiry_name_wins_over_customer_record_name(self):
+        self.appmod.run("UPDATE customers SET first_name='Paul', last_name='Nicholas' WHERE id=?", (self.customer_id,))
+        context, resolved_customer_id = self.appmod.ai_context_payload(self.customer_id, self.lead_id, 'SMS')
+        self.assertEqual(resolved_customer_id, self.customer_id)
+        self.assertEqual(context['customer_name_for_greeting'], 'Jane Example')
+        self.assertEqual(context['customer']['first_name'], 'Paul')
+
+    def test_missing_customer_name_is_not_invented(self):
+        self.appmod.run("UPDATE intake_submissions SET name='' WHERE id=?", (self.lead_id,))
+        self.appmod.run("UPDATE customers SET first_name='', last_name='' WHERE id=?", (self.customer_id,))
+        context, _ = self.appmod.ai_context_payload(self.customer_id, self.lead_id, 'SMS')
+        self.assertIsNone(context['customer_name_for_greeting'])
 
     def test_manual_response_flag_is_saved(self):
         with mock.patch.object(self.appmod.urllib.request, 'urlopen', return_value=FakeOpenAIResponse(self.fake_payload(manual=True))):
