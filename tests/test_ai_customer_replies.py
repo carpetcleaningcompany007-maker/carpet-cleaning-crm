@@ -85,8 +85,9 @@ class AICustomerReplyTests(unittest.TestCase):
         self.assertIn('thank you very much for your enquiry', instructions)
         self.assertIn('Do not ask about parking or access in an initial enquiry reply', instructions)
         self.assertIn('We have a few different options, depending on the condition of the carpets', instructions)
-        self.assertIn('Standard Clean', instructions)
-        self.assertIn('Professional Deep Clean', instructions)
+        self.assertIn('Bronze — Essential clean', instructions)
+        self.assertIn('Silver — Deep clean', instructions)
+        self.assertIn('Gold — Complete care', instructions)
         self.assertIn('Do not overwhelm them with a checklist', instructions)
         self.assertIn('Do not ask again for information already supplied', instructions)
         self.assertIn('customer_name_for_greeting', instructions)
@@ -169,9 +170,34 @@ class AICustomerReplyTests(unittest.TestCase):
         self.assertEqual(results['email'], (True, 'sent'))
         self.assertEqual(results['sms'], (True, 'sent'))
         self.assertIn('Nothing has been sent', email_send.call_args.args[2])
-        self.assertIn('#ai-reply', email_send.call_args.args[2])
+        self.assertIn('/ai-drafts/owner-review/', email_send.call_args.args[2])
+        self.assertIn('Review and send', email_send.call_args.args[3])
         self.assertIn('Nothing sent', sms_send.call_args.args[1])
-        self.assertIn('#ai-reply', sms_send.call_args.args[1])
+        self.assertIn('Hi Jane, thank you for the details', sms_send.call_args.args[1])
+        self.assertIn('/ai-drafts/owner-review/', sms_send.call_args.args[1])
+
+    def test_private_owner_link_reviews_edits_and_sends_without_login(self):
+        with mock.patch.object(self.appmod.urllib.request, 'urlopen', return_value=FakeOpenAIResponse(self.fake_payload())):
+            draft = self.appmod.generate_ai_customer_reply(self.customer_id, self.lead_id, 'SMS')
+        with self.app.test_request_context('/'):
+            review_url = self.appmod.ai_owner_review_url(draft)
+        path = review_url.split('http://localhost', 1)[-1]
+        client = self.app.test_client()
+        with mock.patch.object(self.appmod, 'send_clicksend_env_sms', return_value=(True, 'sent')) as sms_send:
+            preview = client.get(path)
+            self.assertEqual(preview.status_code, 200)
+            sms_send.assert_not_called()
+            sent = client.post(path, data={'action': 'send', 'subject': '', 'body': 'Edited from the private approval page'})
+        self.assertEqual(sent.status_code, 200)
+        sms_send.assert_called_once()
+        self.assertEqual(sms_send.call_args.args[1], 'Edited from the private approval page')
+        saved = self.appmod.q('SELECT status,body FROM ai_drafts WHERE id=?', (draft['id'],), one=True)
+        self.assertEqual(saved['status'], 'Sent')
+        self.assertEqual(saved['body'], 'Edited from the private approval page')
+
+    def test_invalid_owner_link_cannot_review_or_send(self):
+        response = self.app.test_client().get('/ai-drafts/owner-review/not-a-valid-token')
+        self.assertEqual(response.status_code, 400)
 
     def test_sending_ai_sms_uses_render_clicksend_configuration(self):
         cur = self.appmod.db().execute(

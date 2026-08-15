@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Review customer reply</title>
+  <style>
+    *{box-sizing:border-box} body{margin:0;background:#eef5f8;color:#102438;font-family:Arial,sans-serif;line-height:1.5}.wrap{max-width:680px;margin:0 auto;padding:20px}.card{background:#fff;border:1px solid #d6e2e8;border-radius:16px;box-shadow:0 12px 34px rgba(16,36,56,.1);overflow:hidden}.head{padding:22px;background:#243270;color:#fff}.head h1{margin:0 0 5px;font-size:24px}.head p{margin:0;opacity:.88}.body{padding:22px}.notice{margin:0 0 18px;padding:12px 14px;border-radius:10px;background:#eaf8ef;color:#17633a;font-weight:700}.error{background:#fff0f0;color:#8b1d1d}.customer{margin:0 0 18px;padding:13px 15px;background:#f5f8fa;border-radius:10px}.customer strong{display:block;font-size:17px}.field{display:block;margin:0 0 16px;font-weight:700}.field input,.field textarea{display:block;width:100%;margin-top:7px;padding:12px;border:1px solid #bdccd5;border-radius:9px;background:#fff;color:#102438;font:16px/1.45 Arial,sans-serif}.actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}.actions button{border:0;border-radius:10px;padding:13px 10px;font-size:16px;font-weight:800;cursor:pointer}.send{grid-column:1/-1;background:#15935a;color:#fff}.rewrite{background:#1677c8;color:#fff}.discard{background:#f2e7e7;color:#8b1d1d}.status{padding:14px;border:1px solid #d6e2e8;border-radius:10px;background:#f5f8fa;font-weight:700}.small{margin:16px 0 0;color:#627487;font-size:13px}@media(max-width:520px){.wrap{padding:10px}.head,.body{padding:18px}.actions{grid-template-columns:1fr}.send{grid-column:auto}}
+  </style>
+</head>
+<body><main class="wrap"><section class="card">
+  <header class="head"><h1>Review customer reply</h1><p>Nothing sends until you press the green button.</p></header>
+  <div class="body">
+    {% if error %}<div class="notice error">{{ error }}</div>
+    {% elif draft %}
+      {% if message %}<div class="notice">{{ message }}</div>{% endif %}
+      <div class="customer"><strong>{{ (customer.first_name ~ ' ' ~ customer.last_name)|trim if customer else 'Customer' }}</strong>{{ draft.channel|title }} reply · Status: {{ draft.status }}</div>
+      {% if draft.status in ['Sent','Discarded','Replaced'] %}
+        <div class="status">This draft is {{ draft.status|lower }}. No further action is available.</div>
+      {% else %}
+      <form method="post">
+        {% if draft.channel|upper == 'EMAIL' %}<label class="field">Subject<input name="subject" value="{{ draft.subject or '' }}"></label>{% else %}<input type="hidden" name="subject" value="{{ draft.subject or '' }}">{% endif %}
+        <label class="field">Check or edit the message<textarea name="body" rows="11" required>{{ draft.body or '' }}</textarea></label>
+        <div class="actions">
+          <button class="send" name="action" value="send" type="submit" onclick="return confirm('Send this message to the customer now?')">Send to customer</button>
+          <button class="rewrite" name="action" value="regenerate" type="submit">Rewrite message</button>
+          <button class="discard" name="action" value="discard" type="submit" onclick="return confirm('Discard this draft without sending it?')">Don’t send</button>
+        </div>
+      </form>
+      {% endif %}
+      <p class="small">This private approval link expires after seven days. Opening the link never sends the message.</p>
+    {% endif %}
+  </div>
+</section></main></body></html>

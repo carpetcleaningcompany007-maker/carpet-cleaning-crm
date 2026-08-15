@@ -30,7 +30,7 @@ import math
 from difflib import SequenceMatcher
 
 from flask import Flask, render_template, request, redirect, url_for, flash, session, g, Response, send_file, send_from_directory, has_request_context, jsonify
-from itsdangerous import BadSignature, URLSafeSerializer
+from itsdangerous import BadSignature, SignatureExpired, URLSafeSerializer, URLSafeTimedSerializer
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -9757,12 +9757,11 @@ When offering a call, say "I can arrange for Paul to give you a quick call" or "
 If a safe and useful reply cannot be written, set needs_manual_response=true and explain why. Still provide a short holding draft when appropriate.
 Write for the requested channel: {channel}.
 
-CARPET CLEANING PRODUCT GUIDE
-- Standard Clean: the most affordable maintenance option, using hot-water extraction. Advertised prices start at £30 per room.
-- Targeted Pre Spray Treatment: includes a targeted pre spray before extraction. Advertised prices start at £50 for the first room and £35 for each additional room.
-- Professional Deep Clean: the recommended thorough option for most lived-in homes, including the fuller preparation, treatment, professional agitation and hot-water extraction process. Advertised prices start at £75 for the first room and £45 for each additional room.
-- Elite Stain Guard: an optional protection add-on after cleaning, advertised at a fixed £45 per room.
-These are starting prices and product choices, not a final quotation. The right option and final price depend on what needs cleaning, size, condition, staining and the work required.
+CARPET CLEANING PRODUCT GUIDE FROM THE LANDING PAGE
+- Bronze — Essential clean: inspection and walkthrough, professional pre-vacuum where required, targeted pre-spray and hot-water extraction.
+- Silver — Deep clean: everything in Bronze plus mechanical agitation, additional targeted stain treatment and suitable odour treatment. Carpet protector is available as an optional extra.
+- Gold — Complete care: everything in Silver plus carpet protector included.
+The landing page deliberately does not publish invented fixed prices. Every quotation reflects room sizes, carpet fibre, condition, staining and the treatment required.
 When a customer asks about price, cost or money, begin naturally with: "We have a few different options, depending on the condition of the carpets and the level of clean you would like." Briefly explain the most relevant options, then ask one or two useful leading questions at a time. Choose only questions not already answered, such as which rooms or items need cleaning and their approximate size; whether the carpets need a general freshen-up or a deeper restorative clean; whether there are particular stains, odours, pet marks or heavy traffic areas; and whether they can send photographs. Do not overwhelm them with a checklist. Use their answers to narrow the suitable package, and offer to arrange for Paul to discuss the best option. Do not present a starting price as a confirmed quote.
 
 BUSINESS KNOWLEDGE
@@ -9855,23 +9854,21 @@ def notify_owner_ai_draft_ready(draft):
         return {}
     intake_id = row_get(draft, 'intake_id')
     customer_id = row_get(draft, 'customer_id')
-    if intake_id:
-        review_url = url_for('intake_form_view', lead_id=intake_id, _external=True) + '#ai-reply'
-    else:
-        review_url = url_for('sms_thread_view', customer_id=customer_id, _external=True) + '#ai-reply'
+    review_url = ai_owner_review_url(draft)
     channel = clean_str(row_get(draft, 'channel')) or 'reply'
     preview = clean_str(row_get(draft, 'body'))
     subject = 'AI reply ready for approval'
     text_body = (
         f"A new {channel} draft is ready. Nothing has been sent to the customer.\n\n"
         f"Draft:\n{preview}\n\n"
-        f"Review, edit, send, regenerate or discard:\n{review_url}"
+        f"Review, edit, send, rewrite or discard without signing in:\n{review_url}"
     )
     html_body = (
         '<h2>AI reply ready for approval</h2>'
         '<p>Nothing has been sent to the customer.</p>'
         f'<p><strong>Draft:</strong><br>{html_lib.escape(preview).replace(chr(10), "<br>")}</p>'
-        f'<p><a href="{html_lib.escape(review_url, quote=True)}">Review AI reply</a></p>'
+        f'<p><a href="{html_lib.escape(review_url, quote=True)}" style="display:inline-block;padding:12px 18px;border-radius:8px;background:#1677c8;color:#fff;text-decoration:none;font-weight:700">Review and send</a></p>'
+        '<p style="color:#526579;font-size:13px">The link opens a private approval page. Opening it does not send anything.</p>'
     )
     results = {}
     owner_email = clean_str(os.environ.get('OWNER_ALERT_EMAIL'))
@@ -9879,9 +9876,75 @@ def notify_owner_ai_draft_ready(draft):
         results['email'] = send_env_email(owner_email, subject, text_body, html_body)
     owner_mobile = clean_str(os.environ.get('OWNER_ALERT_MOBILE'))
     if owner_mobile:
-        sms_body = f"AI {channel} draft ready. Nothing sent. Review or change it here: {review_url}"
+        sms_preview = preview if len(preview) <= 320 else preview[:317].rstrip() + '...'
+        sms_body = f"AI {channel} draft ready. Nothing sent.\n\n{sms_preview}\n\nReview, edit, send, rewrite or discard: {review_url}"
         results['sms'] = send_clicksend_env_sms(owner_mobile, sms_body, customer=None, category='Service')
     return results
+
+
+def ai_owner_action_serializer():
+    return URLSafeTimedSerializer(app.config['SECRET_KEY'], salt='ai-owner-draft-approval')
+
+
+def ai_owner_review_url(draft):
+    token = ai_owner_action_serializer().dumps({'draft_id': int(row_get(draft, 'id') or 0)})
+    return url_for('ai_owner_review', token=token, _external=True)
+
+
+@app.route('/ai-drafts/owner-review/<token>', methods=['GET', 'POST'])
+def ai_owner_review(token):
+    try:
+        payload = ai_owner_action_serializer().loads(token, max_age=60 * 60 * 24 * 7)
+    except SignatureExpired:
+        return render_template('ai_owner_review.html', error='This approval link has expired. Please use the latest alert.'), 410
+    except BadSignature:
+        return render_template('ai_owner_review.html', error='This approval link is invalid.'), 400
+    draft_id = int(payload.get('draft_id') or 0)
+    draft = q('SELECT * FROM ai_drafts WHERE id=?', (draft_id,), one=True)
+    if not draft:
+        return render_template('ai_owner_review.html', error='This draft could not be found.'), 404
+    customer = q('SELECT * FROM customers WHERE id=?', (row_get(draft, 'customer_id'),), one=True)
+    message = ''
+    if request.method == 'POST':
+        action = clean_str(request.form.get('action')).lower()
+        subject = clean_str(request.form.get('subject'))
+        body = clean_str(request.form.get('body'))
+        current_status = clean_str(row_get(draft, 'status'))
+        if current_status in {'Sent', 'Discarded', 'Replaced'}:
+            message = f'This draft is already {current_status.lower()}. Nothing else was sent.'
+        elif action == 'discard':
+            run("UPDATE ai_drafts SET status='Discarded',updated_at=datetime('now') WHERE id=?", (draft_id,))
+            message = 'Draft discarded. Nothing was sent to the customer.'
+        elif action == 'regenerate':
+            run("UPDATE ai_drafts SET status='Replaced',updated_at=datetime('now') WHERE id=?", (draft_id,))
+            try:
+                fresh = generate_ai_customer_reply(row_get(draft, 'customer_id'), row_get(draft, 'intake_id'), row_get(draft, 'channel'))
+                notify_owner_ai_draft_ready(fresh)
+                return redirect(ai_owner_review_url(fresh))
+            except RuntimeError as exc:
+                message = clean_str(exc)
+        elif action == 'send':
+            if not customer or not body:
+                message = 'The customer or message body is missing. Nothing was sent.'
+            elif clean_str(row_get(draft, 'channel')).upper() == 'EMAIL':
+                ok, message = send_comms_email(row_get(customer, 'email') or '', subject, body, customer=customer)
+                if ok:
+                    cur = db().execute("INSERT INTO communications(customer_id,channel,subject,body,created_at) VALUES (?,?,?,?,datetime('now'))", (row_get(customer, 'id'), 'Email', subject, body))
+                    db().execute("UPDATE ai_drafts SET subject=?,body=?,status='Sent',sent_communication_id=?,updated_at=datetime('now') WHERE id=?", (subject, body, cur.lastrowid, draft_id))
+                    db().commit()
+            else:
+                ok, message = send_clicksend_env_sms(row_get(customer, 'phone') or '', body, customer=customer, category='Customer service')
+                if ok:
+                    cur = db().execute("INSERT INTO communications(customer_id,channel,subject,body,created_at) VALUES (?,?,?,?,datetime('now'))", (row_get(customer, 'id'), 'SMS', 'AI-assisted reply', body))
+                    db().execute("UPDATE ai_drafts SET body=?,status='Sent',sent_communication_id=?,updated_at=datetime('now') WHERE id=?", (body, cur.lastrowid, draft_id))
+                    db().commit()
+        else:
+            message = 'No action was taken.'
+        draft = q('SELECT * FROM ai_drafts WHERE id=?', (draft_id,), one=True)
+    response = app.make_response(render_template('ai_owner_review.html', draft=draft, customer=customer, message=message, error=''))
+    response.headers['Cache-Control'] = 'no-store, private'
+    response.headers['X-Robots-Tag'] = 'noindex, nofollow'
+    return response
 
 
 def prepare_ai_draft_for_inbound_sms(customer_id):
