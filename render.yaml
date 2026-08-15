@@ -19,3 +19,7 @@ services:
         value: /data/uploads
       - key: CRM_PUBLIC_BASE_URL
         value: https://carpet-cleaning-crm.onrender.com
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_MODEL
+        value: gpt-5.4-mini

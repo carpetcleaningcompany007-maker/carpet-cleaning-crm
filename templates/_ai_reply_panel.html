@@ -1,0 +1,30 @@
+<section class="card" id="ai-reply" style="border:2px solid #8cc7e8;background:linear-gradient(135deg,#f4fbff,#fff);">
+  <div class="card-head" style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;">
+    <div><h3 style="margin-bottom:4px;">AI-assisted reply</h3><p class="muted" style="margin:0;">It prepares a draft only. Nothing sends until you check it and press Send.</p></div>
+    <span class="review-pill">Draft only</span>
+  </div>
+  {% if ai_draft %}
+    {% if ai_draft.needs_manual_response %}<div class="missing-warning"><strong>Needs manual response</strong>{{ ai_draft.manual_reason or 'The assistant could not safely answer this without your decision.' }}</div>{% endif %}
+    <form method="post" action="{{ url_for('ai_draft_action', draft_id=ai_draft.id) }}" class="form">
+      {% if ai_draft.channel|upper == 'EMAIL' %}<div><label>Email subject</label><input name="subject" value="{{ ai_draft.subject or '' }}"></div>{% else %}<input type="hidden" name="subject" value="{{ ai_draft.subject or '' }}">{% endif %}
+      <div><label>{{ ai_draft.channel|title }} draft</label><textarea name="body" rows="8">{{ ai_draft.body or '' }}</textarea></div>
+      <div class="row-actions" style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn secondary" name="action" value="save" type="submit">Save Draft</button>
+        <button class="btn secondary" name="action" value="regenerate" type="submit">Regenerate</button>
+        <button class="btn danger" name="action" value="discard" type="submit">Discard</button>
+        <button class="btn primary" name="action" value="send" type="submit" onclick="return confirm('Send this {{ ai_draft.channel }} to the customer now?')">Send {{ ai_draft.channel|title }}</button>
+      </div>
+      <p class="muted" style="font-size:12px;">Model: {{ ai_draft.model }} · Created {{ ai_draft.created_at }}</p>
+    </form>
+  {% else %}
+    <form method="post" action="{{ url_for('ai_draft_generate') }}" class="form">
+      <input type="hidden" name="customer_id" value="{{ ai_customer_id or '' }}">
+      <input type="hidden" name="intake_id" value="{{ ai_intake_id or '' }}">
+      {% if ai_channel_locked %}<input type="hidden" name="channel" value="{{ ai_channel_locked }}">{% else %}
+      <div><label>Prepare reply as</label><select name="channel"><option value="SMS">SMS / text</option><option value="Email">Email</option></select></div>
+      {% endif %}
+      <button class="btn primary" type="submit" {% if not ai_config.enabled %}disabled{% endif %}>Generate AI Reply</button>
+      {% if not ai_config.enabled %}<p class="muted">Enable the assistant in <a href="{{ url_for('ai_settings_page') }}">AI Settings</a> first.</p>{% endif %}
+    </form>
+  {% endif %}
+</section>

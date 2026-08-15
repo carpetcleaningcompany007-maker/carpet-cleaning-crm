@@ -1,0 +1,35 @@
+{% extends "layout.html" %}
+{% block title %}AI Settings{% endblock %}
+{% block page_title %}AI Customer Reply Settings{% endblock %}
+{% block body_content %}
+<style>
+  .ai-toggle{display:inline-flex!important;gap:10px;align-items:center;width:auto!important;padding:10px 14px;border:1px solid #d8e6f0;border-radius:12px;background:#f8fcff;font-weight:800}
+  .ai-toggle input{width:20px!important;height:20px!important;min-height:0!important;margin:0!important;flex:0 0 20px}
+</style>
+<section class="card">
+  <div class="card-head"><h3>Safe draft-only assistant</h3></div>
+  <p class="muted">The assistant prepares editable replies. It cannot send anything until you press the final Send button.</p>
+  <div class="status-line" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin:16px 0;">
+    <div class="notice"><strong>API key</strong><br>{{ 'Configured on Render' if api_key_configured else 'Not configured' }}</div>
+    <div class="notice"><strong>Successful drafts</strong><br>{{ usage.drafts or 0 }}</div>
+    <div class="notice"><strong>Tokens</strong><br>{{ (usage.input_tokens or 0) + (usage.output_tokens or 0) }}</div>
+    <div class="notice"><strong>Estimated cost</strong><br>${{ '%.4f'|format(usage.cost or 0) }}</div>
+  </div>
+  <form method="post" class="form readable-form">
+    <label class="ai-toggle"><input type="checkbox" name="enabled" value="1" {% if ai.enabled %}checked{% endif %}> Enable AI draft generation</label>
+    <div class="cols">
+      <div><label>Model</label><select name="model"><option value="gpt-5.4-mini" {% if ai.model=='gpt-5.4-mini' %}selected{% endif %}>gpt-5.4-mini</option><option value="gpt-5.4-nano" {% if ai.model=='gpt-5.4-nano' %}selected{% endif %}>gpt-5.4-nano</option></select></div>
+      <div><label>Recent messages included</label><input type="number" min="5" max="50" name="max_context_messages" value="{{ ai.max_context_messages or 20 }}"></div>
+      <div><label>Maximum response tokens</label><input type="number" min="100" max="1200" name="max_output_tokens" value="{{ ai.max_output_tokens or 500 }}"></div>
+    </div>
+    {% set fields = [
+      ('business_information','Business information'),('services','Services offered'),('prices_and_rules','Prices and pricing rules'),
+      ('service_areas','Areas covered'),('cleaning_processes','Cleaning processes'),('equipment','Equipment used'),
+      ('tone_of_voice','Tone of voice'),('allowed_questions','Questions the AI may ask'),('never_promise','Things the AI must never promise'),
+      ('manual_handoff_rules','When Paul must respond personally'),('sms_guidance','SMS reply guidance'),('email_guidance','Email reply guidance')
+    ] %}
+    {% for key,label in fields %}<div><label>{{ label }}</label><textarea name="{{ key }}" rows="4">{{ ai[key] or '' }}</textarea></div>{% endfor %}
+    <button class="btn primary" type="submit">Save AI Settings</button>
+  </form>
+</section>
+{% endblock %}

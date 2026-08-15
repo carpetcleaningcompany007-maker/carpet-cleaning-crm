@@ -6577,6 +6577,64 @@ def init_db():
         body TEXT,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
+    CREATE TABLE IF NOT EXISTS ai_settings (
+        id INTEGER PRIMARY KEY CHECK (id=1),
+        enabled INTEGER DEFAULT 0,
+        model TEXT DEFAULT 'gpt-5.4-mini',
+        business_information TEXT DEFAULT '',
+        services TEXT DEFAULT '',
+        prices_and_rules TEXT DEFAULT '',
+        service_areas TEXT DEFAULT '',
+        cleaning_processes TEXT DEFAULT '',
+        equipment TEXT DEFAULT '',
+        tone_of_voice TEXT DEFAULT '',
+        allowed_questions TEXT DEFAULT '',
+        never_promise TEXT DEFAULT '',
+        manual_handoff_rules TEXT DEFAULT '',
+        sms_guidance TEXT DEFAULT '',
+        email_guidance TEXT DEFAULT '',
+        max_context_messages INTEGER DEFAULT 20,
+        max_output_tokens INTEGER DEFAULT 500,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS ai_drafts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        customer_id INTEGER,
+        intake_id INTEGER,
+        channel TEXT NOT NULL,
+        subject TEXT DEFAULT '',
+        body TEXT DEFAULT '',
+        status TEXT DEFAULT 'Generated',
+        needs_manual_response INTEGER DEFAULT 0,
+        manual_reason TEXT DEFAULT '',
+        model TEXT DEFAULT '',
+        source_context_json TEXT DEFAULT '',
+        sent_communication_id INTEGER,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS ai_usage_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        customer_id INTEGER,
+        intake_id INTEGER,
+        draft_id INTEGER,
+        model TEXT DEFAULT '',
+        input_tokens INTEGER DEFAULT 0,
+        output_tokens INTEGER DEFAULT 0,
+        estimated_cost_usd REAL DEFAULT 0,
+        latency_ms INTEGER DEFAULT 0,
+        status TEXT DEFAULT '',
+        error_text TEXT DEFAULT '',
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS ai_conversation_state (
+        customer_id INTEGER PRIMARY KEY,
+        mode TEXT DEFAULT 'draft_only',
+        manual_takeover INTEGER DEFAULT 0,
+        summary TEXT DEFAULT '',
+        last_summarized_event TEXT DEFAULT '',
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
     CREATE TABLE IF NOT EXISTS communication_templates (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT,
@@ -9478,6 +9536,280 @@ def sms_threads():
     return redirect(url_for('sms_inbox'))
 
 
+def ai_settings_row():
+    row = q("SELECT * FROM ai_settings WHERE id=1", one=True)
+    if row:
+        return row
+    run("""INSERT OR IGNORE INTO ai_settings(
+        id, enabled, model, business_information, services, prices_and_rules,
+        service_areas, cleaning_processes, equipment, tone_of_voice,
+        allowed_questions, never_promise, manual_handoff_rules,
+        sms_guidance, email_guidance, max_context_messages, max_output_tokens
+    ) VALUES (1,0,'gpt-5.4-mini','','','','','','',
+        'Warm, professional, helpful and concise. Write as Paul from The Carpet Cleaning Company.',
+        'Ask only for information genuinely needed to help with the enquiry.',
+        'Never invent prices, discounts, availability, appointment dates, services, guarantees, cleaning results or customer information.',
+        'Use Needs manual response when the answer is uncertain, a complaint is serious, a price or availability is not recorded, or Paul must make the decision.',
+        'Keep SMS replies natural and brief. Avoid long paragraphs.',
+        'Use a clear subject and a helpful, professional email. Do not be unnecessarily long.',20,500)""")
+    return q("SELECT * FROM ai_settings WHERE id=1", one=True)
+
+
+def ai_estimated_cost_usd(model, input_tokens, output_tokens):
+    # Current configurable estimates per million tokens. This is display-only;
+    # the provider invoice remains authoritative.
+    prices = {
+        'gpt-5.4-mini': (0.75, 4.50),
+        'gpt-5.4-nano': (0.20, 1.25),
+    }
+    input_rate, output_rate = prices.get(clean_str(model), prices['gpt-5.4-mini'])
+    return round((int(input_tokens or 0) * input_rate + int(output_tokens or 0) * output_rate) / 1_000_000, 6)
+
+
+def ai_recent_events(customer_id, limit=20):
+    if not customer_id:
+        return []
+    rows = q("""SELECT channel, subject, body, created_at
+                FROM communications WHERE customer_id=?
+                ORDER BY datetime(created_at) DESC, id DESC LIMIT ?""", (customer_id, limit * 2))
+    sms_rows = q("""SELECT direction, body, status, created_at, external_id
+                    FROM sms_events WHERE customer_id=? AND trim(coalesce(body,''))<>''
+                    ORDER BY datetime(created_at) DESC, id DESC LIMIT ?""", (customer_id, limit * 2))
+    events = []
+    seen = set()
+    for row in rows:
+        body = clean_str(row_get(row, 'body'))
+        if not body:
+            continue
+        direction = 'Customer' if clean_str(row_get(row, 'subject')).lower().startswith('inbound') else 'Business'
+        key = (re.sub(r'\s+', ' ', body).strip().lower(), clean_str(row_get(row, 'created_at'))[:16])
+        seen.add(key)
+        events.append({'at': clean_str(row_get(row, 'created_at')), 'speaker': direction, 'channel': clean_str(row_get(row, 'channel')), 'body': body})
+    for row in sms_rows:
+        body = clean_str(row_get(row, 'body'))
+        key = (re.sub(r'\s+', ' ', body).strip().lower(), clean_str(row_get(row, 'created_at'))[:16])
+        if not body or key in seen:
+            continue
+        seen.add(key)
+        direction = clean_str(row_get(row, 'direction')).lower()
+        events.append({'at': clean_str(row_get(row, 'created_at')), 'speaker': 'Customer' if direction == 'inbound' else 'Business', 'channel': 'SMS', 'body': body})
+    events.sort(key=lambda item: item.get('at') or '')
+    return events[-max(1, int(limit or 20)):]
+
+
+def ai_context_payload(customer_id=None, intake_id=None, channel='SMS'):
+    cfg = ai_settings_row()
+    customer = q("SELECT * FROM customers WHERE id=?", (customer_id,), one=True) if customer_id else None
+    lead = q("SELECT * FROM intake_submissions WHERE id=?", (intake_id,), one=True) if intake_id else None
+    if lead and not customer_id:
+        customer_id = safe_intake_customer_id(lead)
+        customer = q("SELECT * FROM customers WHERE id=?", (customer_id,), one=True) if customer_id else None
+    lead_fields = {}
+    if lead:
+        for field in ('name','phone','email','postcode','what_cleaned','number_rooms','upholstery','rugs','stains','pets','parking','preferred_days_times','additional_notes','job_notes','rooms_areas','landing_area','landing_page','created_at'):
+            value = clean_str(row_get(lead, field))
+            if value:
+                lead_fields[field] = value
+        photos = clean_str(row_get(lead, 'photo_filename'))
+        if photos:
+            lead_fields['attachments'] = [part.strip() for part in photos.split(',') if part.strip()]
+    customer_fields = {}
+    if customer:
+        for field in ('first_name','last_name','phone','email','address','town','postcode','notes'):
+            value = clean_str(row_get(customer, field))
+            if value:
+                customer_fields[field] = value
+    return {
+        'channel': channel,
+        'customer': customer_fields,
+        'original_enquiry': lead_fields,
+        'recent_conversation': ai_recent_events(customer_id, row_get(cfg, 'max_context_messages') or 20),
+    }, customer_id
+
+
+def ai_response_text(response_payload):
+    if clean_str(response_payload.get('output_text')):
+        return clean_str(response_payload.get('output_text'))
+    chunks = []
+    for item in response_payload.get('output') or []:
+        for content in item.get('content') or []:
+            if content.get('type') in ('output_text', 'text') and content.get('text'):
+                chunks.append(content.get('text'))
+    return '\n'.join(chunks).strip()
+
+
+def generate_ai_customer_reply(customer_id=None, intake_id=None, channel='SMS'):
+    cfg = ai_settings_row()
+    if not int(row_get(cfg, 'enabled') or 0):
+        raise RuntimeError('AI drafting is switched off. Enable it in AI Settings first.')
+    api_key = clean_str(os.environ.get('OPENAI_API_KEY'))
+    if not api_key:
+        raise RuntimeError('OPENAI_API_KEY is not configured on the server.')
+    recent = q("SELECT created_at FROM ai_usage_log WHERE status='Success' ORDER BY id DESC LIMIT 1", one=True)
+    if recent:
+        try:
+            last_time = datetime.fromisoformat(clean_str(row_get(recent, 'created_at')).replace('Z', '+00:00'))
+            if (datetime.now() - last_time.replace(tzinfo=None)).total_seconds() < 3:
+                raise RuntimeError('Please wait a few seconds before generating another draft.')
+        except ValueError:
+            pass
+    context, resolved_customer_id = ai_context_payload(customer_id, intake_id, channel)
+    model = clean_str(os.environ.get('OPENAI_MODEL')) or clean_str(row_get(cfg, 'model')) or 'gpt-5.4-mini'
+    knowledge_sections = [
+        ('Business information', row_get(cfg, 'business_information')),
+        ('Services', row_get(cfg, 'services')),
+        ('Prices and rules', row_get(cfg, 'prices_and_rules')),
+        ('Service areas', row_get(cfg, 'service_areas')),
+        ('Cleaning processes', row_get(cfg, 'cleaning_processes')),
+        ('Equipment', row_get(cfg, 'equipment')),
+        ('Tone of voice', row_get(cfg, 'tone_of_voice')),
+        ('Allowed questions', row_get(cfg, 'allowed_questions')),
+        ('Never promise', row_get(cfg, 'never_promise')),
+        ('Manual handoff rules', row_get(cfg, 'manual_handoff_rules')),
+        ('Channel guidance', row_get(cfg, 'sms_guidance') if channel.upper() == 'SMS' else row_get(cfg, 'email_guidance')),
+    ]
+    knowledge = '\n\n'.join(f'{label}:\n{clean_str(value)}' for label, value in knowledge_sections if clean_str(value))
+    instructions = f"""You prepare customer-service drafts for The Carpet Cleaning Company. Nothing is sent automatically.
+Use only the supplied business knowledge and CRM facts. Never invent a price, discount, availability, appointment, service, guarantee, result or customer detail.
+Do not ask again for information already present in the original enquiry or conversation.
+If a safe and useful reply cannot be written, set needs_manual_response=true and explain why. Still provide a short holding draft when appropriate.
+Write for the requested channel: {channel}.
+
+BUSINESS KNOWLEDGE
+{knowledge}"""
+    schema = {
+        'type': 'object',
+        'properties': {
+            'subject': {'type': 'string'},
+            'body': {'type': 'string'},
+            'needs_manual_response': {'type': 'boolean'},
+            'manual_reason': {'type': 'string'},
+        },
+        'required': ['subject','body','needs_manual_response','manual_reason'],
+        'additionalProperties': False,
+    }
+    payload = {
+        'model': model,
+        'store': False,
+        'instructions': instructions,
+        'input': 'Prepare the next reply using this CRM context:\n' + json.dumps(context, ensure_ascii=False),
+        'max_output_tokens': max(100, min(1200, int(row_get(cfg, 'max_output_tokens') or 500))),
+        'text': {'format': {'type': 'json_schema', 'name': 'customer_reply', 'strict': True, 'schema': schema}},
+    }
+    started = time.time()
+    req = urllib.request.Request('https://api.openai.com/v1/responses', data=json.dumps(payload).encode('utf-8'), headers={
+        'Authorization': f'Bearer {api_key}', 'Content-Type': 'application/json'
+    }, method='POST')
+    try:
+        with urllib.request.urlopen(req, timeout=45) as response:
+            response_payload = json.loads(response.read().decode('utf-8'))
+        result = json.loads(ai_response_text(response_payload))
+        usage = response_payload.get('usage') or {}
+        input_tokens = int(usage.get('input_tokens') or 0)
+        output_tokens = int(usage.get('output_tokens') or 0)
+        latency_ms = int((time.time() - started) * 1000)
+        cur = db().execute("""INSERT INTO ai_drafts(customer_id,intake_id,channel,subject,body,status,needs_manual_response,manual_reason,model,source_context_json,created_at,updated_at)
+            VALUES (?,?,?,?,?,'Generated',?,?,?,?,datetime('now'),datetime('now'))""", (
+            resolved_customer_id, intake_id, channel.upper(), clean_str(result.get('subject')), clean_str(result.get('body')),
+            1 if result.get('needs_manual_response') else 0, clean_str(result.get('manual_reason')), model, json.dumps(context, ensure_ascii=False)
+        ))
+        draft_id = cur.lastrowid
+        db().execute("""INSERT INTO ai_usage_log(customer_id,intake_id,draft_id,model,input_tokens,output_tokens,estimated_cost_usd,latency_ms,status,created_at)
+            VALUES (?,?,?,?,?,?,?,?, 'Success', datetime('now'))""", (resolved_customer_id, intake_id, draft_id, model, input_tokens, output_tokens, ai_estimated_cost_usd(model, input_tokens, output_tokens), latency_ms))
+        db().commit()
+        return q('SELECT * FROM ai_drafts WHERE id=?', (draft_id,), one=True)
+    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, json.JSONDecodeError, KeyError) as exc:
+        error_text = clean_str(str(exc))[:500]
+        db().execute("""INSERT INTO ai_usage_log(customer_id,intake_id,model,latency_ms,status,error_text,created_at)
+            VALUES (?,?,?,?, 'Error', ?, datetime('now'))""", (resolved_customer_id, intake_id, model, int((time.time() - started) * 1000), error_text))
+        db().commit()
+        raise RuntimeError('The AI draft could not be generated. ' + error_text) from exc
+
+
+@app.route('/ai-settings', methods=['GET', 'POST'])
+@login_required
+def ai_settings_page():
+    cfg = ai_settings_row()
+    if request.method == 'POST':
+        fields = ('business_information','services','prices_and_rules','service_areas','cleaning_processes','equipment','tone_of_voice','allowed_questions','never_promise','manual_handoff_rules','sms_guidance','email_guidance')
+        values = [clean_str(request.form.get(field)) for field in fields]
+        enabled = 1 if request.form.get('enabled') == '1' else 0
+        model = clean_str(request.form.get('model')) or 'gpt-5.4-mini'
+        max_context = max(5, min(50, int(request.form.get('max_context_messages') or 20)))
+        max_output = max(100, min(1200, int(request.form.get('max_output_tokens') or 500)))
+        run("""UPDATE ai_settings SET enabled=?,model=?,business_information=?,services=?,prices_and_rules=?,service_areas=?,cleaning_processes=?,equipment=?,tone_of_voice=?,allowed_questions=?,never_promise=?,manual_handoff_rules=?,sms_guidance=?,email_guidance=?,max_context_messages=?,max_output_tokens=?,updated_at=datetime('now') WHERE id=1""",
+            (enabled, model, *values, max_context, max_output))
+        flash('AI settings saved. Drafts still require manual approval before sending.')
+        return redirect(url_for('ai_settings_page'))
+    usage = q("""SELECT count(*) AS drafts, coalesce(sum(input_tokens),0) AS input_tokens,
+                 coalesce(sum(output_tokens),0) AS output_tokens, coalesce(sum(estimated_cost_usd),0) AS cost
+                 FROM ai_usage_log WHERE status='Success'""", one=True)
+    return render_template('ai_settings.html', ai=cfg, usage=usage, api_key_configured=bool(clean_str(os.environ.get('OPENAI_API_KEY'))))
+
+
+@app.route('/ai-drafts/generate', methods=['POST'])
+@login_required
+def ai_draft_generate():
+    customer_id = int(request.form.get('customer_id') or 0) or None
+    intake_id = int(request.form.get('intake_id') or 0) or None
+    channel = 'Email' if clean_str(request.form.get('channel')).lower() == 'email' else 'SMS'
+    try:
+        generate_ai_customer_reply(customer_id, intake_id, channel)
+        flash('AI draft generated. Check and edit it before sending.')
+    except RuntimeError as exc:
+        flash(str(exc))
+    if intake_id:
+        return redirect(url_for('intake_form_view', lead_id=intake_id) + '#ai-reply')
+    return redirect(url_for('sms_thread_view', customer_id=customer_id) + '#ai-reply')
+
+
+@app.route('/ai-drafts/<int:draft_id>/action', methods=['POST'])
+@login_required
+def ai_draft_action(draft_id):
+    draft = q('SELECT * FROM ai_drafts WHERE id=?', (draft_id,), one=True)
+    if not draft:
+        flash('AI draft not found.')
+        return redirect(url_for('communications'))
+    action = clean_str(request.form.get('action')).lower()
+    subject = clean_str(request.form.get('subject'))
+    body = clean_str(request.form.get('body'))
+    if action == 'discard':
+        run("UPDATE ai_drafts SET status='Discarded',updated_at=datetime('now') WHERE id=?", (draft_id,))
+        flash('AI draft discarded. Nothing was sent.')
+    elif action == 'regenerate':
+        run("UPDATE ai_drafts SET status='Replaced',updated_at=datetime('now') WHERE id=?", (draft_id,))
+        try:
+            generate_ai_customer_reply(row_get(draft, 'customer_id'), row_get(draft, 'intake_id'), row_get(draft, 'channel'))
+            flash('A fresh AI draft was generated. Nothing was sent.')
+        except RuntimeError as exc:
+            flash(str(exc))
+    elif action == 'save':
+        run("UPDATE ai_drafts SET subject=?,body=?,status='Edited',updated_at=datetime('now') WHERE id=?", (subject, body, draft_id))
+        flash('Draft saved. Nothing was sent.')
+    elif action == 'send':
+        customer = q('SELECT * FROM customers WHERE id=?', (row_get(draft, 'customer_id'),), one=True)
+        if not customer or not body:
+            flash('The customer or message body is missing. Nothing was sent.')
+        elif clean_str(row_get(draft, 'channel')).upper() == 'EMAIL':
+            ok, msg = send_comms_email(row_get(customer, 'email') or '', subject, body, customer=customer)
+            flash(msg)
+            if ok:
+                cur = db().execute("INSERT INTO communications(customer_id,channel,subject,body,created_at) VALUES (?,?,?,?,datetime('now'))", (row_get(customer, 'id'), 'Email', subject, body))
+                db().execute("UPDATE ai_drafts SET subject=?,body=?,status='Sent',sent_communication_id=?,updated_at=datetime('now') WHERE id=?", (subject, body, cur.lastrowid, draft_id))
+                db().commit()
+        else:
+            ok, msg = send_sms_gateway(row_get(customer, 'phone') or '', body, customer=customer, message_category='Customer service')
+            flash(msg)
+            if ok:
+                cur = db().execute("INSERT INTO communications(customer_id,channel,subject,body,created_at) VALUES (?,?,?,?,datetime('now'))", (row_get(customer, 'id'), 'SMS', 'AI-assisted reply', body))
+                db().execute("UPDATE ai_drafts SET body=?,status='Sent',sent_communication_id=?,updated_at=datetime('now') WHERE id=?", (body, cur.lastrowid, draft_id))
+                db().commit()
+    intake_id = row_get(draft, 'intake_id')
+    if intake_id:
+        return redirect(url_for('intake_form_view', lead_id=intake_id) + '#ai-reply')
+    return redirect(url_for('sms_thread_view', customer_id=row_get(draft, 'customer_id')) + '#ai-reply')
+
+
 @app.route('/sms-threads/<int:customer_id>')
 @login_required
 def sms_thread_view(customer_id):
@@ -9489,7 +9821,8 @@ def sms_thread_view(customer_id):
     thread = sms_thread_rows(customer_id=customer_id, limit=250)
     notes = q("SELECT * FROM sms_thread_notes WHERE customer_id=? ORDER BY id DESC", (customer_id,))
     templates = active_sms_templates()
-    return render_template('sms_thread.html', customer=customer, thread=thread, notes=notes, templates=templates)
+    ai_draft = q("SELECT * FROM ai_drafts WHERE customer_id=? AND channel='SMS' AND status NOT IN ('Sent','Discarded','Replaced') ORDER BY id DESC LIMIT 1", (customer_id,), one=True)
+    return render_template('sms_thread.html', customer=customer, thread=thread, notes=notes, templates=templates, ai_draft=ai_draft, ai_config=ai_settings_row())
 
 
 @app.route('/sms-threads/<int:customer_id>/note', methods=['POST'])
@@ -13911,6 +14244,7 @@ def intake_form_view(lead_id):
     if not lead:
         flash("Intake form not found.")
         return redirect(url_for("intake_forms"))
+    ai_draft = q("SELECT * FROM ai_drafts WHERE intake_id=? AND status NOT IN ('Sent','Discarded','Replaced') ORDER BY id DESC LIMIT 1", (lead_id,), one=True)
     return render_template(
         "intake_form_view.html",
         lead=lead,
@@ -13922,6 +14256,8 @@ def intake_form_view(lead_id):
         missing_details=intake_missing_details(lead),
         prepared_follow_up_sms=prepared_enquiry_follow_up_sms(lead),
         prepared_follow_up_status=prepared_enquiry_follow_up_status(lead_id),
+        ai_draft=ai_draft,
+        ai_config=ai_settings_row(),
     )
 
 
