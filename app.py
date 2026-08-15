@@ -9962,7 +9962,17 @@ def ai_draft_action(draft_id):
                 db().execute("UPDATE ai_drafts SET subject=?,body=?,status='Sent',sent_communication_id=?,updated_at=datetime('now') WHERE id=?", (subject, body, cur.lastrowid, draft_id))
                 db().commit()
         else:
-            ok, msg = send_sms_gateway(row_get(customer, 'phone') or '', body, customer=customer, message_category='Customer service')
+            # Use the same Render/ClickSend configuration path as website
+            # enquiry texts. Falling straight through to send_sms_gateway here
+            # incorrectly reported "not configured" when ClickSend was
+            # configured with environment variables rather than the legacy
+            # Settings form.
+            ok, msg = send_clicksend_env_sms(
+                row_get(customer, 'phone') or '',
+                body,
+                customer=customer,
+                category='Customer service',
+            )
             flash(msg)
             if ok:
                 cur = db().execute("INSERT INTO communications(customer_id,channel,subject,body,created_at) VALUES (?,?,?,?,datetime('now'))", (row_get(customer, 'id'), 'SMS', 'AI-assisted reply', body))

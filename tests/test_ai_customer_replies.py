@@ -168,6 +168,38 @@ class AICustomerReplyTests(unittest.TestCase):
         self.assertIn('Nothing sent', sms_send.call_args.args[1])
         self.assertIn('#ai-reply', sms_send.call_args.args[1])
 
+    def test_sending_ai_sms_uses_render_clicksend_configuration(self):
+        cur = self.appmod.db().execute(
+            """INSERT INTO ai_drafts(customer_id,intake_id,channel,subject,body,status,created_at,updated_at)
+               VALUES (?,?,'SMS','','A reviewed AI reply','Generated',datetime('now'),datetime('now'))""",
+            (self.customer_id, self.lead_id),
+        )
+        draft_id = cur.lastrowid
+        self.appmod.db().commit()
+        client = self.app.test_client()
+        with client.session_transaction() as session:
+            session['logged_in'] = True
+
+        with mock.patch.object(
+            self.appmod,
+            'send_clicksend_env_sms',
+            return_value=(True, 'SMS accepted by ClickSend.'),
+        ) as sms_send, mock.patch.object(
+            self.appmod,
+            'send_sms_gateway',
+            side_effect=AssertionError('AI sends must use the Render/ClickSend configuration path'),
+        ):
+            response = client.post(
+                f'/ai-drafts/{draft_id}/action',
+                data={'action': 'send', 'body': 'A reviewed AI reply'},
+            )
+
+        self.assertEqual(response.status_code, 302)
+        sms_send.assert_called_once()
+        self.assertEqual(sms_send.call_args.args[0], '07800111222')
+        saved = self.appmod.q('SELECT status FROM ai_drafts WHERE id=?', (draft_id,), one=True)
+        self.assertEqual(saved['status'], 'Sent')
+
     def test_new_enquiry_prepares_one_approval_draft_and_alert_links_to_it(self):
         with mock.patch.object(self.appmod.urllib.request, 'urlopen', return_value=FakeOpenAIResponse(self.fake_payload())):
             first, message = self.appmod.ensure_ai_draft_for_intake(self.lead_id, self.customer_id)
