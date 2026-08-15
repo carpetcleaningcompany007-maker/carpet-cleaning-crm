@@ -200,6 +200,53 @@ class AICustomerReplyTests(unittest.TestCase):
         saved = self.appmod.q('SELECT status FROM ai_drafts WHERE id=?', (draft_id,), one=True)
         self.assertEqual(saved['status'], 'Sent')
 
+    def test_clicksend_inbound_reply_is_matched_and_prepares_ai_draft(self):
+        client = self.app.test_client()
+        payload = {
+            'from': '+447800111222',
+            'to': '+441743000000',
+            'body': 'Yes please, a call tomorrow afternoon would be helpful.',
+            'message_id': 'inbound-chantal-test-1',
+        }
+        with mock.patch.object(
+            self.appmod,
+            'prepare_ai_draft_for_inbound_sms',
+            return_value=(mock.Mock(), 'prepared'),
+        ) as prepare:
+            response = client.post('/webhooks/sms/inbound/clicksend', json=payload)
+
+        self.assertEqual(response.status_code, 200)
+        prepare.assert_called_once_with(self.customer_id)
+        inbound = self.appmod.q(
+            "SELECT * FROM sms_events WHERE external_id='inbound-chantal-test-1'",
+            one=True,
+        )
+        self.assertEqual(inbound['customer_id'], self.customer_id)
+        self.assertEqual(inbound['direction'], 'inbound')
+        communication = self.appmod.q(
+            "SELECT * FROM communications WHERE customer_id=? AND subject='Inbound SMS' ORDER BY id DESC LIMIT 1",
+            (self.customer_id,),
+            one=True,
+        )
+        self.assertIn('call tomorrow afternoon', communication['body'])
+
+    def test_duplicate_clicksend_webhook_does_not_create_two_drafts(self):
+        client = self.app.test_client()
+        payload = {
+            'from': '+447800111222',
+            'body': 'Duplicate delivery test',
+            'message_id': 'inbound-duplicate-test-1',
+        }
+        with mock.patch.object(
+            self.appmod,
+            'prepare_ai_draft_for_inbound_sms',
+            return_value=(mock.Mock(), 'prepared'),
+        ) as prepare:
+            self.assertEqual(client.post('/webhooks/sms/inbound/clicksend', json=payload).status_code, 200)
+            self.assertEqual(client.post('/webhooks/sms/inbound/clicksend', json=payload).status_code, 200)
+
+        prepare.assert_called_once_with(self.customer_id)
+
     def test_new_enquiry_prepares_one_approval_draft_and_alert_links_to_it(self):
         with mock.patch.object(self.appmod.urllib.request, 'urlopen', return_value=FakeOpenAIResponse(self.fake_payload())):
             first, message = self.appmod.ensure_ai_draft_for_intake(self.lead_id, self.customer_id)

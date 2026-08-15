@@ -9872,6 +9872,38 @@ def notify_owner_ai_draft_ready(draft):
     return results
 
 
+def prepare_ai_draft_for_inbound_sms(customer_id):
+    """Prepare a fresh approval-only reply after a customer texts back."""
+    if not customer_id:
+        return None, "Inbound SMS was not matched to a customer."
+    cfg = ai_settings_row()
+    if not int(row_get(cfg, 'enabled') or 0):
+        return None, "AI drafting is switched off."
+    if not clean_str(os.environ.get('OPENAI_API_KEY')):
+        return None, "OpenAI API key is not configured."
+    lead = q(
+        "SELECT * FROM intake_submissions WHERE customer_id=? ORDER BY datetime(created_at) DESC, id DESC LIMIT 1",
+        (customer_id,),
+        one=True,
+    )
+    intake_id = row_get(lead, 'id') if lead else None
+    # An earlier unapproved draft does not include the customer's new reply.
+    # Retain it for audit, but replace it with a fresh conversational draft.
+    run(
+        """UPDATE ai_drafts SET status='Replaced',updated_at=datetime('now')
+             WHERE customer_id=? AND channel='SMS'
+               AND status NOT IN ('Sent','Discarded','Replaced')""",
+        (customer_id,),
+    )
+    try:
+        draft = generate_ai_customer_reply(customer_id, intake_id, 'SMS')
+        notify_owner_ai_draft_ready(draft)
+        return draft, "AI reply draft prepared for approval."
+    except RuntimeError as exc:
+        logger.warning("Inbound SMS AI draft failed for customer %s: %s", customer_id, exc)
+        return None, clean_str(exc)
+
+
 def public_automation_result(value):
     """Make mixed automation results safe for the public form JSON response."""
     if isinstance(value, dict):
@@ -11766,8 +11798,10 @@ def sms_inbound_twilio():
     to_phone = normalize_phone(payload.get("To") or "")
     body = payload.get("Body") or ""
     external_id = payload.get("MessageSid") or payload.get("SmsSid") or f"twilio-in-{uuid.uuid4().hex[:12]}"
-    customer = q("SELECT * FROM customers WHERE replace(replace(replace(ifnull(phone,''),' ',''),'-',''),'+','') LIKE ? ORDER BY id DESC LIMIT 1", (f"%{from_phone.replace('+','')}%",), one=True) if from_phone else None
+    customer = find_customer_by_phone(from_phone) if from_phone else None
     customer_id = customer['id'] if customer else None
+    if external_id and q("SELECT id FROM sms_events WHERE external_id=?", (external_id,), one=True):
+        return ("ok", 200)
     log_sms_event(customer_id, None, 'Twilio', 'inbound', to_phone, from_phone, body, external_id, 'Received', 'inbound', payload)
     action = inbound_sms_keyword_action(body)
     if customer_id and action == 'stop':
@@ -11776,6 +11810,8 @@ def sms_inbound_twilio():
         set_customer_sms_opt_out(customer_id, False, source='Inbound SMS')
     db().execute("INSERT INTO communications (customer_id, channel, subject, body, created_at) VALUES (?,?,?,?,datetime('now'))", (customer_id, 'SMS', 'Inbound SMS', body))
     db().commit()
+    if customer_id and action not in ('stop', 'start'):
+        prepare_ai_draft_for_inbound_sms(customer_id)
     return ("ok", 200)
 
 @app.route("/webhooks/sms/status/clicksend", methods=["POST"])
@@ -11807,8 +11843,10 @@ def sms_inbound_clicksend():
     to_phone = normalize_phone(item.get('to') or '')
     body = item.get('body') or item.get('message') or ''
     external_id = str(item.get('message_id') or item.get('id') or f"clicksend-in-{uuid.uuid4().hex[:12]}")
-    customer = q("SELECT * FROM customers WHERE replace(replace(replace(ifnull(phone,''),' ',''),'-',''),'+','') LIKE ? ORDER BY id DESC LIMIT 1", (f"%{from_phone.replace('+','')}%",), one=True) if from_phone else None
+    customer = find_customer_by_phone(from_phone) if from_phone else None
     customer_id = customer['id'] if customer else None
+    if external_id and q("SELECT id FROM sms_events WHERE external_id=?", (external_id,), one=True):
+        return ("ok", 200)
     log_sms_event(customer_id, None, 'ClickSend', 'inbound', to_phone, from_phone, body, external_id, 'Received', 'inbound', payload)
     action = inbound_sms_keyword_action(body)
     if customer_id and action == 'stop':
@@ -11817,6 +11855,8 @@ def sms_inbound_clicksend():
         set_customer_sms_opt_out(customer_id, False, source='Inbound SMS')
     db().execute("INSERT INTO communications (customer_id, channel, subject, body, created_at) VALUES (?,?,?,?,datetime('now'))", (customer_id, 'SMS', 'Inbound SMS', body))
     db().commit()
+    if customer_id and action not in ('stop', 'start'):
+        prepare_ai_draft_for_inbound_sms(customer_id)
     return ("ok", 200)
 
 @app.route("/email-designer")
