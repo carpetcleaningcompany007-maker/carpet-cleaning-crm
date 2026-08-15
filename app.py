@@ -9680,6 +9680,17 @@ def ai_context_payload(customer_id=None, intake_id=None, channel='SMS'):
             clean_str(row_get(customer, 'first_name')),
             clean_str(row_get(customer, 'last_name')),
         ))).strip()
+    greeting_name = enquiry_customer_name
+    suspicious_name = greeting_name.lower()
+    if (
+        'calendar note' in suspicious_name
+        or 'paul nicholas' in suspicious_name
+        or suspicious_name.startswith('test ')
+        or suspicious_name == 'test'
+    ):
+        greeting_name = ''
+    elif greeting_name:
+        greeting_name = split_customer_name(greeting_name)[0]
     return {
         'channel': channel,
         'context_scope': {
@@ -9687,7 +9698,7 @@ def ai_context_payload(customer_id=None, intake_id=None, channel='SMS'):
             'current_customer_id': customer_id,
             'rule': 'original_enquiry contains the authoritative facts for this enquiry; customer contains identity/contact details only; recent_conversation is limited to events on or after this enquiry began.',
         },
-        'customer_name_for_greeting': enquiry_customer_name or None,
+        'customer_name_for_greeting': greeting_name or None,
         'customer': customer_fields,
         'original_enquiry': lead_fields,
         'recent_conversation': ai_recent_events(
@@ -9707,6 +9718,30 @@ def ai_response_text(response_payload):
             if content.get('type') in ('output_text', 'text') and content.get('text'):
                 chunks.append(content.get('text'))
     return '\n'.join(chunks).strip()
+
+
+def ai_polish_conversation_draft(body, context):
+    """Enforce conversational rules that must not depend on model compliance."""
+    body = clean_str(body)
+    events = context.get('recent_conversation') or []
+    has_business_reply = any(clean_str(item.get('speaker')).lower() == 'business' for item in events)
+    if has_business_reply:
+        # A follow-up must not restart the enquiry or thank the customer for it
+        # again. Keep an optional greeting, then answer their latest message.
+        body = re.sub(
+            r'(?i)^(hi(?:\s+[^,\n.!?]+)?\s*[,!.]?\s*)'
+            r'(?:thank you very much|thank you|thanks)(?:\s+so much)?\s+for\s+'
+            r'(?:your|the)\s+(?:enquiry|inquiry|message)(?:[.!]?\s*)',
+            r'\1',
+            body,
+        ).strip()
+        body = re.sub(
+            r'(?i)^(hi(?:\s+[^,\n.!?]+)?\s*,\s+)([A-Z])',
+            lambda match: match.group(1) + match.group(2).lower(),
+            body,
+            count=1,
+        )
+    return body
 
 
 def generate_ai_customer_reply(customer_id=None, intake_id=None, channel='SMS'):
@@ -9747,6 +9782,7 @@ Write as Paul's helpful secretary, using the warm, personal style of a small loc
 When acknowledging or summarising the submitted enquiry, speak naturally as the secretary who is reading it: say "I can see you're looking for..." or "I can see you've mentioned..." Do not say "Paul has seen", "Paul can see" or suggest that Paul has already personally reviewed the enquiry unless the CRM facts explicitly say that he has.
 Normally open with: "Hi [customer name], thank you very much for your enquiry."
 Prefer "thank you very much for your enquiry" to abrupt phrases such as "Thanks for your message."
+Use that enquiry thank-you only for the first reply. If recent_conversation contains any Business message, this is an ongoing conversation: do not thank them for their enquiry or message again, do not reintroduce the business, and do not repeat information already said. Continue naturally and answer the customer's latest message first.
 When requesting something, use polite conversational language such as "Would you be able to ... please?" Use "please", "thank you" and "would you be able to" naturally, without becoming overly formal or unnecessarily long.
 Before asking any question, inspect every field in original_enquiry and every item in recent_conversation. Do not ask again for information already supplied, including the requested service, rooms, stains, contact details, photos or contact preference. Acknowledge useful details already provided and ask only for genuinely missing information.
 Do not ask about parking or access in an initial enquiry reply. Those details can be requested later when a booking or visit is being arranged, unless the customer raises an immediate access problem themselves.
@@ -9762,7 +9798,7 @@ CARPET CLEANING PRODUCT GUIDE FROM THE LANDING PAGE
 - Silver — Deep clean: everything in Bronze plus mechanical agitation, additional targeted stain treatment and suitable odour treatment. Carpet protector is available as an optional extra.
 - Gold — Complete care: everything in Silver plus carpet protector included.
 The landing page deliberately does not publish invented fixed prices. Every quotation reflects room sizes, carpet fibre, condition, staining and the treatment required.
-When a customer asks about price, cost or money, begin naturally with: "We have a few different options, depending on the condition of the carpets and the level of clean you would like." Briefly explain the most relevant options, then ask one or two useful leading questions at a time. Choose only questions not already answered, such as which rooms or items need cleaning and their approximate size; whether the carpets need a general freshen-up or a deeper restorative clean; whether there are particular stains, odours, pet marks or heavy traffic areas; and whether they can send photographs. Do not overwhelm them with a checklist. Use their answers to narrow the suitable package, and offer to arrange for Paul to discuss the best option. Do not present a starting price as a confirmed quote.
+When a customer asks about price, cost or money, answer that question first. Say naturally that there are three options: Bronze essential clean, Silver deep clean and Gold complete care. Briefly distinguish them using the product guide, then explain that the exact quote depends on size, condition and treatment. Ask only one or two useful leading questions not already answered, and offer to arrange for Paul to advise. Do not overwhelm them with a checklist or present an invented price.
 
 BUSINESS KNOWLEDGE
 {knowledge}"""
@@ -9793,6 +9829,7 @@ BUSINESS KNOWLEDGE
         with urllib.request.urlopen(req, timeout=45) as response:
             response_payload = json.loads(response.read().decode('utf-8'))
         result = json.loads(ai_response_text(response_payload))
+        result['body'] = ai_polish_conversation_draft(result.get('body'), context)
         usage = response_payload.get('usage') or {}
         input_tokens = int(usage.get('input_tokens') or 0)
         output_tokens = int(usage.get('output_tokens') or 0)
@@ -9876,8 +9913,7 @@ def notify_owner_ai_draft_ready(draft):
         results['email'] = send_env_email(owner_email, subject, text_body, html_body)
     owner_mobile = clean_str(os.environ.get('OWNER_ALERT_MOBILE'))
     if owner_mobile:
-        sms_preview = preview if len(preview) <= 320 else preview[:317].rstrip() + '...'
-        sms_body = f"AI {channel} draft ready. Nothing sent.\n\n{sms_preview}\n\nReview, edit, send, rewrite or discard: {review_url}"
+        sms_body = f"AI {channel} draft ready. Nothing sent.\n\n{preview}\n\nReview, edit, send, rewrite or discard: {review_url}"
         results['sms'] = send_clicksend_env_sms(owner_mobile, sms_body, customer=None, category='Service')
     return results
 
