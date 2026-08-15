@@ -9752,6 +9752,15 @@ def ai_polish_conversation_draft(body, context):
             body,
             count=1,
         )
+    else:
+        # First replies should not turn into a data-collection checklist. The
+        # public form can collect address, access and timing later; the first
+        # human-sounding response should concentrate on the job and photos.
+        body = re.sub(
+            r"(?i),?\s+and\s+(?:any\s+)?(?:address|access|parking|preferred\s+(?:day|date|time))[^.!?]*",
+            "",
+            body,
+        )
     body = re.sub(r'(?i)\bphotographs\b', 'photos', body)
     return body
 

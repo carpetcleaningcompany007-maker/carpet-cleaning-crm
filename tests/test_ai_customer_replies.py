@@ -107,6 +107,17 @@ class AICustomerReplyTests(unittest.TestCase):
         self.assertIsNone(draft)
         self.assertIn('Initial enquiry drafts only', message)
 
+    def test_initial_reply_drops_early_access_and_address_request(self):
+        context = {'recent_conversation': []}
+        draft = (
+            "Hi Jane, thank you for your enquiry. Would you be able to send over a few photos "
+            "of the rooms please, and any address or access details when you're ready?"
+        )
+        polished = self.appmod.ai_polish_conversation_draft(draft, context)
+        self.assertIn('photos of the rooms please?', polished)
+        self.assertNotIn('address', polished.lower())
+        self.assertNotIn('access', polished.lower())
+
     def test_submitted_enquiry_name_wins_over_customer_record_name(self):
         self.appmod.run("UPDATE customers SET first_name='Paul', last_name='Nicholas' WHERE id=?", (self.customer_id,))
         context, resolved_customer_id = self.appmod.ai_context_payload(self.customer_id, self.lead_id, 'SMS')
