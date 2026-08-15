@@ -61,6 +61,30 @@ class WebsiteFormTests(unittest.TestCase):
         self.assertEqual(lead["follow_up_status"], "Request missing details")
         self.assertEqual(lead["customer_sms_status"], "Skipped: Customer phone number is missing or needs checking.")
 
+    def test_nested_ai_owner_alert_result_does_not_break_form_response(self):
+        automation = {
+            "ai_draft": (True, "AI draft prepared for approval."),
+            "ai_draft_owner_alert": {
+                "email": (True, "Email sent."),
+                "sms": (True, "SMS accepted."),
+            },
+        }
+        with mock.patch.object(self.appmod, "run_website_enquiry_automation", return_value=automation):
+            response = self.app.test_client().post("/api/website-form", data={
+                "name": "Sarah Style Test",
+                "phone": "07802 563213",
+                "email": "customer@example.com",
+                "postcode": "SY8 2BH",
+                "service": "Carpet cleaning",
+                "rooms": "5",
+                "stains": "Makeup",
+            })
+        self.assertEqual(response.status_code, 200)
+        body = response.get_json()
+        self.assertTrue(body["ok"])
+        self.assertTrue(body["automation"]["ai_draft_owner_alert"]["ok"])
+        self.assertIn("email: Email sent", body["automation"]["ai_draft_owner_alert"]["message"])
+
     def test_website_form_rejects_invalid_phone_without_valid_email(self):
         response = self.post_form(email="not-an-email")
         self.assertEqual(response.status_code, 400)

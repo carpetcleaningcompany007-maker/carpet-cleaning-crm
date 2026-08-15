@@ -9824,6 +9824,22 @@ def notify_owner_ai_draft_ready(draft):
     return results
 
 
+def public_automation_result(value):
+    """Make mixed automation results safe for the public form JSON response."""
+    if isinstance(value, dict):
+        parts = []
+        successful = False
+        for channel, result in value.items():
+            if isinstance(result, (list, tuple)) and len(result) >= 2:
+                ok, message = bool(result[0]), clean_str(result[1])
+                successful = successful or ok
+                parts.append(f"{channel}: {message}")
+        return {"ok": successful, "message": "; ".join(parts) or "Notification processed."}
+    if isinstance(value, (list, tuple)) and len(value) >= 2:
+        return {"ok": bool(value[0]), "message": clean_str(value[1])}
+    return {"ok": bool(value), "message": clean_str(value)}
+
+
 @app.route('/ai-settings', methods=['GET', 'POST'])
 @login_required
 def ai_settings_page():
@@ -13985,7 +14001,7 @@ def website_form_submit():
             "customer_sms_status": lead["customer_sms_status"] if lead else "",
             "owner_email_status": lead["owner_email_status"] if lead else "",
             "owner_sms_status": lead["owner_sms_status"] if lead else "",
-            "automation": {key: {"ok": value[0], "message": value[1]} for key, value in automation_results.items()},
+            "automation": {key: public_automation_result(value) for key, value in automation_results.items()},
         }
     return render_template(
         "customer_intake_thanks.html",
