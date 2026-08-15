@@ -65,6 +65,8 @@
     <span class="review-pill">{{ lead.status or 'Waiting for review' }}</span>
   </div>
 
+  {% with ai_customer_id=lead.customer_id, ai_intake_id=lead.id, ai_channel_locked='' %}{% include '_ai_reply_panel.html' %}{% endwith %}
+
   <section class="lead-action-panel" id="lead-action-panel">
     <div class="lead-action-head">
       <div>
