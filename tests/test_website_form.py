@@ -85,6 +85,24 @@ class WebsiteFormTests(unittest.TestCase):
         self.assertTrue(body["automation"]["ai_draft_owner_alert"]["ok"])
         self.assertIn("email: Email sent", body["automation"]["ai_draft_owner_alert"]["message"])
 
+    def test_two_page_quote_preserves_carpet_and_upholstery_as_distinct_services(self):
+        response = self.post_form(
+            phone="07802 563213",
+            service="",
+            building_type="Private home or residence",
+            rooms="5",
+            stains="Makeup",
+            extras=["Upholstery"],
+        )
+        self.assertEqual(response.status_code, 200)
+        body = response.get_json()
+        self.assertNotIn("service required", body["missing_details"])
+        lead = self.appmod.q("SELECT * FROM intake_submissions WHERE id=?", (body["lead_id"],), one=True)
+        self.assertEqual(lead["what_cleaned"], "Carpet cleaning and Upholstery cleaning")
+        self.assertEqual(lead["upholstery"], "Yes")
+        self.assertEqual(lead["number_rooms"], "5")
+        self.assertEqual(lead["stains"], "Makeup")
+
     def test_website_form_rejects_invalid_phone_without_valid_email(self):
         response = self.post_form(email="not-an-email")
         self.assertEqual(response.status_code, 400)

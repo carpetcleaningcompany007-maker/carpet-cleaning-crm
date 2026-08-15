@@ -7556,6 +7556,32 @@ def request_value(data, *names):
     return ""
 
 
+def request_list_values(data, name):
+    if hasattr(data, "getlist"):
+        return [clean_str(value) for value in data.getlist(name) if clean_str(value)]
+    value = data.get(name) if hasattr(data, "get") else None
+    if isinstance(value, (list, tuple)):
+        return [clean_str(item) for item in value if clean_str(item)]
+    return [part.strip() for part in re.split(r"[,;]", clean_str(value)) if part.strip()]
+
+
+def website_selected_services(data):
+    explicit = request_value(data, "what_cleaned", "what_would_you_like_cleaned", "service", "service_required", "cleaning_required")
+    if explicit:
+        return explicit
+    extras = {value.lower() for value in request_list_values(data, "extras")}
+    services = []
+    # The two-page quote selector is a carpet-cleaning quote unless another
+    # service is explicitly added in Extras.
+    if request_value(data, "building_type", "rooms", "number_rooms", "stains"):
+        services.append("Carpet cleaning")
+    if "upholstery" in extras:
+        services.append("Upholstery cleaning")
+    if "hard floor" in extras or "hard floor cleaning" in extras:
+        services.append("Hard-floor cleaning")
+    return " and ".join(services)
+
+
 def website_enquiry_missing_details(data, photo_filename=""):
     missing = []
     if not request_value(data, "name", "full_name", "customer_name", "fullname"):
@@ -7566,7 +7592,7 @@ def website_enquiry_missing_details(data, photo_filename=""):
         missing.append("valid phone or email")
     if not request_value(data, "postcode", "post_code", "zip"):
         missing.append("postcode")
-    if not request_value(data, "what_cleaned", "what_would_you_like_cleaned", "service", "service_required", "cleaning_required"):
+    if not website_selected_services(data):
         missing.append("service required")
     if not request_value(data, "rooms_areas", "rooms_or_items", "rooms_items", "items_required", "areas", "room_areas", "number_rooms", "rooms", "number_of_rooms", "room_count"):
         missing.append("rooms or areas")
@@ -7632,10 +7658,11 @@ def create_intake_from_website_payload(data, source="Website form", photo_filena
     what3words = request_value(data, "what3words", "what_3_words", "w3w")
     google_maps_link = request_value(data, "google_maps_link", "maps_link", "location_link")
     town = request_value(data, "town", "city")
-    what_cleaned = request_value(data, "what_cleaned", "what_would_you_like_cleaned", "service", "service_required", "cleaning_required", "message")
+    what_cleaned = website_selected_services(data)
     rooms_areas = request_value(data, "rooms_areas", "rooms_or_items", "rooms_items", "items_required", "areas", "room_areas")
     number_rooms = request_value(data, "number_rooms", "rooms", "number_of_rooms", "room_count", "areas")
-    upholstery = request_value(data, "upholstery", "any_upholstery")
+    selected_extras = {value.lower() for value in request_list_values(data, "extras")}
+    upholstery = request_value(data, "upholstery", "any_upholstery") or ("Yes" if "upholstery" in selected_extras else "")
     rugs = request_value(data, "rugs", "any_rugs")
     stains = request_value(data, "stains", "problem_areas", "stains_problem_areas")
     pets = request_value(data, "pets", "pets_in_property")
@@ -9560,7 +9587,7 @@ def ai_settings_row():
         allowed_questions, never_promise, manual_handoff_rules,
         sms_guidance, email_guidance, max_context_messages, max_output_tokens
     ) VALUES (1,0,'gpt-5.4-mini','','','','','','',
-        'Friendly, polite, personal and helpful, like a small business owner speaking directly to a customer. Open with "Hi [customer name], thank you very much for your enquiry." Use please, thank you and "would you be able to" naturally. Be warm without being overly formal or unnecessarily long.',
+        'Friendly, polite, personal and helpful, like Paul’s secretary speaking directly to a customer. Open with "Hi [customer name], thank you very much for your enquiry." Refer to Paul by name: offer to arrange for Paul to call, and never imply the secretary is Paul. Use please, thank you and "would you be able to" naturally. Be warm without being overly formal or unnecessarily long.',
         'Check the original enquiry and conversation first. Ask only for information genuinely missing and needed to help. Never ask the customer to repeat information already supplied.',
         'Never invent prices, discounts, availability, appointment dates, services, guarantees, cleaning results or customer information.',
         'Use Needs manual response when the answer is uncertain, a complaint is serious, a price or availability is not recorded, or Paul must make the decision.',
@@ -9695,13 +9722,15 @@ def generate_ai_customer_reply(customer_id=None, intake_id=None, channel='SMS'):
     knowledge = '\n\n'.join(f'{label}:\n{clean_str(value)}' for label, value in knowledge_sections if clean_str(value))
     instructions = f"""You prepare customer-service drafts for The Carpet Cleaning Company. Nothing is sent automatically.
 Use only the supplied business knowledge and CRM facts. Never invent a price, discount, availability, appointment, service, guarantee, result or customer detail.
-Write in Paul's natural customer-service style: friendly, polite, personal and helpful, like a small-business owner speaking directly to the customer.
+Write as Paul's helpful secretary, using the warm, personal style of a small local business. The sender is not Paul. Refer to Paul in the third person.
 Normally open with: "Hi [customer name], thank you very much for your enquiry."
 Prefer "thank you very much for your enquiry" to abrupt phrases such as "Thanks for your message."
 When requesting something, use polite conversational language such as "Would you be able to ... please?" Use "please", "thank you" and "would you be able to" naturally, without becoming overly formal or unnecessarily long.
 Before asking any question, inspect every field in original_enquiry and every item in recent_conversation. Do not ask again for information already supplied, including the requested service, rooms, stains, contact details, photos or contact preference. Acknowledge useful details already provided and ask only for genuinely missing information.
+Differentiate the requested service precisely. Carpet cleaning, upholstery cleaning, rug cleaning and hard-floor cleaning are different services. Mention only services actually selected or supplied. If both carpet cleaning and upholstery cleaning were selected, clearly acknowledge both and ask for relevant photographs of the carpeted rooms/stains and the upholstery items. If only one was selected, do not mention or ask about the other.
 Use customer_name_for_greeting as the addressee. It comes from the submitted enquiry and is authoritative. Never use Paul, Paul Nicholas, the CRM owner, sender, operator or business account name as the customer's name unless customer_name_for_greeting itself explicitly contains that name. If customer_name_for_greeting is empty, omit the name rather than guessing one.
 Do not issue blunt commands such as "Please send photos." Prefer a warm request, for example: "Would you be able to send me some photographs please of the rooms and any stains, via WhatsApp, SMS or email?"
+When offering a call, say "I can arrange for Paul to give you a quick call" or "Would you like me to arrange for Paul to call you?" Never say that "I" will call, explain the equipment or carry out the cleaning. Paul explains the equipment, advises on the cleaning process and carries out or oversees the work.
 If a safe and useful reply cannot be written, set needs_manual_response=true and explain why. Still provide a short holding draft when appropriate.
 Write for the requested channel: {channel}.
 
