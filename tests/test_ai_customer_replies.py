@@ -91,7 +91,7 @@ class AICustomerReplyTests(unittest.TestCase):
         self.assertIn('Bronze — Essential clean', instructions)
         self.assertIn('Silver — Deep clean', instructions)
         self.assertIn('Gold — Complete care', instructions)
-        self.assertIn('Do not overwhelm them with a checklist', instructions)
+        self.assertIn('keep an SMS particularly short', instructions)
         self.assertIn('Do not ask again for information already supplied', instructions)
         self.assertIn('customer_name_for_greeting', instructions)
         self.assertIn("Write as Paul's helpful secretary", instructions)
