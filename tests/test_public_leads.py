@@ -92,6 +92,27 @@ class PublicLeadTests(unittest.TestCase):
         self.assertEqual(response.get_json()["visitor_email"], "not_applicable")
         send_email.assert_not_called()
 
+    def test_analytics_cleanup_removes_only_false_shrewsbury_step_one_submit(self):
+        self.appmod.ensure_website_analytics_table()
+        base = (
+            "landing_visit_session_12345", "Shrewsbury", "landing-shrewsbury.html",
+            "shrewsbury-new-landing-2026-08-10", "form_submit", 0,
+            "Google Ads", 1, "desktop",
+        )
+        final = (
+            "landing_visit_session_67890", "Shrewsbury", "landing-shrewsbury-quote.html",
+            "shrewsbury-new-landing-2026-08-10", "form_submit", 0,
+            "Google Ads", 1, "desktop",
+        )
+        for values in (base, final):
+            self.appmod.run("""INSERT INTO website_analytics_events
+                (session_id, landing_area, landing_page, page_variant, event_name,
+                 event_value, traffic_source, click_id_present, device_type)
+                VALUES (?,?,?,?,?,?,?,?,?)""", values)
+        self.appmod.ensure_website_analytics_table()
+        rows = self.appmod.q("SELECT landing_page FROM website_analytics_events WHERE event_name='form_submit'")
+        self.assertEqual([row["landing_page"] for row in rows], ["landing-shrewsbury-quote.html"])
+
     def test_generic_landing_page_visit_sends_owner_email(self):
         client = self.app.test_client()
         payload = {

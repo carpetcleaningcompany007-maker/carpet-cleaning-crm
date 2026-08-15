@@ -13658,6 +13658,14 @@ def ensure_website_analytics_table():
              created_at TEXT DEFAULT (datetime('now')),
              UNIQUE(session_id, event_name)
            )""")
+    # The original two-page Shrewsbury tracker recorded page one as a completed
+    # form before the visitor reached the real contact-details submission page.
+    # Remove only those known false completion events so historical reports show
+    # genuine completed enquiries.
+    run("""DELETE FROM website_analytics_events
+             WHERE event_name='form_submit'
+               AND landing_page='landing-shrewsbury.html'
+               AND page_variant='shrewsbury-new-landing-2026-08-10'""")
 
 
 def send_landing_page_visit_alert(area, landing_page, traffic_source, click_id_present, device_type):
