@@ -9607,15 +9607,20 @@ def ai_estimated_cost_usd(model, input_tokens, output_tokens):
     return round((int(input_tokens or 0) * input_rate + int(output_tokens or 0) * output_rate) / 1_000_000, 6)
 
 
-def ai_recent_events(customer_id, limit=20):
+def ai_recent_events(customer_id, limit=20, since_at=None):
     if not customer_id:
         return []
+    since_at = clean_str(since_at)
     rows = q("""SELECT channel, subject, body, created_at
                 FROM communications WHERE customer_id=?
-                ORDER BY datetime(created_at) DESC, id DESC LIMIT ?""", (customer_id, limit * 2))
+                  AND (?='' OR datetime(created_at) >= datetime(?))
+                ORDER BY datetime(created_at) DESC, id DESC LIMIT ?""",
+             (customer_id, since_at, since_at, limit * 2))
     sms_rows = q("""SELECT direction, body, status, created_at, external_id
                     FROM sms_events WHERE customer_id=? AND trim(coalesce(body,''))<>''
-                    ORDER BY datetime(created_at) DESC, id DESC LIMIT ?""", (customer_id, limit * 2))
+                      AND (?='' OR datetime(created_at) >= datetime(?))
+                    ORDER BY datetime(created_at) DESC, id DESC LIMIT ?""",
+                 (customer_id, since_at, since_at, limit * 2))
     events = []
     seen = set()
     for row in rows:
@@ -9656,7 +9661,10 @@ def ai_context_payload(customer_id=None, intake_id=None, channel='SMS'):
             lead_fields['attachments'] = [part.strip() for part in photos.split(',') if part.strip()]
     customer_fields = {}
     if customer:
-        for field in ('first_name','last_name','phone','email','address','town','postcode','notes'):
+        # Keep this section to stable identity/contact data. ``customers.notes``
+        # can contain a snapshot of an older job (rooms, service, stains, etc.)
+        # and must never compete with the current intake's structured facts.
+        for field in ('first_name','last_name','phone','email','address','town','postcode'):
             value = clean_str(row_get(customer, field))
             if value:
                 customer_fields[field] = value
@@ -9671,10 +9679,19 @@ def ai_context_payload(customer_id=None, intake_id=None, channel='SMS'):
         ))).strip()
     return {
         'channel': channel,
+        'context_scope': {
+            'current_intake_id': row_get(lead, 'id') if lead else None,
+            'current_customer_id': customer_id,
+            'rule': 'original_enquiry contains the authoritative facts for this enquiry; customer contains identity/contact details only; recent_conversation is limited to events on or after this enquiry began.',
+        },
         'customer_name_for_greeting': enquiry_customer_name or None,
         'customer': customer_fields,
         'original_enquiry': lead_fields,
-        'recent_conversation': ai_recent_events(customer_id, row_get(cfg, 'max_context_messages') or 20),
+        'recent_conversation': ai_recent_events(
+            customer_id,
+            row_get(cfg, 'max_context_messages') or 20,
+            row_get(lead, 'created_at') if lead else None,
+        ),
     }, customer_id
 
 
@@ -9722,6 +9739,7 @@ def generate_ai_customer_reply(customer_id=None, intake_id=None, channel='SMS'):
     knowledge = '\n\n'.join(f'{label}:\n{clean_str(value)}' for label, value in knowledge_sections if clean_str(value))
     instructions = f"""You prepare customer-service drafts for The Carpet Cleaning Company. Nothing is sent automatically.
 Use only the supplied business knowledge and CRM facts. Never invent a price, discount, availability, appointment, service, guarantee, result or customer detail.
+Treat original_enquiry as the sole authoritative source for the current job. The customer section contains identity/contact details only. Never replace or contradict a current-enquiry service, room count, stain, item or preference with historical conversation. If current structured fields genuinely conflict with each other, preserve the Needs manual response behaviour.
 Write as Paul's helpful secretary, using the warm, personal style of a small local business. The sender is not Paul. Refer to Paul in the third person.
 When acknowledging or summarising the submitted enquiry, speak naturally as the secretary who is reading it: say "I can see you're looking for..." or "I can see you've mentioned..." Do not say "Paul has seen", "Paul can see" or suggest that Paul has already personally reviewed the enquiry unless the CRM facts explicitly say that he has.
 Normally open with: "Hi [customer name], thank you very much for your enquiry."

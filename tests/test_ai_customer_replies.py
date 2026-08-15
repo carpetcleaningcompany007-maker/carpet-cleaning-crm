@@ -102,6 +102,44 @@ class AICustomerReplyTests(unittest.TestCase):
         self.assertEqual(context['customer_name_for_greeting'], 'Jane Example')
         self.assertEqual(context['customer']['first_name'], 'Paul')
 
+    def test_current_intake_facts_are_isolated_from_stale_customer_notes(self):
+        self.appmod.run(
+            "UPDATE customers SET notes=? WHERE id=?",
+            ('Created from an older enquiry.\nNumber of rooms: 2\nWhat cleaned: Upholstery cleaning', self.customer_id),
+        )
+        self.appmod.run(
+            "UPDATE intake_submissions SET number_rooms='3', what_cleaned='Carpet cleaning' WHERE id=?",
+            (self.lead_id,),
+        )
+
+        context, _ = self.appmod.ai_context_payload(self.customer_id, self.lead_id, 'SMS')
+
+        self.assertEqual(context['original_enquiry']['number_rooms'], '3')
+        self.assertEqual(context['original_enquiry']['what_cleaned'], 'Carpet cleaning')
+        self.assertNotIn('notes', context['customer'])
+        self.assertNotIn('Number of rooms: 2', json.dumps(context))
+        self.assertEqual(context['context_scope']['current_intake_id'], self.lead_id)
+
+    def test_conversation_before_current_intake_is_not_sent_to_ai(self):
+        self.appmod.run(
+            "UPDATE intake_submissions SET created_at='2026-08-15 12:00:00' WHERE id=?",
+            (self.lead_id,),
+        )
+        self.appmod.run(
+            "UPDATE communications SET body='Old job said two rooms', created_at='2026-08-14 12:00:00' WHERE customer_id=?",
+            (self.customer_id,),
+        )
+        self.appmod.run(
+            "INSERT INTO communications(customer_id,channel,subject,body,created_at) VALUES (?,'SMS','Inbound SMS','Current enquiry follow-up','2026-08-15 12:05:00')",
+            (self.customer_id,),
+        )
+
+        context, _ = self.appmod.ai_context_payload(self.customer_id, self.lead_id, 'SMS')
+        serialized = json.dumps(context)
+
+        self.assertNotIn('Old job said two rooms', serialized)
+        self.assertIn('Current enquiry follow-up', serialized)
+
     def test_missing_customer_name_is_not_invented(self):
         self.appmod.run("UPDATE intake_submissions SET name='' WHERE id=?", (self.lead_id,))
         self.appmod.run("UPDATE customers SET first_name='', last_name='' WHERE id=?", (self.customer_id,))

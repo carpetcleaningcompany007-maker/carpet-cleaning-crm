@@ -147,7 +147,7 @@
         <div class="preview-row"><strong>Postcode</strong><span>{{ lead.postcode or 'Not supplied' }}</span></div>
         <div class="preview-row"><strong>What3Words</strong><span>{{ lead.what3words or 'Not supplied' }}</span></div>
         <div class="preview-row"><strong>Agreed quote price</strong><span>{% if lead.agreed_quote_price %}£{{ '%.2f'|format(lead.agreed_quote_price or 0) }}{% else %}Not supplied{% endif %}</span></div>
-        <div class="preview-row"><strong>Rooms or areas</strong><span>{{ lead.rooms_areas or 'Not supplied' }}</span></div>
+        <div class="preview-row"><strong>Rooms or areas</strong><span>{{ lead.rooms_areas or lead.number_rooms or 'Not supplied' }}</span></div>
         <div class="preview-row"><strong>Job details</strong><span>{{ display_job_notes or lead.additional_notes or 'Not supplied' }}</span></div>
         <div class="preview-row"><strong>Access / parking</strong><span>{{ lead.parking or 'Not supplied' }}</span></div>
         <div class="preview-row"><strong>Privacy / marketing</strong><span>Privacy acknowledgement: accepted on submission{% if lead.marketing_consent %}<br>Marketing consent: {{ lead.marketing_consent }}{% endif %}</span></div>
