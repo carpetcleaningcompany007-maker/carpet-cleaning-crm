@@ -9768,6 +9768,41 @@ def ensure_ai_draft_for_intake(intake_id, customer_id=None):
         return None, clean_str(exc)
 
 
+def notify_owner_ai_draft_ready(draft):
+    """Alert the owner when a draft is generated after the original enquiry alert."""
+    if not draft:
+        return {}
+    intake_id = row_get(draft, 'intake_id')
+    customer_id = row_get(draft, 'customer_id')
+    if intake_id:
+        review_url = url_for('intake_form_view', lead_id=intake_id, _external=True) + '#ai-reply'
+    else:
+        review_url = url_for('sms_thread_view', customer_id=customer_id, _external=True) + '#ai-reply'
+    channel = clean_str(row_get(draft, 'channel')) or 'reply'
+    preview = clean_str(row_get(draft, 'body'))
+    subject = 'AI reply ready for approval'
+    text_body = (
+        f"A new {channel} draft is ready. Nothing has been sent to the customer.\n\n"
+        f"Draft:\n{preview}\n\n"
+        f"Review, edit, send, regenerate or discard:\n{review_url}"
+    )
+    html_body = (
+        '<h2>AI reply ready for approval</h2>'
+        '<p>Nothing has been sent to the customer.</p>'
+        f'<p><strong>Draft:</strong><br>{html_lib.escape(preview).replace(chr(10), "<br>")}</p>'
+        f'<p><a href="{html_lib.escape(review_url, quote=True)}">Review AI reply</a></p>'
+    )
+    results = {}
+    owner_email = clean_str(os.environ.get('OWNER_ALERT_EMAIL'))
+    if owner_email:
+        results['email'] = send_env_email(owner_email, subject, text_body, html_body)
+    owner_mobile = clean_str(os.environ.get('OWNER_ALERT_MOBILE'))
+    if owner_mobile:
+        sms_body = f"AI {channel} draft ready. Nothing sent. Review or change it here: {review_url}"
+        results['sms'] = send_clicksend_env_sms(owner_mobile, sms_body, customer=None, category='Service')
+    return results
+
+
 @app.route('/ai-settings', methods=['GET', 'POST'])
 @login_required
 def ai_settings_page():
@@ -9796,7 +9831,8 @@ def ai_draft_generate():
     intake_id = int(request.form.get('intake_id') or 0) or None
     channel = 'Email' if clean_str(request.form.get('channel')).lower() == 'email' else 'SMS'
     try:
-        generate_ai_customer_reply(customer_id, intake_id, channel)
+        draft = generate_ai_customer_reply(customer_id, intake_id, channel)
+        notify_owner_ai_draft_ready(draft)
         flash('AI draft generated. Check and edit it before sending.')
     except RuntimeError as exc:
         flash(str(exc))
@@ -9821,7 +9857,8 @@ def ai_draft_action(draft_id):
     elif action == 'regenerate':
         run("UPDATE ai_drafts SET status='Replaced',updated_at=datetime('now') WHERE id=?", (draft_id,))
         try:
-            generate_ai_customer_reply(row_get(draft, 'customer_id'), row_get(draft, 'intake_id'), row_get(draft, 'channel'))
+            fresh_draft = generate_ai_customer_reply(row_get(draft, 'customer_id'), row_get(draft, 'intake_id'), row_get(draft, 'channel'))
+            notify_owner_ai_draft_ready(fresh_draft)
             flash('A fresh AI draft was generated. Nothing was sent.')
         except RuntimeError as exc:
             flash(str(exc))

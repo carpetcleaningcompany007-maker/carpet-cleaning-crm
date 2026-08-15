@@ -90,6 +90,22 @@ class AICustomerReplyTests(unittest.TestCase):
         self.assertEqual(draft['needs_manual_response'], 1)
         self.assertIn('availability', draft['manual_reason'])
 
+    def test_owner_is_alerted_when_manual_draft_is_generated(self):
+        with mock.patch.object(self.appmod.urllib.request, 'urlopen', return_value=FakeOpenAIResponse(self.fake_payload())):
+            draft = self.appmod.generate_ai_customer_reply(self.customer_id, self.lead_id, 'SMS')
+        with mock.patch.dict(os.environ, {'OWNER_ALERT_EMAIL': 'owner@example.com', 'OWNER_ALERT_MOBILE': '07802563213'}), \
+             mock.patch.object(self.appmod, 'send_env_email', return_value=(True, 'sent')) as email_send, \
+             mock.patch.object(self.appmod, 'send_clicksend_env_sms', return_value=(True, 'sent')) as sms_send, \
+             self.app.test_request_context('/'):
+            results = self.appmod.notify_owner_ai_draft_ready(draft)
+
+        self.assertEqual(results['email'], (True, 'sent'))
+        self.assertEqual(results['sms'], (True, 'sent'))
+        self.assertIn('Nothing has been sent', email_send.call_args.args[2])
+        self.assertIn('#ai-reply', email_send.call_args.args[2])
+        self.assertIn('Nothing sent', sms_send.call_args.args[1])
+        self.assertIn('#ai-reply', sms_send.call_args.args[1])
+
     def test_new_enquiry_prepares_one_approval_draft_and_alert_links_to_it(self):
         with mock.patch.object(self.appmod.urllib.request, 'urlopen', return_value=FakeOpenAIResponse(self.fake_payload())):
             first, message = self.appmod.ensure_ai_draft_for_intake(self.lead_id, self.customer_id)
