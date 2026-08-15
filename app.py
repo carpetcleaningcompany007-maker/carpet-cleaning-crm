@@ -1806,6 +1806,8 @@ def schedule_enquiry_follow_up_sms(lead_id, customer_id=None, data=None, delay_m
     if existing:
         return False, f"Follow-up SMS already {clean_str(row_get(existing, 'status')).lower() or 'queued'} for this enquiry."
     lead = q("SELECT * FROM intake_submissions WHERE id=?", (lead_id,), one=True)
+    if lead and (int(row_get(lead, "is_test") or 0) or int(row_get(lead, "ignore_alerts") or 0)):
+        return False, "Test enquiry: follow-up alerts are ignored."
     payload = dict(data or {})
     if lead:
         for key in lead.keys():
@@ -1838,6 +1840,7 @@ def run_due_enquiry_follow_up_sms(dry_run=False):
                 FROM enquiry_follow_up_queue q
                 LEFT JOIN intake_submissions s ON s.id=q.lead_id
                 WHERE q.sent_at='' AND q.due_at <= ?
+                  AND IFNULL(s.is_test,0)=0 AND IFNULL(s.ignore_alerts,0)=0
                   AND (
                     q.status='Queued'
                     OR (q.status='Sending' AND datetime(IFNULL(q.updated_at, q.created_at)) <= datetime('now','-5 minutes'))
@@ -6721,6 +6724,8 @@ def init_db():
         preferred_time TEXT,
         photo_filename TEXT,
         status TEXT DEFAULT 'New',
+        is_test INTEGER DEFAULT 0,
+        ignore_alerts INTEGER DEFAULT 0,
         review_notes TEXT DEFAULT '',
         customer_id INTEGER,
         job_id INTEGER,
@@ -7075,6 +7080,8 @@ def init_db():
         ("intake_submissions", "owner_email_status", "TEXT DEFAULT 'Pending'"),
         ("intake_submissions", "owner_sms_status", "TEXT DEFAULT 'Pending'"),
         ("intake_submissions", "follow_up_status", "TEXT DEFAULT 'Follow up required'"),
+        ("intake_submissions", "is_test", "INTEGER DEFAULT 0"),
+        ("intake_submissions", "ignore_alerts", "INTEGER DEFAULT 0"),
         ("intake_submissions", "update_form_sent_at", "TEXT DEFAULT ''"),
         ("intake_submissions", "update_form_status", "TEXT DEFAULT ''"),
         ("intake_submissions", "gclid", "TEXT DEFAULT ''"),
@@ -8265,14 +8272,18 @@ def dashboard():
                            FROM customer_feedback
                            LEFT JOIN customers ON customers.id = customer_feedback.customer_id
                            ORDER BY customer_feedback.id DESC LIMIT 5""")
-    intake_new = q("SELECT COUNT(*) AS c FROM intake_submissions WHERE IFNULL(status,'New') IN ('New','Reviewed','Waiting for review')", one=True)
+    intake_new = q("""SELECT COUNT(*) AS c FROM intake_submissions
+                       WHERE IFNULL(status,'New') IN ('New','Reviewed','Waiting for review')
+                         AND IFNULL(is_test,0)=0 AND IFNULL(ignore_alerts,0)=0""", one=True)
     intake_needs_contact = q("""SELECT COUNT(*) AS c FROM intake_submissions
                                  WHERE IFNULL(status,'New') NOT IN ('Booked','Closed','Closed - no reply')
+                                   AND IFNULL(is_test,0)=0 AND IFNULL(ignore_alerts,0)=0
                                    AND IFNULL(follow_up_status,'Follow up required') IN ('','Pending','Follow up required')""", one=True)
     intake_waiting = q("""SELECT COUNT(*) AS c FROM intake_submissions
                           WHERE IFNULL(status,'') IN ('Contacted','Waiting for customer','Quoted')""", one=True)
     recent_enquiries = q("""SELECT * FROM intake_submissions
                             ORDER BY CASE
+                              WHEN IFNULL(is_test,0)=1 OR IFNULL(ignore_alerts,0)=1 THEN 3
                               WHEN IFNULL(follow_up_status,'Follow up required') IN ('','Pending','Follow up required') THEN 0
                               WHEN IFNULL(status,'') IN ('Contacted','Waiting for customer','Quoted') THEN 1
                               ELSE 2
@@ -9741,6 +9752,7 @@ def ai_polish_conversation_draft(body, context):
             body,
             count=1,
         )
+    body = re.sub(r'(?i)\bphotographs\b', 'photos', body)
     return body
 
 
@@ -9775,30 +9787,24 @@ def generate_ai_customer_reply(customer_id=None, intake_id=None, channel='SMS'):
         ('Channel guidance', row_get(cfg, 'sms_guidance') if channel.upper() == 'SMS' else row_get(cfg, 'email_guidance')),
     ]
     knowledge = '\n\n'.join(f'{label}:\n{clean_str(value)}' for label, value in knowledge_sections if clean_str(value))
-    instructions = f"""You prepare customer-service drafts for The Carpet Cleaning Company. Nothing is sent automatically.
+    instructions = f"""You prepare the FIRST response to a new website enquiry for The Carpet Cleaning Company. Nothing is sent automatically; Paul must approve every draft.
 Use only the supplied business knowledge and CRM facts. Never invent a price, discount, availability, appointment, service, guarantee, result or customer detail.
 Treat original_enquiry as the sole authoritative source for the current job. The customer section contains identity/contact details only. Never replace or contradict a current-enquiry service, room count, stain, item or preference with historical conversation. If current structured fields genuinely conflict with each other, preserve the Needs manual response behaviour.
 Write as Paul's helpful secretary, using the warm, personal style of a small local business. The sender is not Paul. Refer to Paul in the third person.
 When acknowledging or summarising the submitted enquiry, speak naturally as the secretary who is reading it: say "I can see you're looking for..." or "I can see you've mentioned..." Do not say "Paul has seen", "Paul can see" or suggest that Paul has already personally reviewed the enquiry unless the CRM facts explicitly say that he has.
-Normally open with: "Hi [customer name], thank you very much for your enquiry."
-Prefer "thank you very much for your enquiry" to abrupt phrases such as "Thanks for your message."
-Use that enquiry thank-you only for the first reply. If recent_conversation contains any Business message, this is an ongoing conversation: do not thank them for their enquiry or message again, do not reintroduce the business, and do not repeat information already said. Continue naturally and answer the customer's latest message first.
+Normally open with: "Hi [customer name], thank you for your enquiry."
+This generator is primarily for the first response. Keep it simple and do not attempt a complicated customer conversation, quotation or sales decision.
 When requesting something, use polite conversational language such as "Would you be able to ... please?" Use "please", "thank you" and "would you be able to" naturally, without becoming overly formal or unnecessarily long.
 Before asking any question, inspect every field in original_enquiry and every item in recent_conversation. Do not ask again for information already supplied, including the requested service, rooms, stains, contact details, photos or contact preference. Acknowledge useful details already provided and ask only for genuinely missing information.
 Do not ask about parking or access in an initial enquiry reply. Those details can be requested later when a booking or visit is being arranged, unless the customer raises an immediate access problem themselves.
-Differentiate the requested service precisely. Carpet cleaning, upholstery cleaning, rug cleaning and hard-floor cleaning are different services. Mention only services actually selected or supplied. If both carpet cleaning and upholstery cleaning were selected, clearly acknowledge both and ask for relevant photographs of the carpeted rooms/stains and the upholstery items. If only one was selected, do not mention or ask about the other.
+Differentiate the requested service precisely. Carpet cleaning, upholstery cleaning, rug cleaning and hard-floor cleaning are different services. Mention only services actually selected or supplied. If both carpet cleaning and upholstery cleaning were selected, clearly acknowledge both and ask for relevant photos of the carpeted rooms/stains and the upholstery items. If only one was selected, do not mention or ask about the other.
 Use customer_name_for_greeting as the addressee. It comes from the submitted enquiry and is authoritative. Never use Paul, Paul Nicholas, the CRM owner, sender, operator or business account name as the customer's name unless customer_name_for_greeting itself explicitly contains that name. If customer_name_for_greeting is empty, omit the name rather than guessing one.
-Do not issue blunt commands such as "Please send photos." Prefer a warm request, for example: "Would you be able to send me some photographs please of the rooms and any stains, via WhatsApp, SMS or email?"
+Use the word "photos", never "photographs". Do not issue blunt commands such as "Please send photos." Prefer: "Would you be able to send over a few photos of the rooms please, so I can advise on the most suitable option?"
 When offering a call, say "I can arrange for Paul to give you a quick call" or "Would you like me to arrange for Paul to call you?" Never say that "I" will call, explain the equipment or carry out the cleaning. Paul explains the equipment, advises on the cleaning process and carries out or oversees the work.
+When appropriate, finish the call offer with: "It's usually the easiest way to go through the different cleaning processes and options, with absolutely no obligation."
+The first response should: acknowledge the enquiry, demonstrate that it has been read, request only genuinely missing useful photos or information, and encourage the next step. Do not over-explain, repeat facts, list packages, quote prices or ask the customer to confirm anything already supplied.
 If a safe and useful reply cannot be written, set needs_manual_response=true and explain why. Still provide a short holding draft when appropriate.
 Write for the requested channel: {channel}.
-
-CARPET CLEANING PRODUCT GUIDE FROM THE LANDING PAGE
-- Bronze — Essential clean: inspection and walkthrough, professional pre-vacuum where required, targeted pre-spray and hot-water extraction.
-- Silver — Deep clean: everything in Bronze plus mechanical agitation, additional targeted stain treatment and suitable odour treatment. Carpet protector is available as an optional extra.
-- Gold — Complete care: everything in Silver plus carpet protector included.
-The landing page deliberately does not publish invented fixed prices. Every quotation reflects room sizes, carpet fibre, condition, staining and the treatment required.
-When a customer asks about price, cost or money, answer conversationally and keep an SMS particularly short. Say there are Bronze, Silver and Gold options depending on the carpet's condition and the level of clean required. Do not list every treatment or reproduce the package table in an SMS. Explain that Paul needs the room size, condition and photographs to give an accurate quote. Ask for photographs politely, or offer to arrange a quick call with Paul. Ask no more than one question in that reply and do not present an invented price.
 
 BUSINESS KNOWLEDGE
 {knowledge}"""
@@ -9984,7 +9990,9 @@ def ai_owner_review(token):
 
 
 def prepare_ai_draft_for_inbound_sms(customer_id):
-    """Prepare a fresh approval-only reply after a customer texts back."""
+    """Ongoing AI conversations are deliberately paused while first replies are refined."""
+    return None, "Ongoing AI conversation drafting is paused. Initial enquiry drafts only."
+    """Legacy implementation retained below for audit reference."""
     if not customer_id:
         return None, "Inbound SMS was not matched to a customer."
     cfg = ai_settings_row()
@@ -14734,6 +14742,7 @@ def intake_customer_message_action(lead_id):
 
 
 def intake_lead_checklist(lead):
+    alerts_ignored = bool(int(row_get(lead, "is_test") or 0) or int(row_get(lead, "ignore_alerts") or 0))
     has_contact = bool(row_get(lead, "phone") or row_get(lead, "email"))
     has_address = bool(row_get(lead, "full_address") or row_get(lead, "postcode"))
     return [
@@ -14741,13 +14750,15 @@ def intake_lead_checklist(lead):
         {"label": "Address or postcode captured", "ok": has_address, "help": "Add an address or postcode.", "href": "#edit-intake-details"},
         {"label": "Customer record created", "ok": bool(row_get(lead, "customer_id")), "help": "Create or open the CRM customer record.", "href": "#lead-action-panel"},
         {"label": "You have been alerted", "ok": "sent:" in clean_str(row_get(lead, "owner_sms_status")).lower() or "sent:" in clean_str(row_get(lead, "owner_email_status")).lower(), "help": "Owner email/SMS alert has not been confirmed.", "href": "#lead-action-panel"},
-        {"label": "Follow-up action set", "ok": clean_str(row_get(lead, "follow_up_status")) not in {"", "Follow up required", "Pending"}, "help": "Mark contacted, waiting, quoted, booked or lost.", "href": "#lead-action-panel"},
+        {"label": "Follow-up action set", "ok": alerts_ignored or clean_str(row_get(lead, "follow_up_status")) not in {"", "Follow up required", "Pending"}, "help": "Mark contacted, waiting, quoted, booked or lost.", "href": "#lead-action-panel"},
         {"label": "Xero contact updated", "ok": bool(row_get(lead, "xero_contact_id")), "help": "Approve and update Xero when details are tidy.", "href": "#lead-action-panel"},
         {"label": "Job created when booked", "ok": bool(row_get(lead, "job_id")), "help": "Create the job once the booking is agreed.", "href": "#lead-action-panel"},
     ]
 
 
 def intake_lead_next_action(lead):
+    if int(row_get(lead, "is_test") or 0) or int(row_get(lead, "ignore_alerts") or 0):
+        return "Test enquiry — response alerts ignored."
     missing_details = intake_missing_details(lead)
     if missing_details:
         return "Request missing details: " + ", ".join(missing_details)
@@ -14771,6 +14782,25 @@ def intake_form_quick_action(lead_id):
         return redirect(url_for("intake_forms"))
     action = clean_str(request.form.get("action")).lower()
     customer_id = row_get(lead, "customer_id")
+    if action == "mark_test":
+        run("""UPDATE intake_submissions
+               SET is_test=1, ignore_alerts=1, status='Test',
+                   follow_up_status='Test - alerts ignored', updated_at=datetime('now')
+               WHERE id=?""", (lead_id,))
+        run("""UPDATE enquiry_follow_up_queue
+               SET status='Skipped', message='Test enquiry - alerts ignored', updated_at=datetime('now')
+               WHERE lead_id=? AND status NOT IN ('Sent','Skipped')""", (lead_id,))
+        run("""UPDATE ai_drafts SET status='Discarded', updated_at=datetime('now')
+               WHERE intake_id=? AND status NOT IN ('Sent','Discarded','Replaced')""", (lead_id,))
+        flash("Marked as a test enquiry. Outstanding response alerts have been cleared; nothing was sent.")
+        return redirect(url_for("intake_form_view", lead_id=lead_id) + "#lead-action-panel")
+    if action == "restore_alerts":
+        run("""UPDATE intake_submissions
+               SET is_test=0, ignore_alerts=0, status='Waiting for review',
+                   follow_up_status='Follow up required', updated_at=datetime('now')
+               WHERE id=?""", (lead_id,))
+        flash("Test flag removed. Normal response alerts are active again.")
+        return redirect(url_for("intake_form_view", lead_id=lead_id) + "#lead-action-panel")
     if action in {"open_customer", "contacted", "waiting_customer", "quoted", "booked", "lost", "send_unable_email", "send_unable_sms"}:
         customer_id = customer_id or create_customer_from_intake(lead)
         run("UPDATE intake_submissions SET customer_id=?, updated_at=datetime('now') WHERE id=?", (customer_id, lead_id))

@@ -82,16 +82,13 @@ class AICustomerReplyTests(unittest.TestCase):
         self.assertIn('Coffee', prompt)
         self.assertIn('Please advise on the lounge carpet', prompt)
         self.assertIn('Can you help next week?', prompt)
-        self.assertIn('thank you very much for your enquiry', instructions)
+        self.assertIn('thank you for your enquiry', instructions)
         self.assertIn('Do not ask about parking or access in an initial enquiry reply', instructions)
-        self.assertIn('Continue naturally and answer the customer\'s latest message first', instructions)
-        self.assertIn('there are Bronze, Silver and Gold options', instructions)
-        self.assertIn('Do not list every treatment or reproduce the package table in an SMS', instructions)
-        self.assertIn('Ask no more than one question in that reply', instructions)
-        self.assertIn('Bronze — Essential clean', instructions)
-        self.assertIn('Silver — Deep clean', instructions)
-        self.assertIn('Gold — Complete care', instructions)
-        self.assertIn('keep an SMS particularly short', instructions)
+        self.assertIn('FIRST response to a new website enquiry', instructions)
+        self.assertIn('Use the word "photos", never "photographs"', instructions)
+        self.assertIn('Paul must approve every draft', instructions)
+        self.assertIn('Do not over-explain, repeat facts, list packages, quote prices', instructions)
+        self.assertIn('with absolutely no obligation', instructions)
         self.assertIn('Do not ask again for information already supplied', instructions)
         self.assertIn('customer_name_for_greeting', instructions)
         self.assertIn("Write as Paul's helpful secretary", instructions)
@@ -103,6 +100,12 @@ class AICustomerReplyTests(unittest.TestCase):
         usage = self.appmod.q('SELECT * FROM ai_usage_log WHERE draft_id=?', (draft['id'],), one=True)
         self.assertEqual(usage['status'], 'Success')
         self.assertGreater(usage['estimated_cost_usd'], 0)
+
+    def test_automatic_inbound_conversation_drafting_is_paused(self):
+        with mock.patch.object(self.appmod, 'generate_ai_customer_reply', side_effect=AssertionError('Ongoing AI must not run')):
+            draft, message = self.appmod.prepare_ai_draft_for_inbound_sms(self.customer_id)
+        self.assertIsNone(draft)
+        self.assertIn('Initial enquiry drafts only', message)
 
     def test_submitted_enquiry_name_wins_over_customer_record_name(self):
         self.appmod.run("UPDATE customers SET first_name='Paul', last_name='Nicholas' WHERE id=?", (self.customer_id,))

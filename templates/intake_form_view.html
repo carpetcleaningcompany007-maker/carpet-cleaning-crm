@@ -62,7 +62,7 @@
       <h3>{{ lead.name or 'Customer details form' }}</h3>
       <p>This is the form reply the customer sent back. Check it, edit anything that needs tidying, then send the contact to Xero when you are happy.</p>
     </div>
-    <span class="review-pill">{{ lead.status or 'Waiting for review' }}</span>
+    <span class="review-pill">{% if lead.is_test or lead.ignore_alerts %}Test · alerts ignored{% else %}{{ lead.status or 'Waiting for review' }}{% endif %}</span>
   </div>
 
   {% with ai_customer_id=lead.customer_id, ai_intake_id=lead.id, ai_channel_locked='' %}{% include '_ai_reply_panel.html' %}{% endwith %}
@@ -108,6 +108,11 @@
       <form method="post" action="{{ url_for('intake_form_quick_action', lead_id=lead.id) }}"><input type="hidden" name="action" value="send_unable_sms"><button class="btn secondary" type="submit" {% if not lead.phone %}disabled{% endif %}>Send unable-to-reach text</button></form>
       <form method="post" action="{{ url_for('intake_create_job', lead_id=lead.id) }}"><button class="btn primary" type="submit">Create job</button></form>
       <form method="post" action="{{ url_for('intake_form_quick_action', lead_id=lead.id) }}"><input type="hidden" name="action" value="lost"><button class="btn danger" type="submit">Close no reply</button></form>
+      {% if lead.is_test or lead.ignore_alerts %}
+        <form method="post" action="{{ url_for('intake_form_quick_action', lead_id=lead.id) }}"><input type="hidden" name="action" value="restore_alerts"><button class="btn secondary" type="submit">Restore normal alerts</button></form>
+      {% else %}
+        <form method="post" action="{{ url_for('intake_form_quick_action', lead_id=lead.id) }}"><input type="hidden" name="action" value="mark_test"><button class="btn danger" type="submit">Mark Test / Ignore alerts</button></form>
+      {% endif %}
     </div>
     <div class="message-approval" id="customer-message-approval">
       <div>

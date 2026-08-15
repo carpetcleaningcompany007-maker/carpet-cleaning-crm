@@ -213,6 +213,33 @@ class WebsiteFormTests(unittest.TestCase):
         self.assertEqual(row["sent_at"], "")
         sms_send.assert_not_called()
 
+    def test_mark_test_clears_alerts_and_skips_follow_up_queue(self):
+        lead_id = self.appmod.run("""INSERT INTO intake_submissions
+            (name, phone, email, status, source, follow_up_status)
+            VALUES (?,?,?,?,?,?)""",
+            ("TEST Paul", "07802 563213", "test@example.com", "Waiting for review", "Website form", "Follow up required"))
+        self.appmod.run("""INSERT INTO enquiry_follow_up_queue
+            (lead_id, phone, body, due_at, status) VALUES (?,?,?,?,?)""",
+            (lead_id, "07802 563213", "Test follow up", "2026-07-16T10:00:00+01:00", "Awaiting approval"))
+        with self.app.test_client() as client:
+            with client.session_transaction() as sess:
+                sess["logged_in"] = True
+            response = client.post(f"/intake-forms/{lead_id}/quick-action", data={"action": "mark_test"})
+        self.assertEqual(response.status_code, 302)
+        lead = self.appmod.q("SELECT * FROM intake_submissions WHERE id=?", (lead_id,), one=True)
+        queued = self.appmod.q("SELECT * FROM enquiry_follow_up_queue WHERE lead_id=?", (lead_id,), one=True)
+        self.assertEqual(lead["is_test"], 1)
+        self.assertEqual(lead["ignore_alerts"], 1)
+        self.assertEqual(lead["follow_up_status"], "Test - alerts ignored")
+        self.assertEqual(queued["status"], "Skipped")
+
+    def test_test_enquiry_cannot_schedule_follow_up(self):
+        lead_id = self.appmod.run("""INSERT INTO intake_submissions
+            (name, phone, is_test, ignore_alerts) VALUES (?,?,1,1)""", ("Test", "07802 563213"))
+        ok, message = self.appmod.schedule_enquiry_follow_up_sms(lead_id)
+        self.assertFalse(ok)
+        self.assertIn("alerts are ignored", message)
+
     def test_named_booking_times_have_safe_automation_times(self):
         self.assertEqual(self.appmod.parse_hhmm("Morning"), (9, 0))
         self.assertEqual(self.appmod.parse_hhmm("Afternoon"), (13, 0))

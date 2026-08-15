@@ -37,12 +37,12 @@
             <td>{{ lead.name }}</td>
             <td>{{ lead.phone }}<br>{{ lead.email }}</td>
             <td>{{ lead.what_cleaned or lead.rooms_areas }}<br>{{ lead.preferred_date }} {{ lead.preferred_time }}</td>
-            <td>{{ lead.status }}</td>
+            <td>{% if lead.is_test or lead.ignore_alerts %}<strong>Test · alerts ignored</strong>{% else %}{{ lead.status }}{% endif %}</td>
             <td>{{ lead.xero_sync_status or ('Sent' if lead.xero_contact_id else ('Failed' if lead.xero_error else 'Pending')) }}</td>
             <td>{{ lead.customer_email_status or 'Pending' }}</td>
             <td>{{ lead.customer_sms_status or 'Pending' }}</td>
             <td>Email: {{ lead.owner_email_status or 'Pending' }}<br>SMS: {{ lead.owner_sms_status or 'Pending' }}</td>
-            <td><strong>{{ lead.follow_up_status or 'Follow up required' }}</strong></td>
+            <td><strong>{% if lead.is_test or lead.ignore_alerts %}Ignored{% else %}{{ lead.follow_up_status or 'Follow up required' }}{% endif %}</strong></td>
             <td><a class="btn small" href="{{ url_for('intake_form_view', lead_id=lead.id) }}#lead-action-panel">Work lead</a></td>
           </tr>
         {% else %}
@@ -65,10 +65,10 @@
           <div><dt>Received</dt><dd>{{ lead.created_at }}</dd></div>
           <div><dt>Contact</dt><dd>{{ lead.phone or 'No phone' }}{% if lead.email %}<br>{{ lead.email }}{% endif %}</dd></div>
           <div><dt>Service</dt><dd>{{ lead.what_cleaned or lead.rooms_areas or 'Contact form' }}{% if lead.preferred_date or lead.preferred_time %}<br>{{ lead.preferred_date }} {{ lead.preferred_time }}{% endif %}</dd></div>
-          <div><dt>Status</dt><dd>{{ lead.status or 'Waiting for review' }}</dd></div>
+          <div><dt>Status</dt><dd>{% if lead.is_test or lead.ignore_alerts %}Test · alerts ignored{% else %}{{ lead.status or 'Waiting for review' }}{% endif %}</dd></div>
           <div><dt>Xero</dt><dd>{{ lead.xero_sync_status or ('Sent' if lead.xero_contact_id else ('Failed' if lead.xero_error else 'Pending')) }}</dd></div>
           <div><dt>Alerts</dt><dd>Email: {{ lead.owner_email_status or 'Pending' }}<br>SMS: {{ lead.owner_sms_status or 'Pending' }}</dd></div>
-          <div><dt>Next</dt><dd>{{ lead.follow_up_status or 'Follow up required' }}</dd></div>
+          <div><dt>Next</dt><dd>{% if lead.is_test or lead.ignore_alerts %}Ignored{% else %}{{ lead.follow_up_status or 'Follow up required' }}{% endif %}</dd></div>
         </dl>
       </article>
     {% else %}
