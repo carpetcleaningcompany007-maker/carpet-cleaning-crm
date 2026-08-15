@@ -1620,7 +1620,7 @@ DEFAULT_MESSAGE_TEMPLATES = {
     "customer_enquiry_sms": {
         "name": "Customer enquiry SMS",
         "subject": "",
-        "body": "Hi {{name}},\n\nThank you for contacting The Carpet Cleaning Company.\n\nWe’ve received your enquiry and will respond as soon as possible.\n\nWhile you wait, please follow us on Facebook to see our videos, recent work, and before-and-after photos:\nhttps://www.facebook.com/profile.php?id=61559013150413\n\nGoogle Reviews:\nhttps://share.google/XHQjHHLwpmlugHP0c\n\nThank you for considering The Carpet Cleaning Company. We look forward to assisting you.",
+        "body": "Hi {{name}}, thank you very much for your enquiry. We’ve received it and will be in touch shortly. The Carpet Cleaning Company",
     },
     "owner_enquiry_alert_email": {
         "name": "Owner enquiry alert email",
@@ -7173,7 +7173,10 @@ def init_db():
         """UPDATE message_templates
               SET body=?, updated_at=datetime('now')
             WHERE template_key='customer_enquiry_sms'
-              AND body IN (?,?,?)""",
+              AND (
+                    body IN (?,?,?)
+                 OR body LIKE '%While you wait, please follow us on Facebook%'
+              )""",
         (
             DEFAULT_MESSAGE_TEMPLATES["customer_enquiry_sms"]["body"],
             "Thank you for contacting The Carpet Cleaning Company. We have received your enquiry and will get back to you shortly. You can view our work and reviews here: www.thecarpetcleaningcrew.co.uk",
@@ -9746,6 +9749,7 @@ Normally open with: "Hi [customer name], thank you very much for your enquiry."
 Prefer "thank you very much for your enquiry" to abrupt phrases such as "Thanks for your message."
 When requesting something, use polite conversational language such as "Would you be able to ... please?" Use "please", "thank you" and "would you be able to" naturally, without becoming overly formal or unnecessarily long.
 Before asking any question, inspect every field in original_enquiry and every item in recent_conversation. Do not ask again for information already supplied, including the requested service, rooms, stains, contact details, photos or contact preference. Acknowledge useful details already provided and ask only for genuinely missing information.
+Do not ask about parking or access in an initial enquiry reply. Those details can be requested later when a booking or visit is being arranged, unless the customer raises an immediate access problem themselves.
 Differentiate the requested service precisely. Carpet cleaning, upholstery cleaning, rug cleaning and hard-floor cleaning are different services. Mention only services actually selected or supplied. If both carpet cleaning and upholstery cleaning were selected, clearly acknowledge both and ask for relevant photographs of the carpeted rooms/stains and the upholstery items. If only one was selected, do not mention or ask about the other.
 Use customer_name_for_greeting as the addressee. It comes from the submitted enquiry and is authoritative. Never use Paul, Paul Nicholas, the CRM owner, sender, operator or business account name as the customer's name unless customer_name_for_greeting itself explicitly contains that name. If customer_name_for_greeting is empty, omit the name rather than guessing one.
 Do not issue blunt commands such as "Please send photos." Prefer a warm request, for example: "Would you be able to send me some photographs please of the rooms and any stains, via WhatsApp, SMS or email?"

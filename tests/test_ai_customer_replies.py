@@ -83,6 +83,7 @@ class AICustomerReplyTests(unittest.TestCase):
         self.assertIn('Please advise on the lounge carpet', prompt)
         self.assertIn('Can you help next week?', prompt)
         self.assertIn('thank you very much for your enquiry', instructions)
+        self.assertIn('Do not ask about parking or access in an initial enquiry reply', instructions)
         self.assertIn('Do not ask again for information already supplied', instructions)
         self.assertIn('customer_name_for_greeting', instructions)
         self.assertIn("Write as Paul's helpful secretary", instructions)
