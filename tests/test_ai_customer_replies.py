@@ -86,6 +86,8 @@ class AICustomerReplyTests(unittest.TestCase):
         self.assertIn('Do not ask again for information already supplied', instructions)
         self.assertIn('customer_name_for_greeting', instructions)
         self.assertIn("Write as Paul's helpful secretary", instructions)
+        self.assertIn("I can see you're looking for", instructions)
+        self.assertIn('Do not say "Paul has seen"', instructions)
         self.assertIn('I can arrange for Paul to give you a quick call', instructions)
         self.assertIn('Carpet cleaning, upholstery cleaning, rug cleaning and hard-floor cleaning are different services', instructions)
         self.assertFalse(captured['request']['store'])
