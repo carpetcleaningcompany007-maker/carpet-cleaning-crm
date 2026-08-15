@@ -2852,7 +2852,7 @@ def run_website_enquiry_automation(lead_id, customer_id, data):
     owner_mobile = os.environ.get("OWNER_ALERT_MOBILE", "").strip()
     owner_sms_template = message_template("owner_enquiry_alert_sms")["body"]
     if clean_str(owner_sms_template) == "{{owner_alert_details}}":
-        owner_sms = owner_enquiry_alert_text(data)
+        owner_sms = owner_enquiry_alert_text(data, customer_id=customer_id, lead_id=lead_id)
     else:
         owner_sms = render_simple_template(owner_sms_template, template_context_for_enquiry(data, customer_id=customer_id, lead_id=lead_id))
     if owner_mobile:
@@ -2861,6 +2861,11 @@ def run_website_enquiry_automation(lead_id, customer_id, data):
         results["owner_sms"] = (ok, msg)
     else:
         update_intake_delivery_status(lead_id, owner_sms_status=status_text(False, "OWNER_ALERT_MOBILE not set", skipped=True))
+
+    # Send a separate, unmistakable approval alert after the normal new-lead
+    # notifications. This makes it clear that the draft is ready but unsent.
+    if ai_draft:
+        results["ai_draft_owner_alert"] = notify_owner_ai_draft_ready(ai_draft)
 
     current_missing_details = intake_missing_details(q("SELECT * FROM intake_submissions WHERE id=?", (lead_id,), one=True))
     if current_missing_details:
