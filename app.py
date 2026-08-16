@@ -14350,6 +14350,11 @@ def ensure_website_analytics_table():
              created_at TEXT DEFAULT (datetime('now'))
            )""")
     run("CREATE INDEX IF NOT EXISTS idx_website_analytics_journey_session ON website_analytics_journey(session_id, id)")
+    run("""CREATE TABLE IF NOT EXISTS website_analytics_summary_queue (
+             session_id TEXT PRIMARY KEY,
+             due_at TEXT NOT NULL, sent_at TEXT DEFAULT '',
+             attempts INTEGER DEFAULT 0, last_error TEXT DEFAULT ''
+           )""")
     # The original two-page Shrewsbury tracker recorded page one as a completed
     # form before the visitor reached the real contact-details submission page.
     # Remove only those known false completion events so historical reports show
@@ -14391,6 +14396,84 @@ def send_landing_page_visit_alert(area, landing_page, traffic_source, click_id_p
         "<p style='color:#5c6973'>This visitor is anonymous unless they complete the enquiry form.</p>"
     )
     return send_env_email(owner_email, subject, text_body, html_body)
+
+
+def send_due_website_visit_summaries(dry_run=False):
+    """Email one activity summary five minutes after a landing-page visit goes quiet."""
+    ensure_website_analytics_table()
+    due_rows = q("""SELECT session_id FROM website_analytics_summary_queue
+                     WHERE sent_at='' AND attempts<3 AND due_at<=datetime('now')
+                     ORDER BY due_at LIMIT 30""")
+    results = []
+    owner_email, _ = owner_contact_form_recipients()
+    for queued in due_rows:
+        session_id = clean_str(queued["session_id"])
+        visit = q("""SELECT MIN(created_at) AS started_at, MAX(created_at) AS last_event_at,
+                            MAX(landing_area) AS landing_area, MAX(landing_page) AS landing_page,
+                            MAX(traffic_source) AS traffic_source, MAX(device_type) AS device_type,
+                            MAX(click_id_present) AS click_id_present,
+                            GROUP_CONCAT(event_name) AS event_names,
+                            MAX(CASE WHEN event_name='page_exit' THEN event_value ELSE 0 END) AS duration_seconds
+                       FROM website_analytics_events WHERE session_id=?""", (session_id,), one=True)
+        if not visit or not clean_str(visit["started_at"]):
+            run("UPDATE website_analytics_summary_queue SET sent_at=datetime('now'), last_error='No visit data' WHERE session_id=?", (session_id,))
+            continue
+        events = set(clean_str(visit["event_names"]).split(","))
+        detail_rows = q("""SELECT event_detail FROM website_analytics_journey
+                              WHERE session_id=? AND event_detail<>'' ORDER BY id""", (session_id,))
+        details = [clean_str(row["event_detail"]) for row in detail_rows if clean_str(row["event_detail"])]
+        duration = int(visit["duration_seconds"] or 0)
+        if not duration:
+            elapsed = q("""SELECT MAX(0, CAST((julianday(MAX(created_at))-julianday(MIN(created_at)))*86400 AS INTEGER)) AS seconds
+                              FROM website_analytics_events WHERE session_id=?""", (session_id,), one=True)
+            duration = int((elapsed and elapsed["seconds"]) or 0)
+        form_result = "Submitted the quote form" if "form_submit" in events else (
+            "Completed step 1 but did not submit" if "form_step_one_complete" in events else (
+                "Started the form but did not submit" if "form_start" in events else (
+                    "Saw the form but did not start it" if "form_view" in events else "Did not reach the form")))
+        video_result = "Finished the customer video" if "video_complete" in events else (
+            "Started the customer video" if "video_start" in events else "Did not start the customer video")
+        click_labels = [label for event, label in (("phone_click", "Phone"), ("whatsapp_click", "WhatsApp"),
+                        ("email_click", "Email"), ("quote_click", "Quote button")) if event in events]
+        area = clean_str(visit["landing_area"]) or "Landing page"
+        subject = f"Visitor activity summary: {area} landing page"
+        detail_text = "\n".join(f"- {item}" for item in details) if details else "- No field-level choices were recorded"
+        text_body = (
+            f"A landing-page visit has now gone quiet.\n\n"
+            f"Started: {visit['started_at']}\nArea: {area}\nPage: {clean_str(visit['landing_page'])}\n"
+            f"Source: {clean_str(visit['traffic_source']) or 'Direct / unknown'}\nDevice: {clean_str(visit['device_type']).title()}\n"
+            f"Google Ads click ID present: {'Yes' if visit['click_id_present'] else 'No'}\nRecorded activity: {duration} seconds\n\n"
+            f"Form: {form_result}\nVideo: {video_result}\nClicks: {', '.join(click_labels) if click_labels else 'None'}\n\n"
+            f"Detailed journey:\n{detail_text}"
+        )
+        detail_html = "".join(f"<li>{html_lib.escape(item)}</li>" for item in details) or "<li>No field-level choices were recorded</li>"
+        html_body = build_email_html(
+            f"<h2 style='margin-top:0'>Visitor activity summary: {html_lib.escape(area)}</h2>"
+            "<p>This visitor has now been inactive for at least five minutes.</p>"
+            f"<p><strong>Started:</strong> {html_lib.escape(clean_str(visit['started_at']))}<br>"
+            f"<strong>Source:</strong> {html_lib.escape(clean_str(visit['traffic_source']) or 'Direct / unknown')}<br>"
+            f"<strong>Device:</strong> {html_lib.escape(clean_str(visit['device_type']).title())}<br>"
+            f"<strong>Recorded activity:</strong> {duration} seconds</p>"
+            f"<p><strong>Form:</strong> {html_lib.escape(form_result)}<br>"
+            f"<strong>Video:</strong> {html_lib.escape(video_result)}<br>"
+            f"<strong>Clicks:</strong> {html_lib.escape(', '.join(click_labels) if click_labels else 'None')}</p>"
+            f"<h3>Detailed journey</h3><ol>{detail_html}</ol>"
+        )
+        if dry_run:
+            results.append({"session_id": session_id, "status": "Due"})
+            continue
+        if not owner_email:
+            ok, message = False, "Owner email is not configured"
+        else:
+            ok, message = send_env_email(owner_email, subject, text_body, html_body)
+        if ok:
+            run("UPDATE website_analytics_summary_queue SET sent_at=datetime('now'), attempts=attempts+1, last_error='' WHERE session_id=?", (session_id,))
+        else:
+            run("""UPDATE website_analytics_summary_queue
+                     SET attempts=attempts+1, last_error=?, due_at=datetime('now','+10 minutes')
+                     WHERE session_id=?""", (clean_str(message)[:300], session_id))
+        results.append({"session_id": session_id, "status": "Sent" if ok else "Failed", "message": clean_str(message)})
+    return results
 
 
 @app.route("/api/website-analytics", methods=["POST", "OPTIONS"])
@@ -14444,6 +14527,13 @@ def website_analytics_event():
             run("""INSERT INTO website_analytics_journey
                      (session_id, event_name, event_value, event_detail)
                    VALUES (?,?,?,?)""", (session_id, event_name, event_value, event_detail))
+    if event_name == "page_view" and not event_already_recorded:
+        run("""INSERT OR IGNORE INTO website_analytics_summary_queue(session_id, due_at)
+               VALUES (?, datetime('now','+5 minutes'))""", (session_id,))
+    else:
+        run("""UPDATE website_analytics_summary_queue
+                 SET due_at=datetime('now','+5 minutes')
+                 WHERE session_id=? AND sent_at=''""", (session_id,))
     alert_status = "not_applicable"
     if event_name == "page_view" and not event_already_recorded:
         ok, message = send_landing_page_visit_alert(
@@ -15357,8 +15447,11 @@ def automation_background_loop():
                 init_db()
                 run_due_lead_generation_check(force=False)
                 results = run_due_communication_automations(dry_run=False)
+                visit_summaries = send_due_website_visit_summaries(dry_run=False)
                 if results:
                     logger.info("Background automation processed %s message(s).", len(results))
+                if visit_summaries:
+                    logger.info("Background analytics emailed %s visit summary/summaries.", len(visit_summaries))
         except Exception:
             logger.exception("Background automation runner failed")
         time.sleep(60)

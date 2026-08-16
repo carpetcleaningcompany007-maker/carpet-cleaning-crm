@@ -110,6 +110,31 @@ class PublicLeadTests(unittest.TestCase):
                                   WHERE session_id=? ORDER BY id""", (base["session_id"],))
         self.assertEqual([row["event_detail"] for row in rows], ["Rooms: 2", "Rooms: 3"])
 
+    def test_due_visit_summary_emails_detailed_journey_once(self):
+        client = self.app.test_client()
+        session_id = "summary_email_session_12345"
+        base = {
+            "session_id": session_id,
+            "landing_area": "Shrewsbury",
+            "landing_page": "landing-shrewsbury.html",
+            "traffic_source": "Google Ads",
+            "click_id_present": 1,
+            "device_type": "mobile",
+        }
+        with mock.patch.object(self.appmod, "owner_contact_form_recipients", return_value=("owner@example.com", "")), \
+             mock.patch.object(self.appmod, "send_env_email", return_value=(True, "sent")):
+            client.post("/api/website-analytics", json={**base, "event_name": "page_view"})
+        client.post("/api/website-analytics", json={**base, "event_name": "field_rooms", "event_detail": "Rooms: 3"})
+        self.appmod.run("UPDATE website_analytics_summary_queue SET due_at=datetime('now','-1 minute') WHERE session_id=?", (session_id,))
+        with mock.patch.object(self.appmod, "owner_contact_form_recipients", return_value=("owner@example.com", "")), \
+             mock.patch.object(self.appmod, "send_env_email", return_value=(True, "sent")) as send_email:
+            first = self.appmod.send_due_website_visit_summaries()
+            second = self.appmod.send_due_website_visit_summaries()
+        self.assertEqual(first[0]["status"], "Sent")
+        self.assertEqual(second, [])
+        self.assertEqual(send_email.call_count, 1)
+        self.assertIn("Rooms: 3", send_email.call_args.args[2])
+
     def test_analytics_cleanup_removes_only_false_shrewsbury_step_one_submit(self):
         self.appmod.ensure_website_analytics_table()
         base = (
