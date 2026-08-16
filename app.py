@@ -9762,6 +9762,8 @@ def ai_polish_conversation_draft(body, context):
             body,
         )
     body = re.sub(r'(?i)\bphotographs\b', 'photos', body)
+    if not has_business_reply and 'the carpet cleaning company' not in body.lower():
+        body = body.rstrip() + "\n\nKind regards,\nThe Carpet Cleaning Company"
     return body
 
 
@@ -9810,8 +9812,10 @@ Differentiate the requested service precisely. Carpet cleaning, upholstery clean
 Use customer_name_for_greeting as the addressee. It comes from the submitted enquiry and is authoritative. Never use Paul, Paul Nicholas, the CRM owner, sender, operator or business account name as the customer's name unless customer_name_for_greeting itself explicitly contains that name. If customer_name_for_greeting is empty, omit the name rather than guessing one.
 Use the word "photos", never "photographs". Do not issue blunt commands such as "Please send photos." Prefer: "Would you be able to send over a few photos of the rooms please, so I can advise on the most suitable option?"
 When offering a call, say "I can arrange for Paul to give you a quick call" or "Would you like me to arrange for Paul to call you?" Never say that "I" will call, explain the equipment or carry out the cleaning. Paul explains the equipment, advises on the cleaning process and carries out or oversees the work.
+The secretary may naturally say "I'll get back to you" or "I will get back to you" about replying after receiving photos or information. Do not promise a response time unless one is recorded.
 When appropriate, finish the call offer with: "It's usually the easiest way to go through the different cleaning processes and options, with absolutely no obligation."
 The first response should: acknowledge the enquiry, demonstrate that it has been read, request only genuinely missing useful photos or information, and encourage the next step. Do not over-explain, repeat facts, list packages, quote prices or ask the customer to confirm anything already supplied.
+End every initial reply with exactly: "Kind regards,\nThe Carpet Cleaning Company" so the customer always knows who the message is from.
 If a safe and useful reply cannot be written, set needs_manual_response=true and explain why. Still provide a short holding draft when appropriate.
 Write for the requested channel: {channel}.
 
