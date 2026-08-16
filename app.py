@@ -14322,6 +14322,9 @@ WEBSITE_ANALYTICS_EVENTS = {
     "scroll_25", "scroll_50", "scroll_75", "scroll_90", "scroll_bottom",
     "video_start", "video_25", "video_50", "video_75", "video_complete",
     "form_view", "form_start", "form_midpoint", "form_final", "form_submit",
+    "form_step_one_complete", "form_validation_error", "field_focus",
+    "field_building_type", "field_rooms", "field_stains", "field_extras", "field_service",
+    "field_name", "field_email", "field_phone", "field_postcode", "field_message",
     "phone_click", "email_click", "whatsapp_click", "quote_click", "page_exit",
 }
 
@@ -14337,6 +14340,16 @@ def ensure_website_analytics_table():
              created_at TEXT DEFAULT (datetime('now')),
              UNIQUE(session_id, event_name)
            )""")
+    columns = {row["name"] for row in q("PRAGMA table_info(website_analytics_events)")}
+    if "event_detail" not in columns:
+        run("ALTER TABLE website_analytics_events ADD COLUMN event_detail TEXT DEFAULT ''")
+    run("""CREATE TABLE IF NOT EXISTS website_analytics_journey (
+             id INTEGER PRIMARY KEY AUTOINCREMENT,
+             session_id TEXT NOT NULL, event_name TEXT NOT NULL,
+             event_value INTEGER DEFAULT 0, event_detail TEXT DEFAULT '',
+             created_at TEXT DEFAULT (datetime('now'))
+           )""")
+    run("CREATE INDEX IF NOT EXISTS idx_website_analytics_journey_session ON website_analytics_journey(session_id, id)")
     # The original two-page Shrewsbury tracker recorded page one as a completed
     # form before the visitor reached the real contact-details submission page.
     # Remove only those known false completion events so historical reports show
@@ -14407,11 +14420,12 @@ def website_analytics_event():
         event_value = min(86400, max(0, int(float(data.get("event_value") or 0))))
     except (TypeError, ValueError):
         event_value = 0
+    event_detail = clean_str(data.get("event_detail"))[:160]
     values = (
         session_id, area, clean_str(data.get("landing_page"))[:120],
         clean_str(data.get("page_variant"))[:80], event_name, event_value,
         clean_str(data.get("traffic_source"))[:80], 1 if data.get("click_id_present") else 0,
-        clean_str(data.get("device_type"))[:20],
+        clean_str(data.get("device_type"))[:20], event_detail,
     )
     event_already_recorded = bool(q(
         "SELECT 1 FROM website_analytics_events WHERE session_id=? AND event_name=?",
@@ -14419,10 +14433,17 @@ def website_analytics_event():
     ))
     run("""INSERT INTO website_analytics_events
            (session_id, landing_area, landing_page, page_variant, event_name,
-            event_value, traffic_source, click_id_present, device_type)
-           VALUES (?,?,?,?,?,?,?,?,?)
+            event_value, traffic_source, click_id_present, device_type, event_detail)
+           VALUES (?,?,?,?,?,?,?,?,?,?)
            ON CONFLICT(session_id,event_name) DO UPDATE SET
-             event_value=MAX(event_value, excluded.event_value)""", values)
+             event_value=MAX(event_value, excluded.event_value),
+             event_detail=CASE WHEN excluded.event_detail<>'' THEN excluded.event_detail ELSE event_detail END""", values)
+    if event_detail:
+        journey_count = q("SELECT COUNT(*) AS c FROM website_analytics_journey WHERE session_id=?", (session_id,), one=True)
+        if not journey_count or int(journey_count["c"] or 0) < 100:
+            run("""INSERT INTO website_analytics_journey
+                     (session_id, event_name, event_value, event_detail)
+                   VALUES (?,?,?,?)""", (session_id, event_name, event_value, event_detail))
     alert_status = "not_applicable"
     if event_name == "page_view" and not event_already_recorded:
         ok, message = send_landing_page_visit_alert(
@@ -14500,6 +14521,7 @@ def website_analytics_dashboard():
                 break
         form_stage = "Did not see the form"
         for event, label in (("form_submit", "Submitted the form"), ("form_final", "Reached final form fields"),
+                             ("form_step_one_complete", "Completed step 1 and reached contact details"),
                              ("form_midpoint", "Reached form midpoint"), ("form_start", "Started the form"),
                              ("form_view", "Saw the form")):
             if event in events:
@@ -14517,6 +14539,11 @@ def website_analytics_dashboard():
                              ("whatsapp_click", "WhatsApp"), ("email_click", "Email")):
             if event in events:
                 clicks.append(label)
+        detail_rows = q("""SELECT event_name, event_detail, event_value, created_at
+                              FROM website_analytics_journey
+                             WHERE session_id=? AND event_detail<>''
+                             ORDER BY created_at, id""", (row["session_id"],))
+        journey_details = [clean_str(item["event_detail"]) for item in detail_rows if clean_str(item["event_detail"])]
         visit_summaries.append({
             "number": len(visit_rows) - index + 1,
             "started_at": row["started_at"], "source": row["traffic_source"] or "Direct / unknown",
@@ -14524,6 +14551,7 @@ def website_analytics_dashboard():
             "form_stage": form_stage, "video_stage": video_stage,
             "clicks": ", ".join(clicks) if clicks else "No tracked buttons",
             "duration_seconds": int(row["duration_seconds"] or 0),
+            "journey_details": journey_details,
         })
     return render_template("website_analytics.html", counts=counts, visitors=visitors,
                            duration=duration, sources=sources, devices=devices,

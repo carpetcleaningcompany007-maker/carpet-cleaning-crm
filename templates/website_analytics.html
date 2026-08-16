@@ -8,7 +8,7 @@
       <div class="page-intro-copy">
         <div class="section-kicker">Anonymous landing-page activity</div>
         <h3>What visitors do on the new landing page</h3>
-        <p>Counts begin on {{ from_date }}. No names, contact details, form answers, cookies or stored browser identifiers are collected here.</p>
+        <p>Counts begin on {{ from_date }}. Quote choices and field progress are recorded. Unsubmitted names, contact details, postcodes and message contents are not shown; their completion status is recorded instead.</p>
       </div>
       <form method="get" class="page-intro-actions"><label>From <input type="date" name="from" value="{{ from_date }}"></label><button class="btn primary">Update</button></form>
     </div>
@@ -25,7 +25,7 @@
 
   <div class="section-grid-2">
     <section class="panel"><div class="panel-head"><h3>Page and form journey</h3></div><div class="metric-list">
-      {% for key, label in [('scroll_25','Reached 25%'),('scroll_50','Reached halfway'),('scroll_75','Reached 75%'),('scroll_90','Reached 90%'),('scroll_bottom','Reached the bottom'),('form_view','Saw the form'),('form_start','Started the form'),('form_midpoint','Reached form midpoint'),('form_final','Reached final form fields'),('form_submit','Submitted the form')] %}
+      {% for key, label in [('scroll_25','Reached 25%'),('scroll_50','Reached halfway'),('scroll_75','Reached 75%'),('scroll_90','Reached 90%'),('scroll_bottom','Reached the bottom'),('form_view','Saw the form'),('form_start','Started the form'),('form_step_one_complete','Completed step 1'),('form_midpoint','Reached form midpoint'),('form_final','Reached final form fields'),('form_submit','Submitted the form')] %}
       <div class="metric-row"><strong>{{ label }}</strong><span>{{ counts.get(key,0) }} · {{ pct(counts.get(key,0)) }}</span></div>
       {% endfor %}
     </div></section>
@@ -43,8 +43,8 @@
   </div>
 
   <section class="panel table-shell"><div class="panel-head"><h3>Individual visits</h3></div>
-    <table class="table"><tr><th>Visit</th><th>Started</th><th>Source / device</th><th>Attention</th><th>Page depth</th><th>Form</th><th>Video</th><th>Clicks</th></tr>
-      {% for visit in visits %}<tr><td><strong>#{{ visit.number }}</strong></td><td>{{ visit.started_at }}</td><td>{{ visit.source }}<br>{{ visit.device|title }}</td><td>{{ visit.attention }}{% if visit.duration_seconds %}<br>{{ visit.duration_seconds }} sec recorded{% endif %}</td><td>{{ visit.depth }}</td><td>{{ visit.form_stage }}</td><td>{{ visit.video_stage }}</td><td>{{ visit.clicks }}</td></tr>{% else %}<tr><td colspan="8">No visits recorded yet.</td></tr>{% endfor %}
+    <table class="table"><tr><th>Visit</th><th>Started</th><th>Source / device</th><th>Attention</th><th>Page depth</th><th>Form</th><th>Detailed form journey</th><th>Video</th><th>Clicks</th></tr>
+      {% for visit in visits %}<tr><td><strong>#{{ visit.number }}</strong></td><td>{{ visit.started_at }}</td><td>{{ visit.source }}<br>{{ visit.device|title }}</td><td>{{ visit.attention }}{% if visit.duration_seconds %}<br>{{ visit.duration_seconds }} sec recorded{% endif %}</td><td>{{ visit.depth }}</td><td>{{ visit.form_stage }}</td><td>{% if visit.journey_details %}<ol class="analytics-journey">{% for detail in visit.journey_details %}<li>{{ detail }}</li>{% endfor %}</ol>{% else %}No field-level detail recorded{% endif %}</td><td>{{ visit.video_stage }}</td><td>{{ visit.clicks }}</td></tr>{% else %}<tr><td colspan="9">No visits recorded yet.</td></tr>{% endfor %}
     </table>
   </section>
 

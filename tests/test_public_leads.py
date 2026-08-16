@@ -92,6 +92,24 @@ class PublicLeadTests(unittest.TestCase):
         self.assertEqual(response.get_json()["visitor_email"], "not_applicable")
         send_email.assert_not_called()
 
+    def test_detailed_form_journey_preserves_repeated_changes(self):
+        client = self.app.test_client()
+        base = {
+            "session_id": "detailed_form_session_12345",
+            "landing_area": "Shrewsbury",
+            "landing_page": "landing-shrewsbury.html",
+            "event_name": "field_rooms",
+            "traffic_source": "Google Ads",
+            "device_type": "mobile",
+        }
+        first = client.post("/api/website-analytics", json={**base, "event_detail": "Rooms: 2"})
+        second = client.post("/api/website-analytics", json={**base, "event_detail": "Rooms: 3"})
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(second.status_code, 200)
+        rows = self.appmod.q("""SELECT event_detail FROM website_analytics_journey
+                                  WHERE session_id=? ORDER BY id""", (base["session_id"],))
+        self.assertEqual([row["event_detail"] for row in rows], ["Rooms: 2", "Rooms: 3"])
+
     def test_analytics_cleanup_removes_only_false_shrewsbury_step_one_submit(self):
         self.appmod.ensure_website_analytics_table()
         base = (
