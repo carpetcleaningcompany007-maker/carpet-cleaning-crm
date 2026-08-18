@@ -110,6 +110,42 @@ class PublicLeadTests(unittest.TestCase):
                                   WHERE session_id=? ORDER BY id""", (base["session_id"],))
         self.assertEqual([row["event_detail"] for row in rows], ["Rooms: 2", "Rooms: 3"])
 
+    def test_google_ads_attribution_is_saved_and_shown_on_dashboard(self):
+        client = self.app.test_client()
+        payload = {
+            "session_id": "google_ads_attribution_session_12345",
+            "landing_area": "Shrewsbury",
+            "landing_page": "landing-shrewsbury.html",
+            "event_name": "page_view",
+            "traffic_source": "Google Ads",
+            "click_id_present": 1,
+            "google_click_id": "test-gclid-123",
+            "matched_keyword": "carpet cleaning shrewsbury",
+            "utm_campaign": "24087182629",
+            "utm_content": "198023947663",
+            "match_type": "e",
+            "ad_network": "g",
+            "device_type": "mobile",
+        }
+        with mock.patch.object(self.appmod, "owner_contact_form_recipients", return_value=("owner@example.com", "")), \
+             mock.patch.object(self.appmod, "send_env_email", return_value=(True, "sent")):
+            response = client.post("/api/website-analytics", json=payload)
+        self.assertEqual(response.status_code, 200)
+        row = self.appmod.q(
+            """SELECT google_click_id, matched_keyword, utm_campaign, utm_content,
+                      match_type, ad_network
+                 FROM website_analytics_events WHERE session_id=?""",
+            (payload["session_id"],), one=True,
+        )
+        self.assertEqual(row["google_click_id"], "test-gclid-123")
+        self.assertEqual(row["matched_keyword"], "carpet cleaning shrewsbury")
+        with client.session_transaction() as session:
+            session["logged_in"] = True
+        dashboard = client.get("/website-analytics")
+        self.assertEqual(dashboard.status_code, 200)
+        self.assertIn(b"Matched keyword:", dashboard.data)
+        self.assertIn(b"carpet cleaning shrewsbury", dashboard.data)
+
     def test_due_visit_summary_emails_detailed_journey_once(self):
         client = self.app.test_client()
         session_id = "summary_email_session_12345"

@@ -14343,6 +14343,17 @@ def ensure_website_analytics_table():
     columns = {row["name"] for row in q("PRAGMA table_info(website_analytics_events)")}
     if "event_detail" not in columns:
         run("ALTER TABLE website_analytics_events ADD COLUMN event_detail TEXT DEFAULT ''")
+    attribution_columns = {
+        "google_click_id": "TEXT DEFAULT ''",
+        "matched_keyword": "TEXT DEFAULT ''",
+        "utm_campaign": "TEXT DEFAULT ''",
+        "utm_content": "TEXT DEFAULT ''",
+        "match_type": "TEXT DEFAULT ''",
+        "ad_network": "TEXT DEFAULT ''",
+    }
+    for column_name, column_type in attribution_columns.items():
+        if column_name not in columns:
+            run(f"ALTER TABLE website_analytics_events ADD COLUMN {column_name} {column_type}")
     run("""CREATE TABLE IF NOT EXISTS website_analytics_journey (
              id INTEGER PRIMARY KEY AUTOINCREMENT,
              session_id TEXT NOT NULL, event_name TEXT NOT NULL,
@@ -14412,6 +14423,12 @@ def send_due_website_visit_summaries(dry_run=False):
                             MAX(landing_area) AS landing_area, MAX(landing_page) AS landing_page,
                             MAX(traffic_source) AS traffic_source, MAX(device_type) AS device_type,
                             MAX(click_id_present) AS click_id_present,
+                            MAX(google_click_id) AS google_click_id,
+                            MAX(matched_keyword) AS matched_keyword,
+                            MAX(utm_campaign) AS utm_campaign,
+                            MAX(utm_content) AS utm_content,
+                            MAX(match_type) AS match_type,
+                            MAX(ad_network) AS ad_network,
                             GROUP_CONCAT(event_name) AS event_names,
                             MAX(CASE WHEN event_name='page_exit' THEN event_value ELSE 0 END) AS duration_seconds
                        FROM website_analytics_events WHERE session_id=?""", (session_id,), one=True)
@@ -14443,6 +14460,8 @@ def send_due_website_visit_summaries(dry_run=False):
             f"Started: {visit['started_at']}\nArea: {area}\nPage: {clean_str(visit['landing_page'])}\n"
             f"Source: {clean_str(visit['traffic_source']) or 'Direct / unknown'}\nDevice: {clean_str(visit['device_type']).title()}\n"
             f"Google Ads click ID present: {'Yes' if visit['click_id_present'] else 'No'}\nRecorded activity: {duration} seconds\n\n"
+            f"Matched Google Ads keyword: {clean_str(visit['matched_keyword']) or 'Not supplied'}\n"
+            f"Exact search phrase: Not available from the landing-page visit\n\n"
             f"Form: {form_result}\nVideo: {video_result}\nClicks: {', '.join(click_labels) if click_labels else 'None'}\n\n"
             f"Detailed journey:\n{detail_text}"
         )
@@ -14453,6 +14472,8 @@ def send_due_website_visit_summaries(dry_run=False):
             f"<p><strong>Started:</strong> {html_lib.escape(clean_str(visit['started_at']))}<br>"
             f"<strong>Source:</strong> {html_lib.escape(clean_str(visit['traffic_source']) or 'Direct / unknown')}<br>"
             f"<strong>Device:</strong> {html_lib.escape(clean_str(visit['device_type']).title())}<br>"
+            f"<strong>Matched Google Ads keyword:</strong> {html_lib.escape(clean_str(visit['matched_keyword']) or 'Not supplied')}<br>"
+            "<strong>Exact search phrase:</strong> Not available from the landing-page visit<br>"
             f"<strong>Recorded activity:</strong> {duration} seconds</p>"
             f"<p><strong>Form:</strong> {html_lib.escape(form_result)}<br>"
             f"<strong>Video:</strong> {html_lib.escape(video_result)}<br>"
@@ -14504,11 +14525,18 @@ def website_analytics_event():
     except (TypeError, ValueError):
         event_value = 0
     event_detail = clean_str(data.get("event_detail"))[:160]
+    google_click_id = clean_str(data.get("google_click_id"))[:255]
+    matched_keyword = clean_str(data.get("matched_keyword"))[:255]
+    utm_campaign = clean_str(data.get("utm_campaign"))[:255]
+    utm_content = clean_str(data.get("utm_content"))[:255]
+    match_type = clean_str(data.get("match_type"))[:40]
+    ad_network = clean_str(data.get("ad_network"))[:40]
     values = (
         session_id, area, clean_str(data.get("landing_page"))[:120],
         clean_str(data.get("page_variant"))[:80], event_name, event_value,
         clean_str(data.get("traffic_source"))[:80], 1 if data.get("click_id_present") else 0,
         clean_str(data.get("device_type"))[:20], event_detail,
+        google_click_id, matched_keyword, utm_campaign, utm_content, match_type, ad_network,
     )
     event_already_recorded = bool(q(
         "SELECT 1 FROM website_analytics_events WHERE session_id=? AND event_name=?",
@@ -14516,11 +14544,18 @@ def website_analytics_event():
     ))
     run("""INSERT INTO website_analytics_events
            (session_id, landing_area, landing_page, page_variant, event_name,
-            event_value, traffic_source, click_id_present, device_type, event_detail)
-           VALUES (?,?,?,?,?,?,?,?,?,?)
+            event_value, traffic_source, click_id_present, device_type, event_detail,
+            google_click_id, matched_keyword, utm_campaign, utm_content, match_type, ad_network)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
            ON CONFLICT(session_id,event_name) DO UPDATE SET
              event_value=MAX(event_value, excluded.event_value),
-             event_detail=CASE WHEN excluded.event_detail<>'' THEN excluded.event_detail ELSE event_detail END""", values)
+             event_detail=CASE WHEN excluded.event_detail<>'' THEN excluded.event_detail ELSE event_detail END,
+             google_click_id=CASE WHEN excluded.google_click_id<>'' THEN excluded.google_click_id ELSE google_click_id END,
+             matched_keyword=CASE WHEN excluded.matched_keyword<>'' THEN excluded.matched_keyword ELSE matched_keyword END,
+             utm_campaign=CASE WHEN excluded.utm_campaign<>'' THEN excluded.utm_campaign ELSE utm_campaign END,
+             utm_content=CASE WHEN excluded.utm_content<>'' THEN excluded.utm_content ELSE utm_content END,
+             match_type=CASE WHEN excluded.match_type<>'' THEN excluded.match_type ELSE match_type END,
+             ad_network=CASE WHEN excluded.ad_network<>'' THEN excluded.ad_network ELSE ad_network END""", values)
     if event_detail:
         journey_count = q("SELECT COUNT(*) AS c FROM website_analytics_journey WHERE session_id=?", (session_id,), one=True)
         if not journey_count or int(journey_count["c"] or 0) < 100:
@@ -14586,6 +14621,12 @@ def website_analytics_dashboard():
                              MAX(created_at) AS last_event_at,
                              MAX(traffic_source) AS traffic_source,
                              MAX(device_type) AS device_type,
+                             MAX(click_id_present) AS click_id_present,
+                             MAX(matched_keyword) AS matched_keyword,
+                             MAX(utm_campaign) AS utm_campaign,
+                             MAX(utm_content) AS utm_content,
+                             MAX(match_type) AS match_type,
+                             MAX(ad_network) AS ad_network,
                              GROUP_CONCAT(event_name) AS event_names,
                              MAX(CASE WHEN event_name='page_exit' THEN event_value ELSE 0 END) AS duration_seconds
                       FROM website_analytics_events
@@ -14638,6 +14679,12 @@ def website_analytics_dashboard():
             "number": len(visit_rows) - index + 1,
             "started_at": row["started_at"], "source": row["traffic_source"] or "Direct / unknown",
             "device": row["device_type"] or "Unknown", "attention": attention, "depth": depth,
+            "click_id_present": bool(row["click_id_present"]),
+            "matched_keyword": clean_str(row["matched_keyword"]),
+            "utm_campaign": clean_str(row["utm_campaign"]),
+            "utm_content": clean_str(row["utm_content"]),
+            "match_type": clean_str(row["match_type"]),
+            "ad_network": clean_str(row["ad_network"]),
             "form_stage": form_stage, "video_stage": video_stage,
             "clicks": ", ".join(clicks) if clicks else "No tracked buttons",
             "duration_seconds": int(row["duration_seconds"] or 0),
