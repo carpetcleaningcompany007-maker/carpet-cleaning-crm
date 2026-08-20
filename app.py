@@ -1807,7 +1807,7 @@ def enquiry_acknowledgement_text(data):
     )
 
 
-def schedule_enquiry_acknowledgement(lead_id, customer_id=None, data=None, delay_minutes=3):
+def schedule_enquiry_acknowledgement(lead_id, customer_id=None, data=None, delay_minutes=5):
     if not lead_id:
         return False, "No enquiry ID to schedule."
     existing = q("SELECT status FROM enquiry_acknowledgement_queue WHERE lead_id=?", (lead_id,), one=True)
@@ -2906,20 +2906,20 @@ def run_website_enquiry_automation(lead_id, customer_id, data):
     results["xero"] = (True, xero_message)
 
     results["customer_acknowledgement"] = schedule_enquiry_acknowledgement(
-        lead_id, customer_id, data, delay_minutes=3
+        lead_id, customer_id, data, delay_minutes=5
     )
     customer_phone = request_value(data, "phone", "phone_number", "telephone", "tel")
     if is_valid_uk_phone(customer_phone):
         update_intake_delivery_status(
             lead_id,
-            customer_sms_status="Queued: acknowledgement text due in about 3 minutes",
+            customer_sms_status="Queued: acknowledgement text due in about 5 minutes",
             customer_email_status="Queued fallback: email only if text cannot be sent",
         )
     else:
         update_intake_delivery_status(
             lead_id,
             customer_sms_status="Skipped: phone number is missing or invalid",
-            customer_email_status="Queued: acknowledgement email due in about 3 minutes",
+            customer_email_status="Queued: acknowledgement email due in about 5 minutes",
         )
 
     owner_email = os.environ.get("OWNER_ALERT_EMAIL", "").strip()
