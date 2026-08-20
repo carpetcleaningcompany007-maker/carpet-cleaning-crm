@@ -93,7 +93,7 @@ class AICustomerReplyTests(unittest.TestCase):
         self.assertIn('Do not ask again for information already supplied', instructions)
         self.assertIn('customer_name_for_greeting', instructions)
         self.assertIn('Write as Paul', instructions)
-        self.assertIn("I've had a quick look at the details you've sent over", instructions)
+        self.assertIn("I've just received the form you sent over and had a look through it", instructions)
         self.assertIn('Do not use hyphens, en dashes or em dashes', instructions)
         self.assertIn('If photos are already attached', instructions)
         self.assertIn('Carpet cleaning, upholstery cleaning, rug cleaning and hard-floor cleaning are different services', instructions)

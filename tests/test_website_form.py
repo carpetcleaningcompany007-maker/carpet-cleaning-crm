@@ -62,6 +62,22 @@ class WebsiteFormTests(unittest.TestCase):
         self.assertIn("Skipped: phone number", lead["customer_sms_status"])
         self.assertIn("Queued: acknowledgement email", lead["customer_email_status"])
 
+    def test_website_form_does_not_automatically_create_or_alert_an_ai_draft(self):
+        with mock.patch.object(
+            self.appmod,
+            "ensure_ai_draft_for_intake",
+            side_effect=AssertionError("Website submission must not create the old automatic AI draft"),
+        ), mock.patch.object(
+            self.appmod,
+            "notify_owner_ai_draft_ready",
+            side_effect=AssertionError("Website submission must not send the old AI draft alert"),
+        ):
+            response = self.post_form(phone="07802 563213")
+        self.assertEqual(response.status_code, 200)
+        result = response.get_json()["automation"]
+        self.assertFalse(result["ai_draft"]["ok"])
+        self.assertNotIn("ai_draft_owner_alert", result)
+
     def test_clicksend_insufficient_credit_is_reported_as_failure(self):
         clicksend_response = {
             "response_code": "SUCCESS",
@@ -208,8 +224,8 @@ class WebsiteFormTests(unittest.TestCase):
     def test_acknowledgement_uses_requested_spacing_signature_and_no_hyphens(self):
         message = self.appmod.enquiry_acknowledgement_text({"name": "Paul Nicholas"})
         self.assertTrue(message.startswith("Hi Paul,\n\nThank you very much for your enquiry."))
-        self.assertIn("I've had a quick look at the details you've sent over.", message)
-        self.assertIn("Is it possible for you to send me over a few photos?", message)
+        self.assertIn("I've just received the form you sent over and had a look through it.", message)
+        self.assertIn("Is it possible for you to send me a few photos?", message)
         self.assertTrue(message.endswith("Thanks,\nPaul\nThe Carpet Cleaning Company"))
         self.assertNotIn("-", message)
         self.assertNotIn("—", message)

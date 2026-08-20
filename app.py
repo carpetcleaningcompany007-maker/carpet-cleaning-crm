@@ -1805,8 +1805,8 @@ def enquiry_acknowledgement_text(data):
     greeting = f"Hi {first_name}," if first_name else "Hi,"
     return (
         f"{greeting}\n\n"
-        "Thank you very much for your enquiry. I've received the details and I've had a quick look at the details you've sent over. "
-        "Is it possible for you to send me over a few photos?\n\n"
+        "Thank you very much for your enquiry. I've just received the form you sent over and had a look through it. "
+        "Is it possible for you to send me a few photos?\n\n"
         "Thanks,\nPaul\nThe Carpet Cleaning Company"
     )
 
@@ -2897,8 +2897,11 @@ def run_website_enquiry_automation(lead_id, customer_id, data):
         return {}
     results = {}
 
-    ai_draft, ai_message = ensure_ai_draft_for_intake(lead_id, customer_id)
-    results["ai_draft"] = (bool(ai_draft), ai_message)
+    # The fixed delayed acknowledgement is the only automatic customer reply.
+    # AI remains available from the enquiry screen when Paul explicitly asks
+    # for a draft, but a second draft or approval alert is not created here.
+    ai_draft = None
+    results["ai_draft"] = (False, "Skipped: use the fixed acknowledgement only. Generate an AI draft manually if needed.")
 
     xero_message = "Skipped: manual approval required before creating or updating a Xero contact."
     run("""UPDATE intake_submissions SET xero_error='', xero_sync_status=?, updated_at=datetime('now') WHERE id=?""", ("Pending manual approval", lead_id))
@@ -2952,11 +2955,6 @@ def run_website_enquiry_automation(lead_id, customer_id, data):
         results["owner_sms"] = (ok, msg)
     else:
         update_intake_delivery_status(lead_id, owner_sms_status=status_text(False, "OWNER_ALERT_MOBILE not set", skipped=True))
-
-    # Send a separate, unmistakable approval alert after the normal new-lead
-    # notifications. This makes it clear that the draft is ready but unsent.
-    if ai_draft:
-        results["ai_draft_owner_alert"] = notify_owner_ai_draft_ready(ai_draft)
 
     current_missing_details = intake_missing_details(q("SELECT * FROM intake_submissions WHERE id=?", (lead_id,), one=True))
     if current_missing_details:
@@ -9913,7 +9911,7 @@ def generate_ai_customer_reply(customer_id=None, intake_id=None, channel='SMS'):
 Use only the supplied business knowledge and CRM facts. Never invent a price, discount, availability, appointment, service, guarantee, result or customer detail.
 Treat original_enquiry as the sole authoritative source for the current job. The customer section contains identity/contact details only. Never replace or contradict a current-enquiry service, room count, stain, item or preference with historical conversation. If current structured fields genuinely conflict with each other, preserve the Needs manual response behaviour.
 Write as Paul, using the warm, personal style of a small local business owner.
-Normally open with "Hi [customer name]," followed by a blank line. Then write: "Thank you very much for your enquiry. I've received the details and I've had a quick look at the details you've sent over."
+Normally open with "Hi [customer name]," followed by a blank line. Then write: "Thank you very much for your enquiry. I've just received the form you sent over and had a look through it."
 This generator is primarily for the first response. Keep it simple and do not attempt a complicated customer conversation, quotation or sales decision.
 When requesting something, use polite conversational language such as "Would you be able to ... please?" Use "please", "thank you" and "would you be able to" naturally, without becoming overly formal or unnecessarily long.
 Before asking any question, inspect every field in original_enquiry and every item in recent_conversation. Do not ask again for information already supplied, including the requested service, rooms, stains, contact details, photos or contact preference. Acknowledge useful details already provided and ask only for genuinely missing information.
@@ -9924,9 +9922,9 @@ Use the word "photos", never "photographs". Do not issue blunt commands such as 
 Use this as the normal structure and wording for a first SMS, adapting only facts that genuinely need to change:
 "Hi [customer name],
 
-Thank you very much for your enquiry. I've received the details and I've had a quick look at the details you've sent over.
+Thank you very much for your enquiry. I've just received the form you sent over and had a look through it.
 
-Is it possible for you to send me over a few photos?
+Is it possible for you to send me a few photos?
 
 Thanks,
 Paul
