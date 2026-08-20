@@ -1802,7 +1802,7 @@ def enquiry_follow_up_approval_note():
 def enquiry_acknowledgement_text(data):
     return (
         "Hi, thank you very much for your enquiry. I've just received the information you've sent over and had a look through it. "
-        "Is it possible for you to send me a few photos?\n\n"
+        "Is it possible for you to send me a few photos please?\n\n"
         "Thanks,\nPaul\nThe Carpet Cleaning Company"
     )
 
@@ -9918,7 +9918,7 @@ Use the word "photos", never "photographs". Do not issue blunt commands such as 
 Use this as the normal structure and wording for a first SMS, adapting only facts that genuinely need to change:
 "Hi, thank you very much for your enquiry. I've just received the information you've sent over and had a look through it.
 
-Is it possible for you to send me a few photos?
+Is it possible for you to send me a few photos please?
 
 Thanks,
 Paul
