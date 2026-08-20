@@ -59,7 +59,8 @@ class WebsiteFormTests(unittest.TestCase):
         self.assertIn("Missing details:", lead["job_notes"])
         self.assertEqual(lead["status"], "Needs missing details")
         self.assertEqual(lead["follow_up_status"], "Request missing details")
-        self.assertEqual(lead["customer_sms_status"], "Skipped: Customer phone number is missing or needs checking.")
+        self.assertIn("Skipped: phone number", lead["customer_sms_status"])
+        self.assertIn("Queued: acknowledgement email", lead["customer_email_status"])
 
     def test_clicksend_insufficient_credit_is_reported_as_failure(self):
         clicksend_response = {
@@ -183,9 +184,40 @@ class WebsiteFormTests(unittest.TestCase):
         self.assertIsNotNone(queued)
         self.assertEqual(queued["status"], "Awaiting approval")
         self.assertIn("quick call", queued["body"].lower())
-        self.assertIn("Sent: Thank-you SMS sent", lead["customer_sms_status"])
+        acknowledgement = self.appmod.q("SELECT * FROM enquiry_acknowledgement_queue WHERE lead_id=?", (body["lead_id"],), one=True)
+        self.assertIsNotNone(acknowledgement)
+        self.assertEqual(acknowledgement["status"], "Queued")
+        self.assertIn("Queued: acknowledgement text", lead["customer_sms_status"])
         self.assertIn("Pending Paul approval", body["automation"]["follow_up_sms_queue"]["message"])
+        sms_send.assert_not_called()
+
+    def test_delayed_acknowledgement_prefers_valid_phone_and_does_not_email(self):
+        lead_id = self.appmod.run("""INSERT INTO intake_submissions
+            (name, phone, email, status) VALUES (?,?,?,?)""",
+            ("SMS Customer", "07802 563213", "sms@example.com", "Waiting for review"))
+        self.appmod.schedule_enquiry_acknowledgement(
+            lead_id, data={"name": "SMS Customer", "phone": "07802 563213", "email": "sms@example.com"}, delay_minutes=-1
+        )
+        with mock.patch.object(self.appmod, "send_clicksend_env_sms", return_value=(True, "SMS accepted")) as sms_send, \
+             mock.patch.object(self.appmod, "send_env_email", return_value=(True, "Email sent")) as email_send:
+            result = self.appmod.run_due_enquiry_acknowledgements()
+        self.assertEqual(result[0]["channel"], "sms")
         sms_send.assert_called_once()
+        email_send.assert_not_called()
+
+    def test_delayed_acknowledgement_uses_email_for_invalid_phone(self):
+        lead_id = self.appmod.run("""INSERT INTO intake_submissions
+            (name, phone, email, status) VALUES (?,?,?,?)""",
+            ("Email Customer", "not-a-phone", "email@example.com", "Waiting for review"))
+        self.appmod.schedule_enquiry_acknowledgement(
+            lead_id, data={"name": "Email Customer", "phone": "not-a-phone", "email": "email@example.com"}, delay_minutes=-1
+        )
+        with mock.patch.object(self.appmod, "send_clicksend_env_sms", return_value=(True, "SMS accepted")) as sms_send, \
+             mock.patch.object(self.appmod, "send_env_email", return_value=(True, "Email sent")) as email_send:
+            result = self.appmod.run_due_enquiry_acknowledgements()
+        self.assertEqual(result[0]["channel"], "email")
+        sms_send.assert_not_called()
+        email_send.assert_called_once()
 
     def test_approved_follow_up_sms_button_sends_follow_up_message(self):
         lead_id = self.appmod.run("""INSERT INTO intake_submissions

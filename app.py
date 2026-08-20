@@ -1799,6 +1799,99 @@ def enquiry_follow_up_approval_note():
     return "Pending Paul approval: follow-up SMS / Text prepared. It will not send unless Paul presses send."
 
 
+def enquiry_acknowledgement_text(data):
+    name = request_value(data, "name", "full_name", "customer_name")
+    first_name = split_customer_name(name)[0] if name else ""
+    greeting = f"Hi {first_name}," if first_name else "Hi,"
+    return (
+        f"{greeting} thank you for your enquiry. I’ve received the details and will get back to you shortly. "
+        "If possible, please send a few photos of the areas you’d like cleaned. "
+        "Thanks, Paul - The Carpet Cleaning Company"
+    )
+
+
+def schedule_enquiry_acknowledgement(lead_id, customer_id=None, data=None, delay_minutes=3):
+    if not lead_id:
+        return False, "No enquiry ID to schedule."
+    existing = q("SELECT status FROM enquiry_acknowledgement_queue WHERE lead_id=?", (lead_id,), one=True)
+    if existing:
+        return False, f"Customer acknowledgement already {clean_str(row_get(existing, 'status')).lower() or 'queued'}."
+    lead = q("SELECT * FROM intake_submissions WHERE id=?", (lead_id,), one=True)
+    payload = dict(data or {})
+    if lead:
+        for key in lead.keys():
+            payload.setdefault(key, lead[key])
+    due_at = datetime.now(ZoneInfo("Europe/London")) + timedelta(minutes=delay_minutes)
+    run("""INSERT INTO enquiry_acknowledgement_queue
+           (lead_id, customer_id, payload_json, due_at, status, created_at)
+           VALUES (?,?,?,?, 'Queued', datetime('now'))
+           ON CONFLICT(lead_id) DO NOTHING""",
+        (lead_id, customer_id or row_get(lead, "customer_id"), json.dumps(payload, default=str), due_at.isoformat(timespec="seconds")))
+    return True, f"Customer acknowledgement queued for about {delay_minutes} minutes after the enquiry."
+
+
+def run_due_enquiry_acknowledgements(dry_run=False):
+    now = datetime.now(ZoneInfo("Europe/London"))
+    rows = q("""SELECT q.*, s.is_test, s.ignore_alerts, s.phone AS lead_phone, s.email AS lead_email,
+                       s.customer_id AS lead_customer_id
+                FROM enquiry_acknowledgement_queue q
+                LEFT JOIN intake_submissions s ON s.id=q.lead_id
+                WHERE q.sent_at='' AND q.due_at <= ?
+                  AND IFNULL(s.is_test,0)=0 AND IFNULL(s.ignore_alerts,0)=0
+                  AND (
+                    q.status='Queued'
+                    OR (q.status='Sending' AND datetime(IFNULL(q.updated_at, q.created_at)) <= datetime('now','-5 minutes'))
+                  )
+                ORDER BY q.due_at ASC LIMIT 50""", (now.isoformat(timespec="seconds"),))
+    results = []
+    for row in rows:
+        if not dry_run:
+            cur = db().execute("""UPDATE enquiry_acknowledgement_queue SET status='Sending', updated_at=datetime('now')
+                                WHERE id=? AND sent_at='' AND status IN ('Queued','Sending')""", (row_value(row, "id"),))
+            db().commit()
+            if cur.rowcount != 1:
+                continue
+        try:
+            payload = json.loads(row_value(row, "payload_json") or "{}")
+        except (TypeError, ValueError):
+            payload = {}
+        customer_id = row_value(row, "customer_id") or row_value(row, "lead_customer_id")
+        customer = q("SELECT * FROM customers WHERE id=?", (customer_id,), one=True) if customer_id else None
+        phone = request_value(payload, "phone", "phone_number", "telephone", "tel") or row_value(row, "lead_phone")
+        email = request_value(payload, "email", "email_address") or row_value(row, "lead_email")
+        body = enquiry_acknowledgement_text(payload)
+        channel = "sms" if is_valid_uk_phone(phone) else "email"
+        if dry_run:
+            ok, msg = True, f"Dry run: would send delayed acknowledgement by {channel}."
+        elif channel == "sms":
+            ok, msg = send_clicksend_env_sms(phone, body, customer=customer, category="Service")
+            if not ok and is_valid_email(email):
+                channel = "email"
+                ok, msg = send_env_email(email, "Thank you for your enquiry", body, customer=customer)
+        elif is_valid_email(email):
+            ok, msg = send_env_email(email, "Thank you for your enquiry", body, customer=customer)
+        else:
+            ok, msg = False, "No valid phone number or email address supplied."
+        status = "Sent" if ok else "Failed"
+        if not dry_run:
+            run("""UPDATE enquiry_acknowledgement_queue
+                   SET status=?, channel=?, message=?, sent_at=CASE WHEN ?='Sent' THEN datetime('now') ELSE sent_at END,
+                       updated_at=datetime('now') WHERE id=?""",
+                (status, channel, clean_str(msg), status, row_value(row, "id")))
+            if channel == "sms":
+                update_intake_delivery_status(row_value(row, "lead_id"), customer_sms_status=status_text(ok, msg),
+                                              customer_email_status="Skipped: Valid phone used for acknowledgement")
+            else:
+                update_intake_delivery_status(row_value(row, "lead_id"), customer_email_status=status_text(ok, msg),
+                                              customer_sms_status="Skipped: Phone invalid or text unavailable; email used")
+            if customer_id:
+                run("INSERT INTO communications(customer_id, channel, subject, body, created_at) VALUES (?,?,?,?,datetime('now'))",
+                    (customer_id, channel.upper(), "Delayed website enquiry acknowledgement", body))
+        results.append({"rule": "enquiry_acknowledgement", "lead_id": row_value(row, "lead_id"),
+                        "customer_id": customer_id, "channel": channel, "status": status, "message": msg})
+    return results
+
+
 def schedule_enquiry_follow_up_sms(lead_id, customer_id=None, data=None, delay_minutes=4, body=None, due_at=None, status="Queued"):
     if not lead_id:
         return False, "No enquiry ID to schedule."
@@ -2812,36 +2905,22 @@ def run_website_enquiry_automation(lead_id, customer_id, data):
     run("INSERT INTO customer_timeline(customer_id, note_text, created_at) VALUES (?,?,datetime('now'))", (customer_id, xero_message))
     results["xero"] = (True, xero_message)
 
-    customer_email = request_value(data, "email", "email_address")
-    if customer_email:
-        customer_email_template = message_template("customer_enquiry_email")
-        subject = render_simple_template(customer_email_template["subject"] or "Thank you for your enquiry", template_context_for_enquiry(data, customer_id=customer_id, lead_id=lead_id))
-        email_text = enquiry_customer_email_text(data)
-        email_html = enquiry_customer_email_html(data)
-        ok, msg = send_env_email(customer_email, subject, email_text, email_html, customer=customer)
-        if ok:
-            send_owner_customer_message_copy("email", customer_email, subject, email_text, html_body=email_html, customer=customer, context="Website enquiry customer email")
-        update_intake_delivery_status(lead_id, customer_email_status=status_text(ok, msg))
-        run("INSERT INTO communications(customer_id, channel, subject, body, created_at) VALUES (?,?,?,?,datetime('now'))", (customer_id, "Email", "Customer enquiry thank you", email_text))
-        run("INSERT INTO customer_timeline(customer_id, note_text, created_at) VALUES (?,?,datetime('now'))", (customer_id, ("Customer welcome email sent. " if ok else "Customer welcome email failed. ") + clean_str(msg)))
-        results["customer_email"] = (ok, msg)
-    else:
-        update_intake_delivery_status(lead_id, customer_email_status=status_text(False, "No customer email supplied", skipped=True))
-
+    results["customer_acknowledgement"] = schedule_enquiry_acknowledgement(
+        lead_id, customer_id, data, delay_minutes=3
+    )
     customer_phone = request_value(data, "phone", "phone_number", "telephone", "tel")
-    customer_sms = render_simple_template(message_template("customer_enquiry_sms")["body"], template_context_for_enquiry(data, customer_id=customer_id, lead_id=lead_id))
-    if customer_phone and is_valid_uk_phone(customer_phone):
-        ok, msg = send_clicksend_env_sms(customer_phone, customer_sms, customer=customer, category="Service")
-        if ok:
-            send_owner_customer_message_copy("sms", customer_phone, "Customer enquiry SMS", customer_sms, customer=customer, context="Website enquiry customer SMS")
-        update_intake_delivery_status(lead_id, customer_sms_status=status_text(ok, msg))
-        run("INSERT INTO communications(customer_id, channel, subject, body, created_at) VALUES (?,?,?,?,datetime('now'))", (customer_id, "SMS", "Customer enquiry SMS / Text", customer_sms))
-        run("INSERT INTO customer_timeline(customer_id, note_text, created_at) VALUES (?,?,datetime('now'))", (customer_id, ("Customer enquiry SMS sent. " if ok else "Customer enquiry SMS failed. ") + clean_str(msg)))
-        results["customer_sms"] = (ok, msg)
+    if is_valid_uk_phone(customer_phone):
+        update_intake_delivery_status(
+            lead_id,
+            customer_sms_status="Queued: acknowledgement text due in about 3 minutes",
+            customer_email_status="Queued fallback: email only if text cannot be sent",
+        )
     else:
-        msg = "Customer phone number is missing or needs checking."
-        update_intake_delivery_status(lead_id, customer_sms_status=status_text(False, msg, skipped=True))
-        results["customer_sms"] = (False, msg)
+        update_intake_delivery_status(
+            lead_id,
+            customer_sms_status="Skipped: phone number is missing or invalid",
+            customer_email_status="Queued: acknowledgement email due in about 3 minutes",
+        )
 
     owner_email = os.environ.get("OWNER_ALERT_EMAIL", "").strip()
     owner_email_template = message_template("owner_enquiry_alert_email")
@@ -4046,6 +4125,7 @@ def automation_send_for_rule(rule, job, dry_run=False):
 
 def run_due_communication_automations(dry_run=False):
     sent = []
+    sent.extend(run_due_enquiry_acknowledgements(dry_run=dry_run))
     sent.extend(run_due_enquiry_follow_up_sms(dry_run=dry_run))
     for rule in automation_settings_rows():
         if int(row_value(rule, "active", 1) or 0) != 1:
@@ -6890,6 +6970,19 @@ def init_db():
         body TEXT,
         due_at TEXT,
         sent_at TEXT DEFAULT '',
+        status TEXT DEFAULT 'Queued',
+        message TEXT DEFAULT '',
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS enquiry_acknowledgement_queue (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        lead_id INTEGER UNIQUE,
+        customer_id INTEGER,
+        payload_json TEXT DEFAULT '{}',
+        due_at TEXT,
+        sent_at TEXT DEFAULT '',
+        channel TEXT DEFAULT '',
         status TEXT DEFAULT 'Queued',
         message TEXT DEFAULT '',
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
