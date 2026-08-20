@@ -74,7 +74,7 @@ class AICustomerReplyTests(unittest.TestCase):
             draft = self.appmod.generate_ai_customer_reply(self.customer_id, self.lead_id, 'SMS')
 
         self.assertEqual(draft['status'], 'Generated')
-        self.assertEqual(draft['body'], 'Hi Jane, thank you for the details. Paul will review your two-room carpet enquiry.\n\nKind regards,\nThe Carpet Cleaning Company')
+        self.assertEqual(draft['body'], 'Hi Jane, thank you for the details. Paul will review your two-room carpet enquiry.\n\nThanks,\nPaul\nThe Carpet Cleaning Company')
         prompt = captured['request']['input']
         instructions = captured['request']['instructions']
         context = json.loads(prompt.split('\n', 1)[1])
@@ -82,7 +82,7 @@ class AICustomerReplyTests(unittest.TestCase):
         self.assertIn('Coffee', prompt)
         self.assertIn('Please advise on the lounge carpet', prompt)
         self.assertIn('Can you help next week?', prompt)
-        self.assertIn('thank you for your enquiry', instructions)
+        self.assertIn('Thank you very much for your enquiry', instructions)
         self.assertIn('Do not ask about parking or access in an initial enquiry reply', instructions)
         self.assertIn('FIRST response to a new website enquiry', instructions)
         self.assertIn('Use the word "photos", never "photographs"', instructions)
@@ -92,8 +92,9 @@ class AICustomerReplyTests(unittest.TestCase):
         self.assertIn('End every initial reply with exactly', instructions)
         self.assertIn('Do not ask again for information already supplied', instructions)
         self.assertIn('customer_name_for_greeting', instructions)
-        self.assertIn('Do not pretend to be Paul', instructions)
-        self.assertIn('Do not routinely say that you have had a quick look through the details', instructions)
+        self.assertIn('Write as Paul', instructions)
+        self.assertIn("I've had a quick look at the details you've sent over", instructions)
+        self.assertIn('Do not use hyphens, en dashes or em dashes', instructions)
         self.assertIn('If photos are already attached', instructions)
         self.assertIn('Carpet cleaning, upholstery cleaning, rug cleaning and hard-floor cleaning are different services', instructions)
         self.assertFalse(captured['request']['store'])
@@ -117,7 +118,7 @@ class AICustomerReplyTests(unittest.TestCase):
         self.assertIn('photos of the rooms please?', polished)
         self.assertNotIn('address', polished.lower())
         self.assertNotIn('access', polished.lower())
-        self.assertTrue(polished.endswith('Kind regards,\nThe Carpet Cleaning Company'))
+        self.assertTrue(polished.endswith('Thanks,\nPaul\nThe Carpet Cleaning Company'))
 
     def test_submitted_enquiry_name_wins_over_customer_record_name(self):
         self.appmod.run("UPDATE customers SET first_name='Paul', last_name='Nicholas' WHERE id=?", (self.customer_id,))

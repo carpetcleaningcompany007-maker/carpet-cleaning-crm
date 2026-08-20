@@ -1804,9 +1804,10 @@ def enquiry_acknowledgement_text(data):
     first_name = split_customer_name(name)[0] if name else ""
     greeting = f"Hi {first_name}," if first_name else "Hi,"
     return (
-        f"{greeting} thank you for your enquiry. I’ve received the details and will get back to you shortly. "
-        "If possible, please send a few photos of the areas you’d like cleaned. "
-        "Thanks, Paul - The Carpet Cleaning Company"
+        f"{greeting}\n\n"
+        "Thank you very much for your enquiry. I've received the details and I've had a quick look at the details you've sent over. "
+        "Is it possible for you to send me over a few photos?\n\n"
+        "Thanks,\nPaul\nThe Carpet Cleaning Company"
     )
 
 
@@ -9863,6 +9864,7 @@ def ai_polish_conversation_draft(body, context):
             body,
         )
     body = re.sub(r'(?i)\bphotographs\b', 'photos', body)
+    body = body.replace('—', ',').replace('–', ',')
     if not has_business_reply:
         # Every first-enquiry draft is clearly from the business team. This is
         # deterministic so the customer knows who prepared it without the
@@ -9872,7 +9874,7 @@ def ai_polish_conversation_draft(body, context):
             '',
             body,
         ).rstrip()
-        body += "\n\nKind regards,\nThe Carpet Cleaning Company"
+        body += "\n\nThanks,\nPaul\nThe Carpet Cleaning Company"
     return body
 
 
@@ -9910,9 +9912,8 @@ def generate_ai_customer_reply(customer_id=None, intake_id=None, channel='SMS'):
     instructions = f"""You prepare the FIRST response to a new website enquiry for The Carpet Cleaning Company. Nothing is sent automatically; Paul must approve every draft.
 Use only the supplied business knowledge and CRM facts. Never invent a price, discount, availability, appointment, service, guarantee, result or customer detail.
 Treat original_enquiry as the sole authoritative source for the current job. The customer section contains identity/contact details only. Never replace or contradict a current-enquiry service, room count, stain, item or preference with historical conversation. If current structured fields genuinely conflict with each other, preserve the Needs manual response behaviour.
-Write as a helpful member of The Carpet Cleaning Company team who is arranging the next step for Paul. Do not pretend to be Paul. Refer to Paul by name when offering a call, for example: "I can arrange for Paul to give you a quick call."
-Do not routinely say that you have had a quick look through the details. Demonstrate that the enquiry was read by briefly mentioning the service and useful facts already supplied. Do not claim to have inspected photos or details that were not supplied.
-Normally open with: "Hi [customer name], thank you for your enquiry."
+Write as Paul, using the warm, personal style of a small local business owner.
+Normally open with "Hi [customer name]," followed by a blank line. Then write: "Thank you very much for your enquiry. I've received the details and I've had a quick look at the details you've sent over."
 This generator is primarily for the first response. Keep it simple and do not attempt a complicated customer conversation, quotation or sales decision.
 When requesting something, use polite conversational language such as "Would you be able to ... please?" Use "please", "thank you" and "would you be able to" naturally, without becoming overly formal or unnecessarily long.
 Before asking any question, inspect every field in original_enquiry and every item in recent_conversation. Do not ask again for information already supplied, including the requested service, rooms, stains, contact details, photos or contact preference. Acknowledge useful details already provided and ask only for genuinely missing information.
@@ -9920,17 +9921,20 @@ Do not ask about parking or access in an initial enquiry reply. Those details ca
 Differentiate the requested service precisely. Carpet cleaning, upholstery cleaning, rug cleaning and hard-floor cleaning are different services. Mention only services actually selected or supplied. If both carpet cleaning and upholstery cleaning were selected, clearly acknowledge both and ask for relevant photos of the carpeted rooms/stains and the upholstery items. If only one was selected, do not mention or ask about the other.
 Use customer_name_for_greeting as the addressee. It comes from the submitted enquiry and is authoritative. Never use Paul, Paul Nicholas, the CRM owner, sender, operator or business account name as the customer's name unless customer_name_for_greeting itself explicitly contains that name. If customer_name_for_greeting is empty, omit the name rather than guessing one.
 Use the word "photos", never "photographs". Do not issue blunt commands such as "Please send photos." Prefer: "Would you be able to send over a few photos of the rooms please, so I can advise on the most suitable option?"
-Use this as the normal structure and wording for a first SMS, adapting the greeting and the facts already supplied:
-"Hi [customer name], thank you for your enquiry.
+Use this as the normal structure and wording for a first SMS, adapting only facts that genuinely need to change:
+"Hi [customer name],
 
-I can see you're looking for [the selected service and useful details already supplied].
+Thank you very much for your enquiry. I've received the details and I've had a quick look at the details you've sent over.
 
-Would you be able to send over a few photos please, so Paul can advise on the most suitable option?
+Is it possible for you to send me over a few photos?
 
-If you prefer, I can also arrange for Paul to give you a quick call. It's usually the easiest way to go through the different cleaning processes and options, with absolutely no obligation."
+Thanks,
+Paul
+The Carpet Cleaning Company"
 If photos are already attached or recorded in original_enquiry, do not ask for them again. Keep the message concise and conversational. Do not ask whether the customer wants the cheapest quote or the best result in the initial reply.
 The first response should: acknowledge the enquiry, demonstrate that it has been read, request only genuinely missing useful photos or information, and encourage the next step. Do not over-explain, repeat facts, list packages, quote prices or ask the customer to confirm anything already supplied.
-End every initial reply with exactly: "Kind regards,\nThe Carpet Cleaning Company" so the customer knows who the message is from without the team member pretending to be Paul.
+Do not use hyphens, en dashes or em dashes anywhere in the customer message.
+End every initial reply with exactly: "Thanks,\nPaul\nThe Carpet Cleaning Company" so the customer knows who the message is from.
 If a safe and useful reply cannot be written, set needs_manual_response=true and explain why. Still provide a short holding draft when appropriate.
 Write for the requested channel: {channel}.
 

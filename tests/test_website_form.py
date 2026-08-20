@@ -205,6 +205,15 @@ class WebsiteFormTests(unittest.TestCase):
         sms_send.assert_called_once()
         email_send.assert_not_called()
 
+    def test_acknowledgement_uses_requested_spacing_signature_and_no_hyphens(self):
+        message = self.appmod.enquiry_acknowledgement_text({"name": "Paul Nicholas"})
+        self.assertTrue(message.startswith("Hi Paul,\n\nThank you very much for your enquiry."))
+        self.assertIn("I've had a quick look at the details you've sent over.", message)
+        self.assertIn("Is it possible for you to send me over a few photos?", message)
+        self.assertTrue(message.endswith("Thanks,\nPaul\nThe Carpet Cleaning Company"))
+        self.assertNotIn("-", message)
+        self.assertNotIn("—", message)
+
     def test_delayed_acknowledgement_uses_email_for_invalid_phone(self):
         lead_id = self.appmod.run("""INSERT INTO intake_submissions
             (name, phone, email, status) VALUES (?,?,?,?)""",
