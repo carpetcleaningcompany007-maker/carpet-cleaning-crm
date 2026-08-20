@@ -61,6 +61,28 @@ class WebsiteFormTests(unittest.TestCase):
         self.assertEqual(lead["follow_up_status"], "Request missing details")
         self.assertEqual(lead["customer_sms_status"], "Skipped: Customer phone number is missing or needs checking.")
 
+    def test_clicksend_insufficient_credit_is_reported_as_failure(self):
+        clicksend_response = {
+            "response_code": "SUCCESS",
+            "response_msg": "Messages queued for delivery",
+            "data": {"messages": [{
+                "message_id": "test-message-id",
+                "status": "INSUFFICIENT_CREDIT",
+            }]},
+        }
+        with mock.patch.dict(os.environ, {
+            "CLICKSEND_USERNAME": "test-user",
+            "CLICKSEND_API_KEY": "test-key",
+        }, clear=False), mock.patch.object(
+            self.appmod, "http_post_basic_json", return_value=__import__("json").dumps(clicksend_response)
+        ):
+            ok, message = self.appmod.send_clicksend_env_sms("07802563213", "New lead")
+        self.assertFalse(ok)
+        self.assertIn("INSUFFICIENT_CREDIT", message)
+        event = self.appmod.q("SELECT event_type, status FROM sms_events ORDER BY id DESC LIMIT 1", one=True)
+        self.assertEqual(event["event_type"], "send_failed")
+        self.assertEqual(event["status"], "Insufficient_Credit")
+
     def test_nested_ai_owner_alert_result_does_not_break_form_response(self):
         automation = {
             "ai_draft": (True, "AI draft prepared for approval."),

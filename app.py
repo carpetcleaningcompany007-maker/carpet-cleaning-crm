@@ -2207,7 +2207,15 @@ def send_clicksend_env_sms(to_phone, body, customer=None, category="Website Enqu
         response_msg = str(data.get("response_msg") or "")
         error_text = str(msg_data.get("error_text") or "")
         accepted = bool(ext) and response_code in ("SUCCESS", "200", "")
-        failed = any(word in status_upper for word in ("FAIL", "ERROR", "REJECT", "INVALID")) or response_code in ("FAILED", "ERROR")
+        # ClickSend can return a successful API response and a message ID even
+        # when the individual SMS was not delivered (for example,
+        # INSUFFICIENT_CREDIT). Treat per-message terminal/problem statuses as
+        # failures so the CRM never tells the owner that a rejected alert was
+        # sent successfully.
+        failed = any(word in status_upper for word in (
+            "FAIL", "ERROR", "REJECT", "INVALID", "INSUFFICIENT", "CREDIT",
+            "EXPIRED", "UNSUBSCRIBED", "BLOCKED", "UNDELIVERABLE",
+        )) or response_code in ("FAILED", "ERROR")
         event_type = "send" if accepted and not failed else "send_failed"
         event_status = status.title() if status else ("Accepted" if accepted else "Failed")
         if not failed:
