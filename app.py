@@ -1800,12 +1800,8 @@ def enquiry_follow_up_approval_note():
 
 
 def enquiry_acknowledgement_text(data):
-    name = request_value(data, "name", "full_name", "customer_name")
-    first_name = split_customer_name(name)[0] if name else ""
-    greeting = f"Hi {first_name}," if first_name else "Hi,"
     return (
-        f"{greeting}\n\n"
-        "Thank you very much for your enquiry. I've just received the form you sent over and had a look through it. "
+        "Hi, thank you very much for your enquiry. I've just received the information you've sent over and had a look through it. "
         "Is it possible for you to send me a few photos?\n\n"
         "Thanks,\nPaul\nThe Carpet Cleaning Company"
     )
@@ -9911,7 +9907,7 @@ def generate_ai_customer_reply(customer_id=None, intake_id=None, channel='SMS'):
 Use only the supplied business knowledge and CRM facts. Never invent a price, discount, availability, appointment, service, guarantee, result or customer detail.
 Treat original_enquiry as the sole authoritative source for the current job. The customer section contains identity/contact details only. Never replace or contradict a current-enquiry service, room count, stain, item or preference with historical conversation. If current structured fields genuinely conflict with each other, preserve the Needs manual response behaviour.
 Write as Paul, using the warm, personal style of a small local business owner.
-Normally open with "Hi [customer name]," followed by a blank line. Then write: "Thank you very much for your enquiry. I've just received the form you sent over and had a look through it."
+Normally open with: "Hi, thank you very much for your enquiry. I've just received the information you've sent over and had a look through it."
 This generator is primarily for the first response. Keep it simple and do not attempt a complicated customer conversation, quotation or sales decision.
 When requesting something, use polite conversational language such as "Would you be able to ... please?" Use "please", "thank you" and "would you be able to" naturally, without becoming overly formal or unnecessarily long.
 Before asking any question, inspect every field in original_enquiry and every item in recent_conversation. Do not ask again for information already supplied, including the requested service, rooms, stains, contact details, photos or contact preference. Acknowledge useful details already provided and ask only for genuinely missing information.
@@ -9920,9 +9916,7 @@ Differentiate the requested service precisely. Carpet cleaning, upholstery clean
 Use customer_name_for_greeting as the addressee. It comes from the submitted enquiry and is authoritative. Never use Paul, Paul Nicholas, the CRM owner, sender, operator or business account name as the customer's name unless customer_name_for_greeting itself explicitly contains that name. If customer_name_for_greeting is empty, omit the name rather than guessing one.
 Use the word "photos", never "photographs". Do not issue blunt commands such as "Please send photos." Prefer: "Would you be able to send over a few photos of the rooms please, so I can advise on the most suitable option?"
 Use this as the normal structure and wording for a first SMS, adapting only facts that genuinely need to change:
-"Hi [customer name],
-
-Thank you very much for your enquiry. I've just received the form you sent over and had a look through it.
+"Hi, thank you very much for your enquiry. I've just received the information you've sent over and had a look through it.
 
 Is it possible for you to send me a few photos?
 
