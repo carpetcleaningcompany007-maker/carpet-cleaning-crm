@@ -1946,6 +1946,44 @@ def process_acknowledgement_delivery_receipt(external_id, status, payload=None, 
     )
 
 
+def poll_clicksend_acknowledgement_receipts():
+    username = os.environ.get("CLICKSEND_USERNAME", "").strip()
+    api_key = os.environ.get("CLICKSEND_API_KEY", "").strip()
+    if not username or not api_key:
+        return []
+    rows = q("""SELECT * FROM enquiry_acknowledgement_queue
+                WHERE status='Accepted' AND external_id<>''
+                  AND (receipt_checked_at='' OR datetime(receipt_checked_at) <= datetime('now','-1 minute'))
+                ORDER BY sent_at LIMIT 50""")
+    results = []
+    token = base64.b64encode(f"{username}:{api_key}".encode("utf-8")).decode("ascii")
+    for row in rows:
+        external_id = clean_str(row_value(row, "external_id"))
+        url = "https://rest.clicksend.com/v3/sms/receipts/" + urllib.parse.quote(external_id)
+        req = urllib.request.Request(url, headers={"Authorization": f"Basic {token}", "Accept": "application/json"})
+        try:
+            with urllib.request.urlopen(req, timeout=20) as response:
+                payload = json.loads(response.read().decode("utf-8", errors="replace"))
+            item = payload.get("data") or {}
+            if isinstance(item, list):
+                item = item[0] if item else {}
+            status = clean_str(item.get("status_text") or item.get("status") or item.get("status_code"))
+            error_text = clean_str(item.get("error_text") or item.get("error_code"))
+            run("UPDATE enquiry_acknowledgement_queue SET receipt_checked_at=datetime('now'), updated_at=datetime('now') WHERE id=?", (row_value(row, "id"),))
+            if status:
+                update_sms_status_by_external(external_id, status=status, payload=payload, error_text=error_text)
+                process_acknowledgement_delivery_receipt(external_id, status, payload=payload, error_text=error_text)
+            results.append({"rule": "clicksend_receipt_poll", "lead_id": row_value(row, "lead_id"), "status": status or "Pending"})
+        except urllib.error.HTTPError as exc:
+            # A receipt can legitimately be unavailable briefly after acceptance.
+            run("UPDATE enquiry_acknowledgement_queue SET receipt_checked_at=datetime('now'), updated_at=datetime('now') WHERE id=?", (row_value(row, "id"),))
+            if exc.code not in (404, 422):
+                logger.warning("ClickSend receipt poll failed for %s: HTTP %s", external_id, exc.code)
+        except Exception:
+            logger.exception("ClickSend receipt poll failed for %s", external_id)
+    return results
+
+
 def alert_unconfirmed_acknowledgement_deliveries():
     rows = q("""SELECT * FROM enquiry_acknowledgement_queue
                 WHERE status='Accepted' AND sent_at<>'' AND receipt_alerted_at=''
@@ -4202,6 +4240,7 @@ def run_due_communication_automations(dry_run=False):
     sent = []
     sent.extend(run_due_enquiry_acknowledgements(dry_run=dry_run))
     if not dry_run:
+        sent.extend(poll_clicksend_acknowledgement_receipts())
         sent.extend(alert_unconfirmed_acknowledgement_deliveries())
     sent.extend(run_due_enquiry_follow_up_sms(dry_run=dry_run))
     for rule in automation_settings_rows():
@@ -7066,6 +7105,7 @@ def init_db():
         delivered_at TEXT DEFAULT '',
         fallback_sent_at TEXT DEFAULT '',
         receipt_alerted_at TEXT DEFAULT '',
+        receipt_checked_at TEXT DEFAULT '',
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
@@ -7173,6 +7213,7 @@ def init_db():
         ("enquiry_acknowledgement_queue", "delivered_at", "TEXT DEFAULT ''"),
         ("enquiry_acknowledgement_queue", "fallback_sent_at", "TEXT DEFAULT ''"),
         ("enquiry_acknowledgement_queue", "receipt_alerted_at", "TEXT DEFAULT ''"),
+        ("enquiry_acknowledgement_queue", "receipt_checked_at", "TEXT DEFAULT ''"),
         ("settings", "bg_darkness", "INTEGER DEFAULT 58"),
         ("settings", "bg_palette", "TEXT DEFAULT 'classic_blue'"),
         ("settings", "sidebar_color", "TEXT DEFAULT '#102744'"),
