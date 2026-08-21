@@ -1814,7 +1814,18 @@ def customer_sms_hours_open(now=None):
     now = now or datetime.now(ZoneInfo("Europe/London"))
     if now.tzinfo is None:
         now = now.replace(tzinfo=ZoneInfo("Europe/London"))
-    return 8 <= now.hour < 21
+    minutes_now = (now.hour * 60) + now.minute
+    return (9 * 60 + 30) <= minutes_now < (19 * 60)
+
+
+def next_customer_sms_window_open(now=None):
+    now = now or datetime.now(ZoneInfo("Europe/London"))
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=ZoneInfo("Europe/London"))
+    opening_today = now.replace(hour=9, minute=30, second=0, microsecond=0)
+    if now < opening_today:
+        return opening_today
+    return opening_today + timedelta(days=1)
 
 
 def schedule_enquiry_acknowledgement(lead_id, customer_id=None, data=None, delay_minutes=5):
@@ -1868,24 +1879,25 @@ def run_due_enquiry_acknowledgements(dry_run=False):
         email = request_value(payload, "email", "email_address") or row_value(row, "lead_email")
         body = enquiry_acknowledgement_text(payload)
         phone_valid = is_valid_uk_phone(phone)
-        # Do not send automated customer texts overnight. Mobile networks and
-        # devices are more likely to defer/filter them, and customers should
-        # not receive business texts at unsociable hours. Use the email
-        # fallback at night when one is available.
-        channel = "sms" if phone_valid and customer_sms_hours_open(now) else "email"
-        if phone_valid and not customer_sms_hours_open(now) and not is_valid_email(email):
-            next_morning = (now + timedelta(days=1)).replace(hour=8, minute=0, second=0, microsecond=0)
-            if now.hour < 8:
-                next_morning = now.replace(hour=8, minute=0, second=0, microsecond=0)
+        # Automated customer texts are restricted to Paul's chosen daytime
+        # window. If a valid mobile exists, wait for the next opening rather
+        # than substituting an overnight email.
+        if phone_valid and not customer_sms_hours_open(now):
+            next_opening = next_customer_sms_window_open(now)
             if not dry_run:
                 run("""UPDATE enquiry_acknowledgement_queue SET status='Queued', due_at=?,
                        message='Queued until customer SMS hours open', updated_at=datetime('now') WHERE id=?""",
-                    (next_morning.isoformat(timespec="seconds"), row_value(row, "id")))
-                update_intake_delivery_status(row_value(row, "lead_id"), customer_sms_status=f"Queued: customer text due after {next_morning.strftime('%H:%M')}.")
+                    (next_opening.isoformat(timespec="seconds"), row_value(row, "id")))
+                update_intake_delivery_status(
+                    row_value(row, "lead_id"),
+                    customer_sms_status=f"Queued: customer text due after {next_opening.strftime('%H:%M')}.",
+                    customer_email_status="Skipped: valid mobile supplied; waiting for customer SMS hours.",
+                )
             results.append({"rule": "enquiry_acknowledgement", "lead_id": row_value(row, "lead_id"),
                             "customer_id": customer_id, "channel": "sms", "status": "Queued",
-                            "message": "Outside customer SMS hours and no valid email fallback."})
+                            "message": "Outside customer SMS hours; queued for the next 09:30 opening."})
             continue
+        channel = "sms" if phone_valid else "email"
         if dry_run:
             ok, msg = True, f"Dry run: would send delayed acknowledgement by {channel}."
         elif channel == "sms":
@@ -1915,9 +1927,7 @@ def run_due_enquiry_acknowledgements(dry_run=False):
             else:
                 update_intake_delivery_status(row_value(row, "lead_id"), customer_email_status=status_text(ok, msg),
                                               customer_sms_status=(
-                                                  "Skipped: Outside customer SMS hours (08:00 to 21:00); email used"
-                                                  if phone_valid and not customer_sms_hours_open(now)
-                                                  else "Skipped: Phone invalid or text unavailable; email used"
+                                                  "Skipped: Phone invalid or text unavailable; email used"
                                               ))
             if customer_id:
                 run("INSERT INTO communications(customer_id, channel, subject, body, created_at) VALUES (?,?,?,?,datetime('now'))",
@@ -1948,10 +1958,21 @@ def process_acknowledgement_delivery_receipt(external_id, status, payload=None, 
         return
     state = clicksend_delivery_state(status)
     if state == "delivered":
+        if clean_str(row_value(row, "status")).lower() == "delivered":
+            return
         run("""UPDATE enquiry_acknowledgement_queue
                SET status='Delivered', delivered_at=datetime('now'), message=?, updated_at=datetime('now')
                WHERE id=?""", (f"ClickSend delivery receipt: {clean_str(status)}", row_value(row, "id")))
         update_intake_delivery_status(row_value(row, "lead_id"), customer_sms_status=f"Delivered: ClickSend confirmed delivery. Message ID: {external_id}.")
+        try:
+            data = json.loads(row_value(row, "payload_json") or "{}")
+        except (TypeError, ValueError):
+            data = {}
+        _owner_email, owner_mobile = owner_contact_form_recipients()
+        if owner_mobile:
+            customer_name = request_value(data, "name", "full_name", "customer_name") or "the customer"
+            confirmation = f"Customer enquiry text delivered to {customer_name}. Enquiry #{row_value(row, 'lead_id')}."
+            send_clicksend_env_sms(owner_mobile, confirmation, customer=None, category="Customer Message Confirmation")
         return
     if state != "failed" or clean_str(row_value(row, "fallback_sent_at")):
         return

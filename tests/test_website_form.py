@@ -290,7 +290,11 @@ class WebsiteFormTests(unittest.TestCase):
         self.assertEqual(queued["external_id"], "receipt-123")
         self.assertEqual(queued["delivered_at"], "")
 
-        self.appmod.process_acknowledgement_delivery_receipt("receipt-123", "DELIVERED")
+        with mock.patch.object(self.appmod, "owner_contact_form_recipients", return_value=("owner@example.com", "07802 563213")), \
+             mock.patch.object(self.appmod, "send_clicksend_env_sms", return_value=(True, "SMS accepted")) as owner_confirmation:
+            self.appmod.process_acknowledgement_delivery_receipt("receipt-123", "DELIVERED")
+        owner_confirmation.assert_called_once()
+        self.assertIn("Customer enquiry text delivered to", owner_confirmation.call_args.args[1])
         queued = self.appmod.q("SELECT * FROM enquiry_acknowledgement_queue WHERE lead_id=?", (lead_id,), one=True)
         self.assertEqual(queued["status"], "Delivered")
         self.assertTrue(queued["delivered_at"])
@@ -356,7 +360,7 @@ class WebsiteFormTests(unittest.TestCase):
         sms_send.assert_not_called()
         email_send.assert_called_once()
 
-    def test_nighttime_acknowledgement_uses_email_instead_of_sms(self):
+    def test_outside_hours_acknowledgement_waits_for_sms_window(self):
         lead_id = self.appmod.run("""INSERT INTO intake_submissions
             (name, phone, email, status) VALUES (?,?,?,?)""",
             ("Night Customer", "07802 563213", "night@example.com", "Waiting for review"))
@@ -367,9 +371,17 @@ class WebsiteFormTests(unittest.TestCase):
              mock.patch.object(self.appmod, "send_clicksend_env_sms", return_value=(True, "SMS accepted")) as sms_send, \
              mock.patch.object(self.appmod, "send_env_email", return_value=(True, "Email sent")) as email_send:
             result = self.appmod.run_due_enquiry_acknowledgements()
-        self.assertEqual(result[0]["channel"], "email")
+        self.assertEqual(result[0]["channel"], "sms")
+        self.assertEqual(result[0]["status"], "Queued")
         sms_send.assert_not_called()
-        email_send.assert_called_once()
+        email_send.assert_not_called()
+
+    def test_customer_sms_window_is_0930_to_1900(self):
+        tz = self.appmod.ZoneInfo("Europe/London")
+        self.assertFalse(self.appmod.customer_sms_hours_open(self.appmod.datetime(2026, 8, 22, 9, 29, tzinfo=tz)))
+        self.assertTrue(self.appmod.customer_sms_hours_open(self.appmod.datetime(2026, 8, 22, 9, 30, tzinfo=tz)))
+        self.assertTrue(self.appmod.customer_sms_hours_open(self.appmod.datetime(2026, 8, 22, 18, 59, tzinfo=tz)))
+        self.assertFalse(self.appmod.customer_sms_hours_open(self.appmod.datetime(2026, 8, 22, 19, 0, tzinfo=tz)))
 
     def test_approved_follow_up_sms_button_sends_follow_up_message(self):
         lead_id = self.appmod.run("""INSERT INTO intake_submissions
