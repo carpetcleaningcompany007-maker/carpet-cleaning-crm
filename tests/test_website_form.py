@@ -78,6 +78,57 @@ class WebsiteFormTests(unittest.TestCase):
         self.assertFalse(result["ai_draft"]["ok"])
         self.assertNotIn("ai_draft_owner_alert", result)
 
+    def test_owner_sms_is_not_sent_when_new_enquiry_email_succeeds(self):
+        with mock.patch.dict(os.environ, {
+            "OWNER_ALERT_EMAIL": "owner@example.com",
+            "OWNER_ALERT_MOBILE": "07802 563213",
+        }, clear=False), mock.patch.object(
+            self.appmod, "send_env_email", return_value=(True, "Email sent")
+        ) as email_send, mock.patch.object(
+            self.appmod, "send_clicksend_env_sms", return_value=(True, "SMS sent")
+        ) as sms_send:
+            response = self.app.test_client().post("/api/website-form", data={
+                "name": "Owner Email Success",
+                "phone": "07802 563213",
+                "email": "customer@example.com",
+                "postcode": "SY8 1AA",
+                "service": "Carpet cleaning",
+                "areas": "2 rooms",
+                "contact_consent": "Yes",
+            })
+
+        self.assertEqual(response.status_code, 200)
+        email_send.assert_called_once()
+        sms_send.assert_not_called()
+        lead = self.appmod.q("SELECT * FROM intake_submissions ORDER BY id DESC LIMIT 1", one=True)
+        self.assertIn("email was sent successfully", lead["owner_sms_status"])
+
+    def test_owner_gets_sms_warning_only_when_new_enquiry_email_fails(self):
+        with mock.patch.dict(os.environ, {
+            "OWNER_ALERT_EMAIL": "owner@example.com",
+            "OWNER_ALERT_MOBILE": "07802 563213",
+        }, clear=False), mock.patch.object(
+            self.appmod, "send_env_email", return_value=(False, "SMTP unavailable")
+        ), mock.patch.object(
+            self.appmod, "send_clicksend_env_sms", return_value=(True, "SMS accepted")
+        ) as sms_send:
+            response = self.app.test_client().post("/api/website-form", data={
+                "name": "Owner Email Failure",
+                "phone": "07802 563213",
+                "email": "customer@example.com",
+                "postcode": "SY8 1AA",
+                "service": "Carpet cleaning",
+                "areas": "2 rooms",
+                "contact_consent": "Yes",
+            })
+
+        self.assertEqual(response.status_code, 200)
+        sms_send.assert_called_once()
+        warning = sms_send.call_args.args[1]
+        self.assertIn("Website enquiry email FAILED", warning)
+        self.assertIn("Owner Email Failure", warning)
+        self.assertIn("SMTP unavailable", warning)
+
     def test_clicksend_insufficient_credit_is_reported_as_failure(self):
         clicksend_response = {
             "response_code": "SUCCESS",

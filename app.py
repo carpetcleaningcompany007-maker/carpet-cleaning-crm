@@ -2991,17 +2991,27 @@ def send_contact_form_owner_alerts(lead_id, customer_id=None):
     text_body = contact_form_alert_text(lead, customer_id=customer_id)
     results = {}
 
+    email_ok = False
+    email_msg = ""
     if owner_email:
-        ok, msg = send_env_email(owner_email, subject, text_body, contact_form_alert_html(lead, customer_id=customer_id))
-        update_intake_delivery_status(lead_id, owner_email_status=status_text(ok, msg))
-        results["owner_email"] = (ok, msg)
+        email_ok, email_msg = send_env_email(owner_email, subject, text_body, contact_form_alert_html(lead, customer_id=customer_id))
+        update_intake_delivery_status(lead_id, owner_email_status=status_text(email_ok, email_msg))
+        results["owner_email"] = (email_ok, email_msg)
     else:
-        msg = "No owner email configured. Set OWNER_ALERT_EMAIL, Settings email, test email, or Gmail address."
-        update_intake_delivery_status(lead_id, owner_email_status=status_text(False, msg, skipped=True))
-        results["owner_email"] = (False, msg)
+        email_msg = "No owner email configured. Set OWNER_ALERT_EMAIL, Settings email, test email, or Gmail address."
+        update_intake_delivery_status(lead_id, owner_email_status=status_text(False, email_msg, skipped=True))
+        results["owner_email"] = (False, email_msg)
 
-    if owner_mobile:
-        ok, msg = send_clicksend_env_sms(owner_mobile, text_body, customer=None, category="Contact Form Alert")
+    if email_ok:
+        msg = "Skipped: the new enquiry email was sent successfully."
+        update_intake_delivery_status(lead_id, owner_sms_status=msg)
+        results["owner_sms"] = (True, msg)
+    elif owner_mobile:
+        warning = (
+            f"Website enquiry email FAILED for {clean_str(lead['name']) or 'a customer'} "
+            f"(enquiry #{lead_id}). Please open the CRM. Error: {clean_str(email_msg)[:180]}"
+        )
+        ok, msg = send_clicksend_env_sms(owner_mobile, warning, customer=None, category="Email Failure Alert")
         update_intake_delivery_status(lead_id, owner_sms_status=status_text(ok, msg))
         results["owner_sms"] = (ok, msg)
     else:
@@ -3095,6 +3105,8 @@ def run_website_enquiry_automation(lead_id, customer_id, data):
     owner_email = os.environ.get("OWNER_ALERT_EMAIL", "").strip()
     owner_email_template = message_template("owner_enquiry_alert_email")
     alert_body = render_simple_template(owner_email_template["body"], template_context_for_enquiry(data, customer_id=customer_id, lead_id=lead_id))
+    email_ok = False
+    email_msg = ""
     if owner_email:
         subject = render_simple_template(owner_email_template["subject"] or "New website enquiry received", template_context_for_enquiry(data, customer_id=customer_id, lead_id=lead_id))
         if subject.strip().lower() == "new website enquiry received":
@@ -3103,20 +3115,25 @@ def run_website_enquiry_automation(lead_id, customer_id, data):
             subject_bits = ["New lead", lead_name, lead_postcode, website_enquiry_source_label(data)]
             subject = " | ".join(bit for bit in subject_bits if bit)
         alert_html = owner_enquiry_alert_html(data, customer_id=customer_id, lead_id=lead_id)
-        ok, msg = send_env_email(owner_email, subject, alert_body, alert_html)
-        update_intake_delivery_status(lead_id, owner_email_status=status_text(ok, msg))
-        results["owner_email"] = (ok, msg)
+        email_ok, email_msg = send_env_email(owner_email, subject, alert_body, alert_html)
+        update_intake_delivery_status(lead_id, owner_email_status=status_text(email_ok, email_msg))
+        results["owner_email"] = (email_ok, email_msg)
     else:
-        update_intake_delivery_status(lead_id, owner_email_status=status_text(False, "OWNER_ALERT_EMAIL not set", skipped=True))
+        email_msg = "OWNER_ALERT_EMAIL not set"
+        update_intake_delivery_status(lead_id, owner_email_status=status_text(False, email_msg, skipped=True))
 
     owner_mobile = os.environ.get("OWNER_ALERT_MOBILE", "").strip()
-    owner_sms_template = message_template("owner_enquiry_alert_sms")["body"]
-    if clean_str(owner_sms_template) == "{{owner_alert_details}}":
-        owner_sms = owner_enquiry_alert_text(data, customer_id=customer_id, lead_id=lead_id)
-    else:
-        owner_sms = render_simple_template(owner_sms_template, template_context_for_enquiry(data, customer_id=customer_id, lead_id=lead_id))
-    if owner_mobile:
-        ok, msg = send_clicksend_env_sms(owner_mobile, owner_sms, customer=None, category="Service")
+    if email_ok:
+        msg = "Skipped: the new enquiry email was sent successfully."
+        update_intake_delivery_status(lead_id, owner_sms_status=msg)
+        results["owner_sms"] = (True, msg)
+    elif owner_mobile:
+        lead_name = request_value(data, "name", "full_name", "customer_name") or "a customer"
+        warning = (
+            f"Website enquiry email FAILED for {lead_name} (enquiry #{lead_id}). "
+            f"Please open the CRM. Error: {clean_str(email_msg)[:180]}"
+        )
+        ok, msg = send_clicksend_env_sms(owner_mobile, warning, customer=None, category="Email Failure Alert")
         update_intake_delivery_status(lead_id, owner_sms_status=status_text(ok, msg))
         results["owner_sms"] = (ok, msg)
     else:
