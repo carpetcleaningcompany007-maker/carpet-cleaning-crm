@@ -1869,12 +1869,17 @@ def run_due_enquiry_acknowledgements(dry_run=False):
             ok, msg = send_env_email(email, "Thank you for your enquiry", body, customer=customer)
         else:
             ok, msg = False, "No valid phone number or email address supplied."
-        status = "Sent" if ok else "Failed"
+        external_id = ""
+        if channel == "sms" and ok:
+            match = re.search(r"Message ID:\s*([^\.\s]+)", clean_str(msg), re.I)
+            external_id = match.group(1) if match else ""
+        status = "Accepted" if ok and channel == "sms" else ("Sent" if ok else "Failed")
         if not dry_run:
             run("""UPDATE enquiry_acknowledgement_queue
-                   SET status=?, channel=?, message=?, sent_at=CASE WHEN ?='Sent' THEN datetime('now') ELSE sent_at END,
-                       updated_at=datetime('now') WHERE id=?""",
-                (status, channel, clean_str(msg), status, row_value(row, "id")))
+                   SET status=?, channel=?, message=?, external_id=?,
+                       sent_at=CASE WHEN ? IN ('Sent','Accepted') THEN datetime('now') ELSE sent_at END,
+                        updated_at=datetime('now') WHERE id=?""",
+                (status, channel, clean_str(msg), external_id, status, row_value(row, "id")))
             if channel == "sms":
                 update_intake_delivery_status(row_value(row, "lead_id"), customer_sms_status=status_text(ok, msg),
                                               customer_email_status="Skipped: Valid phone used for acknowledgement")
@@ -1886,6 +1891,81 @@ def run_due_enquiry_acknowledgements(dry_run=False):
                     (customer_id, channel.upper(), "Delayed website enquiry acknowledgement", body))
         results.append({"rule": "enquiry_acknowledgement", "lead_id": row_value(row, "lead_id"),
                         "customer_id": customer_id, "channel": channel, "status": status, "message": msg})
+    return results
+
+
+def clicksend_delivery_state(status):
+    value = clean_str(status).upper().replace("-", "_").replace(" ", "_")
+    if any(part in value for part in ("DELIVERED", "RECEIVED")) and "UNDELIVER" not in value:
+        return "delivered"
+    if any(part in value for part in (
+        "FAIL", "REJECT", "UNDELIVER", "EXPIRED", "INVALID", "BLOCKED",
+        "UNSUBSCRIBED", "INSUFFICIENT", "CREDIT", "ERROR",
+    )):
+        return "failed"
+    return "pending"
+
+
+def process_acknowledgement_delivery_receipt(external_id, status, payload=None, error_text=""):
+    external_id = clean_str(external_id)
+    if not external_id:
+        return
+    row = q("SELECT * FROM enquiry_acknowledgement_queue WHERE external_id=?", (external_id,), one=True)
+    if not row:
+        return
+    state = clicksend_delivery_state(status)
+    if state == "delivered":
+        run("""UPDATE enquiry_acknowledgement_queue
+               SET status='Delivered', delivered_at=datetime('now'), message=?, updated_at=datetime('now')
+               WHERE id=?""", (f"ClickSend delivery receipt: {clean_str(status)}", row_value(row, "id")))
+        update_intake_delivery_status(row_value(row, "lead_id"), customer_sms_status=f"Delivered: ClickSend confirmed delivery. Message ID: {external_id}.")
+        return
+    if state != "failed" or clean_str(row_value(row, "fallback_sent_at")):
+        return
+    lead = q("SELECT * FROM intake_submissions WHERE id=?", (row_value(row, "lead_id"),), one=True)
+    try:
+        data = json.loads(row_value(row, "payload_json") or "{}")
+    except (TypeError, ValueError):
+        data = {}
+    email = request_value(data, "email", "email_address") or row_value(lead, "email")
+    body = enquiry_acknowledgement_text(data)
+    fallback_ok = False
+    fallback_msg = "No valid email address was available for fallback."
+    if is_valid_email(email):
+        customer_id = row_value(row, "customer_id") or row_value(lead, "customer_id")
+        customer = q("SELECT * FROM customers WHERE id=?", (customer_id,), one=True) if customer_id else None
+        fallback_ok, fallback_msg = send_env_email(email, "Thank you for your enquiry", body, customer=customer)
+    run("""UPDATE enquiry_acknowledgement_queue
+           SET status=?, message=?, fallback_sent_at=CASE WHEN ? THEN datetime('now') ELSE fallback_sent_at END,
+               updated_at=datetime('now') WHERE id=?""",
+        ("Email fallback sent" if fallback_ok else "Delivery failed", clean_str(fallback_msg), 1 if fallback_ok else 0, row_value(row, "id")))
+    update_intake_delivery_status(
+        row_value(row, "lead_id"),
+        customer_sms_status=f"Failed: ClickSend delivery receipt was {clean_str(status)}. Message ID: {external_id}.",
+        customer_email_status=status_text(fallback_ok, f"Fallback after failed SMS: {fallback_msg}"),
+    )
+
+
+def alert_unconfirmed_acknowledgement_deliveries():
+    rows = q("""SELECT * FROM enquiry_acknowledgement_queue
+                WHERE status='Accepted' AND sent_at<>'' AND receipt_alerted_at=''
+                  AND datetime(sent_at) <= datetime('now','-15 minutes')
+                ORDER BY sent_at LIMIT 50""")
+    owner_email, _ = owner_contact_form_recipients()
+    results = []
+    for row in rows:
+        message = (
+            f"ClickSend has not supplied a delivery receipt within 15 minutes for website enquiry #{row_value(row, 'lead_id')}.\n\n"
+            f"Message ID: {row_value(row, 'external_id') or 'Not captured'}\n"
+            "The text was accepted by ClickSend, but handset delivery is not confirmed. Please check ClickSend SMS History."
+        )
+        ok, detail = (False, "No owner email configured.")
+        if owner_email:
+            ok, detail = send_env_email(owner_email, "SMS delivery not confirmed", message)
+        run("""UPDATE enquiry_acknowledgement_queue SET status='Delivery unconfirmed', receipt_alerted_at=datetime('now'),
+               message=?, updated_at=datetime('now') WHERE id=?""", (clean_str(detail), row_value(row, "id")))
+        update_intake_delivery_status(row_value(row, "lead_id"), customer_sms_status="Warning: ClickSend accepted the SMS but no delivery receipt arrived within 15 minutes.")
+        results.append({"rule": "acknowledgement_delivery_receipt", "lead_id": row_value(row, "lead_id"), "status": "Alerted" if ok else "Unconfirmed", "message": detail})
     return results
 
 
@@ -4121,6 +4201,8 @@ def automation_send_for_rule(rule, job, dry_run=False):
 def run_due_communication_automations(dry_run=False):
     sent = []
     sent.extend(run_due_enquiry_acknowledgements(dry_run=dry_run))
+    if not dry_run:
+        sent.extend(alert_unconfirmed_acknowledgement_deliveries())
     sent.extend(run_due_enquiry_follow_up_sms(dry_run=dry_run))
     for rule in automation_settings_rows():
         if int(row_value(rule, "active", 1) or 0) != 1:
@@ -6980,6 +7062,10 @@ def init_db():
         channel TEXT DEFAULT '',
         status TEXT DEFAULT 'Queued',
         message TEXT DEFAULT '',
+        external_id TEXT DEFAULT '',
+        delivered_at TEXT DEFAULT '',
+        fallback_sent_at TEXT DEFAULT '',
+        receipt_alerted_at TEXT DEFAULT '',
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
@@ -7083,6 +7169,10 @@ def init_db():
     cur = conn.cursor()
     # Safe additive migrations for older databases
     migrations = [
+        ("enquiry_acknowledgement_queue", "external_id", "TEXT DEFAULT ''"),
+        ("enquiry_acknowledgement_queue", "delivered_at", "TEXT DEFAULT ''"),
+        ("enquiry_acknowledgement_queue", "fallback_sent_at", "TEXT DEFAULT ''"),
+        ("enquiry_acknowledgement_queue", "receipt_alerted_at", "TEXT DEFAULT ''"),
         ("settings", "bg_darkness", "INTEGER DEFAULT 58"),
         ("settings", "bg_palette", "TEXT DEFAULT 'classic_blue'"),
         ("settings", "sidebar_color", "TEXT DEFAULT '#102744'"),
@@ -12070,6 +12160,7 @@ def sms_status_clicksend():
     external_id = str(item.get('message_id') or item.get('messageid') or item.get('id') or '')
     status = str(item.get('status') or item.get('status_text') or item.get('message_status') or 'Updated')
     update_sms_status_by_external(external_id, status=status, payload=payload, error_text=str(item.get('error') or item.get('error_text') or ''))
+    process_acknowledgement_delivery_receipt(external_id, status, payload=payload, error_text=str(item.get('error') or item.get('error_text') or ''))
     return ("ok", 200)
 
 @app.route("/webhooks/sms/inbound/clicksend", methods=["POST"])

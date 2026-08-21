@@ -221,6 +221,47 @@ class WebsiteFormTests(unittest.TestCase):
         sms_send.assert_called_once()
         email_send.assert_not_called()
 
+    def test_acknowledgement_waits_for_clicksend_delivery_receipt(self):
+        lead_id = self.appmod.run("""INSERT INTO intake_submissions
+            (name, phone, email, status) VALUES (?,?,?,?)""",
+            ("Receipt Customer", "07802 563213", "receipt@example.com", "Waiting for review"))
+        self.appmod.schedule_enquiry_acknowledgement(
+            lead_id, data={"phone": "07802 563213", "email": "receipt@example.com"}, delay_minutes=-1
+        )
+        with mock.patch.object(
+            self.appmod, "send_clicksend_env_sms",
+            return_value=(True, "SMS accepted by ClickSend for +447802563213. Message ID: receipt-123. Status: SUCCESS."),
+        ):
+            self.appmod.run_due_enquiry_acknowledgements()
+        queued = self.appmod.q("SELECT * FROM enquiry_acknowledgement_queue WHERE lead_id=?", (lead_id,), one=True)
+        self.assertEqual(queued["status"], "Accepted")
+        self.assertEqual(queued["external_id"], "receipt-123")
+        self.assertEqual(queued["delivered_at"], "")
+
+        self.appmod.process_acknowledgement_delivery_receipt("receipt-123", "DELIVERED")
+        queued = self.appmod.q("SELECT * FROM enquiry_acknowledgement_queue WHERE lead_id=?", (lead_id,), one=True)
+        self.assertEqual(queued["status"], "Delivered")
+        self.assertTrue(queued["delivered_at"])
+
+    def test_failed_clicksend_receipt_uses_email_fallback(self):
+        lead_id = self.appmod.run("""INSERT INTO intake_submissions
+            (name, phone, email, status) VALUES (?,?,?,?)""",
+            ("Fallback Customer", "07802 563213", "fallback@example.com", "Waiting for review"))
+        self.appmod.schedule_enquiry_acknowledgement(
+            lead_id, data={"phone": "07802 563213", "email": "fallback@example.com"}, delay_minutes=-1
+        )
+        with mock.patch.object(
+            self.appmod, "send_clicksend_env_sms",
+            return_value=(True, "SMS accepted by ClickSend for +447802563213. Message ID: failed-123. Status: SUCCESS."),
+        ):
+            self.appmod.run_due_enquiry_acknowledgements()
+        with mock.patch.object(self.appmod, "send_env_email", return_value=(True, "Email sent")) as email_send:
+            self.appmod.process_acknowledgement_delivery_receipt("failed-123", "UNDELIVERABLE")
+        email_send.assert_called_once()
+        queued = self.appmod.q("SELECT * FROM enquiry_acknowledgement_queue WHERE lead_id=?", (lead_id,), one=True)
+        self.assertEqual(queued["status"], "Email fallback sent")
+        self.assertTrue(queued["fallback_sent_at"])
+
     def test_acknowledgement_uses_requested_spacing_signature_and_no_hyphens(self):
         message = self.appmod.enquiry_acknowledgement_text({"name": "Paul Nicholas"})
         self.assertTrue(message.startswith("Hi, thank you very much for your enquiry."))
