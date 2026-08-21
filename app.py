@@ -15612,7 +15612,9 @@ def automation_background_loop():
                     logger.info("Background analytics emailed %s visit summary/summaries.", len(visit_summaries))
         except Exception:
             logger.exception("Background automation runner failed")
-        time.sleep(60)
+        # Check frequently enough that a five minute customer acknowledgement
+        # does not drift towards six minutes while waiting for the next cycle.
+        time.sleep(15)
 
 
 def start_background_automation_runner():
