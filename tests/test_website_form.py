@@ -262,6 +262,22 @@ class WebsiteFormTests(unittest.TestCase):
         self.assertEqual(queued["status"], "Email fallback sent")
         self.assertTrue(queued["fallback_sent_at"])
 
+    def test_unconfirmed_clicksend_delivery_uses_email_fallback(self):
+        lead_id = self.appmod.run("""INSERT INTO intake_submissions
+            (name, phone, email, status, is_test, ignore_alerts) VALUES (?,?,?,?,0,0)""",
+            ("Unconfirmed Customer", "07802 563213", "unconfirmed@example.com", "Waiting for review"))
+        self.appmod.run("""INSERT INTO enquiry_acknowledgement_queue
+            (lead_id, payload_json, due_at, sent_at, channel, status, external_id, created_at)
+            VALUES (?,?,datetime('now','-10 minutes'),datetime('now','-6 minutes'),'sms','Accepted','pending-123',datetime('now','-10 minutes'))""",
+            (lead_id, '{"email":"unconfirmed@example.com"}'))
+        with mock.patch.object(self.appmod, "send_env_email", return_value=(True, "Email sent")) as email_send:
+            result = self.appmod.alert_unconfirmed_acknowledgement_deliveries()
+        self.assertEqual(result[0]["status"], "Email fallback sent")
+        self.assertGreaterEqual(email_send.call_count, 1)
+        queued = self.appmod.q("SELECT * FROM enquiry_acknowledgement_queue WHERE lead_id=?", (lead_id,), one=True)
+        self.assertEqual(queued["status"], "Email fallback sent")
+        self.assertTrue(queued["fallback_sent_at"])
+
     def test_acknowledgement_uses_requested_spacing_signature_and_no_hyphens(self):
         message = self.appmod.enquiry_acknowledgement_text({"name": "Paul Nicholas"})
         self.assertTrue(message.startswith("Hi, thank you very much for your enquiry."))
