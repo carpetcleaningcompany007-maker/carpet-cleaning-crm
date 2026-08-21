@@ -1800,8 +1800,11 @@ def enquiry_follow_up_approval_note():
 
 
 def enquiry_acknowledgement_text(data):
+    full_name = request_value(data or {}, "name", "full_name", "customer_name")
+    first_name = clean_str(full_name).split()[0] if clean_str(full_name) else ""
+    greeting = f"Hi {first_name}," if first_name else "Hi,"
     return (
-        "Hi, thank you very much for your enquiry. I've just received the information you've sent over and had a look through it. "
+        f"{greeting} thank you very much for your enquiry. I've just received the information you've sent over and had a look through it. "
         "Is it possible for you to send me a few photos please?\n\n"
         "Thanks,\nPaul\nThe Carpet Cleaning Company"
     )
