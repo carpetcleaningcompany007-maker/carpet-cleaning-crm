@@ -1881,7 +1881,8 @@ def run_due_enquiry_acknowledgements(dry_run=False):
                         updated_at=datetime('now') WHERE id=?""",
                 (status, channel, clean_str(msg), external_id, status, row_value(row, "id")))
             if channel == "sms":
-                update_intake_delivery_status(row_value(row, "lead_id"), customer_sms_status=status_text(ok, msg),
+                sms_status = f"Accepted, awaiting delivery receipt: {clean_str(msg)}" if ok else status_text(False, msg)
+                update_intake_delivery_status(row_value(row, "lead_id"), customer_sms_status=sms_status,
                                               customer_email_status="Skipped: Valid phone used for acknowledgement")
             else:
                 update_intake_delivery_status(row_value(row, "lead_id"), customer_email_status=status_text(ok, msg),
