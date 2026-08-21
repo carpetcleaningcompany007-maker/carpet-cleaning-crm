@@ -214,7 +214,8 @@ class WebsiteFormTests(unittest.TestCase):
         self.appmod.schedule_enquiry_acknowledgement(
             lead_id, data={"name": "SMS Customer", "phone": "07802 563213", "email": "sms@example.com"}, delay_minutes=-1
         )
-        with mock.patch.object(self.appmod, "send_clicksend_env_sms", return_value=(True, "SMS accepted")) as sms_send, \
+        with mock.patch.object(self.appmod, "customer_sms_hours_open", return_value=True), \
+             mock.patch.object(self.appmod, "send_clicksend_env_sms", return_value=(True, "SMS accepted")) as sms_send, \
              mock.patch.object(self.appmod, "send_env_email", return_value=(True, "Email sent")) as email_send:
             result = self.appmod.run_due_enquiry_acknowledgements()
         self.assertEqual(result[0]["channel"], "sms")
@@ -228,7 +229,7 @@ class WebsiteFormTests(unittest.TestCase):
         self.appmod.schedule_enquiry_acknowledgement(
             lead_id, data={"phone": "07802 563213", "email": "receipt@example.com"}, delay_minutes=-1
         )
-        with mock.patch.object(
+        with mock.patch.object(self.appmod, "customer_sms_hours_open", return_value=True), mock.patch.object(
             self.appmod, "send_clicksend_env_sms",
             return_value=(True, "SMS accepted by ClickSend for +447802563213. Message ID: receipt-123. Status: SUCCESS."),
         ):
@@ -250,7 +251,7 @@ class WebsiteFormTests(unittest.TestCase):
         self.appmod.schedule_enquiry_acknowledgement(
             lead_id, data={"phone": "07802 563213", "email": "fallback@example.com"}, delay_minutes=-1
         )
-        with mock.patch.object(
+        with mock.patch.object(self.appmod, "customer_sms_hours_open", return_value=True), mock.patch.object(
             self.appmod, "send_clicksend_env_sms",
             return_value=(True, "SMS accepted by ClickSend for +447802563213. Message ID: failed-123. Status: SUCCESS."),
         ):
@@ -295,6 +296,21 @@ class WebsiteFormTests(unittest.TestCase):
             lead_id, data={"name": "Email Customer", "phone": "not-a-phone", "email": "email@example.com"}, delay_minutes=-1
         )
         with mock.patch.object(self.appmod, "send_clicksend_env_sms", return_value=(True, "SMS accepted")) as sms_send, \
+             mock.patch.object(self.appmod, "send_env_email", return_value=(True, "Email sent")) as email_send:
+            result = self.appmod.run_due_enquiry_acknowledgements()
+        self.assertEqual(result[0]["channel"], "email")
+        sms_send.assert_not_called()
+        email_send.assert_called_once()
+
+    def test_nighttime_acknowledgement_uses_email_instead_of_sms(self):
+        lead_id = self.appmod.run("""INSERT INTO intake_submissions
+            (name, phone, email, status) VALUES (?,?,?,?)""",
+            ("Night Customer", "07802 563213", "night@example.com", "Waiting for review"))
+        self.appmod.schedule_enquiry_acknowledgement(
+            lead_id, data={"phone": "07802 563213", "email": "night@example.com"}, delay_minutes=-1
+        )
+        with mock.patch.object(self.appmod, "customer_sms_hours_open", return_value=False), \
+             mock.patch.object(self.appmod, "send_clicksend_env_sms", return_value=(True, "SMS accepted")) as sms_send, \
              mock.patch.object(self.appmod, "send_env_email", return_value=(True, "Email sent")) as email_send:
             result = self.appmod.run_due_enquiry_acknowledgements()
         self.assertEqual(result[0]["channel"], "email")

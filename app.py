@@ -1807,6 +1807,13 @@ def enquiry_acknowledgement_text(data):
     )
 
 
+def customer_sms_hours_open(now=None):
+    now = now or datetime.now(ZoneInfo("Europe/London"))
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=ZoneInfo("Europe/London"))
+    return 8 <= now.hour < 21
+
+
 def schedule_enquiry_acknowledgement(lead_id, customer_id=None, data=None, delay_minutes=5):
     if not lead_id:
         return False, "No enquiry ID to schedule."
@@ -1857,7 +1864,25 @@ def run_due_enquiry_acknowledgements(dry_run=False):
         phone = request_value(payload, "phone", "phone_number", "telephone", "tel") or row_value(row, "lead_phone")
         email = request_value(payload, "email", "email_address") or row_value(row, "lead_email")
         body = enquiry_acknowledgement_text(payload)
-        channel = "sms" if is_valid_uk_phone(phone) else "email"
+        phone_valid = is_valid_uk_phone(phone)
+        # Do not send automated customer texts overnight. Mobile networks and
+        # devices are more likely to defer/filter them, and customers should
+        # not receive business texts at unsociable hours. Use the email
+        # fallback at night when one is available.
+        channel = "sms" if phone_valid and customer_sms_hours_open(now) else "email"
+        if phone_valid and not customer_sms_hours_open(now) and not is_valid_email(email):
+            next_morning = (now + timedelta(days=1)).replace(hour=8, minute=0, second=0, microsecond=0)
+            if now.hour < 8:
+                next_morning = now.replace(hour=8, minute=0, second=0, microsecond=0)
+            if not dry_run:
+                run("""UPDATE enquiry_acknowledgement_queue SET status='Queued', due_at=?,
+                       message='Queued until customer SMS hours open', updated_at=datetime('now') WHERE id=?""",
+                    (next_morning.isoformat(timespec="seconds"), row_value(row, "id")))
+                update_intake_delivery_status(row_value(row, "lead_id"), customer_sms_status=f"Queued: customer text due after {next_morning.strftime('%H:%M')}.")
+            results.append({"rule": "enquiry_acknowledgement", "lead_id": row_value(row, "lead_id"),
+                            "customer_id": customer_id, "channel": "sms", "status": "Queued",
+                            "message": "Outside customer SMS hours and no valid email fallback."})
+            continue
         if dry_run:
             ok, msg = True, f"Dry run: would send delayed acknowledgement by {channel}."
         elif channel == "sms":
@@ -1886,7 +1911,11 @@ def run_due_enquiry_acknowledgements(dry_run=False):
                                               customer_email_status="Skipped: Valid phone used for acknowledgement")
             else:
                 update_intake_delivery_status(row_value(row, "lead_id"), customer_email_status=status_text(ok, msg),
-                                              customer_sms_status="Skipped: Phone invalid or text unavailable; email used")
+                                              customer_sms_status=(
+                                                  "Skipped: Outside customer SMS hours (08:00 to 21:00); email used"
+                                                  if phone_valid and not customer_sms_hours_open(now)
+                                                  else "Skipped: Phone invalid or text unavailable; email used"
+                                              ))
             if customer_id:
                 run("INSERT INTO communications(customer_id, channel, subject, body, created_at) VALUES (?,?,?,?,datetime('now'))",
                     (customer_id, channel.upper(), "Delayed website enquiry acknowledgement", body))
