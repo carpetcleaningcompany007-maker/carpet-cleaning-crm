@@ -1880,23 +1880,29 @@ def run_due_enquiry_acknowledgements(dry_run=False):
         email = request_value(payload, "email", "email_address") or row_value(row, "lead_email")
         body = enquiry_acknowledgement_text(payload)
         phone_valid = is_valid_uk_phone(phone)
-        # Automated customer texts are restricted to Paul's chosen daytime
-        # window. If a valid mobile exists, wait for the next opening rather
-        # than substituting an overnight email.
-        if phone_valid and not customer_sms_hours_open(now):
+        # Automated customer acknowledgements are restricted to Paul's chosen
+        # daytime window, whether the preferred route is SMS or email.
+        if not customer_sms_hours_open(now):
             next_opening = next_customer_sms_window_open(now)
             if not dry_run:
                 run("""UPDATE enquiry_acknowledgement_queue SET status='Queued', due_at=?,
-                       message='Queued until customer SMS hours open', updated_at=datetime('now') WHERE id=?""",
+                       message='Queued until customer contact hours open', updated_at=datetime('now') WHERE id=?""",
                     (next_opening.isoformat(timespec="seconds"), row_value(row, "id")))
-                update_intake_delivery_status(
-                    row_value(row, "lead_id"),
-                    customer_sms_status=f"Queued: customer text due after {next_opening.strftime('%H:%M')}.",
-                    customer_email_status="Skipped: valid mobile supplied; waiting for customer SMS hours.",
-                )
+                if phone_valid:
+                    update_intake_delivery_status(
+                        row_value(row, "lead_id"),
+                        customer_sms_status=f"Queued: customer text due after {next_opening.strftime('%H:%M')}.",
+                        customer_email_status="Fallback only: valid mobile supplied.",
+                    )
+                else:
+                    update_intake_delivery_status(
+                        row_value(row, "lead_id"),
+                        customer_sms_status="Skipped: phone number is missing or invalid.",
+                        customer_email_status=f"Queued: customer email due after {next_opening.strftime('%H:%M')}.",
+                    )
             results.append({"rule": "enquiry_acknowledgement", "lead_id": row_value(row, "lead_id"),
-                            "customer_id": customer_id, "channel": "sms", "status": "Queued",
-                            "message": "Outside customer SMS hours; queued for the next 09:30 opening."})
+                            "customer_id": customer_id, "channel": "sms" if phone_valid else "email", "status": "Queued",
+                            "message": "Outside customer contact hours; queued for the next 09:30 opening."})
             continue
         channel = "sms" if phone_valid else "email"
         if dry_run:
@@ -3150,7 +3156,20 @@ def run_website_enquiry_automation(lead_id, customer_id, data):
         update_intake_delivery_status(lead_id, owner_email_status=status_text(False, email_msg, skipped=True))
 
     owner_mobile = os.environ.get("OWNER_ALERT_MOBILE", "").strip()
-    if email_ok:
+    outside_customer_hours = not customer_sms_hours_open()
+    if outside_customer_hours and owner_mobile:
+        lead_name = request_value(data, "name", "full_name", "customer_name") or "a customer"
+        preferred_route = "text" if is_valid_uk_phone(customer_phone) else "email"
+        next_opening = next_customer_sms_window_open()
+        notice = (
+            f"New website enquiry from {lead_name} (enquiry #{lead_id}). "
+            f"Their automatic {preferred_route} has NOT been sent because it is outside customer contact hours. "
+            f"It is queued for after {next_opening.strftime('%H:%M')}."
+        )
+        ok, msg = send_clicksend_env_sms(owner_mobile, notice, customer=None, category="After Hours Enquiry Alert")
+        update_intake_delivery_status(lead_id, owner_sms_status=status_text(ok, msg))
+        results["owner_sms"] = (ok, msg)
+    elif email_ok:
         msg = "Skipped: the new enquiry email was sent successfully."
         update_intake_delivery_status(lead_id, owner_sms_status=msg)
         results["owner_sms"] = (True, msg)
