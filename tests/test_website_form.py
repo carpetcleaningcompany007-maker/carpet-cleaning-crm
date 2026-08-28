@@ -101,9 +101,11 @@ class WebsiteFormTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         email_send.assert_called_once()
-        sms_send.assert_not_called()
-        lead = self.appmod.q("SELECT * FROM intake_submissions ORDER BY id DESC LIMIT 1", one=True)
-        self.assertIn("email was sent successfully", lead["owner_sms_status"])
+        sms_send.assert_called_once()
+        owner_notice = sms_send.call_args.args[1]
+        self.assertIn("NEW WEBSITE ENQUIRY", owner_notice)
+        self.assertIn("Customer text due in about 5 minutes", owner_notice)
+        self.assertIn("#customer-message-approval", owner_notice)
 
     def test_owner_gets_sms_warning_only_when_new_enquiry_email_fails(self):
         with mock.patch.dict(os.environ, {
@@ -129,7 +131,7 @@ class WebsiteFormTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         sms_send.assert_called_once()
         warning = sms_send.call_args.args[1]
-        self.assertIn("Website enquiry email FAILED", warning)
+        self.assertIn("Owner email alert FAILED", warning)
         self.assertIn("Owner Email Failure", warning)
         self.assertIn("SMTP unavailable", warning)
 
