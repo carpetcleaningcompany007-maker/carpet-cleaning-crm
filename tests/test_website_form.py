@@ -347,6 +347,19 @@ class WebsiteFormTests(unittest.TestCase):
         unnamed_message = self.appmod.enquiry_acknowledgement_text({})
         self.assertTrue(unnamed_message.startswith("Hi, thank you for your enquiry."))
 
+    def test_organic_shrewsbury_source_is_distinct_from_google_ads_landing_page(self):
+        organic = self.appmod.website_enquiry_source_label({
+            "landing_page": "organic-shrewsbury-carpet-cleaning.html",
+            "landing_area": "Shrewsbury",
+        })
+        ads = self.appmod.website_enquiry_source_label({
+            "landing_page": "landing-shrewsbury.html",
+            "landing_area": "Shrewsbury",
+            "gclid": "test-click-id",
+        })
+        self.assertEqual(organic, "Shrewsbury organic page")
+        self.assertEqual(ads, "Shrewsbury landing page (Google Ads)")
+
     def test_delayed_acknowledgement_uses_email_for_invalid_phone(self):
         lead_id = self.appmod.run("""INSERT INTO intake_submissions
             (name, phone, email, status) VALUES (?,?,?,?)""",

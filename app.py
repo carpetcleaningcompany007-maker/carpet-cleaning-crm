@@ -2519,7 +2519,9 @@ def send_clicksend_env_sms(to_phone, body, customer=None, category="Website Enqu
 def website_enquiry_source_label(data):
     landing_page = request_value(data, "landing_page").lower()
     landing_area = request_value(data, "landing_area")
-    if "landing-shrewsbury" in landing_page:
+    if "organic-shrewsbury" in landing_page:
+        label = "Shrewsbury organic page"
+    elif "landing-shrewsbury" in landing_page:
         label = "Shrewsbury landing page"
     elif "landing-ludlow" in landing_page:
         label = "Ludlow landing page"
