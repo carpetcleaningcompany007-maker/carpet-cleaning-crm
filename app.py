@@ -1804,8 +1804,9 @@ def enquiry_acknowledgement_text(data):
     first_name = clean_str(full_name).split()[0] if clean_str(full_name) else ""
     greeting = f"Hi {first_name}," if first_name else "Hi,"
     return (
-        f"{greeting} thank you very much for your enquiry. I've just received the information you've sent over and had a look through it. "
-        "Is it possible for you to send me a few photos please?\n\n"
+        f"{greeting} thank you for your enquiry. I've received your message and I'd be happy to help. "
+        "Could you reply with a little more information about what you would like cleaned? "
+        "If possible, please send me a few photos as well, as this helps me give you the best advice and an accurate quote.\n\n"
         "Thanks,\nPaul\nThe Carpet Cleaning Company"
     )
 

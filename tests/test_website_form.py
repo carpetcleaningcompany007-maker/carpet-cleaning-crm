@@ -336,15 +336,16 @@ class WebsiteFormTests(unittest.TestCase):
 
     def test_acknowledgement_uses_requested_spacing_signature_and_no_hyphens(self):
         message = self.appmod.enquiry_acknowledgement_text({"name": "Paul Nicholas"})
-        self.assertTrue(message.startswith("Hi Paul, thank you very much for your enquiry."))
-        self.assertIn("I've just received the information you've sent over and had a look through it.", message)
-        self.assertIn("Is it possible for you to send me a few photos please?", message)
+        self.assertTrue(message.startswith("Hi Paul, thank you for your enquiry."))
+        self.assertIn("I've received your message and I'd be happy to help.", message)
+        self.assertIn("Could you reply with a little more information about what you would like cleaned?", message)
+        self.assertIn("please send me a few photos as well", message)
         self.assertTrue(message.endswith("Thanks,\nPaul\nThe Carpet Cleaning Company"))
         self.assertNotIn("-", message)
         self.assertNotIn("—", message)
 
         unnamed_message = self.appmod.enquiry_acknowledgement_text({})
-        self.assertTrue(unnamed_message.startswith("Hi, thank you very much for your enquiry."))
+        self.assertTrue(unnamed_message.startswith("Hi, thank you for your enquiry."))
 
     def test_delayed_acknowledgement_uses_email_for_invalid_phone(self):
         lead_id = self.appmod.run("""INSERT INTO intake_submissions
