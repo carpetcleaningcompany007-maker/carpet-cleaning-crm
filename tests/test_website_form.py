@@ -1,4 +1,5 @@
 import importlib
+import json
 import os
 import tempfile
 import unittest
@@ -365,6 +366,54 @@ class WebsiteFormTests(unittest.TestCase):
         })
         self.assertEqual(organic, "Shrewsbury organic page")
         self.assertEqual(ads, "Shrewsbury landing page (Google Ads)")
+
+    def test_postcode_location_details_returns_approximate_area_and_map(self):
+        class FakeResponse:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+            def read(self):
+                return json.dumps({"result": {
+                    "parish": "Shrewsbury",
+                    "admin_ward": "Quarry and Coton Hill",
+                    "admin_district": "Shropshire",
+                }}).encode("utf-8")
+
+        self.appmod.postcode_location_details.cache_clear()
+        with mock.patch.object(self.appmod.urllib.request, "urlopen", return_value=FakeResponse()):
+            location = self.appmod.postcode_location_details("sy1 1aa")
+        self.assertEqual(location["area"], "Shrewsbury, Quarry and Coton Hill, Shropshire")
+        self.assertEqual(location["maps_url"], "https://www.google.com/maps/search/?api=1&query=SY1+1AA")
+
+    def test_owner_alert_includes_postcode_area_and_map_link(self):
+        location = {
+            "area": "Ludlow, Ludlow East, Shropshire",
+            "maps_url": "https://www.google.com/maps/search/?api=1&query=SY8+1AA",
+        }
+        with mock.patch.object(self.appmod, "postcode_location_details", return_value=location):
+            message = self.appmod.owner_enquiry_alert_text({
+                "name": "Test Customer",
+                "postcode": "SY8 1AA",
+                "landing_page": "landing-ludlow.html",
+            })
+            html = self.appmod.owner_enquiry_alert_html({
+                "name": "Test Customer",
+                "postcode": "SY8 1AA",
+                "landing_page": "landing-ludlow.html",
+            })
+        self.assertIn("Approximate area: Ludlow, Ludlow East, Shropshire", message)
+        self.assertIn("Map: https://www.google.com/maps/search/?api=1&query=SY8+1AA", message)
+        self.assertIn("Open approximate location", html)
+        self.assertIn("Ludlow, Ludlow East, Shropshire", html)
+
+    def test_homepage_source_has_its_own_label(self):
+        self.assertEqual(
+            self.appmod.website_enquiry_source_label({"landing_page": "homepage"}),
+            "Homepage",
+        )
 
     def test_delayed_acknowledgement_uses_email_for_invalid_phone(self):
         lead_id = self.appmod.run("""INSERT INTO intake_submissions

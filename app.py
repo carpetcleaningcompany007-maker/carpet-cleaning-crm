@@ -10,7 +10,7 @@ import email.utils
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from datetime import date, timedelta, datetime
-from functools import wraps
+from functools import wraps, lru_cache
 from urllib.parse import quote
 from zoneinfo import ZoneInfo
 import re
@@ -1500,12 +1500,16 @@ def http_post_json(url, payload, headers=None):
 
 
 def website_form_email_payload(data, lead_id=None, customer_id=None):
+    postcode = request_value(data, "postcode", "post_code", "zip", "area")
+    postcode_location = postcode_location_details(postcode)
     fields = [
         ("Name", request_value(data, "name", "full_name", "customer_name")),
         ("Phone", request_value(data, "phone", "phone_number", "telephone", "tel")),
         ("Email", request_value(data, "email", "email_address")),
         ("Address", request_value(data, "address", "full_address")),
-        ("Postcode", request_value(data, "postcode", "post_code", "zip", "area")),
+        ("Postcode", postcode),
+        ("Approximate area", postcode_location["area"]),
+        ("Google Maps", postcode_location["maps_url"]),
         ("Service", request_value(data, "service", "what_cleaned", "cleaning_required")),
         ("Rooms or areas", enquiry_rooms_items_text(data)),
         ("Upholstery", request_value(data, "upholstery")),
@@ -2531,6 +2535,8 @@ def website_enquiry_source_label(data):
         label = "Shrewsbury landing page"
     elif "landing-ludlow" in landing_page:
         label = "Ludlow landing page"
+    elif landing_page == "homepage":
+        label = "Homepage"
     elif landing_area and "landing" in landing_page:
         label = f"{landing_area} landing page"
     else:
@@ -2538,6 +2544,46 @@ def website_enquiry_source_label(data):
     if request_value(data, "gclid", "gbraid", "wbraid"):
         label += " (Google Ads)"
     return label
+
+
+@lru_cache(maxsize=512)
+def postcode_location_details(postcode):
+    """Return a broad UK postcode location and a useful map link.
+
+    A postcode identifies a small group of properties, not an exact address,
+    so owner alerts deliberately describe this as an approximate area.
+    """
+    postcode = re.sub(r"\s+", " ", clean_str(postcode).upper()).strip()
+    if not postcode:
+        return {"area": "", "maps_url": ""}
+    maps_url = "https://www.google.com/maps/search/?api=1&query=" + urllib.parse.quote_plus(postcode)
+    compact = re.sub(r"\s+", "", postcode)
+    if not re.fullmatch(r"[A-Z]{1,2}\d[A-Z\d]?\d[A-Z]{2}", compact):
+        return {"area": "", "maps_url": maps_url}
+    try:
+        req = urllib.request.Request(
+            "https://api.postcodes.io/postcodes/" + urllib.parse.quote(compact),
+            headers={"Accept": "application/json", "User-Agent": "CarpetCleaningCRM/1.0"},
+        )
+        with urllib.request.urlopen(req, timeout=4) as response:
+            payload = json.loads(response.read().decode("utf-8", errors="replace"))
+        result = payload.get("result") or {}
+        candidates = [
+            result.get("parish"), result.get("admin_ward"),
+            result.get("admin_district"), result.get("admin_county"),
+            result.get("region"),
+        ]
+        area_parts = []
+        seen = set()
+        for item in candidates:
+            item = clean_str(item)
+            if item and item.lower() not in seen:
+                seen.add(item.lower())
+                area_parts.append(item)
+        return {"area": ", ".join(area_parts[:3]), "maps_url": maps_url}
+    except Exception as exc:
+        logger.info("Postcode location lookup unavailable for %s: %s", postcode, exc)
+        return {"area": "", "maps_url": maps_url}
 
 
 def owner_enquiry_alert_text(data, customer_id=None, lead_id=None):
@@ -2548,6 +2594,7 @@ def owner_enquiry_alert_text(data, customer_id=None, lead_id=None):
     email = request_value(data, "email", "email_address") or "Not supplied"
     address = request_value(data, "address", "full_address", "street_address")
     postcode = request_value(data, "postcode", "post_code", "zip")
+    postcode_location = postcode_location_details(postcode)
     address_line = ", ".join(part for part in (address, postcode) if part) or "Not supplied"
     service = request_value(data, "service", "what_cleaned", "service_required", "cleaning_required")
     rooms_items = enquiry_rooms_items_text(data)
@@ -2568,6 +2615,8 @@ def owner_enquiry_alert_text(data, customer_id=None, lead_id=None):
         f"Name: {name}",
         f"Telephone: {phone}",
         f"Address: {address_line}",
+        f"Approximate area: {postcode_location['area'] or 'Lookup unavailable'}",
+        f"Map: {postcode_location['maps_url'] or 'Not available'}",
         f"Work: {work}",
         f"Email: {email}",
         "Price: £",
@@ -2593,6 +2642,7 @@ def owner_enquiry_alert_html(data, customer_id=None, lead_id=None):
     email = request_value(data, "email", "email_address") or "Not supplied"
     address = request_value(data, "address", "full_address", "street_address")
     postcode = request_value(data, "postcode", "post_code", "zip")
+    postcode_location = postcode_location_details(postcode)
     address_line = ", ".join(part for part in (address, postcode) if part) or "Not supplied"
     message = request_value(data, "message", "notes", "additional_notes")
     text_details = owner_enquiry_alert_text(data)
@@ -2600,6 +2650,7 @@ def owner_enquiry_alert_html(data, customer_id=None, lead_id=None):
     source = website_enquiry_source_label(data)
     rows = [
         ("Name", name), ("Telephone", phone), ("Address", address_line),
+        ("Approximate area", postcode_location["area"] or "Lookup unavailable"),
         ("Work", work_line), ("Email", email),
     ]
     row_html = "".join(
@@ -2618,6 +2669,8 @@ def owner_enquiry_alert_html(data, customer_id=None, lead_id=None):
             f"<div style='white-space:pre-wrap;color:#202329'>{html_lib.escape(message)}</div></div>"
         )
     links = []
+    if postcode_location["maps_url"]:
+        links.append(f"<a href='{html_lib.escape(postcode_location['maps_url'])}' style='display:inline-block;margin:6px 8px 0 0;padding:10px 14px;border-radius:6px;background:#c93328;color:#fff;text-decoration:none;font-weight:700'>Open approximate location</a>")
     if lead_id:
         has_ai_draft = bool(active_ai_draft_for_intake(lead_id))
         anchor = "#ai-reply" if has_ai_draft else "#customer-message-approval"
