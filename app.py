@@ -3158,14 +3158,25 @@ def run_website_enquiry_automation(lead_id, customer_id, data):
     owner_mobile = os.environ.get("OWNER_ALERT_MOBILE", "").strip()
     outside_customer_hours = not customer_sms_hours_open()
     if outside_customer_hours and owner_mobile:
-        lead_name = request_value(data, "name", "full_name", "customer_name") or "a customer"
+        lead_name = request_value(data, "name", "full_name", "customer_name") or "Not supplied"
+        lead_phone = request_value(data, "phone", "phone_number", "telephone", "tel") or "Not supplied"
+        lead_email = request_value(data, "email", "email_address") or "Not supplied"
+        lead_postcode = request_value(data, "postcode", "post_code", "zip") or "Not supplied"
+        lead_service = request_value(data, "service", "what_cleaned", "cleaning_type") or "Not supplied"
         preferred_route = "text" if is_valid_uk_phone(customer_phone) else "email"
         next_opening = next_customer_sms_window_open()
-        notice = (
-            f"New website enquiry from {lead_name} (enquiry #{lead_id}). "
-            f"Their automatic {preferred_route} has NOT been sent because it is outside customer contact hours. "
-            f"It is queued for after {next_opening.strftime('%H:%M')}."
-        )
+        send_now_url = crm_external_url("intake_form_view", lead_id=lead_id) + "#customer-message-approval"
+        newline = chr(10)
+        notice = newline.join([
+            f"AFTER-HOURS WEBSITE ENQUIRY #{lead_id}",
+            f"Name: {lead_name}",
+            f"Phone: {lead_phone}",
+            f"Email: {lead_email}",
+            f"Postcode: {lead_postcode}",
+            f"Service: {lead_service}",
+            f"Customer {preferred_route} held until {next_opening.strftime('%H:%M')}.",
+            f"Would you like to send it now? {send_now_url}",
+        ])
         ok, msg = send_clicksend_env_sms(owner_mobile, notice, customer=None, category="After Hours Enquiry Alert")
         update_intake_delivery_status(lead_id, owner_sms_status=status_text(ok, msg))
         results["owner_sms"] = (ok, msg)
