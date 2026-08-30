@@ -76,6 +76,35 @@ class PublicLeadTests(unittest.TestCase):
         self.assertIn("New visitor on the Shrewsbury landing page", send_email.call_args.args[1])
         self.assertIn("Google Ads", send_email.call_args.args[2])
 
+    def test_page_view_also_sends_owner_visitor_sms(self):
+        client = self.app.test_client()
+        payload = {
+            "session_id": "landing_visit_sms_session_12345",
+            "landing_area": "Ludlow",
+            "landing_page": "landing-ludlow.html",
+            "page_variant": "ludlow-landing",
+            "event_name": "page_view",
+            "traffic_source": "Direct / unknown",
+            "device_type": "mobile",
+        }
+        with mock.patch.object(
+            self.appmod,
+            "owner_contact_form_recipients",
+            return_value=("owner@example.com", "07802563213"),
+        ), mock.patch.object(
+            self.appmod, "send_env_email", return_value=(True, "email sent")
+        ), mock.patch.object(
+            self.appmod, "send_clicksend_env_sms", return_value=(True, "sms accepted")
+        ) as send_sms:
+            response = client.post("/api/website-analytics", json=payload)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()["visitor_email"], "sent")
+        self.assertEqual(send_sms.call_count, 1)
+        self.assertEqual(send_sms.call_args.args[0], "07802563213")
+        self.assertIn("Website visitor: Ludlow landing page", send_sms.call_args.args[1])
+        self.assertEqual(send_sms.call_args.kwargs["category"], "Website Visitor Alert")
+
     def test_non_page_view_does_not_send_visitor_email(self):
         client = self.app.test_client()
         payload = {

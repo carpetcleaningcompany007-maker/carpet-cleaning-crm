@@ -347,6 +347,7 @@ class WebsiteFormTests(unittest.TestCase):
         self.assertIn("I've received your message and I'd be happy to help.", message)
         self.assertIn("Could you reply with a little more information about what you would like cleaned?", message)
         self.assertIn("please send me a few photos as well", message)
+        self.assertIn("call me on 07802 563213 if you prefer", message)
         self.assertTrue(message.endswith("Thanks,\nPaul\nThe Carpet Cleaning Company"))
         self.assertNotIn("-", message)
         self.assertNotIn("—", message)

@@ -1810,7 +1810,8 @@ def enquiry_acknowledgement_text(data):
     return (
         f"{greeting} thank you for your enquiry. I've received your message and I'd be happy to help. "
         "Could you reply with a little more information about what you would like cleaned? "
-        "If possible, please send me a few photos as well, as this helps me give you the best advice and an accurate quote.\n\n"
+        "If possible, please send me a few photos as well, as this helps me give you the best advice and an accurate quote. "
+        "You're also welcome to call me on 07802 563213 if you prefer.\n\n"
         "Thanks,\nPaul\nThe Carpet Cleaning Company"
     )
 
@@ -1850,6 +1851,25 @@ def schedule_enquiry_acknowledgement(lead_id, customer_id=None, data=None, delay
            VALUES (?,?,?,?, 'Queued', datetime('now'))
            ON CONFLICT(lead_id) DO NOTHING""",
         (lead_id, customer_id or row_get(lead, "customer_id"), json.dumps(payload, default=str), due_at.isoformat(timespec="seconds")))
+    # Give every enquiry its own wake-up as well as leaving it in the durable
+    # queue. This covers deployments where the general background loop is
+    # temporarily asleep or disabled; the queue still prevents duplicate sends.
+    def wake_acknowledgement_queue():
+        try:
+            with app.app_context():
+                init_db()
+                run_due_enquiry_acknowledgements(dry_run=False)
+        except sqlite3.OperationalError as exc:
+            # A temporary test database can be removed before its daemon timer
+            # fires. Production database errors should still be logged.
+            if "no such table" not in clean_str(exc).lower():
+                logger.exception("Scheduled enquiry acknowledgement wake-up failed")
+        except Exception:
+            logger.exception("Scheduled enquiry acknowledgement wake-up failed")
+
+    timer = threading.Timer(max(1, (delay_minutes * 60) + 5), wake_acknowledgement_queue)
+    timer.daemon = True
+    timer.start()
     return True, f"Customer acknowledgement queued for about {delay_minutes} minutes after the enquiry."
 
 
@@ -14794,10 +14814,10 @@ def ensure_website_analytics_table():
 
 
 def send_landing_page_visit_alert(area, landing_page, traffic_source, click_id_present, device_type):
-    """Email the owner when an anonymous landing-page visit is recorded."""
-    owner_email, _ = owner_contact_form_recipients()
-    if not owner_email:
-        return False, "Owner email is not configured"
+    """Email and text the owner when an anonymous landing-page visit is recorded."""
+    owner_email, owner_mobile = owner_contact_form_recipients()
+    if not owner_email and not owner_mobile:
+        return False, "Owner email and mobile are not configured"
 
     area = clean_str(area) or "Unknown area"
     landing_page = clean_str(landing_page) or "Unknown landing page"
@@ -14823,7 +14843,31 @@ def send_landing_page_visit_alert(area, landing_page, traffic_source, click_id_p
         f"<strong>Google Ads click ID present:</strong> {google_click}</p>"
         "<p style='color:#5c6973'>This visitor is anonymous unless they complete the enquiry form.</p>"
     )
-    return send_env_email(owner_email, subject, text_body, html_body)
+    email_ok, email_message = (False, "Owner email is not configured")
+    if owner_email:
+        email_ok, email_message = send_env_email(owner_email, subject, text_body, html_body)
+
+    sms_ok, sms_message = (False, "Owner mobile is not configured")
+    if owner_mobile:
+        sms_body = (
+            f"Website visitor: {area} landing page. "
+            f"Source: {traffic_source}. Device: {device_type.title()}. "
+            f"Google Ads click: {google_click}."
+        )
+        sms_ok, sms_message = send_clicksend_env_sms(
+            owner_mobile,
+            sms_body,
+            customer=None,
+            category="Website Visitor Alert",
+        )
+
+    required_results = []
+    if owner_email:
+        required_results.append(email_ok)
+    if owner_mobile:
+        required_results.append(sms_ok)
+    ok = bool(required_results) and all(required_results)
+    return ok, f"Email: {email_message} SMS: {sms_message}"
 
 
 def send_due_website_visit_summaries(dry_run=False):
