@@ -136,6 +136,29 @@ class WebsiteFormTests(unittest.TestCase):
         self.assertIn("Owner Email Failure", warning)
         self.assertIn("SMTP unavailable", warning)
 
+    def test_new_enquiry_email_uses_saved_owner_contact_fallback(self):
+        with mock.patch.object(
+            self.appmod, "owner_contact_form_recipients", return_value=("saved-owner@example.com", "07802 563213")
+        ), mock.patch.object(
+            self.appmod, "customer_sms_hours_open", return_value=True
+        ), mock.patch.object(
+            self.appmod, "send_env_email", return_value=(True, "Email sent")
+        ) as email_send, mock.patch.object(
+            self.appmod, "send_clicksend_env_sms", return_value=(True, "SMS sent")
+        ):
+            response = self.app.test_client().post("/api/website-form", data={
+                "name": "Saved Owner Email",
+                "phone": "07802 563213",
+                "email": "customer@example.com",
+                "postcode": "SY8 1AA",
+                "service": "Carpet cleaning",
+                "areas": "2 rooms",
+                "contact_consent": "Yes",
+            })
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(email_send.call_args.args[0], "saved-owner@example.com")
+
     def test_clicksend_insufficient_credit_is_reported_as_failure(self):
         clicksend_response = {
             "response_code": "SUCCESS",

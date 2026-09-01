@@ -3208,7 +3208,8 @@ def run_website_enquiry_automation(lead_id, customer_id, data):
             customer_email_status="Queued: acknowledgement email due in about 5 minutes",
         )
 
-    owner_email = os.environ.get("OWNER_ALERT_EMAIL", "").strip()
+    owner_email, _ = owner_contact_form_recipients()
+    owner_mobile = os.environ.get("OWNER_ALERT_MOBILE", "").strip()
     owner_email_template = message_template("owner_enquiry_alert_email")
     alert_body = render_simple_template(owner_email_template["body"], template_context_for_enquiry(data, customer_id=customer_id, lead_id=lead_id))
     email_ok = False
@@ -3228,7 +3229,6 @@ def run_website_enquiry_automation(lead_id, customer_id, data):
         email_msg = "OWNER_ALERT_EMAIL not set"
         update_intake_delivery_status(lead_id, owner_email_status=status_text(False, email_msg, skipped=True))
 
-    owner_mobile = os.environ.get("OWNER_ALERT_MOBILE", "").strip()
     outside_customer_hours = not customer_sms_hours_open()
     if owner_mobile:
         lead_name = request_value(data, "name", "full_name", "customer_name") or "Not supplied"
