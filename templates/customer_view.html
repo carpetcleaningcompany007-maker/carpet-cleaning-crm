@@ -384,8 +384,8 @@
           </form>
           <a class="btn secondary" href="{{ xero_contact_web_url(customer.xero_contact_id) }}" target="_blank" rel="noopener">Open in Xero</a>
         </div>
-      {% elif not customer_hub.stages[0].complete %}
-        <p class="muted">Complete Stage 1 before uploading this customer to Xero.</p>
+      {% elif not (customer.first_name and customer.last_name and customer.address and customer.postcode and (customer.phone or customer.email)) %}
+        <p class="muted">Add the customer's name, address, postcode, and a phone number or email before uploading to Xero.</p>
       {% else %}
         <form method="post" action="{{ url_for('xero_sync_contact', customer_id=customer.id) }}">
           <input type="hidden" name="next_url" value="{{ url_for('customer_view', customer_id=customer.id) }}#customer-stage-2">
