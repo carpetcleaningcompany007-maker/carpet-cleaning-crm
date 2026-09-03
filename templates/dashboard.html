@@ -69,58 +69,31 @@
     </div>
     <a class="cc-btn cc-btn-primary" href="{{ url_for('intake_forms') }}">Open All Enquiries</a>
   </div>
-  <div class="table-wrap">
-    <table class="table table-readable compact-table">
-      <tr>
-        <th>Customer</th>
-        <th>Contact</th>
-        <th>Service</th>
-        <th>Received</th>
-        <th>Xero</th>
-        <th>Customer email</th>
-        <th>Customer SMS</th>
-        <th>Owner alerts</th>
-        <th>Follow up</th>
-        <th></th>
-      </tr>
-      {% for lead in recent_enquiries %}
-      <tr>
-        <td><strong>{{ lead.name }}</strong></td>
-        <td>{{ lead.phone }}<br><span class="subtle-row">{{ lead.email }}</span></td>
-        <td>{{ lead.what_cleaned or lead.rooms_areas or 'Website enquiry' }}</td>
-        <td>{{ lead.created_at }}</td>
-        <td>{{ lead.xero_sync_status or ('Sent' if lead.xero_contact_id else ('Failed: ' ~ lead.xero_error if lead.xero_error else 'Pending')) }}</td>
-        <td>{{ lead.customer_email_status or 'Pending' }}</td>
-        <td>{{ lead.customer_sms_status or 'Pending' }}</td>
-        <td>Email: {{ lead.owner_email_status or 'Pending' }}<br>SMS: {{ lead.owner_sms_status or 'Pending' }}</td>
-        <td><strong>{{ lead.follow_up_status or 'Follow up required' }}</strong><br><span class="subtle-row">{{ lead.status or 'Waiting for review' }}</span></td>
-        <td><a class="mini-link" href="{{ url_for('intake_form_view', lead_id=lead.id) }}#lead-action-panel">Work lead</a></td>
-      </tr>
-      {% else %}
-      <tr><td colspan="10" class="empty-cell">No website enquiries yet.</td></tr>
-      {% endfor %}
-    </table>
-  </div>
-  <div class="mobile-record-list">
+  <div class="dashboard-waiting-list">
     {% for lead in recent_enquiries %}
-      <article class="mobile-record-card">
-        <div class="mobile-record-head">
+      {% set message_status = lead.customer_email_status or lead.customer_sms_status or 'Message pending' %}
+      <article class="dashboard-waiting-card">
+        <div class="dashboard-waiting-person">
+          <span class="dashboard-waiting-avatar" aria-hidden="true">{{ (lead.name or 'C')[:1]|upper }}</span>
           <div>
-            <span class="mobile-record-kicker">New enquiry</span>
-            <strong>{{ lead.name or 'Customer' }}</strong>
+            <small>{{ lead.created_at }}</small>
+            <h3>{{ lead.name or 'New customer' }}</h3>
+            <div class="dashboard-waiting-contact">
+              {% if lead.phone %}<a href="tel:{{ lead.phone }}">{{ lead.phone }}</a>{% endif %}
+              {% if lead.email %}<a href="mailto:{{ lead.email }}">{{ lead.email }}</a>{% endif %}
+            </div>
           </div>
-          <a class="mobile-record-action" href="{{ url_for('intake_form_view', lead_id=lead.id) }}#lead-action-panel">Work</a>
         </div>
-        <dl class="mobile-record-details">
-          <div><dt>Contact</dt><dd>{{ lead.phone or 'No phone' }}{% if lead.email %}<br>{{ lead.email }}{% endif %}</dd></div>
-          <div><dt>Service</dt><dd>{{ lead.what_cleaned or lead.rooms_areas or 'Website enquiry' }}</dd></div>
-          <div><dt>Received</dt><dd>{{ lead.created_at }}</dd></div>
-          <div><dt>Xero</dt><dd>{{ lead.xero_sync_status or ('Sent' if lead.xero_contact_id else ('Failed: ' ~ lead.xero_error if lead.xero_error else 'Pending')) }}</dd></div>
-          <div><dt>Follow up</dt><dd>{{ lead.follow_up_status or 'Follow up required' }}<br>{{ lead.status or 'Waiting for review' }}</dd></div>
-        </dl>
+        <div class="dashboard-waiting-service"><small>Enquiring about</small><strong>{{ lead.what_cleaned or lead.rooms_areas or 'Website enquiry' }}</strong></div>
+        <div class="dashboard-waiting-state">
+          <span>{{ lead.status or 'Waiting for review' }}</span>
+          <strong>{{ lead.follow_up_status or 'Follow up required' }}</strong>
+          <small>{{ message_status }}</small>
+        </div>
+        <a class="dashboard-waiting-action" href="{{ url_for('intake_form_view', lead_id=lead.id) }}#lead-action-panel">Open <span aria-hidden="true">→</span></a>
       </article>
     {% else %}
-      <div class="mobile-empty-card">No website enquiries yet.</div>
+      <div class="enquiry-empty"><span aria-hidden="true">✦</span><h4>Everyone has been answered</h4><p>New website enquiries will appear here.</p></div>
     {% endfor %}
   </div>
 </section>
