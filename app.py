@@ -7987,6 +7987,70 @@ def request_value(data, *names):
     return ""
 
 
+ASSISTANT_API_MAX_BODY_BYTES = 32 * 1024
+
+
+def assistant_api_authorized():
+    expected = os.environ.get("CRM_ASSISTANT_API_TOKEN", "").strip()
+    authorization = request.headers.get("Authorization", "").strip()
+    scheme, separator, supplied = authorization.partition(" ")
+    if not expected or not separator or scheme.lower() != "bearer":
+        return False
+    supplied = supplied.strip()
+    return bool(supplied and secrets.compare_digest(expected, supplied))
+
+
+def assistant_payload_text(data, *names, max_length=500):
+    for name in names:
+        if name not in data or data.get(name) is None:
+            continue
+        value = data.get(name)
+        if not isinstance(value, (str, int, float)):
+            raise ValueError(f"{name} must be text.")
+        value = clean_str(value)
+        if len(value) > max_length:
+            raise ValueError(f"{name} is too long (maximum {max_length} characters).")
+        if value:
+            return value
+    return ""
+
+
+def validated_assistant_customer_payload(data):
+    if not isinstance(data, dict):
+        raise ValueError("The JSON body must be an object.")
+    first_name = assistant_payload_text(data, "first_name", "firstname", max_length=100)
+    last_name = assistant_payload_text(data, "last_name", "lastname", "surname", max_length=150)
+    full_name = assistant_payload_text(data, "name", "full_name", "customer_name", max_length=250)
+    if full_name and not first_name and not last_name:
+        name_parts = full_name.split()
+        if len(name_parts) >= 2:
+            first_name, last_name = name_parts[0], " ".join(name_parts[1:])
+    if not first_name or not last_name:
+        raise ValueError("first_name and last_name are required (or provide a full name with at least two words).")
+
+    phone = assistant_payload_text(data, "phone", "phone_number", "telephone", "tel", max_length=50)
+    email = assistant_payload_text(data, "email", "email_address", max_length=254)
+    if not phone and not email:
+        raise ValueError("At least a phone number or email address is required.")
+    if phone and not is_valid_uk_phone(phone):
+        raise ValueError("phone must be a valid UK phone number, for example 07802 563213.")
+    if email and not is_valid_email(email):
+        raise ValueError("email must be a valid email address.")
+
+    return {
+        "first_name": first_name,
+        "last_name": last_name,
+        "phone": phone,
+        "email": email,
+        "address": assistant_payload_text(data, "address", "full_address", "street_address", max_length=500),
+        "town": assistant_payload_text(data, "town", "city", max_length=150),
+        "postcode": assistant_payload_text(data, "postcode", "post_code", "zip", max_length=20),
+        "source": assistant_payload_text(data, "source", max_length=150) or "Assistant intake API",
+        "tags": assistant_payload_text(data, "tags", max_length=500),
+        "notes": assistant_payload_text(data, "notes", "additional_notes", "job_notes", max_length=5000),
+    }
+
+
 def request_list_values(data, name):
     if hasattr(data, "getlist"):
         return [clean_str(value) for value in data.getlist(name) if clean_str(value)]
@@ -14620,6 +14684,62 @@ def customer_contact_form_submit():
         "alerts": {key: {"ok": value[0], "message": value[1]} for key, value in alert_results.items()},
         "follow_up_sms_queue": {"ok": False, "message": "Not queued for customer details forms."},
     }
+
+
+@app.route("/api/assistant/customers", methods=["POST"])
+def assistant_customer_create():
+    if not os.environ.get("CRM_ASSISTANT_API_TOKEN", "").strip():
+        return {"ok": False, "error": "Assistant intake API is not configured."}, 503
+    if not assistant_api_authorized():
+        response = app.json.response({"ok": False, "error": "Not authorised."})
+        response.status_code = 401
+        response.headers["WWW-Authenticate"] = "Bearer"
+        return response
+    if request.content_length and request.content_length > ASSISTANT_API_MAX_BODY_BYTES:
+        return {"ok": False, "error": "Request body is too large."}, 413
+    if not request.is_json:
+        return {"ok": False, "error": "Content-Type must be application/json."}, 415
+    data = request.get_json(silent=True)
+    if data is None:
+        return {"ok": False, "error": "Request body must contain valid JSON."}, 400
+    try:
+        customer = validated_assistant_customer_payload(data)
+    except ValueError as exc:
+        return {"ok": False, "error": str(exc)}, 400
+
+    existing_customer_id = find_existing_customer_id(
+        first_name=customer["first_name"],
+        last_name=customer["last_name"],
+        email=customer["email"],
+        phone=customer["phone"],
+        postcode=customer["postcode"],
+    )
+    if existing_customer_id:
+        return {
+            "ok": True,
+            "created": False,
+            "customer_id": existing_customer_id,
+            "customer_url": crm_external_url("customer_view", customer_id=existing_customer_id),
+            "message": "A matching active customer already exists; no duplicate was created.",
+        }, 200
+
+    customer_id = run("""INSERT INTO customers(first_name,last_name,phone,email,address,town,postcode,source,tags,notes)
+                         VALUES (?,?,?,?,?,?,?,?,?,?)""", (
+        customer["first_name"], customer["last_name"], customer["phone"], customer["email"],
+        customer["address"], customer["town"], customer["postcode"], customer["source"],
+        customer["tags"], customer["notes"],
+    ))
+    run("INSERT INTO customer_timeline(customer_id, note_text, created_at) VALUES (?,?,datetime('now'))", (
+        customer_id,
+        "Customer created by authorised assistant intake API. No messages or external accounting sync were triggered.",
+    ))
+    return {
+        "ok": True,
+        "created": True,
+        "customer_id": customer_id,
+        "customer_url": crm_external_url("customer_view", customer_id=customer_id),
+        "message": "Customer created and left ready for CRM review.",
+    }, 201
 
 
 @app.route("/website-form", methods=["GET", "POST", "OPTIONS"])
