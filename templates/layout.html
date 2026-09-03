@@ -45,11 +45,13 @@
       <a class="nav-link {% if ep in ['jobs','job_view','jobs_new'] %}active{% endif %}" href="{{ url_for('jobs') }}"><span class="nav-icon" data-icon="briefcase"></span><span>Jobs</span></a>
       <a class="nav-link {% if ep=='full_calendar' or ep=='scheduler' %}active{% endif %}" href="{{ url_for('full_calendar') }}"><span class="nav-icon" data-icon="calendar"></span><span>Calendar</span></a>
       <a class="nav-link {% if ep in ['invoices','invoice_view','quotes','quote_view','calculator'] %}active{% endif %}" href="{{ url_for('invoices') }}"><span class="nav-icon" data-icon="invoice"></span><span>Money</span></a>
+      <a class="nav-link nav-review {% if ep=='send_contact_form' and request.args.get('action_type')=='review' %}active{% endif %}" href="{{ url_for('send_contact_form', action_type='review') }}"><span class="nav-icon" data-icon="star"></span><span>Send review</span></a>
       <details class="nav-more">
         <summary>More <span aria-hidden="true">⌄</span></summary>
         <div class="nav-more-menu">
           <a href="{{ url_for('today_run') }}">Today Run</a>
           <a href="{{ url_for('calculator') }}">Create a Quote</a>
+          <a href="{{ url_for('send_contact_form', action_type='review') }}">Send a Review Request</a>
           <a href="{{ url_for('send_contact_form') }}">Send Customer Form</a>
           <a href="{{ url_for('new_leads') }}">New Leads</a>
           <a href="{{ url_for('workflow') }}">Workflow Board</a>
@@ -81,7 +83,7 @@
         </form>
         <div class="top-actions">
           <a class="pill action-pill" href="{{ url_for('customers') }}">Add customer</a>
-          <a class="pill action-pill" href="{{ url_for('send_contact_form') }}">New enquiry</a>
+          <a class="pill action-pill" href="{{ url_for('send_contact_form', action_type='review') }}">Send review</a>
         </div>
       </div>
     </header>
@@ -101,7 +103,7 @@
   <nav class="mobile-bottom-nav" aria-label="Mobile navigation">
     <a class="{% if ep=='dashboard' %}active{% endif %}" href="{{ url_for('dashboard') }}"><span>⌂</span>Today</a>
     <a class="{% if ep in ['customers','customer_view','customer_edit'] %}active{% endif %}" href="{{ url_for('customers') }}"><span>◉</span>Customers</a>
-    <a class="mobile-add" href="{{ url_for('customers') }}"><span>+</span>Add</a>
+    <a class="mobile-add" href="{{ url_for('send_contact_form', action_type='review') }}"><span>★</span>Review</a>
     <a class="{% if ep in ['jobs','job_view','jobs_new'] %}active{% endif %}" href="{{ url_for('jobs') }}"><span>▣</span>Jobs</a>
     <a href="#mainSidebar" data-sidebar-toggle><span>•••</span>More</a>
   </nav>

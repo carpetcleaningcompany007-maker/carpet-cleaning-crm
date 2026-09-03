@@ -1,24 +1,28 @@
 {% extends "layout.html" %}
-{% block title %}Send Customer Form{% endblock %}
-{% block page_title %}Send Customer Form{% endblock %}
+{% set is_review = action_type == 'review' %}
+{% block title %}{{ 'Send a Review Request' if is_review else 'Send Customer Form' }}{% endblock %}
+{% block page_title %}{{ 'Send a Review' if is_review else 'Send Customer Form' }}{% endblock %}
 {% block body_content %}
-<section class="page-intro-card send-form-intro">
-  <div class="section-kicker">Email, text, or both</div>
-  <h3>Send someone your customer details form</h3>
-  <p>Choose an existing customer or enter a new name and contact detail. They receive a personal link to complete their information.</p>
+<section class="page-intro-card send-form-intro {{ 'review-send-intro' if is_review else '' }}">
+  <div class="section-kicker">{{ 'A lovely finishing touch' if is_review else 'Email, text, or both' }}</div>
+  <h3>{{ 'Turn a happy customer into a brilliant review' if is_review else 'Send someone your customer details form' }}</h3>
+  <p>{{ 'Find the customer, choose email, text, or both, preview the message and send. Their personal request includes your Google review link.' if is_review else 'Choose an existing customer or enter a new name and contact detail. They receive a personal link to complete their information.' }}</p>
 </section>
 
 {% if sent_confirmation %}
 <section class="send-form-success">
-  <strong>Customer form sent</strong>
-  <span>The personal form link has been sent using the option you selected.</span>
+  <strong>{{ 'Review request sent' if is_review else 'Customer form sent' }}</strong>
+  <span>{{ 'The customer received the polished review request using your chosen channel.' if is_review else 'The personal form link has been sent using the option you selected.' }}</span>
 </section>
 {% endif %}
 
 <section class="panel send-contact-panel">
-  <div class="panel-head"><h3>Who should receive the form?</h3></div>
+  <div class="panel-head"><h3>{{ 'Who would you like to thank?' if is_review else 'Who should receive the form?' }}</h3><p>{{ 'Choose somebody already saved in the CRM or synced from Xero.' if is_review else '' }}</p></div>
   <form method="post" class="send-contact-form">
-    <input type="hidden" name="action_type" value="form">
+    <input type="hidden" name="action_type" value="{{ action_type }}">
+    <label class="customer-search-label">Find a customer
+      <input type="search" id="quickSendSearch" placeholder="Start typing a name, email or mobile number" autocomplete="off">
+    </label>
     <label class="saved-customer-picker">Choose a saved customer <span class="optional-label">optional</span>
       <select name="customer_id" id="quickSendCustomer">
         <option value="">Or enter new details below</option>
@@ -33,27 +37,36 @@
       <label>Email address <span class="optional-label">optional</span><input type="email" name="email" autocomplete="email" value="{{ form_values.email or '' }}"></label>
       <label>Mobile number <span class="optional-label">optional</span><input name="phone" autocomplete="tel" placeholder="07..." value="{{ form_values.phone or '' }}"></label>
     </div>
-    <div class="send-contact-options">
-      <label><input type="checkbox" name="send_email" value="1"> Send by email</label>
-      <label><input type="checkbox" name="send_sms" value="1"> Send by text</label>
+    <div class="send-contact-options channel-choices">
+      <label><input type="checkbox" name="send_email" value="1"> <span><strong>Email</strong><small>Beautiful branded message</small></span></label>
+      <label><input type="checkbox" name="send_sms" value="1"> <span><strong>Text message</strong><small>Fast and easy to open</small></span></label>
     </div>
     <div class="row-actions">
-      <button class="btn primary send-contact-submit" type="submit">Send Customer Form</button>
+      <button class="btn primary send-contact-submit" type="submit">{{ 'Send Review Request' if is_review else 'Send Customer Form' }}</button>
       <button class="btn secondary" name="use_test_details" value="1" type="submit">Test on Me</button>
     </div>
   </form>
 </section>
 
 <section class="panel send-contact-preview">
-  <div class="panel-head"><h3>Form link</h3><a class="btn secondary" href="{{ form_link }}" target="_blank" rel="noopener">Preview Form</a></div>
-  <input id="standaloneFormUrl" value="{{ form_link }}" readonly>
+  <div class="panel-head"><h3>{{ 'Your message preview' if is_review else 'Form link' }}</h3>{% if is_review and review_preview_url %}<a class="btn secondary" href="{{ review_preview_url }}" target="_blank" rel="noopener">Preview branded email</a>{% elif not is_review %}<a class="btn secondary" href="{{ form_link }}" target="_blank" rel="noopener">Preview Form</a>{% endif %}</div>
+  {% if not is_review %}<input id="standaloneFormUrl" value="{{ form_link }}" readonly>{% endif %}
   <textarea id="standaloneFormMessage" readonly>{{ message }}</textarea>
-  <div class="row-actions"><button class="btn secondary" type="button" data-copy-target="standaloneFormUrl">Copy Link</button><button class="btn secondary" type="button" data-copy-target="standaloneFormMessage">Copy Message</button></div>
+  <div class="row-actions">{% if not is_review %}<button class="btn secondary" type="button" data-copy-target="standaloneFormUrl">Copy Link</button>{% endif %}<button class="btn secondary" type="button" data-copy-target="standaloneFormMessage">Copy Message</button></div>
 </section>
 <script>
 (() => {
   const picker = document.getElementById('quickSendCustomer');
+  const search = document.getElementById('quickSendSearch');
   if (!picker) return;
+  const originalOptions = Array.from(picker.options).slice(1).map(option => option.cloneNode(true));
+  if (search) search.addEventListener('input', () => {
+    const term = search.value.trim().toLowerCase();
+    const current = picker.value;
+    picker.querySelectorAll('option:not(:first-child)').forEach(option => option.remove());
+    originalOptions.filter(option => !term || option.textContent.toLowerCase().includes(term)).forEach(option => picker.appendChild(option.cloneNode(true)));
+    if (Array.from(picker.options).some(option => option.value === current)) picker.value = current;
+  });
   picker.addEventListener('change', () => {
     const option = picker.options[picker.selectedIndex];
     if (!option || !option.value) return;

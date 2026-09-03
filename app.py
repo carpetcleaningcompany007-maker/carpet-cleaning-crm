@@ -8898,7 +8898,7 @@ def send_contact_form():
 
         if not results:
             flash("Add an email address or mobile number, then choose email, text, or both.")
-            return redirect(url_for("send_contact_form", **prefill))
+            return redirect(url_for("send_contact_form", action_type=action_type, **prefill))
 
         flash("; ".join(f"{label}: {'sent' if ok else 'failed'} - {msg}" for label, ok, msg in results))
         redirect_values = {k: v for k, v in prefill.items() if clean_str(v)}
