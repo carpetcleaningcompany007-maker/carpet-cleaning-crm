@@ -57,11 +57,8 @@
       <a class="preview-option" href="{{ review_link }}" target="_blank" rel="noopener"><span>★</span><strong>Review page</strong><small>Open the Google link</small></a>
     </div>
     <div class="review-preview-pane active" data-preview-pane="email">
-      <div class="email-preview-card">
-        <div class="email-preview-brand"><span class="email-preview-mark">★</span><div><strong>The Carpet Cleaning Company</strong><small>A personal thank you from Paul</small></div></div>
-        <div class="email-preview-content"><small>SUBJECT</small><h4>{{ review_email_subject }}</h4><div class="preview-message-copy">{{ review_email_message }}</div><a href="{{ review_link }}" target="_blank" rel="noopener">Leave a Google review</a></div>
-      </div>
-      {% if review_preview_url %}<a class="btn preview-full-btn" href="{{ review_preview_url }}" target="_blank" rel="noopener">Open full email preview <span>↗</span></a>{% endif %}
+      <div class="real-email-preview"><div class="real-preview-bar"><span>Actual customer email</span><small>This is the real design that will be sent</small></div><iframe id="reviewEmailPreview" src="{{ review_preview_url }}" title="Actual review request email preview"></iframe></div>
+      <a class="btn preview-full-btn" id="reviewEmailPreviewLink" href="{{ review_preview_url }}" target="_blank" rel="noopener">Open full email preview <span>↗</span></a>
     </div>
     <div class="review-preview-pane" data-preview-pane="sms">
       <div class="phone-preview"><div class="phone-preview-top"><span></span><strong>Message</strong><span>•••</span></div><div class="phone-contact">TC</div><b>The Carpet Cleaning Company</b><div class="sms-bubble">{{ review_sms_message }}</div></div>
@@ -93,6 +90,14 @@
     document.querySelector('[name="name"]').value = option.dataset.name || '';
     document.querySelector('[name="email"]').value = option.dataset.email || '';
     document.querySelector('[name="phone"]').value = option.dataset.phone || '';
+    const frame = document.getElementById('reviewEmailPreview');
+    const link = document.getElementById('reviewEmailPreviewLink');
+    if (frame && link) {
+      const previewUrl = new URL('{{ url_for("standalone_review_email_preview") }}', window.location.origin);
+      previewUrl.searchParams.set('customer_id', option.value);
+      frame.src = previewUrl.toString();
+      link.href = previewUrl.toString();
+    }
   });
   document.querySelectorAll('[data-preview]').forEach(button => button.addEventListener('click', () => {
     const selected = button.dataset.preview;

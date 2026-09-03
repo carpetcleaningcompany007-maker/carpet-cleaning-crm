@@ -88,3 +88,4 @@
 
 @media(max-width:420px){.app-page .cc-quick-grid{grid-template-columns:1fr 1fr!important}.app-page .cc-hero h1{font-size:36px!important}.app-page .cc-quick-card{min-height:120px!important}.app-page .cc-quick-card span{font-size:10px!important}.app-page .cc-quick-card strong{font-size:24px!important}}
 .app-page .preview-message-copy,.app-page .sms-bubble{white-space:pre-line!important}
+.app-page .real-email-preview{overflow:hidden;border:1px solid var(--crm-line);border-radius:18px;background:#e9eef4;box-shadow:0 14px 38px rgba(17,42,76,.1)}.app-page .real-preview-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;background:var(--crm-navy);color:#fff}.app-page .real-preview-bar span{font-weight:900}.app-page .real-preview-bar small{color:#cbd9e8}.app-page .real-email-preview iframe{display:block;width:100%;height:760px;border:0;background:#fff}

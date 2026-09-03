@@ -8929,7 +8929,7 @@ def send_contact_form():
         review_email_subject=review_email_subject,
         review_email_message=review_email_message,
         review_sms_message=review_sms_message,
-        review_preview_url=(url_for("customer_email_template_preview", customer_id=selected_customer["id"], template_key="review_request_message") if selected_customer else ""),
+        review_preview_url=url_for("standalone_review_email_preview", customer_id=(selected_customer["id"] if selected_customer else ""), name=form_values["name"]),
         customers=q("""SELECT id, first_name, last_name, email, phone FROM customers
                        WHERE IFNULL(archived_at,'')='' ORDER BY first_name COLLATE NOCASE, last_name COLLATE NOCASE"""),
     )
@@ -14725,6 +14725,25 @@ def assistant_customer_create():
         phone=customer["phone"],
         postcode=customer["postcode"],
     )
+
+
+@app.route("/send-contact-form/review-preview")
+@login_required
+def standalone_review_email_preview():
+    customer_id = clean_str(request.args.get("customer_id"))
+    customer = q("SELECT * FROM customers WHERE id=?", (int(customer_id),), one=True) if customer_id.isdigit() else None
+    if customer:
+        latest_job = latest_customer_job(customer["id"])
+    else:
+        latest_job = None
+        preview_name = clean_str(request.args.get("name")) or "there"
+        customer = {
+            "id": None, "name": preview_name, "first_name": preview_name, "last_name": "",
+            "email": "", "phone": "", "address": "", "town": "", "postcode": "", "sms_opt_out": 0,
+        }
+    template = message_template("review_request_message")
+    body = render_simple_template(template.get("body") or "", customer_message_replacements(customer, latest_job))
+    return Response(visual_customer_email_html("review_request_message", customer, latest_job, body), mimetype="text/html")
     if existing_customer_id:
         return {
             "ok": True,
