@@ -23,6 +23,8 @@
   </div>
 </section>
 
+{% set job_next = namespace(href='#job-edit-details') %}
+{% for section in job_stage_sections %}{% for item in section.steps %}{% if item.current and item.href %}{% set job_next.href = item.href %}{% endif %}{% endfor %}{% endfor %}
 <section class="panel job-stage-panel">
   <div class="panel-head">
     <div>
@@ -30,9 +32,9 @@
       <p>Step-by-step view of what has been done and what still needs doing for this job.</p>
     </div>
   </div>
-  <div class="next-action-strip">
-    <span>Next action</span>
-    <strong>{{ job_next_action }}</strong>
+  <div class="next-action-strip job-next-focus">
+    <div><span>Recommended next</span><strong>{{ job_next_action }}</strong></div>
+    <a class="btn primary" href="{{ job_next.href }}">Do next →</a>
   </div>
   <div class="job-stage-grid">
     {% for section in job_stage_sections %}
