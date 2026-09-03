@@ -7,6 +7,7 @@
   <link rel="icon" href="{{ url_for('static', filename='site/site-icon-512.png') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=own-website-skin-20260605-1">
   <link rel="stylesheet" href="{{ url_for('static', filename='beautiful.css') }}?v=proper-redesign-20260606-1">
+  <link rel="stylesheet" href="{{ url_for('static', filename='crm-redesign.css') }}?v=website-command-centre-20260903-1">
   <style>:root{--accent: {{ biz.accent or '#56718f' }}; --sidebar-color: {{ biz.sidebar_color or '#1f2933' }};}</style>
 </head>
 {% if session.get('logged_in') and not public_mode %}
@@ -37,24 +38,29 @@
       </div>
     </div>
 
-    <nav class="nav nav-tabler redesigned-nav simple-main-nav">
+    <nav class="nav nav-tabler redesigned-nav simple-main-nav" aria-label="Main navigation">
       <a class="nav-link {% if ep=='dashboard' %}active{% endif %}" href="{{ url_for('dashboard') }}"><span class="nav-icon" data-icon="home"></span><span>Today</span></a>
       <a class="nav-link {% if ep in ['customers','customer_view','customer_edit'] %}active{% endif %}" href="{{ url_for('customers') }}"><span class="nav-icon" data-icon="user"></span><span>Customers</span></a>
-      <a class="nav-link {% if ep=='send_contact_form' %}active{% endif %}" href="{{ url_for('send_contact_form') }}"><span class="nav-icon" data-icon="message"></span><span>Send Customer Form</span></a>
-      <a class="nav-link {% if ep in ['new_leads'] %}active{% endif %}" href="{{ url_for('new_leads') }}"><span class="nav-icon" data-icon="inbox"></span><span>New Leads</span></a>
-      <a class="nav-link {% if ep in ['intake_forms','intake_form_view'] %}active{% endif %}" href="{{ url_for('intake_forms') }}"><span class="nav-icon" data-icon="inbox"></span><span>Replies</span></a>
-      <a class="nav-link {% if ep=='today_run' %}active{% endif %}" href="{{ url_for('today_run') }}"><span class="nav-icon" data-icon="route"></span><span>Today Run</span></a>
+      <a class="nav-link {% if ep in ['intake_forms','intake_form_view','new_leads'] %}active{% endif %}" href="{{ url_for('intake_forms') }}"><span class="nav-icon" data-icon="inbox"></span><span>Enquiries</span></a>
       <a class="nav-link {% if ep in ['jobs','job_view','jobs_new'] %}active{% endif %}" href="{{ url_for('jobs') }}"><span class="nav-icon" data-icon="briefcase"></span><span>Jobs</span></a>
-      <a class="nav-link {% if ep in ['quotes','quote_view','calculator'] %}active{% endif %}" href="{{ url_for('calculator') }}"><span class="nav-icon" data-icon="quote"></span><span>Quotes</span></a>
-      <a class="nav-link {% if ep in ['invoices','invoice_view'] %}active{% endif %}" href="{{ url_for('invoices') }}"><span class="nav-icon" data-icon="invoice"></span><span>Invoices</span></a>
       <a class="nav-link {% if ep=='full_calendar' or ep=='scheduler' %}active{% endif %}" href="{{ url_for('full_calendar') }}"><span class="nav-icon" data-icon="calendar"></span><span>Calendar</span></a>
-      <a class="nav-link {% if ep.startswith('google_calendar') %}active{% endif %}" href="{{ url_for('google_calendar_dashboard') }}"><span class="nav-icon" data-icon="calendar"></span><span>Google Calendar</span></a>
-      <a class="nav-link {% if ep=='workflow' %}active{% endif %}" href="{{ url_for('workflow') }}"><span class="nav-icon" data-icon="workflow"></span><span>Workflow</span></a>
-      <a class="nav-link {% if ep=='website_analytics_dashboard' %}active{% endif %}" href="{{ url_for('website_analytics_dashboard') }}"><span class="nav-icon" data-icon="chart"></span><span>Site Analytics</span></a>
-      <a class="nav-link {% if ep=='message_settings' %}active{% endif %}" href="{{ url_for('message_settings') }}"><span class="nav-icon" data-icon="message"></span><span>Messages</span></a>
-      <a class="nav-link {% if ep=='communication_automation_settings' %}active{% endif %}" href="{{ url_for('communication_automation_settings') }}"><span class="nav-icon" data-icon="workflow"></span><span>Automation</span></a>
-      <a class="nav-link {% if ep=='ai_settings_page' %}active{% endif %}" href="{{ url_for('ai_settings_page') }}"><span class="nav-icon" data-icon="message"></span><span>AI Replies</span></a>
-      <a class="nav-link {% if ep=='settings_page' %}active{% endif %}" href="{{ url_for('settings_page') }}"><span class="nav-icon" data-icon="settings"></span><span>Settings</span></a>
+      <a class="nav-link {% if ep in ['invoices','invoice_view','quotes','quote_view','calculator'] %}active{% endif %}" href="{{ url_for('invoices') }}"><span class="nav-icon" data-icon="invoice"></span><span>Money</span></a>
+      <details class="nav-more">
+        <summary>More <span aria-hidden="true">⌄</span></summary>
+        <div class="nav-more-menu">
+          <a href="{{ url_for('today_run') }}">Today Run</a>
+          <a href="{{ url_for('calculator') }}">Create a Quote</a>
+          <a href="{{ url_for('send_contact_form') }}">Send Customer Form</a>
+          <a href="{{ url_for('new_leads') }}">New Leads</a>
+          <a href="{{ url_for('workflow') }}">Workflow Board</a>
+          <a href="{{ url_for('google_calendar_dashboard') }}">Google Calendar</a>
+          <a href="{{ url_for('website_analytics_dashboard') }}">Site Analytics</a>
+          <a href="{{ url_for('message_settings') }}">Messages</a>
+          <a href="{{ url_for('communication_automation_settings') }}">Automation</a>
+          <a href="{{ url_for('ai_settings_page') }}">AI Replies</a>
+          <a href="{{ url_for('settings_page') }}">Settings</a>
+        </div>
+      </details>
     </nav>
 
     <div class="side-note side-note-tabler">
@@ -66,7 +72,7 @@
   <main class="main">
     <header class="topbar topbar-tabler page-{{ ep|replace('_','-') }}">
       <div class="topbar-left-wrap">
-        <div class="eyebrow">The Carpet Cleaning Company</div>
+        <div class="eyebrow">Private business workspace</div>
         <h2 class="page-title">{% block page_title %}Dashboard{% endblock %}</h2>
       </div>
       <div class="topbar-right-wrap">
@@ -74,25 +80,11 @@
           <input type="text" name="q" placeholder="Quick find a customer">
         </form>
         <div class="top-actions">
-          <a class="pill action-pill" href="{{ url_for('customers') }}">Customers</a>
-          <a class="pill action-pill" href="{{ url_for('booking_form') }}" target="_blank">Booking Form</a>
-          <a class="pill action-pill" href="{{ url_for('workflow') }}">Workflow</a>
-          <a class="pill action-pill" href="{{ url_for('xero_dashboard') }}">Xero</a>
+          <a class="pill action-pill" href="{{ url_for('customers') }}">Add customer</a>
+          <a class="pill action-pill" href="{{ url_for('send_contact_form') }}">New enquiry</a>
         </div>
       </div>
     </header>
-
-    {% if ep == 'dashboard' %}
-      <nav class="quick-dock website-quick-dock" aria-label="Quick actions">
-        <a href="{{ url_for('customers') }}"><span>Original messages</span><strong>Open customer</strong></a>
-        <a href="{{ url_for('intake_forms') }}"><span>New enquiry</span><strong>Intake</strong></a>
-        <a href="{{ url_for('new_leads') }}"><span>Public demand</span><strong>New Leads</strong></a>
-        <a href="{{ url_for('customers') }}"><span>Find or add</span><strong>Customer</strong></a>
-        <a href="{{ url_for('calculator') }}"><span>Price up</span><strong>Quote</strong></a>
-        <a href="{{ url_for('full_calendar') }}"><span>Plan diary</span><strong>Calendar</strong></a>
-        <a href="{{ url_for('invoices') }}"><span>Money in</span><strong>Invoices</strong></a>
-      </nav>
-    {% endif %}
 
     {% with messages = get_flashed_messages() %}
       {% if messages %}
@@ -104,20 +96,15 @@
       {% endif %}
     {% endwith %}
 
-    <div class="mobile-quick-nav">
-      <a href="{{ url_for('dashboard') }}">Overview</a>
-      <a href="{{ url_for('today_run') }}">Today Run</a>
-      <a href="{{ url_for('new_leads') }}">New Leads</a>
-      <a href="{{ url_for('customers') }}">Customers</a>
-      <a href="{{ url_for('quotes') }}">Quotes</a>
-      <a href="{{ url_for('jobs') }}">Jobs</a>
-      <a href="{{ url_for('invoices') }}">Invoices</a>
-      <a href="{{ url_for('workflow') }}">Workflow</a>
-      <a href="{{ url_for('full_calendar') }}">Calendar</a>
-    </div>
-
     {% block body_content %}{% endblock %}
   </main>
+  <nav class="mobile-bottom-nav" aria-label="Mobile navigation">
+    <a class="{% if ep=='dashboard' %}active{% endif %}" href="{{ url_for('dashboard') }}"><span>⌂</span>Today</a>
+    <a class="{% if ep in ['customers','customer_view','customer_edit'] %}active{% endif %}" href="{{ url_for('customers') }}"><span>◉</span>Customers</a>
+    <a class="mobile-add" href="{{ url_for('customers') }}"><span>+</span>Add</a>
+    <a class="{% if ep in ['jobs','job_view','jobs_new'] %}active{% endif %}" href="{{ url_for('jobs') }}"><span>▣</span>Jobs</a>
+    <a href="#mainSidebar" data-sidebar-toggle><span>•••</span>More</a>
+  </nav>
 </div>
 {% else %}
   {% with messages = get_flashed_messages() %}
