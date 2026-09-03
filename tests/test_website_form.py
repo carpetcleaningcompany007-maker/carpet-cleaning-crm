@@ -545,6 +545,24 @@ class WebsiteFormTests(unittest.TestCase):
         self.assertEqual(lead["follow_up_status"], "Test - alerts ignored")
         self.assertEqual(queued["status"], "Skipped")
 
+    def test_missing_details_can_be_manually_overridden_with_audit_note(self):
+        lead_id = self.appmod.run("""INSERT INTO intake_submissions
+            (name, phone, email, postcode, what_cleaned, status, source, follow_up_status)
+            VALUES (?,?,?,?,?,?,?,?)""",
+            ("Override Customer", "07802 563213", "override@example.com", "SY8 1AA", "Carpet cleaning", "Needs missing details", "Website form", "Request missing details"))
+        with self.app.test_client() as client:
+            with client.session_transaction() as sess:
+                sess["logged_in"] = True
+            response = client.post(f"/intake-forms/{lead_id}/quick-action", data={"action": "override_missing"})
+        self.assertEqual(response.status_code, 302)
+        lead = self.appmod.q("SELECT * FROM intake_submissions WHERE id=?", (lead_id,), one=True)
+        self.assertEqual(lead["missing_details_overridden"], 1)
+        self.assertEqual(lead["status"], "Ready for review")
+        self.assertEqual(lead["follow_up_status"], "Follow up required")
+        self.assertEqual(self.appmod.intake_missing_details(lead), [])
+        note = self.appmod.q("SELECT note_text FROM customer_timeline WHERE customer_id=? ORDER BY id DESC LIMIT 1", (lead["customer_id"],), one=True)
+        self.assertIn("manually overridden", note["note_text"])
+
     def test_test_enquiry_cannot_schedule_follow_up(self):
         lead_id = self.appmod.run("""INSERT INTO intake_submissions
             (name, phone, is_test, ignore_alerts) VALUES (?,?,1,1)""", ("Test", "07802 563213"))

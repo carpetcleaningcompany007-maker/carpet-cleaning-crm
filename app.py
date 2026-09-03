@@ -7124,6 +7124,7 @@ def init_db():
         status TEXT DEFAULT 'New',
         is_test INTEGER DEFAULT 0,
         ignore_alerts INTEGER DEFAULT 0,
+        missing_details_overridden INTEGER DEFAULT 0,
         review_notes TEXT DEFAULT '',
         customer_id INTEGER,
         job_id INTEGER,
@@ -7503,6 +7504,7 @@ def init_db():
         ("intake_submissions", "follow_up_status", "TEXT DEFAULT 'Follow up required'"),
         ("intake_submissions", "is_test", "INTEGER DEFAULT 0"),
         ("intake_submissions", "ignore_alerts", "INTEGER DEFAULT 0"),
+        ("intake_submissions", "missing_details_overridden", "INTEGER DEFAULT 0"),
         ("intake_submissions", "update_form_sent_at", "TEXT DEFAULT ''"),
         ("intake_submissions", "update_form_status", "TEXT DEFAULT ''"),
         ("intake_submissions", "gclid", "TEXT DEFAULT ''"),
@@ -8104,6 +8106,8 @@ def website_enquiry_missing_details(data, photo_filename=""):
 
 def intake_missing_details(lead):
     if not lead:
+        return []
+    if int(row_get(lead, "missing_details_overridden") or 0):
         return []
     data = {
         "name": row_get(lead, "name"),
@@ -15673,9 +15677,27 @@ def intake_form_quick_action(lead_id):
                WHERE id=?""", (lead_id,))
         flash("Test flag removed. Normal response alerts are active again.")
         return redirect(url_for("intake_form_view", lead_id=lead_id) + "#lead-action-panel")
-    if action in {"open_customer", "contacted", "waiting_customer", "quoted", "booked", "lost", "send_unable_email", "send_unable_sms"}:
+    if action in {"open_customer", "override_missing", "contacted", "waiting_customer", "quoted", "booked", "lost", "send_unable_email", "send_unable_sms"}:
         customer_id = customer_id or create_customer_from_intake(lead)
         run("UPDATE intake_submissions SET customer_id=?, updated_at=datetime('now') WHERE id=?", (customer_id, lead_id))
+    if action == "override_missing":
+        original_missing = website_enquiry_missing_details({
+            "name": row_get(lead, "name"), "phone": row_get(lead, "phone"), "email": row_get(lead, "email"),
+            "postcode": row_get(lead, "postcode"), "what_cleaned": row_get(lead, "what_cleaned"),
+            "rooms_areas": row_get(lead, "rooms_areas") or row_get(lead, "number_rooms"),
+            "address": row_get(lead, "full_address"), "parking": row_get(lead, "parking"),
+            "preferred_days_times": row_get(lead, "preferred_days_times") or row_get(lead, "preferred_date") or row_get(lead, "preferred_time"),
+            "additional_notes": row_get(lead, "additional_notes") or clean_intake_job_notes(lead) or row_get(lead, "stains"),
+        }, photo_filename=row_get(lead, "photo_filename"))
+        run("""UPDATE intake_submissions SET missing_details_overridden=1, status='Ready for review',
+               follow_up_status='Follow up required', updated_at=datetime('now') WHERE id=?""", (lead_id,))
+        run("UPDATE customers SET next_action='Contact customer, then mark result', last_updated=datetime('now') WHERE id=?", (customer_id,))
+        note = "Missing-details step manually overridden."
+        if original_missing:
+            note += " Still missing: " + ", ".join(original_missing) + "."
+        run("INSERT INTO customer_timeline(customer_id, note_text, created_at) VALUES (?,?,datetime('now'))", (customer_id, note))
+        flash("Missing-details step overridden. The enquiry has advanced to customer contact.")
+        return redirect(url_for("intake_form_view", lead_id=lead_id) + "#lead-action-panel")
     status_map = {
         "contacted": ("Contacted", "Contact attempted - waiting for customer response", "Contact attempted from intake form."),
         "waiting_customer": ("Waiting for customer", "Waiting for customer response", "Waiting for customer response after enquiry."),

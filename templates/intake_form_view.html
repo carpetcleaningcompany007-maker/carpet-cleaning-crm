@@ -85,10 +85,16 @@
       <span>Recommended now</span>
       <strong>{{ lead_next_action }}</strong>
       {% if missing_details %}
+      <div class="lead-next-choice">
       <form method="post" action="{{ url_for('intake_request_missing_details', lead_id=lead.id) }}">
         {% for detail in missing_details %}<input type="hidden" name="missing_fields" value="{{ detail }}">{% endfor %}
         <button class="btn primary" type="submit" {% if not lead.email and not lead.phone %}disabled{% endif %}>Send missing-details request →</button>
       </form>
+      <form method="post" action="{{ url_for('intake_form_quick_action', lead_id=lead.id) }}" onsubmit="return confirm('Skip the missing-details request and advance this enquiry to customer contact? The missing information will remain recorded.');">
+        <input type="hidden" name="action" value="override_missing">
+        <button class="btn lead-override-btn" type="submit">Override and move to next step</button>
+      </form>
+      </div>
       {% elif not lead.customer_id %}
       <form method="post" action="{{ url_for('intake_form_quick_action', lead_id=lead.id) }}"><input type="hidden" name="action" value="open_customer"><button class="btn primary" type="submit">Create customer record →</button></form>
       {% elif (lead.follow_up_status or '') in ['', 'Follow up required', 'Pending'] %}
@@ -101,6 +107,7 @@
       <a class="btn primary" href="{{ url_for('job_view', job_id=lead.job_id) }}">Continue to job →</a>
       {% endif %}
     </div>
+    {% if lead.missing_details_overridden %}<div class="lead-override-note"><strong>Manual override active.</strong> Missing details were deliberately skipped and remain recorded in the customer timeline.</div>{% endif %}
     <details class="lead-progress-details">
       <summary>Progress details</summary>
       <div class="lead-check-grid">
