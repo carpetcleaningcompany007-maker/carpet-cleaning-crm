@@ -8935,6 +8935,25 @@ def send_contact_form():
     )
 
 
+@app.route("/send-contact-form/review-preview")
+@login_required
+def standalone_review_email_preview():
+    customer_id = clean_str(request.args.get("customer_id"))
+    customer = q("SELECT * FROM customers WHERE id=?", (int(customer_id),), one=True) if customer_id.isdigit() else None
+    if customer:
+        latest_job = latest_customer_job(customer["id"])
+    else:
+        latest_job = None
+        preview_name = clean_str(request.args.get("name")) or "there"
+        customer = {
+            "id": None, "name": preview_name, "first_name": preview_name, "last_name": "",
+            "email": "", "phone": "", "address": "", "town": "", "postcode": "", "sms_opt_out": 0,
+        }
+    template = message_template("review_request_message")
+    body = render_simple_template(template.get("body") or "", customer_message_replacements(customer, latest_job))
+    return Response(visual_customer_email_html("review_request_message", customer, latest_job, body), mimetype="text/html")
+
+
 
 @app.route("/help")
 @login_required
@@ -9335,6 +9354,12 @@ def customer_save_booking_details(customer_id):
     except (TypeError, ValueError):
         job_duration_minutes = 120
     add_to_google_calendar = 1 if (request.form.get("add_to_google_calendar") or request.form.get("save_and_sync")) else 0
+    confirm_and_send = request.form.get("confirm_and_send") == "1"
+    confirmation_channel = clean_str(request.form.get("confirmation_channel") or "email").lower()
+    if confirmation_channel not in {"email", "sms", "both"}:
+        confirmation_channel = "email"
+    if confirm_and_send:
+        add_to_google_calendar = 1
     booking_note = clean_str(request.form.get("preferred_days_times"))
     try:
         agreed_quote_price = parse_money(request.form.get("agreed_quote_price"), 0)
@@ -9344,6 +9369,50 @@ def customer_save_booking_details(customer_id):
     if email and not is_valid_email(email):
         flash("Please enter a valid email address before saving.")
         return redirect(url_for("customer_view", customer_id=customer_id) + "#customer-stage-overview")
+    latest_job = latest_customer_job(customer_id)
+    if confirm_and_send:
+        if not preferred_date or not preferred_time:
+            flash("Nothing was booked or sent. Choose a booking date and arrival time first.")
+            return redirect(url_for("customer_view", customer_id=customer_id) + "#customer-stage-overview")
+        if confirmation_channel in {"email", "both"} and not email:
+            flash("Nothing was booked or sent. Add the customer's email address first.")
+            return redirect(url_for("customer_view", customer_id=customer_id) + "#customer-stage-overview")
+        if confirmation_channel in {"sms", "both"} and not phone:
+            flash("Nothing was booked or sent. Add the customer's mobile number first.")
+            return redirect(url_for("customer_view", customer_id=customer_id) + "#customer-stage-overview")
+        try:
+            proposed_start, proposed_end = booking_datetime_range(preferred_date, preferred_time, job_end_time, job_duration_minutes)
+        except ValueError as exc:
+            flash(f"Nothing was booked or sent. {exc}")
+            return redirect(url_for("customer_view", customer_id=customer_id) + "#customer-stage-overview")
+        local_clashes = []
+        for existing in q("""SELECT jobs.*, customers.first_name, customers.last_name FROM jobs
+                             LEFT JOIN customers ON customers.id=jobs.customer_id
+                             WHERE jobs.job_date=? AND IFNULL(jobs.status,'') NOT IN ('Archived','Cancelled')
+                               AND jobs.id<>?""", (preferred_date, int(row_value(latest_job, "id") or 0))):
+            try:
+                existing_start, existing_end = booking_datetime_range(existing["job_date"], existing["job_time"], existing["job_end_time"], existing["job_duration_minutes"] or 120)
+                if proposed_start < existing_end and proposed_end > existing_start:
+                    local_clashes.append(existing)
+            except (TypeError, ValueError):
+                continue
+        if local_clashes:
+            names = ", ".join((customer_name(item) or item["title"] or "another job") for item in local_clashes[:3])
+            flash(f"Nothing was booked or sent. That time clashes with {names}. Choose another time.")
+            return redirect(url_for("customer_view", customer_id=customer_id) + "#customer-stage-overview")
+        if not google_calendar_token_row():
+            flash("Nothing was booked or sent. Connect Google Calendar first so the diary can be checked safely.")
+            return redirect(url_for("customer_view", customer_id=customer_id) + "#customer-stage-overview")
+        try:
+            calendar_events = google_calendar_list_events(preferred_date)
+            calendar_clashes = google_calendar_conflicts(calendar_events, proposed_start, proposed_end, clean_str(row_value(latest_job, "google_calendar_event_id")))
+        except Exception as exc:
+            flash(f"Nothing was booked or sent because the calendar could not be checked: {exc}")
+            return redirect(url_for("customer_view", customer_id=customer_id) + "#customer-stage-overview")
+        if calendar_clashes:
+            names = ", ".join(clean_str(event.get("summary")) or "Busy" for event in calendar_clashes[:3])
+            flash(f"Nothing was booked or sent. Google Calendar shows a clash with {names}. Choose another time.")
+            return redirect(url_for("customer_view", customer_id=customer_id) + "#customer-stage-overview")
     run("""UPDATE customers SET first_name=?, last_name=?, phone=?, email=? WHERE id=?""", (
         first_name or clean_str(row_value(customer, "first_name")),
         last_name or clean_str(row_value(customer, "last_name")),
@@ -9351,7 +9420,6 @@ def customer_save_booking_details(customer_id):
         email,
         customer_id,
     ))
-    latest_job = latest_customer_job(customer_id)
     job_title = "Carpet cleaning"
     if latest_job:
         run("""UPDATE jobs SET job_date=?, job_time=?, job_end_time=?, job_duration_minutes=?,
@@ -9394,8 +9462,40 @@ def customer_save_booking_details(customer_id):
     refreshed_job = q("SELECT * FROM jobs WHERE id=?", (job_id,), one=True)
     should_sync = bool(add_to_google_calendar or clean_str(row_value(refreshed_job, "google_calendar_event_id")))
     if should_sync:
-        ok, sync_message = sync_job_to_google_calendar(job_id)
+        sync_result = sync_job_to_google_calendar(job_id)
+        ok, sync_message = sync_result[0], sync_result[1]
         flash(("Google Calendar updated. " if ok else "Calendar not updated: ") + sync_message)
+        if confirm_and_send and not ok:
+            flash("The confirmation was not sent. Fix the calendar problem and try again.")
+            return redirect(url_for("customer_view", customer_id=customer_id) + "#customer-stage-overview")
+    if confirm_and_send:
+        booked_job = q("""SELECT jobs.*, customers.first_name, customers.last_name, customers.phone, customers.email,
+                                  customers.address, customers.town, customers.postcode, customers.sms_opt_out
+                           FROM jobs LEFT JOIN customers ON customers.id=jobs.customer_id WHERE jobs.id=?""", (job_id,), one=True)
+        results = []
+        if confirmation_channel in {"email", "both"}:
+            subject = message_template("booking_confirmation_email").get("subject") or "Your carpet cleaning booking is confirmed"
+            text_body = booking_confirmation_text(booked_job)
+            html_body = booking_confirmation_email_html(booked_job)
+            ok, msg = send_env_email(email, subject, text_body, html_body, customer=booked_job)
+            if ok:
+                send_owner_customer_message_copy("email", email, subject, text_body, html_body=html_body, customer=booked_job, context="Booking confirmation email")
+                log_customer_message(customer_id, "Email", subject, text_body)
+            results.append(("Email", ok, msg))
+        if confirmation_channel in {"sms", "both"}:
+            sms_template = message_template("booking_confirmation_sms")
+            sms_body = render_simple_template(sms_template.get("body") or booking_confirmation_text(booked_job), template_context_for_job(booked_job))
+            ok, msg = send_clicksend_env_sms(phone, sms_body, customer=booked_job, category="booking")
+            if ok:
+                send_owner_customer_message_copy("sms", phone, "Booking confirmation", sms_body, customer=booked_job, context="Booking confirmation SMS")
+                log_customer_message(customer_id, "SMS", "Booking confirmation", sms_body)
+            results.append(("Text", ok, msg))
+        if all(ok for _, ok, _ in results):
+            set_customer_workflow(customer_id, "booking_confirmation_sent", "Job booked, calendar reserved and confirmation sent.", "Booking confirmed")
+            run("INSERT INTO customer_timeline(customer_id, note_text, created_at) VALUES (?,?,datetime('now'))", (customer_id, "Job booked, added to Google Calendar and confirmation sent by " + " and ".join(label for label, _, _ in results) + "."))
+            flash("Booking complete. The job is in the CRM and Google Calendar, and the customer confirmation was sent.")
+        else:
+            flash("The job was booked and added to the calendar, but a message failed: " + "; ".join(f"{label}: {msg}" for label, ok, msg in results if not ok))
     flash("Booking details saved. Nothing was sent to the customer.")
     redirect_values = {
         "booking_saved": "1",
@@ -14727,23 +14827,6 @@ def assistant_customer_create():
     )
 
 
-@app.route("/send-contact-form/review-preview")
-@login_required
-def standalone_review_email_preview():
-    customer_id = clean_str(request.args.get("customer_id"))
-    customer = q("SELECT * FROM customers WHERE id=?", (int(customer_id),), one=True) if customer_id.isdigit() else None
-    if customer:
-        latest_job = latest_customer_job(customer["id"])
-    else:
-        latest_job = None
-        preview_name = clean_str(request.args.get("name")) or "there"
-        customer = {
-            "id": None, "name": preview_name, "first_name": preview_name, "last_name": "",
-            "email": "", "phone": "", "address": "", "town": "", "postcode": "", "sms_opt_out": 0,
-        }
-    template = message_template("review_request_message")
-    body = render_simple_template(template.get("body") or "", customer_message_replacements(customer, latest_job))
-    return Response(visual_customer_email_html("review_request_message", customer, latest_job, body), mimetype="text/html")
     if existing_customer_id:
         return {
             "ok": True,
@@ -16035,6 +16118,9 @@ def xero_refresh_open_invoices():
 @app.route("/xero/pull-contacts", methods=["POST"])
 @login_required
 def xero_pull_contacts():
+    next_url = clean_str(request.form.get("next_url"))
+    if not next_url.startswith("/") or next_url.startswith("//"):
+        next_url = url_for("xero_dashboard")
     try:
         if not xero_is_configured():
             raise RuntimeError("Xero cannot pull customers yet. Set XERO_CLIENT_ID, XERO_CLIENT_SECRET, and XERO_REDIRECT_URI in Render, then redeploy.")
@@ -16051,7 +16137,7 @@ def xero_pull_contacts():
         logger.exception("Xero pull all contacts failed")
         log_xero_sync("customer", 0, "pull_all_contacts", "error", str(exc))
         flash(f"Xero customer pull failed: {exc}")
-    return redirect(url_for("xero_dashboard"))
+    return redirect(next_url)
 
 
 @app.route("/xero/archive-non-customer-imports", methods=["POST"])

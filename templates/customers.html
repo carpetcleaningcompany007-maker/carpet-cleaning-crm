@@ -1,12 +1,12 @@
 {% extends "layout.html" %}
-{% block page_title %}Contacts{% endblock %}
+{% block page_title %}Customers{% endblock %}
 {% block body_content %}
 <section class="contacts-workspace page-shell">
   <div class="contacts-head">
     <div>
       <span class="section-kicker">Customer library</span>
-      <h3>Contacts</h3>
-      <p>Browse, search, and open customer records without fighting the screen size.</p>
+      <h3>Your customers</h3>
+      <p>Find somebody quickly, see the essentials, and open their booking workspace.</p>
     </div>
     <div class="contacts-actions">
       <button class="btn primary" type="button" data-open-modal="customerModal">Add customer</button>
@@ -25,14 +25,6 @@
     <label class="contacts-search">
       <span>Search contacts</span>
       <input name="q" value="{{ search }}" placeholder="Name, phone, email, address, postcode, town, or tag" autocomplete="off">
-    </label>
-    <label class="contacts-first-name">
-      <span>First name</span>
-      <input name="first_name" value="{{ first_name_filter }}" placeholder="First name only" autocomplete="given-name">
-    </label>
-    <label class="contacts-last-name">
-      <span>Last name</span>
-      <input name="last_name" value="{{ last_name_filter }}" placeholder="Last name only" autocomplete="family-name">
     </label>
     <label class="contacts-scope">
       <span>View</span>
@@ -53,7 +45,7 @@
       </select>
     </label>
     <input type="hidden" name="starts" value="{{ starts }}">
-    <button class="btn secondary" type="submit">Search</button>
+    <button class="btn primary contacts-search-button" type="submit">Find customer</button>
     {% if search or first_name_filter or last_name_filter or starts or scope != 'active' or sort != 'name' %}
       <a class="btn ghost" href="{{ url_for('customers') }}">Clear</a>
     {% endif %}

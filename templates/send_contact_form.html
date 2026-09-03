@@ -32,6 +32,16 @@
         {% endfor %}
       </select>
     </label>
+    {% if is_review %}
+    <aside class="xero-refresh-card">
+      <span class="xero-refresh-icon">X</span>
+      <div><strong>Can’t find the customer?</strong><small>Bring every current customer from Xero into this list, then search again.</small></div>
+      <form method="post" action="{{ url_for('xero_pull_contacts') }}">
+        <input type="hidden" name="next_url" value="{{ url_for('send_contact_form', action_type='review') }}">
+        <button class="btn xero-refresh-btn" type="submit">Refresh customers from Xero</button>
+      </form>
+    </aside>
+    {% endif %}
     <div class="send-contact-grid">
       <label>Name <span class="optional-label">optional</span><input name="name" autocomplete="name" value="{{ form_values.name or '' }}"></label>
       <label>Email address <span class="optional-label">optional</span><input type="email" name="email" autocomplete="email" value="{{ form_values.email or '' }}"></label>

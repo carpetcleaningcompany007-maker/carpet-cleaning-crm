@@ -309,7 +309,7 @@
       </div>
       <div class="stage-current-action">
         <h4>Quote and booking basics</h4>
-        <p class="muted">Save these early if you already know them. This does not send anything to the customer.</p>
+        <p class="muted">Choose the agreed date and time. The final button checks the diary, books the job, adds it to Google Calendar, and only then sends the confirmation.</p>
         <form method="post" action="{{ url_for('customer_save_booking_details', customer_id=customer.id) }}" id="customer-booking-form">
           <input type="hidden" name="name" value="{{ send_form_values.name or (customer.first_name ~ ' ' ~ customer.last_name).strip() }}">
           <input type="hidden" name="email" value="{{ send_form_values.email or customer.email or '' }}">
@@ -344,9 +344,19 @@
           <label>Booking note
             <input name="preferred_days_times" placeholder="Notes for this booking" value="{{ send_form_values.preferred_days_times or '' }}">
           </label>
-          <div class="row-actions" style="margin-top:14px;">
-            <button class="btn primary" type="submit">Save price, date and time</button>
-            <button class="btn secondary" type="submit" name="save_and_sync" value="1">Add booking to Google Calendar</button>
+          <div class="booking-confirm-choice">
+            <label>Send confirmation by
+              <select name="confirmation_channel">
+                <option value="email">Email</option>
+                <option value="sms">Text message</option>
+                <option value="both">Email and text</option>
+              </select>
+            </label>
+            <div><strong>One safe confirmation</strong><span>No message is sent if the diary has a clash.</span></div>
+          </div>
+          <div class="row-actions booking-final-actions" style="margin-top:14px;">
+            <button class="btn primary book-and-send-btn" type="submit" name="confirm_and_send" value="1">Check diary, book job &amp; send confirmation</button>
+            <button class="btn secondary" type="submit">Save without sending</button>
           </div>
         </form>
         <div class="booking-calendar-preview" data-calendar-preview data-event-id="{{ send_form_values.google_calendar_event_id }}">
