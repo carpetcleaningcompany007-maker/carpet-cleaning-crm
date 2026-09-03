@@ -130,7 +130,9 @@
       {% endif %}
       </div>
     </details>
-    <div class="message-approval" id="customer-message-approval">
+    <details class="lead-progress-details lead-message-details" id="customer-message-approval">
+      <summary>Follow-up message waiting for approval</summary>
+    <div class="message-approval">
       <div>
         <h5>Follow-up SMS approval</h5>
         <p>The first thank-you message is sent automatically. This later call-back text only sends if you approve it.</p>
@@ -155,10 +157,16 @@
         </form>
       </div>
     </div>
+    </details>
   </section>
 
-  {% with ai_customer_id=lead.customer_id, ai_intake_id=lead.id, ai_channel_locked='' %}{% include '_ai_reply_panel.html' %}{% endwith %}
+  <details class="lead-progress-details lead-optional-section">
+    <summary>Write a different reply with AI</summary>
+    {% with ai_customer_id=lead.customer_id, ai_intake_id=lead.id, ai_channel_locked='' %}{% include '_ai_reply_panel.html' %}{% endwith %}
+  </details>
 
+  <details class="lead-progress-details lead-optional-section">
+    <summary>Customer details and Xero</summary>
   <div class="review-card-grid">
     <section class="review-card">
       <h4>What the customer sent</h4>
@@ -229,7 +237,10 @@
       </div>
     </section>
   </div>
+  </details>
 
+  <details class="lead-progress-details lead-optional-section">
+    <summary>Edit customer details</summary>
   <section class="review-card" id="edit-intake-details">
     <h4>Edit before approval</h4>
     <form method="post" action="{{ url_for('intake_form_update_details', lead_id=lead.id) }}" class="form-grid edit-form">
@@ -259,5 +270,6 @@
       </div>
     </form>
   </section>
+  </details>
 </section>
 {% endblock %}
