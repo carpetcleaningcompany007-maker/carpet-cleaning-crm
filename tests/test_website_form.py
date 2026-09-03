@@ -563,6 +563,22 @@ class WebsiteFormTests(unittest.TestCase):
         note = self.appmod.q("SELECT note_text FROM customer_timeline WHERE customer_id=? ORDER BY id DESC LIMIT 1", (lead["customer_id"],), one=True)
         self.assertIn("manually overridden", note["note_text"])
 
+    def test_sent_missing_details_request_advances_to_waiting_state(self):
+        lead_id = self.appmod.run("""INSERT INTO intake_submissions
+            (name, phone, email, postcode, what_cleaned, status, follow_up_status, update_form_sent_at)
+            VALUES (?,?,?,?,?,?,?,?)""",
+            ("Waiting Customer", "07802 563213", "waiting@example.com", "SY8 1AA", "Carpet cleaning", "Needs missing details", "Waiting for customer", "2026-09-04 09:30:00"))
+        lead = self.appmod.q("SELECT * FROM intake_submissions WHERE id=?", (lead_id,), one=True)
+        self.assertEqual(self.appmod.intake_lead_next_action(lead), "Wait for the customer to return the missing details.")
+        with self.app.test_client() as client:
+            with client.session_transaction() as sess:
+                sess["logged_in"] = True
+            response = client.get(f"/intake-forms/{lead_id}")
+        page = response.get_data(as_text=True)
+        self.assertIn("The next normal step is to wait for the customer", page)
+        self.assertIn("Continue without their reply", page)
+        self.assertIn("Resend missing-details request", page)
+
     def test_test_enquiry_cannot_schedule_follow_up(self):
         lead_id = self.appmod.run("""INSERT INTO intake_submissions
             (name, phone, is_test, ignore_alerts) VALUES (?,?,1,1)""", ("Test", "07802 563213"))

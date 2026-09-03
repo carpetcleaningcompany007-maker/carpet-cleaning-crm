@@ -84,7 +84,7 @@
     <div class="lead-primary-next">
       <span>Recommended now</span>
       <strong>{{ lead_next_action }}</strong>
-      {% if missing_details %}
+      {% if missing_details and not lead.update_form_sent_at %}
       <div class="lead-next-choice">
       <form method="post" action="{{ url_for('intake_request_missing_details', lead_id=lead.id) }}">
         {% for detail in missing_details %}<input type="hidden" name="missing_fields" value="{{ detail }}">{% endfor %}
@@ -94,6 +94,18 @@
         <input type="hidden" name="action" value="override_missing">
         <button class="btn lead-override-btn" type="submit">Override and move to next step</button>
       </form>
+      </div>
+      {% elif missing_details and lead.update_form_sent_at %}
+      <div class="lead-next-choice lead-waiting-choice">
+        <div class="lead-waiting-status"><span>Request sent</span><strong>{{ lead.update_form_sent_at }}</strong><small>The next normal step is to wait for the customer’s reply.</small></div>
+        <form method="post" action="{{ url_for('intake_form_quick_action', lead_id=lead.id) }}" onsubmit="return confirm('Continue without the missing details? The missing information will remain recorded.');">
+          <input type="hidden" name="action" value="override_missing">
+          <button class="btn lead-override-btn" type="submit">Continue without their reply</button>
+        </form>
+        <form method="post" action="{{ url_for('intake_request_missing_details', lead_id=lead.id) }}">
+          {% for detail in missing_details %}<input type="hidden" name="missing_fields" value="{{ detail }}">{% endfor %}
+          <button class="btn lead-override-btn" type="submit">Resend missing-details request</button>
+        </form>
       </div>
       {% elif not lead.customer_id %}
       <form method="post" action="{{ url_for('intake_form_quick_action', lead_id=lead.id) }}"><input type="hidden" name="action" value="open_customer"><button class="btn primary" type="submit">Create customer record →</button></form>

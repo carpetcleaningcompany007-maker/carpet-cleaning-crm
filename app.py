@@ -15637,6 +15637,8 @@ def intake_lead_next_action(lead):
         return "Test enquiry — response alerts ignored."
     missing_details = intake_missing_details(lead)
     if missing_details:
+        if row_get(lead, "update_form_sent_at"):
+            return "Wait for the customer to return the missing details."
         return "Request missing details: " + ", ".join(missing_details)
     if not row_get(lead, "customer_id"):
         return "Create or open the customer record."
