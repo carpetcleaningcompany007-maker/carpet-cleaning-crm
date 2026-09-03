@@ -90,7 +90,7 @@
           <strong>{{ lead.follow_up_status or 'Follow up required' }}</strong>
           <small>{{ message_status }}</small>
         </div>
-        <a class="dashboard-waiting-action" href="{{ url_for('intake_form_view', lead_id=lead.id) }}#lead-action-panel">Open <span aria-hidden="true">→</span></a>
+        <a class="dashboard-waiting-action" href="{{ url_for('intake_form_view', lead_id=lead.id) }}#lead-action-panel"><span>Do next</span> {{ lead.follow_up_status or 'Follow up' }} <b aria-hidden="true">→</b></a>
       </article>
     {% else %}
       <div class="enquiry-empty"><span aria-hidden="true">✦</span><h4>Everyone has been answered</h4><p>New website enquiries will appear here.</p></div>

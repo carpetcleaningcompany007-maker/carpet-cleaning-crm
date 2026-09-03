@@ -68,7 +68,10 @@
             <span class="enquiry-signal"><b>Customer message</b>Email {{ lead.customer_email_status or 'Pending' }} · SMS {{ lead.customer_sms_status or 'Pending' }}</span>
             <span class="enquiry-signal enquiry-next"><b>Next step</b>{{ follow_up }}</span>
           </div>
-          <a class="btn primary enquiry-open" href="{{ url_for('intake_form_view', lead_id=lead.id) }}#lead-action-panel">Open enquiry <span aria-hidden="true">→</span></a>
+          <div class="enquiry-card-actions">
+            <a class="btn secondary enquiry-view" href="{{ url_for('intake_form_view', lead_id=lead.id) }}">View enquiry</a>
+            <a class="btn primary enquiry-open" href="{{ url_for('intake_form_view', lead_id=lead.id) }}#lead-action-panel"><span>Do next:</span> {{ follow_up }} <span aria-hidden="true">→</span></a>
+          </div>
         </div>
       </article>
     {% else %}
