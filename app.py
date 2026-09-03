@@ -8799,8 +8799,11 @@ def send_contact_form():
         form_values["phone"] = form_values["phone"] or clean_str(selected_customer["phone"])
     form_link = booking_form_url(prefill=form_values)
     review_link = clean_str(row_value(s, "review_link")) or "https://share.google/XHQjHHLwpmlugHP0c"
+    review_email_subject = "Review request"
+    review_email_message = ""
+    review_sms_message = ""
     if action_type == "review":
-        preview_context = {
+        preview_context = customer_message_replacements(selected_customer, latest_customer_job(selected_customer["id"])) if selected_customer else {
             "{{name}}": form_values["name"] or "there",
             "{{first_name}}": form_values["name"] or "there",
             "{{business_name}}": s["business_name"] or "The Carpet Cleaning Company",
@@ -8809,7 +8812,12 @@ def send_contact_form():
             "{{website}}": enquiry_public_site_url(),
             "{{facebook}}": "https://www.facebook.com/profile.php?id=61559013150413",
         }
-        message = render_simple_template(message_template("review_request_sms").get("body"), preview_context)
+        review_email_template = message_template("review_request_message")
+        review_sms_template = message_template("review_request_sms")
+        review_email_subject = render_simple_template(review_email_template.get("subject") or "Review request", preview_context)
+        review_email_message = re.sub(r"<br\s*/?>", "\n", render_simple_template(review_email_template.get("body") or "", preview_context), flags=re.IGNORECASE)
+        review_sms_message = render_simple_template(review_sms_template.get("body") or "", preview_context)
+        message = review_sms_message
     else:
         message = send_standalone_contact_form_message(form_link, form_values["name"])
     if request.method == "POST":
@@ -8918,6 +8926,9 @@ def send_contact_form():
         sent_confirmation=request.args.get("sent") == "1",
         action_type=action_type,
         review_link=review_link,
+        review_email_subject=review_email_subject,
+        review_email_message=review_email_message,
+        review_sms_message=review_sms_message,
         review_preview_url=(url_for("customer_email_template_preview", customer_id=selected_customer["id"], template_key="review_request_message") if selected_customer else ""),
         customers=q("""SELECT id, first_name, last_name, email, phone FROM customers
                        WHERE IFNULL(archived_at,'')='' ORDER BY first_name COLLATE NOCASE, last_name COLLATE NOCASE"""),

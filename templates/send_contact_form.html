@@ -49,10 +49,30 @@
 </section>
 
 <section class="panel send-contact-preview">
-  <div class="panel-head"><h3>{{ 'Your message preview' if is_review else 'Form link' }}</h3>{% if is_review and review_preview_url %}<a class="btn secondary" href="{{ review_preview_url }}" target="_blank" rel="noopener">Preview branded email</a>{% elif not is_review %}<a class="btn secondary" href="{{ form_link }}" target="_blank" rel="noopener">Preview Form</a>{% endif %}</div>
-  {% if not is_review %}<input id="standaloneFormUrl" value="{{ form_link }}" readonly>{% endif %}
-  <textarea id="standaloneFormMessage" readonly>{{ message }}</textarea>
-  <div class="row-actions">{% if not is_review %}<button class="btn secondary" type="button" data-copy-target="standaloneFormUrl">Copy Link</button>{% endif %}<button class="btn secondary" type="button" data-copy-target="standaloneFormMessage">Copy Message</button></div>
+  <div class="panel-head"><div><div class="section-kicker">Check it before it goes</div><h3>{{ 'Preview your request' if is_review else 'Form link' }}</h3></div>{% if not is_review %}<a class="btn secondary" href="{{ form_link }}" target="_blank" rel="noopener">Preview Form</a>{% endif %}</div>
+  {% if is_review %}
+    <div class="preview-switcher" role="tablist" aria-label="Message preview options">
+      <button class="preview-option active" type="button" data-preview="email" role="tab" aria-selected="true"><span>✉</span><strong>Email preview</strong><small>See the branded version</small></button>
+      <button class="preview-option" type="button" data-preview="sms" role="tab" aria-selected="false"><span>▣</span><strong>Text preview</strong><small>See the phone message</small></button>
+      <a class="preview-option" href="{{ review_link }}" target="_blank" rel="noopener"><span>★</span><strong>Review page</strong><small>Open the Google link</small></a>
+    </div>
+    <div class="review-preview-pane active" data-preview-pane="email">
+      <div class="email-preview-card">
+        <div class="email-preview-brand"><span class="email-preview-mark">★</span><div><strong>The Carpet Cleaning Company</strong><small>A personal thank you from Paul</small></div></div>
+        <div class="email-preview-content"><small>SUBJECT</small><h4>{{ review_email_subject }}</h4><div class="preview-message-copy">{{ review_email_message }}</div><a href="{{ review_link }}" target="_blank" rel="noopener">Leave a Google review</a></div>
+      </div>
+      {% if review_preview_url %}<a class="btn preview-full-btn" href="{{ review_preview_url }}" target="_blank" rel="noopener">Open full email preview <span>↗</span></a>{% endif %}
+    </div>
+    <div class="review-preview-pane" data-preview-pane="sms">
+      <div class="phone-preview"><div class="phone-preview-top"><span></span><strong>Message</strong><span>•••</span></div><div class="phone-contact">TC</div><b>The Carpet Cleaning Company</b><div class="sms-bubble">{{ review_sms_message }}</div></div>
+      <textarea id="standaloneFormMessage" readonly>{{ review_sms_message }}</textarea>
+      <button class="btn secondary" type="button" data-copy-target="standaloneFormMessage">Copy text message</button>
+    </div>
+  {% else %}
+    <input id="standaloneFormUrl" value="{{ form_link }}" readonly>
+    <textarea id="standaloneFormMessage" readonly>{{ message }}</textarea>
+    <div class="row-actions"><button class="btn secondary" type="button" data-copy-target="standaloneFormUrl">Copy Link</button><button class="btn secondary" type="button" data-copy-target="standaloneFormMessage">Copy Message</button></div>
+  {% endif %}
 </section>
 <script>
 (() => {
@@ -74,6 +94,11 @@
     document.querySelector('[name="email"]').value = option.dataset.email || '';
     document.querySelector('[name="phone"]').value = option.dataset.phone || '';
   });
+  document.querySelectorAll('[data-preview]').forEach(button => button.addEventListener('click', () => {
+    const selected = button.dataset.preview;
+    document.querySelectorAll('.preview-option[data-preview]').forEach(item => { item.classList.toggle('active', item === button); item.setAttribute('aria-selected', item === button ? 'true' : 'false'); });
+    document.querySelectorAll('[data-preview-pane]').forEach(pane => pane.classList.toggle('active', pane.dataset.previewPane === selected));
+  }));
 })();
 </script>
 {% endblock %}
