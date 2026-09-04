@@ -86,9 +86,10 @@
   .stage-detail-main,.stage-next-box{border:1px solid #d7e3ec;background:#f8fbfd;border-radius:14px;padding:18px}
   .stage-detail-main h4,.stage-next-box h4{margin:0 0 12px;font-size:22px;color:#071524}
   .stage-check-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
-  .stage-check{display:flex;gap:10px;align-items:flex-start;border:1px solid #dce8f1;background:#fff;border-radius:10px;padding:10px}
-  .stage-check-mark{width:24px;height:24px;border-radius:999px;flex:0 0 24px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;background:#e8eef5;color:#617083}
-  .stage-check.is-done .stage-check-mark{background:#0f8f6d;color:#fff}
+  .stage-check{display:flex;gap:13px;align-items:center;border:1px solid #dce8f1;background:linear-gradient(180deg,#fff,#fbfdff);border-radius:13px;padding:13px 14px;min-height:72px;box-shadow:0 7px 20px rgba(15,35,55,.045)}
+  .stage-check-mark{width:34px;height:34px;border-radius:11px;flex:0 0 34px;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:950;background:linear-gradient(145deg,#fff4d7,#f3c969);border:1px solid #d8aa3f;color:#62460d;box-shadow:0 5px 13px rgba(177,126,22,.18)}
+  .stage-check.is-done{border-color:#b8dfd1;background:linear-gradient(180deg,#fff,#f4fbf8)}
+  .stage-check.is-done .stage-check-mark{background:linear-gradient(145deg,#18a77e,#087b5b);border-color:#087b5b;color:#fff;box-shadow:0 6px 14px rgba(15,143,109,.22)}
   .stage-check strong{display:block;font-size:15px;color:#102033}
   .stage-check span{display:block;font-size:13px;color:#617083}
   .stage-next-box .btn{width:100%;justify-content:center;font-size:18px;padding:15px}
@@ -427,8 +428,8 @@
       </div>
       <div class="stage-check-list">
         {% for item in customer_hub.stages[2]["items"] %}
-        <div class="stage-check {% if item.done %}is-done{% endif %}">
-          <span class="stage-check-mark">{% if item.done %}&#10003;{% else %}!{% endif %}</span>
+        <div class="stage-check {% if item.done %}is-done{% else %}is-pending{% endif %}">
+          <span class="stage-check-mark" aria-hidden="true">{% if item.done %}&#10003;{% else %}&#8594;{% endif %}</span>
           <span><strong>{{ item.label }}</strong><span>{{ item.text }}</span></span>
         </div>
         {% endfor %}
@@ -460,8 +461,8 @@
       </div>
       <div class="stage-check-list">
         {% for item in stage["items"] %}
-        <div class="stage-check {% if item.done %}is-done{% endif %}">
-          <span class="stage-check-mark">{% if item.done %}&#10003;{% else %}!{% endif %}</span>
+        <div class="stage-check {% if item.done %}is-done{% else %}is-pending{% endif %}">
+          <span class="stage-check-mark" aria-hidden="true">{% if item.done %}&#10003;{% else %}&#8594;{% endif %}</span>
           <span><strong>{{ item.label }}</strong><span>{{ item.text }}</span></span>
         </div>
         {% endfor %}
