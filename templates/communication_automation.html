@@ -22,6 +22,9 @@
       <br><strong>Automation secret is not set.</strong> The page can run manually while logged in, but a Render Cron Job should use an <code>AUTOMATION_SECRET</code>.
     {% endif %}
   </div>
+  <div class="notice" data-owner-automation-confirmation="enabled">
+    <strong>Owner confirmations are on.</strong> After an automatic customer message succeeds, the CRM texts your owner mobile with the customer, channel and job number.
+  </div>
 
   <form method="post" class="form automation-settings-form">
     <div class="automation-rule-grid">
