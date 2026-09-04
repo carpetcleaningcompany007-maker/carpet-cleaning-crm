@@ -21,6 +21,18 @@
         {% if customer.email %}<a class="btn secondary" href="mailto:{{ customer.email }}">Email</a>{% endif %}
         <a class="btn secondary" href="#customer-message-actions">Templates</a>
       </div>
+      <div class="customer-record-tools" aria-label="Customer record actions">
+        <div class="xero-status {% if customer.xero_contact_id %}is-synced{% elif customer.xero_contact_error %}is-failed{% endif %}">
+          <strong>{% if customer.xero_contact_id %}✓ Xero synced{% elif customer.xero_contact_error %}Xero needs attention{% else %}Not yet in Xero{% endif %}</strong>
+          <span>{% if customer.xero_contact_id %}Verified contact {{ customer.xero_contact_id }}{% if customer.xero_contact_synced_at %} · Last synced {{ customer.xero_contact_synced_at }}{% endif %}{% elif customer.xero_contact_error %}{{ friendly_xero_error(customer.xero_contact_error) }}{% else %}Use the button to safely create or match this contact.{% endif %}</span>
+        </div>
+        <form method="post" action="{{ url_for('xero_sync_contact', customer_id=customer.id) }}">
+          <input type="hidden" name="next_url" value="{{ url_for('customer_view', customer_id=customer.id) }}">
+          <button class="btn xero-action" type="submit">{% if customer.xero_contact_id %}Update in Xero{% else %}Create / match in Xero{% endif %}</button>
+        </form>
+        <a class="btn customer-export-action" href="{{ url_for('export_customer_csv', customer_id=customer.id) }}">Download customer CSV</a>
+        <small>This button checks for a safe Xero match first and stops if a possible duplicate is ambiguous.</small>
+      </div>
     </div>
   </div>
   <div class="row-actions">
@@ -33,6 +45,17 @@
 </section>
 
 <style>
+  .customer-record-tools{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:16px}
+  .customer-record-tools form{margin:0}
+  .customer-record-tools .btn{min-height:46px;border-radius:12px;font-weight:900}
+  .customer-record-tools .xero-action{background:linear-gradient(135deg,#14b8e6,#0877b8);color:#fff;border:0;box-shadow:0 10px 24px rgba(8,119,184,.24)}
+  .customer-record-tools .customer-export-action{background:#fff;color:#102744;border:1px solid #cbdfea}
+  .customer-record-tools small{flex-basis:100%;color:#617083;line-height:1.4}
+  .customer-record-tools .xero-status{flex-basis:100%;display:grid;gap:3px;border:1px solid #d7e3ec;background:#f8fbfd;border-radius:12px;padding:11px 13px;color:#102744}
+  .customer-record-tools .xero-status.is-synced{border-color:#a9dccb;background:#eefaf5;color:#0b7058}
+  .customer-record-tools .xero-status.is-failed{border-color:#efc0b4;background:#fff7f4;color:#8a1f0c}
+  .customer-record-tools .xero-status span{font-size:13px;word-break:break-word}
+  @media(max-width:720px){.customer-record-tools{display:grid;grid-template-columns:1fr}.customer-record-tools form,.customer-record-tools .btn{width:100%}.customer-record-tools small{font-size:12px}}
   .saved-template-collapse{margin-top:14px;border:1px solid #d7e0e9;border-radius:12px;background:#f8fafc;padding:12px}
   .saved-template-collapse summary{cursor:pointer;font-weight:900;color:#102033}
   .saved-template-collapse form{margin-top:12px}
@@ -390,7 +413,7 @@
       </div>
       {% if customer.xero_contact_id %}
         <div class="stage-done-banner"><span class="stage-check-mark" aria-hidden="true"></span><span>Linked to Xero</span></div>
-        <p class="stage-helper-note">Xero ContactID: {{ customer.xero_contact_id }}. If the Xero contact is missing an address, phone number, email, or other detail, press Update Xero details to send the latest CRM details again.</p>
+        <p class="stage-helper-note">Xero ContactID: {{ customer.xero_contact_id }}{% if customer.xero_contact_synced_at %}. Last successfully synced {{ customer.xero_contact_synced_at }}{% endif %}. This step is complete. If details change, press Update Xero details to send the latest CRM record again.</p>
         <div class="stage-action-row">
           <form method="post" action="{{ url_for('xero_sync_contact', customer_id=customer.id) }}">
             <input type="hidden" name="next_url" value="{{ url_for('customer_view', customer_id=customer.id) }}#customer-stage-2">

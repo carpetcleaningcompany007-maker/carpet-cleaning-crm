@@ -3210,6 +3210,53 @@ def sync_xero_contact_for_intake(lead_id):
     return contact_id
 
 
+def automatic_xero_intake_rejection_reason(lead, data):
+    """Return an objective reason an intake must remain CRM-only."""
+    spam_reason = website_enquiry_spam_reason(data)
+    if spam_reason:
+        return spam_reason
+    missing = missing_lead_fields_for_xero(lead)
+    if missing:
+        return "Missing " + ", ".join(missing) + "."
+    name = normalise_match_text(row_get(lead, "name"))
+    email = clean_str(row_get(lead, "email")).lower()
+    phone = clean_str(row_get(lead, "phone"))
+    if name in {"test", "testing", "test customer", "website customer", "unknown", "n a"}:
+        return "Known test or placeholder customer name."
+    if email.endswith(("@example.com", "@example.org", "@example.net")):
+        return "Known test email domain."
+    if email and not is_valid_email(email):
+        return "Invalid email address."
+    if phone and not is_valid_uk_phone(phone) and not email:
+        return "Invalid phone number and no valid email address."
+    return ""
+
+
+def attempt_automatic_xero_sync(lead_id, customer_id, data):
+    lead = q("SELECT * FROM intake_submissions WHERE id=?", (lead_id,), one=True)
+    rejection = automatic_xero_intake_rejection_reason(lead, data)
+    if rejection:
+        message = f"Not sent to Xero automatically: {rejection} Correct the record, then use Update in Xero."
+        run("UPDATE intake_submissions SET xero_error='', xero_sync_status=?, updated_at=datetime('now') WHERE id=?", (message, lead_id))
+        run("UPDATE customers SET xero_contact_error='' WHERE id=?", (customer_id,))
+        result = (False, message)
+    else:
+        try:
+            contact_id = sync_xero_contact_for_intake(lead_id)
+            message = f"Xero contact created or updated automatically ({contact_id})."
+            result = (True, message)
+        except Exception as exc:
+            logger.exception("Automatic Xero contact sync failed for intake %s", lead_id)
+            friendly = friendly_xero_error(exc)
+            message = f"Automatic Xero sync could not finish: {friendly} Use Update in Xero to retry."
+            run("UPDATE intake_submissions SET xero_error=?, xero_sync_status=?, updated_at=datetime('now') WHERE id=?", (friendly, message, lead_id))
+            run("UPDATE customers SET xero_contact_error=?, next_action=? WHERE id=?", (friendly, "Retry Update in Xero", customer_id))
+            log_xero_sync("customer", customer_id, "automatic_sync_contact_from_intake", "error", str(exc))
+            result = (False, message)
+    run("INSERT INTO customer_timeline(customer_id, note_text, created_at) VALUES (?,?,datetime('now'))", (customer_id, message))
+    return result
+
+
 def run_website_enquiry_automation(lead_id, customer_id, data):
     lead = q("SELECT * FROM intake_submissions WHERE id=?", (lead_id,), one=True)
     customer = q("SELECT * FROM customers WHERE id=?", (customer_id,), one=True)
@@ -3223,11 +3270,7 @@ def run_website_enquiry_automation(lead_id, customer_id, data):
     ai_draft = None
     results["ai_draft"] = (False, "Skipped: use the fixed acknowledgement only. Generate an AI draft manually if needed.")
 
-    xero_message = "Skipped: manual approval required before creating or updating a Xero contact."
-    run("""UPDATE intake_submissions SET xero_error='', xero_sync_status=?, updated_at=datetime('now') WHERE id=?""", ("Pending manual approval", lead_id))
-    run("UPDATE customers SET xero_contact_error='' WHERE id=?", (customer_id,))
-    run("INSERT INTO customer_timeline(customer_id, note_text, created_at) VALUES (?,?,datetime('now'))", (customer_id, xero_message))
-    results["xero"] = (True, xero_message)
+    results["xero"] = attempt_automatic_xero_sync(lead_id, customer_id, data)
 
     results["customer_acknowledgement"] = schedule_enquiry_acknowledgement(
         lead_id, customer_id, data, delay_minutes=5
@@ -8680,7 +8723,7 @@ def customer_hub_stage_context(customer, quotes=None, jobs=None, invoices=None, 
             "action_href": "#customer-stage-2",
             "action_label": "Upload customer to Xero",
             "items": [
-                yes_no_done("Customer details complete", name_ready and phone_ready and email_ready and address_ready and what3words_ready and service_ready, "Complete Stage 1 first"),
+                yes_no_done("Customer details complete", xero_ready or (name_ready and phone_ready and email_ready and address_ready and what3words_ready and service_ready), "Complete Stage 1 first"),
                 yes_no_done("Xero contact uploaded", xero_ready, "Not uploaded"),
             ],
             "sent": [
@@ -11818,6 +11861,19 @@ def export_customers_csv():
                 FROM customers ORDER BY id DESC""")
     data = [[r["id"], r["first_name"], r["last_name"], r["phone"], r["email"], r["address"], r["town"], r["postcode"], r["source"], r["tags"], r["notes"], r["created_at"], r["archived_at"]] for r in rows]
     return export_rows_to_csv("customers_export", ["ID", "First Name", "Last Name", "Phone", "Email", "Address", "Town", "Postcode", "Source", "Tags", "Notes", "Created At", "Archived At"], data)
+
+
+@app.route("/customers/<int:customer_id>/export.csv")
+@login_required
+def export_customer_csv(customer_id):
+    customer = q("""SELECT id, first_name, last_name, phone, email, address, town, postcode, source, tags, notes, created_at, archived_at
+                    FROM customers WHERE id=?""", (customer_id,), one=True)
+    if not customer:
+        return "Customer not found.", 404
+    headers = ["ID", "First Name", "Last Name", "Phone", "Email", "Address", "Town", "Postcode", "Source", "Tags", "Notes", "Created At", "Archived At"]
+    data = [[customer["id"], customer["first_name"], customer["last_name"], customer["phone"], customer["email"], customer["address"], customer["town"], customer["postcode"], customer["source"], customer["tags"], customer["notes"], customer["created_at"], customer["archived_at"]]]
+    safe_name = re.sub(r"[^a-zA-Z0-9]+", "_", clean_str(f"{customer['first_name']} {customer['last_name']}")).strip("_").lower() or f"customer_{customer_id}"
+    return export_rows_to_csv(f"{safe_name}_customer_export", headers, data)
 
 
 @app.route("/exports/quotes.csv")
@@ -14993,17 +15049,20 @@ def find_xero_contact_id_for_lead(lead):
     return find_xero_contact_match_for_lead(lead).get("contact_id", "")
 
 
+def find_xero_contact_match_for_customer(customer, block_possible_duplicates=True):
+    """Find a safe Xero match, stopping on ambiguous possible duplicates."""
+    return find_xero_contact_match_for_lead({
+        "xero_contact_id": row_get(customer, "xero_contact_id"),
+        "customer_id": row_get(customer, "id"),
+        "name": clean_str(f"{row_get(customer, 'first_name')} {row_get(customer, 'last_name')}"),
+        "email": row_get(customer, "email"),
+        "phone": row_get(customer, "phone"),
+        "postcode": row_get(customer, "postcode"),
+    }, block_possible_duplicates=block_possible_duplicates)
+
+
 def find_xero_contact_id_for_customer(customer):
-    if customer["xero_contact_id"]:
-        return customer["xero_contact_id"]
-    if customer["email"]:
-        email = clean_str(customer["email"]).replace('"', '\\"')
-        where = urllib.parse.quote(f'EmailAddress=="{email}"')
-        result = xero_api_request(f"{XERO_CONTACTS_URL}?where={where}")
-        contacts = result.get("Contacts") or []
-        if contacts:
-            return contacts[0].get("ContactID", "")
-    return ""
+    return find_xero_contact_match_for_customer(customer).get("contact_id", "")
 
 
 def xero_contact_phone(contact):
@@ -15218,7 +15277,7 @@ def missing_lead_fields_for_xero(lead):
     return missing
 
 
-def ensure_xero_contact_for_customer(customer_id):
+def ensure_xero_contact_for_customer(customer_id, return_outcome=False):
     backfill_customer_from_latest_intake(customer_id)
     customer = q("SELECT * FROM customers WHERE id=?", (customer_id,), one=True)
     if not customer:
@@ -15226,7 +15285,8 @@ def ensure_xero_contact_for_customer(customer_id):
     missing = missing_customer_fields_for_xero(customer)
     if missing:
         raise RuntimeError("Xero upload stopped. Missing: " + ", ".join(missing) + ". Add these details before uploading to Xero.")
-    contact_id = find_xero_contact_id_for_customer(customer)
+    match = find_xero_contact_match_for_customer(customer, block_possible_duplicates=True)
+    contact_id = match.get("contact_id", "")
     if contact_id:
         payload = xero_contact_payload_from_customer(customer)
         payload["Contacts"][0]["ContactID"] = contact_id
@@ -15238,7 +15298,8 @@ def ensure_xero_contact_for_customer(customer_id):
         )
         run("""UPDATE customers SET xero_contact_id=?, xero_contact_synced_at=datetime('now'), xero_contact_error='' WHERE id=?""", (contact_id, customer_id))
         log_xero_sync("customer", customer_id, "update_contact", "ok", "Updated existing Xero contact", result)
-        return contact_id
+        outcome = {"contact_id": contact_id, "action": "updated", "match_reason": match.get("reason", "")}
+        return outcome if return_outcome else contact_id
     result = xero_api_request(
         XERO_CONTACTS_URL,
         method="POST",
@@ -15251,7 +15312,8 @@ def ensure_xero_contact_for_customer(customer_id):
         raise RuntimeError("Xero did not return a ContactID.")
     run("""UPDATE customers SET xero_contact_id=?, xero_contact_synced_at=datetime('now'), xero_contact_error='' WHERE id=?""", (contact_id, customer_id))
     log_xero_sync("customer", customer_id, "create_contact", "ok", "Created or updated Xero contact", result)
-    return contact_id
+    outcome = {"contact_id": contact_id, "action": "created", "match_reason": match.get("reason", "")}
+    return outcome if return_outcome else contact_id
 
 
 def xero_line_items_for_invoice(invoice, calc):
@@ -15453,6 +15515,14 @@ def customer_contact_form_submit():
         return ("", 204)
     data = request.get_json(silent=True) if request.is_json else request.form
     data = data or {}
+    if clean_str(request_value(data, "company_website", "website_url", "fax_number")):
+        return {"ok": True, "ignored": "honeypot"}
+    spam_reason = website_enquiry_spam_reason(data)
+    if spam_reason:
+        if request.is_json or request.path.startswith("/api/"):
+            return {"ok": False, "error": "The enquiry could not be accepted."}, 400
+        flash("The enquiry could not be accepted. Please remove unrelated links and try again.")
+        return redirect(url_for("booking_form"))
     try:
         lead_id, customer_id = create_intake_from_website_payload(
             data,
@@ -15476,6 +15546,7 @@ def customer_contact_form_submit():
         customer_id,
         "Customer completed the sent details form. Check before Xero.",
     ))
+    attempt_automatic_xero_sync(lead_id, customer_id, data)
     alert_results = send_contact_form_owner_alerts(lead_id, customer_id)
     customer = q("SELECT * FROM customers WHERE id=?", (customer_id,), one=True)
     lead = q("SELECT * FROM intake_submissions WHERE id=?", (lead_id,), one=True)
@@ -15566,6 +15637,14 @@ def website_form_submit():
         )
     data = request.get_json(silent=True) if request.is_json else request.form
     data = data or {}
+    if clean_str(request_value(data, "company_website", "website_url", "fax_number")):
+        return {"ok": True, "ignored": "honeypot"}
+    spam_reason = website_enquiry_spam_reason(data)
+    if spam_reason:
+        if request.is_json or request.path.startswith("/api/"):
+            return {"ok": False, "error": "The enquiry could not be accepted."}, 400
+        flash("The enquiry could not be accepted. Please remove unrelated links and try again.")
+        return redirect(url_for("booking_form"))
     try:
         photo_filename = save_uploads("photos") or save_upload("photo")
         lead_id, customer_id = create_intake_from_website_payload(
@@ -16709,9 +16788,13 @@ def xero_test():
 @login_required
 def xero_sync_contact(customer_id):
     try:
-        contact_id = ensure_xero_contact_for_customer(customer_id)
+        outcome = ensure_xero_contact_for_customer(customer_id, return_outcome=True)
+        contact_id = outcome["contact_id"]
         set_customer_workflow(customer_id, "xero_synced", f"Xero contact details sent to Xero: {contact_id}", "Xero contact updated")
-        flash(f"Customer details sent to Xero ContactID {contact_id}.")
+        if outcome["action"] == "updated":
+            flash("Xero updated successfully. The existing matching contact was used, so no duplicate was created.")
+        else:
+            flash("Xero contact created successfully. No existing matching contact was found.")
     except Exception as exc:
         logger.exception("Xero customer sync failed for customer %s", customer_id)
         run("UPDATE customers SET xero_contact_error=? WHERE id=?", (str(exc), customer_id))

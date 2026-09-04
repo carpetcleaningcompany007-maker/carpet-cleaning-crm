@@ -226,7 +226,7 @@
       </div>
       {% if lead.xero_contact_id %}
         <div class="notice">
-          Xero contact saved: {{ lead.xero_contact_id }}
+          Xero contact saved: {{ lead.xero_contact_id }}{% if lead.xero_sent_at %} · Successfully synced {{ lead.xero_sent_at }}{% endif %}. This step is complete.
           <div style="margin-top:10px">
             <a class="btn secondary" href="{{ xero_contact_web_url(lead.xero_contact_id) }}" target="_blank" rel="noopener">Open in Xero</a>
           </div>

@@ -229,15 +229,15 @@ class WebsiteFormTests(unittest.TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertIn("valid UK phone number", response.get_json()["error"])
 
-    def test_website_form_does_not_upload_to_xero_automatically(self):
+    def test_incomplete_website_form_does_not_upload_to_xero_automatically(self):
         with mock.patch.object(self.appmod, "xero_api_request", side_effect=AssertionError("Xero should not be called")):
             response = self.post_form(phone="07802 563213")
 
         self.assertEqual(response.status_code, 200)
         body = response.get_json()
         lead = self.appmod.q("SELECT * FROM intake_submissions WHERE id=?", (body["lead_id"],), one=True)
-        self.assertEqual(lead["xero_sync_status"], "Pending manual approval")
-        self.assertIn("manual approval required", body["automation"]["xero"]["message"])
+        self.assertIn("Missing address", lead["xero_sync_status"])
+        self.assertIn("Update in Xero", body["automation"]["xero"]["message"])
 
     def test_complete_website_form_marks_enquiry_ready_for_review(self):
         response = self.post_form(

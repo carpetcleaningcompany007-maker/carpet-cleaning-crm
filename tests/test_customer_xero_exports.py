@@ -1,0 +1,99 @@
+import csv
+import importlib
+import io
+import os
+import tempfile
+import unittest
+from unittest import mock
+
+
+class CustomerXeroExportTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".db")
+        self.tmp.close()
+        os.environ["CRM_DB_PATH"] = self.tmp.name
+        os.environ["DISABLE_CRM_BACKGROUND_AUTOMATION"] = "1"
+        import app
+        self.mod = importlib.reload(app)
+        self.app = self.mod.app
+        self.app.config.update(TESTING=True, SESSION_COOKIE_SECURE=False)
+        self.ctx = self.app.app_context()
+        self.ctx.push()
+        self.mod.init_db()
+        self.client = self.app.test_client()
+        with self.client.session_transaction() as state:
+            state["logged_in"] = True
+            state["csrf_token"] = "test-csrf"
+        self.first_id = self.mod.run("""INSERT INTO customers(first_name,last_name,phone,email,address,town,postcode,source,notes)
+                                       VALUES (?,?,?,?,?,?,?,?,?)""", ("Alice", "Jones", "07802563213", "alice@real.test", "1 High Street", "Ludlow", "SY8 1AA", "Website", "Private note"))
+        self.second_id = self.mod.run("""INSERT INTO customers(first_name,last_name,email,address,postcode)
+                                        VALUES (?,?,?,?,?)""", ("Bob", "Smith", "bob@real.test", "2 Broad Street", "SY8 2BB"))
+
+    def tearDown(self):
+        self.ctx.pop()
+        try:
+            os.unlink(self.tmp.name)
+        except OSError:
+            pass
+
+    def test_individual_export_contains_only_selected_customer(self):
+        response = self.client.get(f"/customers/{self.first_id}/export.csv")
+        self.assertEqual(response.status_code, 200)
+        rows = list(csv.reader(io.StringIO(response.get_data(as_text=True))))
+        self.assertEqual(len(rows), 2)
+        self.assertIn("Alice", rows[1])
+        self.assertNotIn("Bob", response.get_data(as_text=True))
+        self.assertIn("attachment", response.headers["Content-Disposition"])
+
+    def test_bulk_export_contains_all_customers(self):
+        response = self.client.get("/exports/customers.csv")
+        self.assertEqual(response.status_code, 200)
+        body = response.get_data(as_text=True)
+        self.assertIn("Alice", body)
+        self.assertIn("Bob", body)
+
+    def test_manual_xero_action_is_post_only_and_reports_safe_match(self):
+        self.assertEqual(self.client.get(f"/xero/sync-contact/{self.first_id}").status_code, 405)
+        with mock.patch.object(self.mod, "ensure_xero_contact_for_customer", return_value={
+            "contact_id": "xero-123", "action": "updated", "match_reason": "exact email"
+        }) as sync:
+            response = self.client.post(f"/xero/sync-contact/{self.first_id}", data={"_csrf_token": "test-csrf"}, follow_redirects=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("no duplicate was created", response.get_data(as_text=True))
+        sync.assert_called_once_with(self.first_id, return_outcome=True)
+
+    def test_verified_xero_link_is_shown_as_completed_with_reference_and_time(self):
+        self.mod.run("UPDATE customers SET xero_contact_id=?, xero_contact_synced_at=? WHERE id=?", ("xero-safe-reference", "2026-09-04 10:30:00", self.first_id))
+        response = self.client.get(f"/customers/{self.first_id}")
+        body = response.get_data(as_text=True)
+        self.assertIn("Xero synced", body)
+        self.assertIn("xero-safe-reference", body)
+        self.assertIn("Last synced 2026-09-04 10:30:00", body)
+        self.assertIn("This step is complete", body)
+
+    def test_complete_genuine_intake_syncs_but_incomplete_and_test_data_do_not(self):
+        genuine = {"name": "Alice Jones", "email": "alice@real.test", "phone": "07802563213", "address": "1 High Street", "postcode": "SY8 1AA"}
+        lead_id, customer_id = self.mod.create_intake_from_website_payload(genuine, require_valid_phone=True)
+        with mock.patch.object(self.mod, "sync_xero_contact_for_intake", return_value="xero-new") as sync:
+            result = self.mod.attempt_automatic_xero_sync(lead_id, customer_id, genuine)
+        self.assertTrue(result[0])
+        sync.assert_called_once_with(lead_id)
+
+        incomplete = {"name": "Real Person", "email": "person@real.test", "postcode": "SY8 1AA"}
+        lead_id, customer_id = self.mod.create_intake_from_website_payload(incomplete)
+        with mock.patch.object(self.mod, "sync_xero_contact_for_intake") as sync:
+            result = self.mod.attempt_automatic_xero_sync(lead_id, customer_id, incomplete)
+        self.assertFalse(result[0])
+        self.assertIn("Missing address", result[1])
+        sync.assert_not_called()
+
+        test_data = {"name": "Test Customer", "email": "person@example.com", "address": "1 High Street", "postcode": "SY8 1AA"}
+        lead_id, customer_id = self.mod.create_intake_from_website_payload(test_data)
+        with mock.patch.object(self.mod, "sync_xero_contact_for_intake") as sync:
+            result = self.mod.attempt_automatic_xero_sync(lead_id, customer_id, test_data)
+        self.assertFalse(result[0])
+        sync.assert_not_called()
+
+
+if __name__ == "__main__":
+    unittest.main()
