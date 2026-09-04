@@ -750,7 +750,8 @@ openCustomerToolsForHash();
       <summary><span class="customer-stage-number">1</span><div><strong>Customer and contact</strong><small class="customer-stage-missing"></small></div><em class="customer-stage-status">Checking</em></summary>
       <div class="customer-stage-body">
         <p>Who the customer is and the best way to reach them.</p>
-        <div class="cols"><label>First name<input name="first_name" value="{{ customer.first_name }}" placeholder="First name" required></label><label>Last name<input name="last_name" value="{{ customer.last_name }}" placeholder="Last name" required></label></div>
+        <div class="cols"><label>First name<input name="first_name" value="{{ customer.first_name }}" placeholder="First name" required></label><label>Last name<input name="last_name" value="{{ customer.last_name }}" placeholder="Last name (optional)"></label></div>
+        <label>Business or company<input name="company" value="{{ customer.company or '' }}" placeholder="Business or company"></label>
         <div class="cols"><label>Phone<input name="phone" value="{{ customer.phone or '' }}" placeholder="Phone"></label><label>Email<input type="email" name="email" value="{{ customer.email or '' }}" placeholder="Email"></label></div>
         <div class="customer-stage-actions"><button type="button" class="btn primary customer-stage-next">Save progress &amp; next</button></div>
       </div>
@@ -760,7 +761,8 @@ openCustomerToolsForHash();
       <div class="customer-stage-body">
         <p>Where the work takes place. A complete address also makes Xero and scheduling cleaner.</p>
         <label>Address<input name="address" value="{{ customer.address or '' }}" placeholder="Address"></label>
-        <div class="cols"><label>Town<input name="town" value="{{ customer.town or '' }}" placeholder="Town"></label><label>Postcode<input name="postcode" value="{{ customer.postcode or '' }}" placeholder="Postcode"></label></div>
+        <div class="cols"><label>Town<input name="town" value="{{ customer.town or '' }}" placeholder="Town"></label><label>County<input name="county" value="{{ customer.county or '' }}" placeholder="County"></label></div>
+        <label>Postcode<input name="postcode" value="{{ customer.postcode or '' }}" placeholder="Postcode"></label>
         <div class="customer-stage-actions"><button type="button" class="btn secondary customer-stage-back">Back</button><button type="button" class="btn primary customer-stage-next">Save progress &amp; next</button></div>
       </div>
     </details>

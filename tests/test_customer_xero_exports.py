@@ -225,6 +225,38 @@ class CustomerXeroExportTests(unittest.TestCase):
                 self.mod.ensure_xero_contact_for_customer(placeholder_id)
         request_mock.assert_not_called()
 
+    def test_company_county_and_blank_surname_map_exactly_to_xero(self):
+        customer_id = self.mod.run(
+            """INSERT INTO customers(first_name,last_name,company,address,town,county,postcode)
+               VALUES (?,?,?,?,?,?,?)""",
+            ("Sue", "", "The Cedars", "Abbey Foregate", "Shrewsbury", "Shropshire", "SY2 6BY"),
+        )
+        customer = self.mod.q("SELECT * FROM customers WHERE id=?", (customer_id,), one=True)
+        contact = self.mod.xero_contact_payload_from_customer(customer)["Contacts"][0]
+        self.assertEqual(contact["Name"], "The Cedars")
+        self.assertEqual(contact["FirstName"], "Sue")
+        self.assertEqual(contact["LastName"], "")
+        self.assertEqual(contact["Phones"], [])
+        self.assertNotIn("EmailAddress", contact)
+        address = contact["Addresses"][0]
+        self.assertEqual(address["AddressLine1"], "Abbey Foregate")
+        self.assertEqual(address["City"], "Shrewsbury")
+        self.assertEqual(address["Region"], "Shropshire")
+        self.assertEqual(address["PostalCode"], "SY2 6BY")
+
+    def test_authenticated_explicit_address_identity_can_sync_without_phone_or_email(self):
+        customer_id = self.mod.run(
+            """INSERT INTO customers(first_name,last_name,company,address,town,county,postcode)
+               VALUES (?,?,?,?,?,?,?)""",
+            ("Sue", "", "The Cedars", "Abbey Foregate", "Shrewsbury", "Shropshire", "SY2 6BY"),
+        )
+        with mock.patch.object(self.mod, "find_xero_contact_match_for_customer", return_value={"contact_id": "", "reason": "none"}), \
+             mock.patch.object(self.mod, "xero_api_request", return_value={"Contacts": [{"ContactID": "xero-sue"}]}):
+            outcome = self.mod.ensure_xero_contact_for_customer(
+                customer_id, return_outcome=True, allow_incomplete=True, allow_no_contact=True
+            )
+        self.assertEqual(outcome["contact_id"], "xero-sue")
+
     def test_operator_can_explicitly_continue_without_address_and_action_is_audited(self):
         self.mod.run("UPDATE customers SET address='', postcode='' WHERE id=?", (self.first_id,))
         with mock.patch.object(self.mod, "find_xero_contact_match_for_customer", return_value={"contact": None, "reason": "No exact match found"}), \

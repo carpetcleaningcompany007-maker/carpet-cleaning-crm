@@ -137,10 +137,12 @@
       <button class="btn secondary" type="button" data-close-modal="customerModal">Close</button>
     </div>
     <form method="post" action="{{ url_for('customers_new') }}" class="form modal-form">
-      <div class="cols"><input name="first_name" placeholder="First name" required><input name="last_name" placeholder="Last name" required></div>
+      <div class="cols"><input name="first_name" placeholder="First name" required><input name="last_name" placeholder="Last name (optional)"></div>
+      <input name="company" placeholder="Business or company (optional)">
       <div class="cols"><input name="phone" placeholder="Phone"><input name="email" placeholder="Email"></div>
       <input name="address" placeholder="Address">
-      <div class="cols"><input name="town" placeholder="Town"><input name="postcode" placeholder="Postcode"></div>
+      <div class="cols"><input name="town" placeholder="Town"><input name="county" placeholder="County"></div>
+      <input name="postcode" placeholder="Postcode">
       <div class="cols"><input name="source" placeholder="Lead source"><input name="tags" placeholder="Tags"></div>
       <textarea name="notes" placeholder="Notes"></textarea>
       <div class="modal-actions"><button class="btn primary">Save customer</button></div>

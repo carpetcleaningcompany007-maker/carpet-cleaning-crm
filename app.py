@@ -7091,6 +7091,8 @@ def init_db():
         address TEXT,
         town TEXT,
         postcode TEXT,
+        company TEXT DEFAULT '',
+        county TEXT DEFAULT '',
         source TEXT,
         tags TEXT,
         notes TEXT,
@@ -7725,6 +7727,8 @@ def init_db():
         ("customers", "xero_contact_id", "TEXT DEFAULT ''"),
         ("customers", "xero_contact_synced_at", "TEXT DEFAULT ''"),
         ("customers", "xero_contact_error", "TEXT DEFAULT ''"),
+        ("customers", "company", "TEXT DEFAULT ''"),
+        ("customers", "county", "TEXT DEFAULT ''"),
         ("customers", "workflow_status", "TEXT DEFAULT 'new_enquiry'"),
         ("customers", "next_action", "TEXT DEFAULT 'Send booking form'"),
         ("customers", "workflow_notes", "TEXT DEFAULT ''"),
@@ -9799,8 +9803,8 @@ def customers_new():
     last_name = clean_str(request.form.get("last_name"))
     phone = clean_str(request.form.get("phone"))
     email = clean_str(request.form.get("email"))
-    if not first_name or not last_name:
-        flash("First name and last name are required.")
+    if not first_name:
+        flash("First name is required.")
         return redirect(url_for("customers"))
     if email and not is_valid_email(email):
         flash("Please enter a valid email address.")
@@ -9809,11 +9813,12 @@ def customers_new():
     if existing_customer_id:
         flash("That customer already seems to exist, so no duplicate was created.")
         return redirect(url_for("customer_view", customer_id=existing_customer_id))
-    customer_id = run("""INSERT INTO customers(first_name,last_name,phone,email,address,town,postcode,source,tags,notes)
-           VALUES (?,?,?,?,?,?,?,?,?,?)""", (
+    customer_id = run("""INSERT INTO customers(first_name,last_name,phone,email,address,town,postcode,company,county,source,tags,notes)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""", (
         first_name, last_name, phone,
         email, clean_str(request.form.get("address")), clean_str(request.form.get("town")),
-        clean_str(request.form.get("postcode")), clean_str(request.form.get("source")), clean_str(request.form.get("tags")),
+        clean_str(request.form.get("postcode")), clean_str(request.form.get("company")), clean_str(request.form.get("county")),
+        clean_str(request.form.get("source")), clean_str(request.form.get("tags")),
         clean_str(request.form.get("notes"))
     ))
     flash("Customer added.")
@@ -10429,8 +10434,8 @@ def customer_edit(customer_id):
     first_name = clean_str(request.form.get("first_name"))
     last_name = clean_str(request.form.get("last_name"))
     email = clean_str(request.form.get("email"))
-    if not first_name or not last_name:
-        flash("First name and last name are required.")
+    if not first_name:
+        flash("First name is required.")
         return redirect(url_for("customer_view", customer_id=customer_id) + details_anchor)
     if email and not is_valid_email(email):
         flash("Please enter a valid email address.")
@@ -10439,10 +10444,11 @@ def customer_edit(customer_id):
     if existing_customer_id and existing_customer_id != customer_id:
         flash("Another customer already matches those details, so the update was stopped to avoid duplicates.")
         return redirect(url_for("customer_view", customer_id=customer_id) + details_anchor)
-    run("""UPDATE customers SET first_name=?, last_name=?, phone=?, email=?, address=?, town=?, postcode=?, source=?, tags=?, notes=? WHERE id=?""", (
+    run("""UPDATE customers SET first_name=?, last_name=?, phone=?, email=?, address=?, town=?, postcode=?, company=?, county=?, source=?, tags=?, notes=? WHERE id=?""", (
         first_name, last_name, clean_str(request.form.get("phone")),
         email, clean_str(request.form.get("address")), clean_str(request.form.get("town")),
-        clean_str(request.form.get("postcode")), clean_str(request.form.get("source")), clean_str(request.form.get("tags")),
+        clean_str(request.form.get("postcode")), clean_str(request.form.get("company")), clean_str(request.form.get("county")),
+        clean_str(request.form.get("source")), clean_str(request.form.get("tags")),
         clean_str(request.form.get("notes")), customer_id
     ))
     flash("Customer updated.")
@@ -14956,10 +14962,11 @@ def create_customer_from_intake(lead):
     return customer_id
 
 
-def xero_contact_addresses(address_line, city="", postcode="", what3words=""):
+def xero_contact_addresses(address_line, city="", postcode="", what3words="", region=""):
     address_line = clean_str(address_line)
     city = clean_str(city)
     postcode = clean_str(postcode)
+    region = clean_str(region)
     what3words = clean_str(what3words)
     if not (address_line or city or postcode or what3words):
         return []
@@ -14968,6 +14975,7 @@ def xero_contact_addresses(address_line, city="", postcode="", what3words=""):
         "AddressLine1": address_lines[0] if address_lines else "",
         "City": city,
         "PostalCode": postcode,
+        "Region": region,
     }
     for index, line in enumerate(address_lines[1:4], start=2):
         base[f"AddressLine{index}"] = line
@@ -15008,15 +15016,17 @@ def xero_contact_payload_from_lead(lead):
 
 
 def xero_contact_payload_from_customer(customer):
-    full_name = xero_customer_name_from_record(customer)
-    first_name, last_name = split_customer_name(full_name)
+    personal_name = xero_customer_name_from_record(customer)
+    company = genuine_xero_customer_name(row_get(customer, "company"))
+    display_name = company or personal_name
+    first_name, last_name = split_customer_name(personal_name)
     contact = {
-        "Name": full_name,
+        "Name": display_name,
         "FirstName": first_name,
         "LastName": last_name,
         "ContactNumber": f"CRM-{customer['id']}",
         "Phones": [{"PhoneType": "MOBILE", "PhoneNumber": clean_str(customer["phone"])}] if customer["phone"] else [],
-        "Addresses": xero_contact_addresses(customer["address"], customer["town"], customer["postcode"], ""),
+        "Addresses": xero_contact_addresses(customer["address"], customer["town"], customer["postcode"], "", row_get(customer, "county")),
     }
     if customer["email"]:
         contact["EmailAddress"] = clean_str(customer["email"])
@@ -15383,7 +15393,7 @@ def missing_lead_fields_for_xero(lead):
     return missing
 
 
-def ensure_xero_contact_for_customer(customer_id, return_outcome=False, allow_incomplete=False):
+def ensure_xero_contact_for_customer(customer_id, return_outcome=False, allow_incomplete=False, allow_no_contact=False):
     backfill_customer_from_latest_intake(customer_id)
     customer = q("SELECT * FROM customers WHERE id=?", (customer_id,), one=True)
     if not customer:
@@ -15392,6 +15402,8 @@ def ensure_xero_contact_for_customer(customer_id, return_outcome=False, allow_in
     bypassed_missing = [field for field in missing if field not in {"name", "phone or email"}] if allow_incomplete else []
     if allow_incomplete:
         missing = [field for field in missing if field in {"name", "phone or email"}]
+    if allow_no_contact and clean_str(row_get(customer, "address")) and clean_str(row_get(customer, "postcode")):
+        missing = [field for field in missing if field != "phone or email"]
     if missing:
         raise RuntimeError("Xero upload stopped. Missing: " + ", ".join(missing) + ". Add these details before uploading to Xero.")
     payload = xero_contact_payload_from_customer(customer)
@@ -16901,7 +16913,11 @@ def xero_test():
 def xero_sync_contact(customer_id):
     try:
         allow_incomplete = clean_str(request.form.get("allow_incomplete")) == "1"
-        outcome = ensure_xero_contact_for_customer(customer_id, return_outcome=True, allow_incomplete=allow_incomplete)
+        allow_no_contact = request.form.get("allow_no_contact") == "1"
+        sync_kwargs = {"return_outcome": True, "allow_incomplete": allow_incomplete}
+        if allow_no_contact:
+            sync_kwargs["allow_no_contact"] = True
+        outcome = ensure_xero_contact_for_customer(customer_id, **sync_kwargs)
         contact_id = outcome["contact_id"]
         set_customer_workflow(customer_id, "xero_synced", f"Xero contact details sent to Xero: {contact_id}", "Xero contact updated")
         if outcome.get("bypassed_missing"):
