@@ -2,6 +2,9 @@
 {% block page_title %}Customer Record{% endblock %}
 {% block body_content %}
 {% set is_archived = customer.archived_at is defined and customer.archived_at %}
+{% set xero_identity_ready = customer.first_name and customer.last_name and (customer.phone or customer.email) %}
+{% set xero_decision_needed = xero_identity_ready and (not customer.address or not customer.postcode) %}
+{% set xero_missing_summary = (([] if customer.address else ['address']) + ([] if customer.postcode else ['postcode']))|join(', ') %}
 <section class="customer-hero">
   <div class="customer-identity-shell">
     <div class="avatar">{{ (customer.first_name or '?')[:1] }}{{ (customer.last_name or '')[:1] }}</div>
@@ -26,12 +29,13 @@
   <div class="customer-record-tools" aria-label="Customer record actions">
     <div class="xero-status {% if customer.xero_contact_id %}is-synced{% elif customer.xero_contact_error %}is-failed{% endif %}">
       <strong>{% if customer.xero_contact_id %}✓ Xero synced{% elif customer.xero_contact_error %}Xero needs attention{% else %}Not yet in Xero{% endif %}</strong>
-      <span>{% if customer.xero_contact_id %}Verified contact {{ customer.xero_contact_id }}{% if customer.xero_contact_synced_at %} · Last synced {{ customer.xero_contact_synced_at }}{% endif %}{% elif customer.xero_contact_error %}{{ friendly_xero_error(customer.xero_contact_error) }}{% else %}Use the button to safely create or match this contact.{% endif %}</span>
+      <span>{% if customer.xero_contact_id %}Verified contact {{ customer.xero_contact_id }}{% if customer.xero_contact_synced_at %} · Last synced {{ customer.xero_contact_synced_at }}{% endif %}{% elif customer.xero_contact_error %}{{ friendly_xero_error(customer.xero_contact_error) }}{% elif xero_decision_needed %}Needs your confirmation — missing {{ xero_missing_summary }}. You can update the record or continue with the safe details available.{% elif not xero_identity_ready %}Add the customer’s full name and a phone number or email before Xero can continue.{% else %}Use the button to safely create or match this contact.{% endif %}</span>
     </div>
     <div class="customer-record-action-grid">
-      <form method="post" action="{{ url_for('xero_sync_contact', customer_id=customer.id) }}">
+      <form method="post" action="{{ url_for('xero_sync_contact', customer_id=customer.id) }}" {% if xero_decision_needed %}onsubmit="return confirm('Missing {{ xero_missing_summary }}. Continue to Xero anyway with the available customer details?');"{% endif %}>
         <input type="hidden" name="next_url" value="{{ url_for('customer_view', customer_id=customer.id) }}">
-        <button class="btn xero-action" type="submit">{% if customer.xero_contact_id %}Update in Xero{% else %}Create / match in Xero{% endif %}</button>
+        {% if xero_decision_needed %}<input type="hidden" name="allow_incomplete" value="1">{% endif %}
+        <button class="btn xero-action" type="submit" {% if not xero_identity_ready %}disabled{% endif %}>{% if customer.xero_contact_id %}Update in Xero{% elif xero_decision_needed %}Continue to Xero anyway{% else %}Create / match in Xero{% endif %}</button>
       </form>
       <a class="btn customer-export-action" href="{{ url_for('export_customer_csv', customer_id=customer.id) }}">Download customer CSV</a>
     </div>
@@ -437,8 +441,18 @@
           </form>
           <a class="btn secondary" href="{{ xero_contact_web_url(customer.xero_contact_id) }}" target="_blank" rel="noopener">Open in Xero</a>
         </div>
-      {% elif not (customer.first_name and customer.last_name and customer.address and customer.postcode and (customer.phone or customer.email)) %}
-        <p class="muted">Add the customer's name, address, postcode, and a phone number or email before uploading to Xero.</p>
+      {% elif not xero_identity_ready %}
+        <p class="muted">Add the customer's full name and a phone number or email before uploading to Xero.</p>
+      {% elif xero_decision_needed %}
+        <div class="missing-warning"><strong>Needs your confirmation</strong><p>Missing {{ xero_missing_summary }}. Update the customer record, or explicitly continue with the safe details available.</p></div>
+        <div class="approval-actions">
+          <a class="btn secondary" href="#customer-details">Go back and update details</a>
+          <form method="post" action="{{ url_for('xero_sync_contact', customer_id=customer.id) }}" onsubmit="return confirm('Missing {{ xero_missing_summary }}. Continue to Xero anyway?');">
+            <input type="hidden" name="next_url" value="{{ url_for('customer_view', customer_id=customer.id) }}#customer-stage-2">
+            <input type="hidden" name="allow_incomplete" value="1">
+            <button class="btn primary" type="submit">Continue to Xero anyway</button>
+          </form>
+        </div>
       {% else %}
         <form method="post" action="{{ url_for('xero_sync_contact', customer_id=customer.id) }}">
           <input type="hidden" name="next_url" value="{{ url_for('customer_view', customer_id=customer.id) }}#customer-stage-2">

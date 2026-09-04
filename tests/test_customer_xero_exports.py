@@ -60,7 +60,7 @@ class CustomerXeroExportTests(unittest.TestCase):
             response = self.client.post(f"/xero/sync-contact/{self.first_id}", data={"_csrf_token": "test-csrf"}, follow_redirects=True)
         self.assertEqual(response.status_code, 200)
         self.assertIn("no duplicate was created", response.get_data(as_text=True))
-        sync.assert_called_once_with(self.first_id, return_outcome=True)
+        sync.assert_called_once_with(self.first_id, return_outcome=True, allow_incomplete=False)
 
     def test_verified_xero_link_is_shown_as_completed_with_reference_and_time(self):
         self.mod.run("UPDATE customers SET xero_contact_id=?, xero_contact_synced_at=? WHERE id=?", ("xero-safe-reference", "2026-09-04 10:30:00", self.first_id))
@@ -84,7 +84,8 @@ class CustomerXeroExportTests(unittest.TestCase):
         with mock.patch.object(self.mod, "sync_xero_contact_for_intake") as sync:
             result = self.mod.attempt_automatic_xero_sync(lead_id, customer_id, incomplete)
         self.assertFalse(result[0])
-        self.assertIn("Missing address", result[1])
+        self.assertIn("missing address", result[1])
+        self.assertIn("Needs your confirmation", result[1])
         sync.assert_not_called()
 
         test_data = {"name": "Test Customer", "email": "person@example.com", "address": "1 High Street", "postcode": "SY8 1AA"}
@@ -93,6 +94,35 @@ class CustomerXeroExportTests(unittest.TestCase):
             result = self.mod.attempt_automatic_xero_sync(lead_id, customer_id, test_data)
         self.assertFalse(result[0])
         sync.assert_not_called()
+
+    def test_operator_can_explicitly_continue_without_address_and_action_is_audited(self):
+        self.mod.run("UPDATE customers SET address='', postcode='' WHERE id=?", (self.first_id,))
+        with mock.patch.object(self.mod, "find_xero_contact_match_for_customer", return_value={"contact": None, "reason": "No exact match found"}), \
+             mock.patch.object(self.mod, "xero_api_request", return_value={"Contacts": [{"ContactID": "xero-partial-safe"}]}):
+            outcome = self.mod.ensure_xero_contact_for_customer(self.first_id, return_outcome=True, allow_incomplete=True)
+        self.assertEqual(outcome["contact_id"], "xero-partial-safe")
+        self.assertEqual(outcome["bypassed_missing"], ["address", "postcode"])
+        audit = self.mod.q("SELECT message FROM xero_sync_log WHERE local_id=? ORDER BY id DESC", (self.first_id,), one=True)
+        self.assertIn("operator explicitly continued with missing fields: address, postcode", audit["message"])
+
+    def test_continue_anyway_never_bypasses_identity_or_contact_requirement(self):
+        unsafe_id = self.mod.run("INSERT INTO customers(first_name,last_name,address,postcode) VALUES (?,?,?,?)", ("", "", "1 High Street", "SY8 1AA"))
+        with self.assertRaisesRegex(RuntimeError, "name, phone or email"):
+            self.mod.ensure_xero_contact_for_customer(unsafe_id, allow_incomplete=True)
+
+    def test_manual_continue_flag_is_forwarded_and_visible_in_timeline(self):
+        with mock.patch.object(self.mod, "ensure_xero_contact_for_customer", return_value={
+            "contact_id": "xero-confirmed", "action": "created", "match_reason": "No exact match found", "bypassed_missing": ["address"]
+        }) as sync:
+            response = self.client.post(
+                f"/xero/sync-contact/{self.first_id}",
+                data={"_csrf_token": "test-csrf", "allow_incomplete": "1"},
+                follow_redirects=True,
+            )
+        self.assertEqual(response.status_code, 200)
+        sync.assert_called_once_with(self.first_id, return_outcome=True, allow_incomplete=True)
+        note = self.mod.q("SELECT note_text FROM customer_timeline WHERE customer_id=? ORDER BY id DESC", (self.first_id,), one=True)
+        self.assertIn("explicit confirmation", note["note_text"])
 
 
 if __name__ == "__main__":

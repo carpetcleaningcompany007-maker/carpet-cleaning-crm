@@ -2,6 +2,9 @@
 {% block title %}Review Customer Details{% endblock %}
 {% block page_title %}Review Customer Details{% endblock %}
 {% block body_content %}
+{% set xero_identity_ready = lead.name and (lead.phone or lead.email) %}
+{% set xero_decision_needed = xero_identity_ready and (not lead.full_address or not lead.postcode) %}
+{% set xero_missing_summary = (([] if lead.full_address else ['address']) + ([] if lead.postcode else ['postcode']))|join(', ') %}
 <style>
   .review-shell{display:grid;gap:20px;max-width:1260px;margin:0 auto}
   .review-hero{background:linear-gradient(135deg,#081a30 0%,#123a61 100%);border:1px solid rgba(239,198,90,.28);border-radius:22px;padding:28px;display:flex;justify-content:space-between;gap:22px;align-items:flex-start;box-shadow:0 20px 48px rgba(8,26,48,.18)}
@@ -120,7 +123,7 @@
       {% elif (lead.follow_up_status or '') in ['', 'Follow up required', 'Pending'] %}
         {% if lead.phone %}<a class="btn primary" href="tel:{{ lead.phone|replace(' ', '') }}">Call {{ lead.name or 'customer' }} now →</a>{% elif lead.email %}<a class="btn primary" href="mailto:{{ lead.email }}">Email {{ lead.name or 'customer' }} now →</a>{% endif %}
       {% elif not lead.xero_contact_id %}
-      <form method="post" action="{{ url_for('xero_create_contact', lead_id=lead.id) }}"><button class="btn primary" type="submit">Approve and update Xero →</button></form>
+      <form method="post" action="{{ url_for('xero_create_contact', lead_id=lead.id) }}" {% if xero_decision_needed %}onsubmit="return confirm('Missing {{ xero_missing_summary }}. Continue to Xero anyway with the available customer details?');"{% endif %}>{% if xero_decision_needed %}<input type="hidden" name="allow_incomplete" value="1">{% endif %}<button class="btn primary" type="submit" {% if not xero_identity_ready %}disabled{% endif %}>{% if xero_decision_needed %}Continue to Xero anyway →{% else %}Approve and update Xero →{% endif %}</button></form>
       {% elif not lead.job_id %}
       <form method="post" action="{{ url_for('intake_create_job', lead_id=lead.id) }}"><button class="btn primary" type="submit">Create booked job →</button></form>
       {% else %}
@@ -169,6 +172,11 @@
         <div><strong>Customer SMS / Text</strong>{{ lead.customer_sms_status or 'Pending Paul approval' }}</div>
         <div><strong>Follow-up SMS / Text</strong>{{ prepared_follow_up_status }}</div>
       </div>
+      {% if not lead.xero_contact_id and xero_decision_needed %}
+        <div class="missing-warning"><strong>Xero needs your confirmation</strong>Missing {{ xero_missing_summary }}. Go back and update the customer details, or explicitly continue with the safe information already supplied.<div class="approval-actions"><a class="btn secondary" href="#edit-intake-details" onclick="document.getElementById('edit-intake-details').closest('details').open=true">Go back and update details</a></div></div>
+      {% elif not lead.xero_contact_id and not xero_identity_ready %}
+        <div class="notice danger-notice">Xero is blocked until the customer has a real name and at least one usable phone number or email address.</div>
+      {% endif %}
       <div class="message-preview">
         <strong>Follow-up SMS / Text preview</strong>
         <pre>{{ prepared_follow_up_sms }}</pre>
@@ -255,8 +263,9 @@
         </div>
       {% endif %}
       <div class="approval-actions">
-        <form method="post" action="{{ url_for('xero_create_contact', lead_id=lead.id) }}">
-          <button class="btn primary" type="submit">{% if lead.xero_contact_id %}Update Xero contact again{% else %}Approve and update Xero{% endif %}</button>
+        <form method="post" action="{{ url_for('xero_create_contact', lead_id=lead.id) }}" {% if xero_decision_needed %}onsubmit="return confirm('Missing {{ xero_missing_summary }}. Continue to Xero anyway with the available customer details?');"{% endif %}>
+          {% if xero_decision_needed %}<input type="hidden" name="allow_incomplete" value="1">{% endif %}
+          <button class="btn primary" type="submit" {% if not lead.xero_contact_id and not xero_identity_ready %}disabled{% endif %}>{% if lead.xero_contact_id %}Update Xero contact again{% elif xero_decision_needed %}Continue to Xero anyway{% else %}Approve and update Xero{% endif %}</button>
         </form>
         <form method="post" action="{{ url_for('intake_create_customer', lead_id=lead.id) }}"><button class="btn secondary" type="submit">Open customer record</button></form>
         <form method="post" action="{{ url_for('intake_create_job', lead_id=lead.id) }}"><button class="btn secondary" type="submit">Create job</button></form>

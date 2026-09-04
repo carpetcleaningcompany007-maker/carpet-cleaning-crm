@@ -3169,13 +3169,16 @@ def send_contact_form_owner_alerts(lead_id, customer_id=None):
     return results
 
 
-def sync_xero_contact_for_intake(lead_id):
+def sync_xero_contact_for_intake(lead_id, allow_incomplete=False):
     lead = q("SELECT * FROM intake_submissions WHERE id=?", (lead_id,), one=True)
     if not lead:
         raise RuntimeError("Intake form not found.")
     customer_id = lead["customer_id"] or create_customer_from_intake(lead)
     lead = q("SELECT * FROM intake_submissions WHERE id=?", (lead_id,), one=True)
     missing = missing_lead_fields_for_xero(lead)
+    bypassed_missing = [field for field in missing if field not in {"name", "phone or email"}] if allow_incomplete else []
+    if allow_incomplete:
+        missing = [field for field in missing if field in {"name", "phone or email"}]
     if missing:
         raise RuntimeError("Xero upload stopped. Missing: " + ", ".join(missing) + ". Add these details before uploading to Xero.")
 
@@ -3204,9 +3207,10 @@ def sync_xero_contact_for_intake(lead_id):
                SET xero_contact_id=?, xero_contact_synced_at=datetime('now'),
                    xero_contact_error='', next_action='Create quote or booking from approved details'
                WHERE id=?""", (contact_id, customer_id))
+        decision_note = f" Operator explicitly continued with missing fields: {', '.join(bypassed_missing)}." if bypassed_missing else ""
         run("INSERT INTO customer_timeline(customer_id, note_text, created_at) VALUES (?,?,datetime('now'))",
-            (customer_id, "Xero contact created or updated from approved customer details form."))
-    log_xero_sync("customer", customer_id or 0, "sync_contact_from_intake", "ok", f"Xero contact ready: {contact_id}. {match.get('reason', '')}", result)
+            (customer_id, "Xero contact created or updated from approved customer details form." + decision_note))
+    log_xero_sync("customer", customer_id or 0, "sync_contact_from_intake", "ok", f"Xero contact ready: {contact_id}. {match.get('reason', '')}" + (f" Operator explicitly continued with missing fields: {', '.join(bypassed_missing)}." if bypassed_missing else ""), result)
     return contact_id
 
 
@@ -3215,9 +3219,6 @@ def automatic_xero_intake_rejection_reason(lead, data):
     spam_reason = website_enquiry_spam_reason(data)
     if spam_reason:
         return spam_reason
-    missing = missing_lead_fields_for_xero(lead)
-    if missing:
-        return "Missing " + ", ".join(missing) + "."
     name = normalise_match_text(row_get(lead, "name"))
     email = clean_str(row_get(lead, "email")).lower()
     phone = clean_str(row_get(lead, "phone"))
@@ -3229,6 +3230,11 @@ def automatic_xero_intake_rejection_reason(lead, data):
         return "Invalid email address."
     if phone and not is_valid_uk_phone(phone) and not email:
         return "Invalid phone number and no valid email address."
+    missing = missing_lead_fields_for_xero(lead)
+    if missing:
+        if all(field in {"address", "postcode"} for field in missing):
+            return "Needs your confirmation — missing " + ", ".join(missing) + "."
+        return "Blocked — missing " + ", ".join(missing) + "."
     return ""
 
 
@@ -3236,7 +3242,10 @@ def attempt_automatic_xero_sync(lead_id, customer_id, data):
     lead = q("SELECT * FROM intake_submissions WHERE id=?", (lead_id,), one=True)
     rejection = automatic_xero_intake_rejection_reason(lead, data)
     if rejection:
-        message = f"Not sent to Xero automatically: {rejection} Correct the record, then use Update in Xero."
+        if rejection.startswith("Needs your confirmation"):
+            message = f"{rejection} Xero was not updated automatically. Update the record or explicitly choose Continue to Xero anyway."
+        else:
+            message = f"Not sent to Xero: {rejection} Correct the record before retrying Xero."
         run("UPDATE intake_submissions SET xero_error='', xero_sync_status=?, updated_at=datetime('now') WHERE id=?", (message, lead_id))
         run("UPDATE customers SET xero_contact_error='' WHERE id=?", (customer_id,))
         result = (False, message)
@@ -15277,12 +15286,15 @@ def missing_lead_fields_for_xero(lead):
     return missing
 
 
-def ensure_xero_contact_for_customer(customer_id, return_outcome=False):
+def ensure_xero_contact_for_customer(customer_id, return_outcome=False, allow_incomplete=False):
     backfill_customer_from_latest_intake(customer_id)
     customer = q("SELECT * FROM customers WHERE id=?", (customer_id,), one=True)
     if not customer:
         raise RuntimeError("Customer not found.")
     missing = missing_customer_fields_for_xero(customer)
+    bypassed_missing = [field for field in missing if field not in {"name", "phone or email"}] if allow_incomplete else []
+    if allow_incomplete:
+        missing = [field for field in missing if field in {"name", "phone or email"}]
     if missing:
         raise RuntimeError("Xero upload stopped. Missing: " + ", ".join(missing) + ". Add these details before uploading to Xero.")
     match = find_xero_contact_match_for_customer(customer, block_possible_duplicates=True)
@@ -15297,8 +15309,8 @@ def ensure_xero_contact_for_customer(customer_id, return_outcome=False):
             idempotency_key=f"crm-contact-update-{customer_id}-{contact_id}-{uuid.uuid4().hex}",
         )
         run("""UPDATE customers SET xero_contact_id=?, xero_contact_synced_at=datetime('now'), xero_contact_error='' WHERE id=?""", (contact_id, customer_id))
-        log_xero_sync("customer", customer_id, "update_contact", "ok", "Updated existing Xero contact", result)
-        outcome = {"contact_id": contact_id, "action": "updated", "match_reason": match.get("reason", "")}
+        log_xero_sync("customer", customer_id, "update_contact", "ok", "Updated existing Xero contact" + (f"; operator explicitly continued with missing fields: {', '.join(bypassed_missing)}" if bypassed_missing else ""), result)
+        outcome = {"contact_id": contact_id, "action": "updated", "match_reason": match.get("reason", ""), "bypassed_missing": bypassed_missing}
         return outcome if return_outcome else contact_id
     result = xero_api_request(
         XERO_CONTACTS_URL,
@@ -15311,8 +15323,8 @@ def ensure_xero_contact_for_customer(customer_id, return_outcome=False):
     if not contact_id:
         raise RuntimeError("Xero did not return a ContactID.")
     run("""UPDATE customers SET xero_contact_id=?, xero_contact_synced_at=datetime('now'), xero_contact_error='' WHERE id=?""", (contact_id, customer_id))
-    log_xero_sync("customer", customer_id, "create_contact", "ok", "Created or updated Xero contact", result)
-    outcome = {"contact_id": contact_id, "action": "created", "match_reason": match.get("reason", "")}
+    log_xero_sync("customer", customer_id, "create_contact", "ok", "Created or updated Xero contact" + (f"; operator explicitly continued with missing fields: {', '.join(bypassed_missing)}" if bypassed_missing else ""), result)
+    outcome = {"contact_id": contact_id, "action": "created", "match_reason": match.get("reason", ""), "bypassed_missing": bypassed_missing}
     return outcome if return_outcome else contact_id
 
 
@@ -16760,6 +16772,9 @@ def xero_callback():
         flash("Xero connected.")
         pending_lead_id = session.pop("pending_xero_intake_lead_id", None)
         if pending_lead_id:
+            allow_incomplete = session.pop("pending_xero_allow_incomplete", False)
+            if allow_incomplete:
+                session["approved_xero_incomplete_lead_id"] = int(pending_lead_id)
             return redirect(url_for("xero_create_contact", lead_id=pending_lead_id))
     except Exception as exc:
         logger.exception("Xero callback failed")
@@ -16788,9 +16803,13 @@ def xero_test():
 @login_required
 def xero_sync_contact(customer_id):
     try:
-        outcome = ensure_xero_contact_for_customer(customer_id, return_outcome=True)
+        allow_incomplete = clean_str(request.form.get("allow_incomplete")) == "1"
+        outcome = ensure_xero_contact_for_customer(customer_id, return_outcome=True, allow_incomplete=allow_incomplete)
         contact_id = outcome["contact_id"]
         set_customer_workflow(customer_id, "xero_synced", f"Xero contact details sent to Xero: {contact_id}", "Xero contact updated")
+        if outcome.get("bypassed_missing"):
+            missing_text = ", ".join(outcome["bypassed_missing"])
+            run("INSERT INTO customer_timeline(customer_id, note_text, created_at) VALUES (?,?,datetime('now'))", (customer_id, f"Xero sync completed after explicit confirmation to continue with missing fields: {missing_text}."))
         if outcome["action"] == "updated":
             flash("Xero updated successfully. The existing matching contact was used, so no duplicate was created.")
         else:
@@ -16957,17 +16976,23 @@ def xero_create_contact(lead_id):
         flash("Intake form not found.")
         return redirect(url_for("intake_forms"))
     try:
+        approved_after_oauth = session.pop("approved_xero_incomplete_lead_id", None)
+        allow_incomplete = (
+            (request.method == "POST" and clean_str(request.form.get("allow_incomplete")) == "1")
+            or approved_after_oauth == lead_id
+        )
         if not xero_is_configured():
             raise RuntimeError("Xero is not configured. Set XERO_CLIENT_ID and XERO_CLIENT_SECRET in Render first.")
         token = xero_token_row()
         if not token or not token["refresh_token"]:
             session["pending_xero_intake_lead_id"] = lead_id
+            session["pending_xero_allow_incomplete"] = allow_incomplete
             run("""UPDATE intake_submissions
                    SET xero_error='', xero_sync_status='Waiting for Xero connection', updated_at=datetime('now')
                    WHERE id=?""", (lead_id,))
             flash("Connect Xero once. This customer will be sent automatically after Xero authorises.")
             return redirect(url_for("xero_connect"))
-        contact_id = sync_xero_contact_for_intake(lead_id)
+        contact_id = sync_xero_contact_for_intake(lead_id, allow_incomplete=allow_incomplete)
         flash(f"Customer details approved and sent to Xero ContactID {contact_id}.")
     except Exception as exc:
         logger.exception("Xero contact creation failed for intake %s", lead_id)
