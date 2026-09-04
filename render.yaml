@@ -27,6 +27,8 @@ services:
         sync: false
       - key: CLICKSEND_WEBHOOK_SECRET
         sync: false
+      - key: MFA_BOOTSTRAP_TOKEN
+        sync: false
       - key: CUSTOMER_UPDATE_LINK_DAYS
         value: "30"
       - key: CRM_ASSISTANT_API_TOKEN

@@ -1,0 +1,24 @@
+{% extends "layout.html" %}
+{% block title %}Two-step verification{% endblock %}
+{% block public_content %}
+<div class="login-wrap website-login-wrap">
+  <section class="login-hero-panel">
+    <div class="login-copy">
+      <img class="login-site-logo" src="{{ url_for('static', filename='site/logo.webp') }}" alt="The Carpet Cleaning Company">
+      <span class="auth-kicker">Private business workspace</span>
+      <h1>Your account has an extra layer of protection.</h1>
+      <p>Two-step verification keeps customer and business information private, even if a password is ever compromised.</p>
+    </div>
+    <form method="post" class="login-card simple-login-card">
+      <div class="auth-card-mark">Step 2 of 2</div>
+      <span class="section-kicker">Two-step verification</span>
+      <h2>Confirm it’s really you</h2>
+      <p>Open your authenticator app and enter the current six-digit code. An unused recovery code also works.</p>
+      {% if error %}<div class="notice">{{ error }}</div>{% endif %}
+      <label><span>Authenticator or recovery code</span><input class="auth-code-input" name="code" inputmode="numeric" autocomplete="one-time-code" placeholder="000 000" autofocus required></label>
+      <button class="btn primary big-action" type="submit">Verify and Sign In</button>
+      <p class="auth-reassurance"><span aria-hidden="true">◆</span> This private check expires after five minutes</p>
+    </form>
+  </section>
+</div>
+{% endblock %}

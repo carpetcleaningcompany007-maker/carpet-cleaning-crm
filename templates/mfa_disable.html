@@ -1,0 +1,14 @@
+{% extends "layout.html" %}
+{% block title %}Disable two-step verification{% endblock %}
+{% block page_title %}Disable two-step verification{% endblock %}
+{% block body_content %}
+<section class="panel page-shell" style="max-width:720px;margin:auto">
+  <div class="panel-head"><div><span class="section-kicker">Security confirmation</span><h3>Disable or reset two-step verification</h3><p>This requires both your current password and a valid second factor.</p></div></div>
+  {% if error %}<div class="notice">{{ error }}</div>{% endif %}
+  <form method="post" class="form-grid">
+    <label>Current password<input type="password" name="current_password" autocomplete="current-password" required></label>
+    <label>Authenticator or recovery code<input name="code" autocomplete="one-time-code" required></label>
+    <button class="btn primary" type="submit">Disable and Sign Out</button>
+  </form>
+</section>
+{% endblock %}

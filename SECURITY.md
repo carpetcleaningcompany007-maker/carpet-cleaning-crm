@@ -14,12 +14,21 @@ Set these as private environment variables in Render. Never commit their values:
 - `TWILIO_AUTH_TOKEN`: Twilio's real auth token. When present, inbound and status callbacks must have a valid `X-Twilio-Signature`.
 - `CLICKSEND_WEBHOOK_SECRET`: optional shared secret for a gateway/proxy that can add `X-Webhook-Secret`. ClickSend accounts that cannot add this header should restrict callbacks at a trusted proxy instead.
 - `CRM_ASSISTANT_API_TOKEN`: a separate high-entropy bearer token for the assistant customer-intake API.
+- `MFA_BOOTSTRAP_TOKEN`: a separate password-manager-generated emergency value used only from an authorised Render Shell if the administrator loses both the authenticator and every recovery code.
 
 `CUSTOMER_UPDATE_LINK_DAYS` controls customer update-link lifetime and defaults to 30 days.
 
 ## Credential rotation
 
 After replacing the factory login, rotate Gmail app passwords, SMS API credentials, Xero and Google Calendar connections, and assistant/automation tokens. Reconnect Xero and Google Calendar through the CRM after revocation.
+
+## Authenticator app and genuine lockout recovery
+
+While signed in, open `/security/two-step`, scan the QR code, confirm one current code, then download the one-time recovery codes. The QR/setup key is shown only while enrollment is incomplete. Recovery codes are stored only as password hashes.
+
+Normal disable/reset requires the current CRM password plus a valid authenticator or recovery code. If the phone and all recovery codes are genuinely lost, an authorised Render administrator may open a private Render Shell and run `flask --app app mfa-emergency-disable --confirm DISABLE-MFA`. The command asks privately for `MFA_BOOTSTRAP_TOKEN`, records the emergency reset in the security audit table, and never prints the token. Sign in and re-enrol immediately.
+
+Because the authenticator secret is encrypted using `CRM_SECRET_KEY`, disable MFA before intentionally rotating that key. If an unplanned key loss makes MFA unreadable, use the audited Render recovery command.
 
 ## Residual storage risk
 

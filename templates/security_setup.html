@@ -6,6 +6,7 @@
   <div class="panel-head"><div><span class="section-kicker">Account protection</span><h3>Replace the CRM login</h3><p>Use a unique username and a password you do not use anywhere else.</p></div></div>
   {% if using_factory_login %}<div class="notice"><strong>Urgent:</strong> the factory admin login is still active. Replace it now.</div>{% endif %}
   {% if error %}<div class="notice">{{ error }}</div>{% endif %}
+  <div class="notice" style="margin-bottom:18px"><strong>Two-step verification:</strong> protect the CRM with an authenticator app after replacing the factory login. <a href="{{ url_for('mfa_setup') }}">Open two-step setup</a>.</div>
   <form method="post" class="form-grid">
     <label>Current password<input type="password" name="current_password" autocomplete="current-password" required></label>
     <label>New username<input name="new_username" autocomplete="username" minlength="4" required></label>

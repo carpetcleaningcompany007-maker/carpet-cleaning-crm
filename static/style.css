@@ -18,6 +18,80 @@
   --radius: 18px;
 }
 
+/* Premium authentication journey */
+body:has(.website-login-wrap){overflow-x:hidden}
+.login-wrap.website-login-wrap{
+  position:relative!important;
+  isolation:isolate;
+  padding:clamp(20px,4vw,56px)!important;
+  background:
+    linear-gradient(112deg,rgba(4,18,34,.97) 0%,rgba(7,34,54,.91) 48%,rgba(8,39,45,.78) 100%),
+    url('/static/site/hero-carpet-cleaning.webp') center/cover no-repeat!important;
+}
+.login-wrap.website-login-wrap::before{
+  content:"";position:absolute;z-index:-1;width:520px;height:520px;border-radius:50%;
+  right:-180px;top:-210px;background:radial-gradient(circle,rgba(230,191,103,.28),transparent 68%);
+}
+.login-wrap.website-login-wrap::after{
+  content:"";position:absolute;z-index:-1;inset:0;opacity:.16;
+  background-image:linear-gradient(rgba(255,255,255,.08) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.08) 1px,transparent 1px);
+  background-size:64px 64px;mask-image:linear-gradient(90deg,#000,transparent 78%);
+}
+.login-hero-panel{
+  width:min(1220px,100%)!important;gap:0!important;overflow:hidden;
+  grid-template-columns:minmax(0,1.2fr) minmax(380px,.8fr)!important;
+  border:1px solid rgba(255,255,255,.18);border-radius:28px!important;
+  box-shadow:0 40px 110px rgba(0,0,0,.42),0 1px 0 rgba(255,255,255,.14) inset;
+}
+.login-copy{
+  min-height:650px;display:flex;flex-direction:column;justify-content:center;
+  padding:clamp(42px,6vw,76px)!important;border:0!important;border-radius:0!important;
+  background:linear-gradient(145deg,rgba(6,25,44,.86),rgba(9,58,62,.70))!important;
+  box-shadow:none!important;
+}
+.login-site-logo{width:92px!important;height:92px!important;margin-bottom:30px;border:2px solid #e6bf67!important;box-shadow:0 16px 40px rgba(0,0,0,.28)!important}
+.auth-kicker{display:inline-flex;align-items:center;gap:10px;width:max-content;margin-bottom:18px;color:#f2d58e;font-size:13px;font-weight:900;letter-spacing:.16em;text-transform:uppercase}
+.auth-kicker::before{content:"";width:28px;height:2px;background:#e6bf67}
+.login-copy h1{max-width:720px;margin:0 0 24px!important;font-family:Georgia,"Times New Roman",serif!important;font-size:clamp(46px,5vw,72px)!important;line-height:.98!important;letter-spacing:-.035em!important;text-wrap:balance}
+.login-copy p{max-width:620px;margin:0 0 34px!important;color:#dce9ee!important;font-size:19px!important;line-height:1.65!important}
+.login-feature-row{display:flex!important;flex-wrap:wrap;gap:10px!important}
+.login-feature-row span{padding:9px 13px!important;border:1px solid rgba(255,255,255,.19)!important;border-radius:999px!important;background:rgba(255,255,255,.08)!important;color:#f5fafb!important;font-size:13px!important;letter-spacing:.02em}
+.login-card.simple-login-card{
+  width:100%!important;min-height:650px;display:flex;flex-direction:column;justify-content:center;
+  padding:clamp(38px,5vw,62px)!important;border:0!important;border-radius:0!important;
+  background:linear-gradient(180deg,#fff 0%,#fbfaf6 100%)!important;box-shadow:none!important;
+}
+.auth-card-mark{width:max-content;margin-bottom:26px;padding:8px 12px;border:1px solid #e7d19d;border-radius:999px;background:#fff8e8;color:#765511;font-size:12px;font-weight:900;letter-spacing:.12em;text-transform:uppercase}
+.login-card .section-kicker{color:#0d765e!important;font-size:12px!important;letter-spacing:.16em!important}
+.login-card h2{margin:8px 0 12px!important;color:#0b1f35!important;font-family:Georgia,"Times New Roman",serif!important;font-size:clamp(34px,3vw,45px)!important;line-height:1.05!important;letter-spacing:-.025em!important}
+.login-card p{margin:0 0 26px!important;color:#5b6b7c!important;font-size:16px!important;line-height:1.55!important}
+.login-card label{display:grid;gap:9px;margin:0 0 17px;color:#25384d;font-size:14px;font-weight:850}
+.login-card input{height:58px!important;margin:0!important;padding:0 17px!important;border:1.5px solid #cad8e5!important;border-radius:12px!important;background:#fff!important;box-shadow:0 4px 14px rgba(16,40,65,.04)!important}
+.login-card input:hover{border-color:#9db4c9!important}
+.login-card input:focus-visible{outline:3px solid rgba(213,169,71,.34)!important;outline-offset:2px!important;border-color:#b18424!important;box-shadow:0 0 0 1px #b18424!important}
+.login-card .big-action{width:100%;min-height:58px!important;margin-top:5px;border-radius:12px!important;background:linear-gradient(135deg,#d4a83f,#a87918)!important;color:#071727!important;box-shadow:0 14px 30px rgba(153,107,16,.24)!important;transition:transform .18s ease,box-shadow .18s ease!important}
+.login-card .big-action:hover{transform:translateY(-1px);box-shadow:0 18px 34px rgba(153,107,16,.30)!important}
+.auth-reassurance{display:flex;align-items:center;justify-content:center;gap:8px;margin:22px 0 0!important;color:#708091!important;font-size:12px!important;text-align:center}
+.auth-reassurance span{color:#b18424;font-size:9px}
+.auth-code-input{text-align:center;font-size:26px!important;font-weight:900;letter-spacing:.22em;font-variant-numeric:tabular-nums}
+
+@media(max-width:820px){
+  body:has(.website-login-wrap){background:#071a2d!important}
+  .login-wrap.website-login-wrap{min-height:100svh!important;padding:14px!important;place-items:start center!important}
+  .login-hero-panel{grid-template-columns:1fr!important;border-radius:22px!important}
+  .login-copy{min-height:auto;padding:28px 24px 30px!important}
+  .login-site-logo{width:68px!important;height:68px!important;margin-bottom:19px!important}
+  .login-copy h1{font-size:36px!important;line-height:1.02!important;margin-bottom:15px!important}
+  .login-copy p{font-size:15px!important;line-height:1.5!important;margin-bottom:18px!important}
+  .login-feature-row{display:none!important}
+  .auth-kicker{margin-bottom:12px;font-size:10px}
+  .login-card.simple-login-card{min-height:auto;padding:30px 24px 32px!important}
+  .auth-card-mark{margin-bottom:18px}
+  .login-card h2{font-size:33px!important}
+  .login-card p{font-size:14px!important;margin-bottom:20px!important}
+  .login-card input{height:56px!important}
+}
+
 .lead-command {
   display: flex;
   align-items: center;
@@ -5807,6 +5881,22 @@ input[type=submit],
   width: 100% !important;
   padding: 22px !important;
   color: #fff !important;
+}
+
+/* Keep the authentication art direction authoritative over legacy page skins. */
+body .login-wrap.website-login-wrap{padding:clamp(20px,4vw,56px)!important;background:linear-gradient(112deg,rgba(4,18,34,.97) 0%,rgba(7,34,54,.91) 48%,rgba(8,39,45,.78) 100%),url('/static/site/hero-carpet-cleaning.webp') center/cover no-repeat!important}
+body .login-hero-panel{grid-template-columns:minmax(0,1.2fr) minmax(380px,.8fr)!important;gap:0!important;border-radius:28px!important}
+body .login-copy{min-height:650px;padding:clamp(42px,6vw,76px)!important;border:0!important;border-radius:0!important;background:linear-gradient(145deg,rgba(6,25,44,.86),rgba(9,58,62,.70))!important}
+body .login-card.simple-login-card{min-height:650px;padding:clamp(38px,5vw,62px)!important;border:0!important;border-radius:0!important}
+body .login-card .big-action{background:linear-gradient(135deg,#efd17f,#c99a31)!important;color:#071727!important}
+@media(max-width:820px){
+  body .login-wrap.website-login-wrap{padding:14px!important}
+  body .login-hero-panel{grid-template-columns:1fr!important;border-radius:22px!important}
+  body .login-copy{min-height:auto;padding:28px 24px 30px!important}
+  body .login-copy h1{font-size:32px!important;line-height:1.04!important;margin-bottom:0!important}
+  body .login-copy p,body .login-feature-row{display:none!important}
+  body .login-site-logo{width:62px!important;height:62px!important;margin-bottom:16px!important}
+  body .login-card.simple-login-card{min-height:auto;padding:30px 24px 32px!important}
 }
 
 .public-page .customer-form-photo span {

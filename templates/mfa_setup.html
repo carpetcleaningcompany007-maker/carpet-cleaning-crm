@@ -1,0 +1,26 @@
+{% extends "layout.html" %}
+{% block title %}Two-step verification{% endblock %}
+{% block page_title %}Two-step verification{% endblock %}
+{% block body_content %}
+<section class="panel page-shell" style="max-width:780px;margin:auto">
+  <div class="panel-head"><div><span class="section-kicker">Authenticator app</span><h3>Protect your CRM login</h3><p>A changing six-digit code will be required after your password.</p></div></div>
+  {% if error %}<div class="notice">{{ error }}</div>{% endif %}
+  {% if enabled %}
+    <div class="notice"><strong>Two-step verification is on.</strong> You have {{ recovery_count }} unused recovery code{{ '' if recovery_count == 1 else 's' }} remaining.</div>
+    <p>Your authenticator secret is no longer displayed. Keep your recovery codes somewhere private and offline.</p>
+    <a class="btn secondary" href="{{ url_for('mfa_disable') }}">Disable or reset two-step verification</a>
+  {% elif pending_secret %}
+    <div class="notice"><strong>Step 1:</strong> scan this QR code with Google Authenticator, Microsoft Authenticator, 1Password, Authy, or another TOTP app.</div>
+    <div style="text-align:center;margin:20px 0"><img src="{{ qr_data_uri }}" alt="Authenticator setup QR code" style="width:min(260px,100%);border-radius:18px;border:1px solid #d6e2e8"></div>
+    <details><summary>Cannot scan the QR code?</summary><p>Enter this setup key manually. Do not share it:</p><code style="overflow-wrap:anywhere">{{ pending_secret }}</code></details>
+    <form method="post" class="form-grid" style="margin-top:22px">
+      <input type="hidden" name="action" value="confirm">
+      <label>Step 2: enter the current six-digit code<input name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9 ]{6,8}" required></label>
+      <button class="btn primary" type="submit">Confirm and Turn On</button>
+    </form>
+  {% else %}
+    <div class="notice">You will need your phone whenever you sign in. The next step displays a private QR code and setup key.</div>
+    <form method="post"><input type="hidden" name="action" value="start"><button class="btn primary" type="submit">Set Up Authenticator App</button></form>
+  {% endif %}
+</section>
+{% endblock %}

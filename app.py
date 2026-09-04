@@ -29,12 +29,16 @@ import threading
 import math
 import hmac
 import hashlib
+import struct
 from difflib import SequenceMatcher
 
 from flask import Flask, render_template, request, redirect, url_for, flash, session, g, Response, send_file, send_from_directory, has_request_context, jsonify
 from itsdangerous import BadSignature, SignatureExpired, URLSafeSerializer, URLSafeTimedSerializer
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
+from cryptography.fernet import Fernet, InvalidToken
+import qrcode
+import click
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("CRM_SECRET_KEY", "change-this-secret")
@@ -3519,6 +3523,90 @@ def login_is_rate_limited(username):
                WHERE event_type='failed' AND created_at >= datetime('now','-15 minutes')
                  AND (lower(username)=lower(?) OR ip_address=?)""", (clean_str(username)[:120], request_client_address()), one=True)
     return bool(row and int(row["c"] or 0) >= 5)
+
+
+def mfa_is_rate_limited(username):
+    ensure_login_security_table()
+    row = q("""SELECT COUNT(*) AS c FROM login_security_events
+               WHERE event_type IN ('mfa_failed','mfa_blocked','mfa_enrollment_failed','mfa_disable_failed')
+                 AND created_at >= datetime('now','-15 minutes')
+                 AND (lower(username)=lower(?) OR ip_address=?)""",
+            (clean_str(username)[:120], request_client_address()), one=True)
+    return bool(row and int(row["c"] or 0) >= 5)
+
+
+def mfa_fernet():
+    material = str(app.config["SECRET_KEY"]).encode("utf-8")
+    return Fernet(base64.urlsafe_b64encode(hashlib.sha256(material + b":crm-mfa-v1").digest()))
+
+
+def encrypt_mfa_secret(secret):
+    return mfa_fernet().encrypt(secret.encode("ascii")).decode("ascii")
+
+
+def decrypt_mfa_secret(value):
+    try:
+        return mfa_fernet().decrypt(clean_str(value).encode("ascii")).decode("ascii")
+    except (InvalidToken, ValueError, TypeError):
+        return ""
+
+
+def new_totp_secret():
+    return base64.b32encode(secrets.token_bytes(20)).decode("ascii").rstrip("=")
+
+
+def totp_at(secret, counter):
+    padded = secret + "=" * ((8 - len(secret) % 8) % 8)
+    key = base64.b32decode(padded.upper(), casefold=True)
+    digest = hmac.new(key, struct.pack(">Q", int(counter)), hashlib.sha1).digest()
+    offset = digest[-1] & 15
+    number = (struct.unpack(">I", digest[offset:offset + 4])[0] & 0x7fffffff) % 1000000
+    return f"{number:06d}"
+
+
+def verify_totp(secret, supplied, *, now=None, last_counter=-1):
+    code = re.sub(r"\D", "", supplied or "")
+    if len(code) != 6 or not secret:
+        return None
+    current = int((time.time() if now is None else now) // 30)
+    for counter in range(current - 1, current + 2):
+        if counter > int(last_counter or -1) and secrets.compare_digest(totp_at(secret, counter), code):
+            return counter
+    return None
+
+
+def generate_recovery_codes(count=10):
+    return [f"{secrets.token_hex(4).upper()}-{secrets.token_hex(4).upper()}" for _ in range(count)]
+
+
+def normalize_recovery_code(value):
+    raw = re.sub(r"[^A-Fa-f0-9]", "", value or "").upper()
+    return f"{raw[:8]}-{raw[8:16]}" if len(raw) == 16 else ""
+
+
+def consume_recovery_code(s, supplied):
+    normalized = normalize_recovery_code(supplied)
+    if not normalized:
+        return False
+    try:
+        hashes = json.loads(s["mfa_recovery_hashes"] or "[]")
+    except (TypeError, ValueError):
+        hashes = []
+    for index, stored_hash in enumerate(hashes):
+        if check_password_hash(stored_hash, normalized):
+            hashes.pop(index)
+            run("UPDATE settings SET mfa_recovery_hashes=? WHERE id=1", (json.dumps(hashes),))
+            return True
+    return False
+
+
+def complete_authenticated_login(username, next_url):
+    session.clear()
+    session.permanent = True
+    session["logged_in"] = True
+    csrf_token()
+    record_login_event(username, "success")
+    return redirect(next_url)
 
 
 def login_required(fn):
@@ -7544,6 +7632,11 @@ def init_db():
         ("settings", "sms_start_keywords", "TEXT DEFAULT 'START,UNSTOP,SUBSCRIBE'"),
         ("settings", "sms_marketing_opt_out_notice", "TEXT DEFAULT 'Reply STOP to opt out.'"),
         ("settings", "sms_append_opt_out_on_marketing", "INTEGER DEFAULT 1"),
+        ("settings", "mfa_secret_encrypted", "TEXT DEFAULT ''"),
+        ("settings", "mfa_enabled", "INTEGER DEFAULT 0"),
+        ("settings", "mfa_recovery_hashes", "TEXT DEFAULT '[]'"),
+        ("settings", "mfa_enrolled_at", "TEXT DEFAULT ''"),
+        ("settings", "mfa_last_counter", "INTEGER DEFAULT -1"),
         ("customers", "archived_at", "TEXT"),
         ("customers", "sms_opt_out", "INTEGER DEFAULT 0"),
         ("customers", "sms_opt_out_at", "TEXT DEFAULT ''"),
@@ -8738,16 +8831,59 @@ def login():
         if username_ok and password_ok:
             if s["password"] and not is_password_hash(s["password"]):
                 run("UPDATE settings SET password=? WHERE id=1", (normalize_password_for_storage(s["password"]),))
-            record_login_event(submitted_username, "success")
             session.clear()
-            session.permanent = True
-            session["logged_in"] = True
             csrf_token()
-            return redirect(next_url)
+            if int(s["mfa_enabled"] or 0):
+                session.permanent = False
+                session["mfa_pending"] = {
+                    "username": submitted_username,
+                    "next": next_url,
+                    "created": int(time.time()),
+                    "nonce": secrets.token_urlsafe(24),
+                }
+                record_login_event(submitted_username, "password_accepted_mfa_pending")
+                return redirect(url_for("mfa_challenge"))
+            return complete_authenticated_login(submitted_username, next_url)
         record_login_event(submitted_username, "failed")
         time.sleep(0.75)
         flash("Login details were incorrect.")
     return render_template("login.html", next_url=next_url, login_error="")
+
+
+@app.route("/login/two-step", methods=["GET", "POST"])
+def mfa_challenge():
+    pending = session.get("mfa_pending") or {}
+    username = clean_str(pending.get("username"))
+    created = int(pending.get("created") or 0)
+    if not username or not pending.get("nonce") or time.time() - created > 300:
+        session.clear()
+        flash("Your two-step sign-in expired. Please enter your username and password again.")
+        return redirect(url_for("login"))
+    s = settings()
+    if username != clean_str(s["username"]) or not int(s["mfa_enabled"] or 0):
+        session.clear()
+        return redirect(url_for("login"))
+    error = ""
+    if request.method == "POST":
+        if mfa_is_rate_limited(username):
+            record_login_event(username, "mfa_blocked")
+            time.sleep(1.0)
+            return render_template("mfa_challenge.html", error="Too many incorrect codes. Please wait 15 minutes and try again."), 429
+        supplied = request.form.get("code") or ""
+        secret = decrypt_mfa_secret(s["mfa_secret_encrypted"])
+        counter = verify_totp(secret, supplied, last_counter=s["mfa_last_counter"])
+        recovery_used = False
+        if counter is None:
+            recovery_used = consume_recovery_code(s, supplied)
+        if counter is not None or recovery_used:
+            if counter is not None:
+                run("UPDATE settings SET mfa_last_counter=? WHERE id=1", (counter,))
+            record_login_event(username, "mfa_recovery_used" if recovery_used else "mfa_success")
+            return complete_authenticated_login(username, safe_next_url(pending.get("next")))
+        record_login_event(username, "mfa_failed")
+        time.sleep(0.75)
+        error = "That code was not accepted. Use the current six-digit app code or an unused recovery code."
+    return render_template("mfa_challenge.html", error=error)
 
 @app.route("/logout", methods=["POST"])
 def logout():
@@ -8779,6 +8915,115 @@ def security_setup():
         flash("Security login updated. Sign in again with the new details.")
         return redirect(url_for("login"))
     return render_template("security_setup.html", using_factory_login=using_factory_login, error="")
+
+
+def mfa_qr_data_uri(secret, username):
+    issuer = "The Carpet Cleaning Company CRM"
+    label = urllib.parse.quote(f"{issuer}:{username}")
+    uri = (f"otpauth://totp/{label}?secret={urllib.parse.quote(secret)}"
+           f"&issuer={urllib.parse.quote(issuer)}&algorithm=SHA1&digits=6&period=30")
+    image = qrcode.make(uri)
+    output = io.BytesIO()
+    image.save(output, format="PNG")
+    return "data:image/png;base64," + base64.b64encode(output.getvalue()).decode("ascii")
+
+
+@app.route("/security/two-step", methods=["GET", "POST"])
+@login_required
+def mfa_setup():
+    s = settings()
+    error = ""
+    if request.method == "POST":
+        action = clean_str(request.form.get("action"))
+        if action == "start" and not int(s["mfa_enabled"] or 0):
+            secret = new_totp_secret()
+            run("UPDATE settings SET mfa_secret_encrypted=?, mfa_last_counter=-1 WHERE id=1",
+                (encrypt_mfa_secret(secret),))
+            record_login_event(s["username"], "mfa_enrollment_started")
+            return redirect(url_for("mfa_setup"))
+        if action == "confirm" and not int(s["mfa_enabled"] or 0):
+            if mfa_is_rate_limited(s["username"]):
+                record_login_event(s["username"], "mfa_blocked")
+                return render_template("mfa_setup.html", enabled=False, pending_secret="", qr_data_uri="",
+                                       recovery_count=0, error="Too many incorrect codes. Please wait 15 minutes and try again."), 429
+            secret = decrypt_mfa_secret(s["mfa_secret_encrypted"])
+            counter = verify_totp(secret, request.form.get("code"), last_counter=-1)
+            if counter is None:
+                record_login_event(s["username"], "mfa_enrollment_failed")
+                error = "That code was not accepted. Check your phone time and enter the current six-digit code."
+            else:
+                recovery_codes = generate_recovery_codes()
+                hashes = [generate_password_hash(code) for code in recovery_codes]
+                run("""UPDATE settings SET mfa_enabled=1, mfa_recovery_hashes=?,
+                       mfa_enrolled_at=datetime('now'), mfa_last_counter=? WHERE id=1""",
+                    (json.dumps(hashes), counter))
+                record_login_event(s["username"], "mfa_enabled")
+                return render_template("mfa_recovery_codes.html", recovery_codes=recovery_codes)
+    s = settings()
+    pending_secret = ""
+    qr_data_uri = ""
+    if not int(s["mfa_enabled"] or 0) and s["mfa_secret_encrypted"]:
+        pending_secret = decrypt_mfa_secret(s["mfa_secret_encrypted"])
+        if pending_secret:
+            qr_data_uri = mfa_qr_data_uri(pending_secret, s["username"])
+    try:
+        recovery_count = len(json.loads(s["mfa_recovery_hashes"] or "[]"))
+    except (TypeError, ValueError):
+        recovery_count = 0
+    return render_template("mfa_setup.html", enabled=bool(s["mfa_enabled"]), pending_secret=pending_secret,
+                           qr_data_uri=qr_data_uri, recovery_count=recovery_count, error=error)
+
+
+@app.route("/security/two-step/disable", methods=["GET", "POST"])
+@login_required
+def mfa_disable():
+    s = settings()
+    if not int(s["mfa_enabled"] or 0):
+        return redirect(url_for("mfa_setup"))
+    error = ""
+    if request.method == "POST":
+        if mfa_is_rate_limited(s["username"]):
+            record_login_event(s["username"], "mfa_blocked")
+            return render_template("mfa_disable.html", error="Too many incorrect attempts. Please wait 15 minutes and try again."), 429
+        password_ok = verify_password(s["password"], request.form.get("current_password") or "")
+        supplied = request.form.get("code") or ""
+        counter = verify_totp(decrypt_mfa_secret(s["mfa_secret_encrypted"]), supplied,
+                              last_counter=s["mfa_last_counter"]) if password_ok else None
+        factor_ok = bool(password_ok and counter is not None)
+        if password_ok and not factor_ok:
+            factor_ok = consume_recovery_code(s, supplied)
+        if password_ok and factor_ok:
+            run("""UPDATE settings SET mfa_enabled=0, mfa_secret_encrypted='',
+                   mfa_recovery_hashes='[]', mfa_enrolled_at='', mfa_last_counter=-1 WHERE id=1""")
+            record_login_event(s["username"], "mfa_disabled")
+            session.clear()
+            flash("Two-step verification was disabled. Sign in again to continue.")
+            return redirect(url_for("login"))
+        record_login_event(s["username"], "mfa_disable_failed")
+        time.sleep(0.75)
+        error = "The password and second-factor code must both be valid."
+    return render_template("mfa_disable.html", error=error)
+
+
+@app.cli.command("mfa-emergency-disable")
+@click.option("--confirm", required=True, help="Type DISABLE-MFA to confirm.")
+def mfa_emergency_disable_command(confirm):
+    """Emergency MFA reset for an administrator with authorised Render shell access."""
+    configured = clean_str(os.environ.get("MFA_BOOTSTRAP_TOKEN"))
+    if not configured or confirm != "DISABLE-MFA":
+        raise click.ClickException("Emergency recovery is not configured or was not confirmed.")
+    supplied = click.prompt("Render recovery token", hide_input=True)
+    if not secrets.compare_digest(configured, supplied):
+        raise click.ClickException("Recovery token was not accepted.")
+    with app.app_context():
+        init_db()
+        s = settings()
+        run("""UPDATE settings SET mfa_enabled=0, mfa_secret_encrypted='',
+               mfa_recovery_hashes='[]', mfa_enrolled_at='', mfa_last_counter=-1 WHERE id=1""")
+        record = (clean_str(s["username"]), "render-cli", "Render emergency command", "mfa_emergency_disabled")
+        ensure_login_security_table()
+        run("INSERT INTO login_security_events(username,ip_address,user_agent,event_type) VALUES (?,?,?,?)", record)
+    click.echo("Two-step verification disabled. Re-enrol immediately after signing in.")
 
 
 

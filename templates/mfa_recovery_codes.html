@@ -1,0 +1,22 @@
+{% extends "layout.html" %}
+{% block title %}Save recovery codes{% endblock %}
+{% block page_title %}Save recovery codes{% endblock %}
+{% block body_content %}
+<section class="panel page-shell" style="max-width:780px;margin:auto">
+  <div class="panel-head"><div><span class="section-kicker">Two-step verification is on</span><h3>Save your recovery codes now</h3><p>Each code works once if your phone is unavailable. They cannot be shown again.</p></div></div>
+  <div class="notice"><strong>Important:</strong> download or copy these codes before leaving this page. Store them in your password manager or another private, offline place.</div>
+  <pre id="recoveryCodes" style="padding:20px;border-radius:14px;background:#0d2038;color:#fff;font-size:16px;line-height:1.8;white-space:pre-wrap">{{ recovery_codes|join('\n') }}</pre>
+  <div style="display:flex;gap:10px;flex-wrap:wrap">
+    <button class="btn primary" type="button" id="downloadCodes">Download Codes</button>
+    <button class="btn secondary" type="button" id="copyCodes">Copy Codes</button>
+    <a class="btn secondary" href="{{ url_for('mfa_setup') }}">I Have Saved Them</a>
+  </div>
+</section>
+<script>
+(function(){
+  const text=document.getElementById('recoveryCodes').textContent;
+  document.getElementById('copyCodes').addEventListener('click',async function(){await navigator.clipboard.writeText(text);this.textContent='Copied';});
+  document.getElementById('downloadCodes').addEventListener('click',function(){const blob=new Blob(['CRM recovery codes\n\n'+text+'\n'],{type:'text/plain'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='crm-recovery-codes.txt';a.click();URL.revokeObjectURL(a.href);});
+})();
+</script>
+{% endblock %}

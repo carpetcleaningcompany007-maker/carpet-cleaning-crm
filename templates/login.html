@@ -5,32 +5,31 @@
   <section class="login-hero-panel">
     <div class="login-copy">
       <img class="login-site-logo" src="{{ url_for('static', filename='site/logo.webp') }}" alt="The Carpet Cleaning Company">
-      <span class="section-kicker">The Carpet Cleaning Company</span>
-      <h1>Your customer work, cleaned up and easy to run.</h1>
-      <p>Enquiries, quotes, jobs, invoices and follow-ups in one clear workspace that feels like your website.</p>
+      <span class="auth-kicker">Private business workspace</span>
+      <h1>Everything your business needs. Beautifully organised.</h1>
+      <p>From the first enquiry to the final review, your customers and daily work stay together in one calm, secure place.</p>
       <div class="login-feature-row">
-        <span>Fast enquiries</span>
-        <span>Quote ready</span>
-        <span>Booked jobs</span>
-        <span>Paid invoices</span>
+        <span>Enquiries</span><span>Customers</span><span>Jobs</span><span>Payments</span>
       </div>
     </div>
     <form method="post" class="login-card simple-login-card">
       <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
       <input type="hidden" name="next" value="{{ next_url or '' }}">
-      <span class="section-kicker">Sign in</span>
-      <h2>Welcome back</h2>
-      <p>Use your CRM login to continue.</p>
+      <div class="auth-card-mark">Secure CRM</div>
+      <span class="section-kicker">Welcome back</span>
+      <h2>Sign in to your workspace</h2>
+      <p>Enter your private administrator details to continue.</p>
       {% if login_error %}<div class="notice">{{ login_error }}</div>{% endif %}
       <label>
         <span>Username</span>
-        <input name="username" placeholder="Username" required>
+        <input name="username" placeholder="Your username" autocomplete="username" autofocus required>
       </label>
       <label>
         <span>Password</span>
-        <input name="password" type="password" placeholder="Password" required>
+        <input name="password" type="password" placeholder="Your password" autocomplete="current-password" required>
       </label>
-      <button class="btn primary big-action">Login</button>
+      <button class="btn primary big-action">Continue Securely</button>
+      <p class="auth-reassurance"><span aria-hidden="true">◆</span> Protected by encrypted HTTPS and secure sessions</p>
     </form>
   </section>
 </div>
