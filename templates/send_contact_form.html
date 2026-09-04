@@ -23,6 +23,7 @@
     <label class="customer-search-label">Find a customer
       <input type="search" id="quickSendSearch" placeholder="Start typing a name, email or mobile number" autocomplete="off">
       <small class="customer-search-status" id="quickSendSearchStatus" aria-live="polite">Start typing and I’ll select a single matching customer for you.</small>
+      <span class="customer-search-results" id="quickSendSearchResults" aria-label="Matching customers"></span>
     </label>
     <label class="saved-customer-picker">Choose a saved customer <span class="optional-label">optional</span>
       <select name="customer_id" id="quickSendCustomer">
@@ -85,6 +86,7 @@
   const picker = document.getElementById('quickSendCustomer');
   const search = document.getElementById('quickSendSearch');
   const searchStatus = document.getElementById('quickSendSearchStatus');
+  const searchResults = document.getElementById('quickSendSearchResults');
   if (!picker) return;
   const originalOptions = Array.from(picker.options).slice(1).map(option => option.cloneNode(true));
   if (search) search.addEventListener('input', () => {
@@ -94,6 +96,27 @@
     const matches = originalOptions.filter(option => !term || option.textContent.toLowerCase().includes(term));
     const nameMatches = matches.filter(option => (option.dataset.name || '').toLowerCase().split(/\s+/).some(word => word.startsWith(term)));
     matches.forEach(option => picker.appendChild(option.cloneNode(true)));
+    if (searchResults) {
+      searchResults.replaceChildren();
+      const visibleMatches = nameMatches.length ? nameMatches : matches;
+      if (term) visibleMatches.slice(0, 8).forEach(option => {
+        const resultButton = document.createElement('button');
+        resultButton.type = 'button';
+        resultButton.className = 'customer-search-result';
+        const resultName = document.createElement('strong');
+        const resultContact = document.createElement('small');
+        resultName.textContent = option.dataset.name || 'Unnamed customer';
+        resultContact.textContent = option.dataset.phone || option.dataset.email || 'Open customer record';
+        resultButton.append(resultName, resultContact);
+        resultButton.addEventListener('click', () => {
+          picker.value = option.value;
+          picker.dispatchEvent(new Event('change'));
+          searchStatus.textContent = `Selected ${option.dataset.name || option.textContent}.`;
+          searchResults.querySelectorAll('button').forEach(button => button.classList.toggle('selected', button === resultButton));
+        });
+        searchResults.appendChild(resultButton);
+      });
+    }
     const automaticMatch = nameMatches.length === 1 ? nameMatches[0] : (matches.length === 1 ? matches[0] : null);
     if (automaticMatch && term) {
       picker.value = automaticMatch.value;
