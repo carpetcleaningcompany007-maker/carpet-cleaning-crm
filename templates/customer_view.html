@@ -87,9 +87,12 @@
   .stage-detail-main h4,.stage-next-box h4{margin:0 0 12px;font-size:22px;color:#071524}
   .stage-check-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
   .stage-check{display:flex;gap:13px;align-items:center;border:1px solid #dce8f1;background:linear-gradient(180deg,#fff,#fbfdff);border-radius:13px;padding:13px 14px;min-height:72px;box-shadow:0 7px 20px rgba(15,35,55,.045)}
-  .stage-check-mark{width:34px;height:34px;border-radius:11px;flex:0 0 34px;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:950;background:linear-gradient(145deg,#fff4d7,#f3c969);border:1px solid #d8aa3f;color:#62460d;box-shadow:0 5px 13px rgba(177,126,22,.18)}
+  .stage-check-mark{position:relative;width:34px;height:34px;border-radius:11px;flex:0 0 34px;display:block;background:linear-gradient(145deg,#fff4d7,#f3c969);border:1px solid #d8aa3f;box-shadow:0 5px 13px rgba(177,126,22,.18)}
+  .stage-check.is-pending .stage-check-mark::before{content:"";position:absolute;left:9px;top:15px;width:13px;height:3px;border-radius:3px;background:#684a0c}
+  .stage-check.is-pending .stage-check-mark::after{content:"";position:absolute;right:8px;top:11px;width:8px;height:8px;border-top:3px solid #684a0c;border-right:3px solid #684a0c;transform:rotate(45deg);border-radius:1px}
   .stage-check.is-done{border-color:#b8dfd1;background:linear-gradient(180deg,#fff,#f4fbf8)}
   .stage-check.is-done .stage-check-mark{background:linear-gradient(145deg,#18a77e,#087b5b);border-color:#087b5b;color:#fff;box-shadow:0 6px 14px rgba(15,143,109,.22)}
+  .stage-check.is-done .stage-check-mark::after,.stage-done-banner .stage-check-mark::after{content:"";position:absolute;left:10px;top:7px;width:9px;height:15px;border:solid #fff;border-width:0 3px 3px 0;transform:rotate(45deg);border-radius:1px}
   .stage-check strong{display:block;font-size:15px;color:#102033}
   .stage-check span{display:block;font-size:13px;color:#617083}
   .stage-next-box .btn{width:100%;justify-content:center;font-size:18px;padding:15px}
@@ -274,7 +277,7 @@
       <div class="stage-current-action {% if customer_hub.stages[0].complete %}is-complete{% endif %}">
         <h4>Is the form complete?</h4>
         {% if customer_hub.stages[0].complete %}
-          <div class="stage-done-banner"><span class="stage-check-mark">&#10003;</span><span>Customer Details Complete</span></div>
+          <div class="stage-done-banner"><span class="stage-check-mark" aria-hidden="true"></span><span>Customer Details Complete</span></div>
         {% else %}
           <p class="muted">Missing information:</p>
           <div class="stage-missing-list">
@@ -386,7 +389,7 @@
         <span class="stage-mini-status">{{ customer_hub.stages[1].completed_count }}/{{ customer_hub.stages[1].total_count }} complete</span>
       </div>
       {% if customer.xero_contact_id %}
-        <div class="stage-done-banner"><span class="stage-check-mark">&#10003;</span><span>Linked to Xero</span></div>
+        <div class="stage-done-banner"><span class="stage-check-mark" aria-hidden="true"></span><span>Linked to Xero</span></div>
         <p class="stage-helper-note">Xero ContactID: {{ customer.xero_contact_id }}. If the Xero contact is missing an address, phone number, email, or other detail, press Update Xero details to send the latest CRM details again.</p>
         <div class="stage-action-row">
           <form method="post" action="{{ url_for('xero_sync_contact', customer_id=customer.id) }}">
@@ -429,14 +432,14 @@
       <div class="stage-check-list">
         {% for item in customer_hub.stages[2]["items"] %}
         <div class="stage-check {% if item.done %}is-done{% else %}is-pending{% endif %}">
-          <span class="stage-check-mark" aria-hidden="true">{% if item.done %}&#10003;{% else %}&#8594;{% endif %}</span>
+          <span class="stage-check-mark" aria-hidden="true"></span>
           <span><strong>{{ item.label }}</strong><span>{{ item.text }}</span></span>
         </div>
         {% endfor %}
       </div>
       <div class="stage-current-action">
         {% if customer_hub.stages[2].sent_done %}
-          <div class="stage-done-banner"><span class="stage-check-mark">&#10003;</span><span>Booking confirmation has already been sent.</span></div>
+          <div class="stage-done-banner"><span class="stage-check-mark" aria-hidden="true"></span><span>Booking confirmation has already been sent.</span></div>
           <p class="stage-helper-note">Preview, test, or deliberately resend the booking confirmation below if you need to.</p>
           {% for item in customer_hub.stages[2].templates %}
             {{ stage_template_buttons(item) }}
@@ -462,14 +465,14 @@
       <div class="stage-check-list">
         {% for item in stage["items"] %}
         <div class="stage-check {% if item.done %}is-done{% else %}is-pending{% endif %}">
-          <span class="stage-check-mark" aria-hidden="true">{% if item.done %}&#10003;{% else %}&#8594;{% endif %}</span>
+          <span class="stage-check-mark" aria-hidden="true"></span>
           <span><strong>{{ item.label }}</strong><span>{{ item.text }}</span></span>
         </div>
         {% endfor %}
       </div>
       <div class="stage-current-action {% if stage.sent_done %}is-complete{% endif %}">
         {% if stage.sent_done %}
-          <div class="stage-done-banner"><span class="stage-check-mark">&#10003;</span><span>{{ stage.sent[0] }}</span></div>
+          <div class="stage-done-banner"><span class="stage-check-mark" aria-hidden="true"></span><span>{{ stage.sent[0] }}</span></div>
           <p class="stage-helper-note">You can still preview, test, or deliberately resend from this stage if needed.</p>
         {% else %}
           <p class="muted">{{ stage.sent[0] }}</p>
