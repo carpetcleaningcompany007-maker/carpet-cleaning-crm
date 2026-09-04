@@ -71,6 +71,7 @@ class CustomerXeroExportTests(unittest.TestCase):
         self.assertIn("Last synced 4 September 2026 at 11:30", body)
         self.assertIn("Technical details", body)
         self.assertIn("This step is complete", body)
+        self.assertIn("✓ Complete", body)
 
     def test_customer_details_are_staged_and_save_through_existing_route(self):
         response = self.client.get(f"/customers/{self.first_id}")
@@ -90,6 +91,7 @@ class CustomerXeroExportTests(unittest.TestCase):
         }, follow_redirects=True)
         self.assertEqual(saved.status_code, 200)
         self.assertIn("Customer details saved", saved.get_data(as_text=True))
+        self.assertIn("✓ Complete", saved.get_data(as_text=True))
         customer = self.mod.q("SELECT * FROM customers WHERE id=?", (self.first_id,), one=True)
         self.assertEqual(customer["email"], "alice.updated@real.test")
         self.assertEqual(customer["address"], "3 New Street")
