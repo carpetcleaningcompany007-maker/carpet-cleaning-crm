@@ -66,6 +66,28 @@ class ReviewRequestPersonalisationTests(unittest.TestCase):
         self.assertIn("Mark Cooksey", body)
         self.assertNotIn("Other Person", body)
 
+    def test_review_email_uses_first_name_and_has_no_logo_placeholder(self):
+        job = {
+            "first_name": "Mark Cooksey",
+            "last_name": "Cooksey",
+            "job_date": "2026-09-04",
+            "address": "1 High Street",
+            "town": "Ludlow",
+            "postcode": "SY8 1AA",
+        }
+        rendered = self.appmod.day_run_email_html(
+            "review",
+            job,
+            "Hi Mark, thank you for choosing me to clean your carpets.",
+        )
+
+        self.assertIn("Hi Mark,", rendered)
+        self.assertNotIn("Mark Cooksey", rendered)
+        self.assertNotIn("site/email-logo.png", rendered)
+        self.assertNotIn('width="104"', rendered)
+        self.assertIn("Please click here to leave us a Google review", rendered)
+        self.assertIn("background-color:#071524", rendered)
+
 
 if __name__ == "__main__":
     unittest.main()

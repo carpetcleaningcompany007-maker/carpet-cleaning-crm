@@ -4514,7 +4514,7 @@ def day_run_message(kind, job):
 
 
 def day_run_email_html(kind, job, plain_body):
-    name = clean_str(row_value(job, "first_name")) or "there"
+    name = customer_first_name(row_value(job, "first_name"))
     business = settings()["business_name"] or "The Carpet Cleaning Company"
     logo_url = public_static_or_live_url("site/email-logo.png")
     hero_url = public_static_or_live_url("site/hero-carpet-cleaning.webp")
@@ -4549,6 +4549,12 @@ def day_run_email_html(kind, job, plain_body):
     title = title_map.get(kind, "Message from The Carpet Cleaning Company")
     strap = strap_map.get(kind, "A quick update from The Carpet Cleaning Company.")
     logo_html = f'<img src="{html_lib.escape(logo_url)}" alt="{html_lib.escape(business)}" width="104" style="display:block;width:104px;height:auto;border:0;margin:0 auto">' if logo_url else ""
+    logo_block_html = "" if kind == "review" else f"""
+              <table role="presentation" cellspacing="0" cellpadding="0" style="background:#ffffff;border:1px solid #ead6a8;border-radius:999px;margin:0 auto 14px">
+                <tr>
+                  <td style="padding:12px">{logo_html}</td>
+                </tr>
+              </table>"""
     hero_html = f'<img src="{html_lib.escape(hero_url)}" alt="Professional carpet cleaning" width="580" style="display:block;width:100%;max-width:580px;height:auto;border:0;border-radius:18px">' if hero_url else ""
     hero_row_html = "" if kind == "review" else f"""
           <tr>
@@ -4590,11 +4596,7 @@ def day_run_email_html(kind, job, plain_body):
           </tr>
           <tr>
             <td align="center" bgcolor="#071524" style="background-color:#071524 !important;padding:28px 30px 24px;color:#ffffff !important;border-bottom:1px solid #16344c">
-              <table role="presentation" cellspacing="0" cellpadding="0" style="background:#ffffff;border:1px solid #ead6a8;border-radius:999px;margin:0 auto 14px">
-                <tr>
-                  <td style="padding:12px">{logo_html}</td>
-                </tr>
-              </table>
+              {logo_block_html}
               <div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#f2c96d !important;font-weight:900">{html_lib.escape(business)}</div>
               <h1 style="margin:8px 0 0;font-size:30px;line-height:1.18;color:#ffffff !important">{html_lib.escape(title)}</h1>
               <p style="margin:9px auto 0;max-width:500px;font-size:16px;line-height:1.55;color:#e8f1f5 !important">Hi {html_lib.escape(name)}, {html_lib.escape(strap)}</p>
