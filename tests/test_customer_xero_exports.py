@@ -244,6 +244,16 @@ class CustomerXeroExportTests(unittest.TestCase):
         self.assertEqual(address["Region"], "Shropshire")
         self.assertEqual(address["PostalCode"], "SY2 6BY")
 
+        page = self.client.get(f"/customers/{customer_id}").get_data(as_text=True)
+        self.assertIn("Business or company", page)
+        self.assertIn("The Cedars", page)
+        self.assertIn("Abbey Foregate, Shrewsbury, Shropshire, SY2 6BY", page)
+        self.assertGreaterEqual(page.count("Not provided"), 2)
+
+        listing = self.client.get("/customers?q=The+Cedars&scope=all").get_data(as_text=True)
+        self.assertIn("The Cedars", listing)
+        self.assertIn("Abbey Foregate", listing)
+
     def test_authenticated_explicit_address_identity_can_sync_without_phone_or_email(self):
         customer_id = self.mod.run(
             """INSERT INTO customers(first_name,last_name,company,address,town,county,postcode)

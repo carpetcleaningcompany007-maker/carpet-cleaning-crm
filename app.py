@@ -9673,7 +9673,8 @@ def customers():
             lower(IFNULL(first_name,'') || ' ' || IFNULL(last_name,'') || ' ' ||
                   IFNULL(email,'') || ' ' || IFNULL(phone,'') || ' ' ||
                   IFNULL(address,'') || ' ' || IFNULL(town,'') || ' ' ||
-                  IFNULL(postcode,'') || ' ' || IFNULL(source,'') || ' ' ||
+                  IFNULL(county,'') || ' ' || IFNULL(postcode,'') || ' ' ||
+                  IFNULL(company,'') || ' ' || IFNULL(source,'') || ' ' ||
                   IFNULL(tags,'') || ' ' || IFNULL(notes,''))
         """
         phone_digits_expr = """

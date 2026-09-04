@@ -90,7 +90,7 @@
           <span class="contact-avatar">{{ (c.first_name or c.last_name or 'C')[:1] }}</span>
           <span>
             <strong>{{ full_name or 'Customer' }}</strong>
-            {% if c.tags %}<small>{{ c.tags }}</small>{% elif c.source %}<small>{{ c.source }}</small>{% else %}<small>Customer record</small>{% endif %}
+            {% if c.company %}<small>{{ c.company }}</small>{% elif c.tags %}<small>{{ c.tags }}</small>{% elif c.source %}<small>{{ c.source }}</small>{% else %}<small>Customer record</small>{% endif %}
           </span>
         </span>
         <span class="contact-detail" role="cell">
@@ -100,8 +100,8 @@
         </span>
         <span class="contact-location" role="cell">
           {% if c.address or c.town or c.postcode %}
-            <span>{{ c.town or c.address or 'No town' }}</span>
-            <small>{{ c.postcode or '' }}</small>
+            <span>{{ c.address or c.town or 'No address' }}</span>
+            <small>{{ [c.town, c.county, c.postcode]|select|join(', ') }}</small>
           {% else %}
             <span class="muted">No location</span>
           {% endif %}
