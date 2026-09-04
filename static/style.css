@@ -6044,6 +6044,34 @@ input[type=submit],
   color: #fff !important;
 }
 
+/* In-app customer details: compact guided stages */
+.customer-details-workflow{max-width:1180px;margin:22px auto;border-color:rgba(202,157,49,.25)!important;background:linear-gradient(145deg,#fffdf7,#f8fbff)!important;box-shadow:0 20px 50px rgba(8,26,48,.10)!important}
+.customer-details-intro{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:18px!important}
+.customer-detail-progress{flex:0 0 auto;display:grid;gap:2px;min-width:180px;padding:13px 16px;border:1px solid #d9e5ee;border-radius:14px;background:#fff;text-align:right}
+.customer-detail-progress strong{color:#092642;font-size:18px}.customer-detail-progress span{color:#64778a;font-size:12px;font-weight:750}
+.customer-details-stage-form{display:grid;gap:12px!important;margin-top:18px}
+.customer-detail-stage{overflow:hidden;border:1px solid #dbe6ee;border-radius:16px;background:rgba(255,255,255,.92);box-shadow:0 9px 24px rgba(8,26,48,.05)}
+.customer-detail-stage[open]{border-color:rgba(204,157,42,.58);box-shadow:0 14px 34px rgba(8,26,48,.10),0 0 0 3px rgba(239,198,90,.10)}
+.customer-detail-stage>summary{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;align-items:center;gap:13px;padding:17px 18px;cursor:pointer;list-style:none;background:linear-gradient(135deg,#fff,#fbf6e8)}
+.customer-detail-stage>summary::-webkit-details-marker{display:none}.customer-detail-stage>summary:focus-visible{outline:3px solid #2879c7;outline-offset:-3px}
+.customer-detail-stage>summary::after{content:'+';display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:#efd277;color:#092642;font-size:20px;font-weight:900}.customer-detail-stage[open]>summary::after{content:'−'}
+.customer-stage-number{display:grid;place-items:center;width:36px;height:36px;border-radius:11px;background:linear-gradient(135deg,#092642,#176199);color:#fff;font-weight:900}
+.customer-detail-stage>summary div{display:grid;gap:3px;min-width:0}.customer-detail-stage>summary div>strong{color:#102b46;font-size:17px}.customer-detail-stage>summary small{color:#718094;line-height:1.35}
+.customer-stage-status{white-space:nowrap;padding:7px 10px;border:1px solid #d6e2ea;border-radius:999px;background:#f2f7fa;color:#3a5369;font-size:12px;font-style:normal;font-weight:850}
+.customer-detail-stage[data-status='complete'] .customer-stage-status{border-color:#9ed8c7;background:#e2f6ef;color:#08604b}.customer-detail-stage[data-status='attention'] .customer-stage-status{border-color:#e9ce7e;background:#fff4c9;color:#775500}.customer-detail-stage[data-status='missing'] .customer-stage-status{border-color:#efbfc7;background:#fff0f2;color:#8d2939}
+.customer-stage-body{display:grid;gap:15px;padding:20px}.customer-stage-body>p{margin:0;color:#64778a}.customer-stage-body label{display:grid;gap:7px;color:#20384e;font-weight:800}.customer-stage-body input,.customer-stage-body textarea{width:100%;min-width:0}
+.customer-stage-actions{display:flex;justify-content:flex-end;gap:10px;padding-top:14px;border-top:1px solid #e3ebf0}.customer-stage-actions.final{margin-top:4px}.customer-record-review{padding:15px 17px;border:1px solid #d7e4ed;border-radius:13px;background:#f3f8fb;color:#193b56;font-weight:750;line-height:1.5}
+.customer-details-error{padding:13px 15px;border:1px solid #efbfc7;border-radius:12px;background:#fff0f2;color:#8d2939;font-weight:800}
+.customer-details-next-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:16px;padding:15px;border-radius:15px;background:#0a2845;color:#fff}.customer-details-next-actions>div{display:grid;gap:2px;flex:1 1 260px}.customer-details-next-actions>div span{color:#d8e6f1;font-size:13px}.customer-details-next-actions form{margin:0}
+.xero-technical-detail{margin-top:7px;color:#718094;font-size:11px}.xero-technical-detail summary{cursor:pointer;font-weight:750}.xero-technical-detail code{display:block;margin-top:5px;overflow-wrap:anywhere;color:#52687a;font-size:10px}
+@media(max-width:700px){
+  .customer-details-workflow{margin:14px 0!important;padding:16px!important;border-radius:18px!important}
+  .customer-details-intro{align-items:flex-start!important}.customer-detail-progress{min-width:0;width:100%;text-align:left}
+  .customer-detail-stage>summary{grid-template-columns:auto minmax(0,1fr) auto;padding:14px 12px}.customer-detail-stage>summary::after{grid-column:3;grid-row:1}.customer-stage-status{grid-column:2/4;justify-self:start;white-space:normal}
+  .customer-stage-body{padding:16px 12px}.customer-stage-body .cols{grid-template-columns:1fr!important}.customer-stage-actions{flex-direction:column-reverse}.customer-stage-actions .btn{width:100%}
+  .customer-details-next-actions{align-items:stretch}.customer-details-next-actions>.btn,.customer-details-next-actions form,.customer-details-next-actions form .btn{width:100%}
+}
+
 /* Keep the authentication art direction authoritative over legacy page skins. */
 body .login-wrap.website-login-wrap{padding:clamp(20px,4vw,56px)!important;background:linear-gradient(112deg,rgba(4,18,34,.97) 0%,rgba(7,34,54,.91) 48%,rgba(8,39,45,.78) 100%),url('/static/site/hero-carpet-cleaning.webp') center/cover no-repeat!important}
 body .login-hero-panel{grid-template-columns:minmax(0,1.2fr) minmax(380px,.8fr)!important;gap:0!important;border-radius:28px!important}

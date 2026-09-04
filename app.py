@@ -9,7 +9,7 @@ import time
 import email.utils
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from datetime import date, timedelta, datetime
+from datetime import date, timedelta, datetime, timezone
 from functools import wraps, lru_cache
 from urllib.parse import quote
 from zoneinfo import ZoneInfo
@@ -3694,6 +3694,7 @@ def inject_layout_globals():
         'xero_contact_web_url': xero_contact_web_url,
         'whatsapp_phone': whatsapp_phone,
         'friendly_xero_error': friendly_xero_error,
+        'friendly_local_datetime': friendly_local_datetime,
         'booking_time_options': BOOKING_TIME_OPTIONS,
         'google_calendar_configured': google_calendar_is_configured(),
         'google_calendar_connected': google_connected,
@@ -14742,6 +14743,21 @@ def friendly_xero_error(error):
     if text.startswith("Xero API request failed:"):
         return "Xero could not update the contact. Please check the customer details and try again."
     return text
+
+
+def friendly_local_datetime(value):
+    """Turn stored UTC timestamps into compact, human-readable UK time."""
+    text = clean_str(value)
+    if not text:
+        return ""
+    try:
+        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        local = parsed.astimezone(ZoneInfo("Europe/London"))
+        return f"{local.day} {local.strftime('%B %Y')} at {local.strftime('%H:%M')}"
+    except (TypeError, ValueError):
+        return text
 
 
 def xero_sales_account_code():

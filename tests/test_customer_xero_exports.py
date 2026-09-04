@@ -66,10 +66,33 @@ class CustomerXeroExportTests(unittest.TestCase):
         self.mod.run("UPDATE customers SET xero_contact_id=?, xero_contact_synced_at=? WHERE id=?", ("xero-safe-reference", "2026-09-04 10:30:00", self.first_id))
         response = self.client.get(f"/customers/{self.first_id}")
         body = response.get_data(as_text=True)
-        self.assertIn("Xero synced", body)
+        self.assertIn("Synced with Xero", body)
         self.assertIn("xero-safe-reference", body)
-        self.assertIn("Last synced 2026-09-04 10:30:00", body)
+        self.assertIn("Last synced 4 September 2026 at 11:30", body)
+        self.assertIn("Technical details", body)
         self.assertIn("This step is complete", body)
+
+    def test_customer_details_are_staged_and_save_through_existing_route(self):
+        response = self.client.get(f"/customers/{self.first_id}")
+        page = response.get_data(as_text=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(page.count('data-customer-stage="'), 4)
+        self.assertIn("Customer details, one clear stage at a time", page)
+        self.assertIn("Jobs and sales", page)
+        self.assertIn("Messages", page)
+        for field_name in ("first_name", "last_name", "phone", "email", "address", "town", "postcode", "source", "tags", "notes"):
+            self.assertIn(f'name="{field_name}"', page)
+
+        saved = self.client.post(f"/customers/{self.first_id}/edit", data={
+            "_csrf_token": "test-csrf", "first_name": "Alice", "last_name": "Jones",
+            "phone": "07802563213", "email": "alice.updated@real.test", "address": "3 New Street",
+            "town": "Ludlow", "postcode": "SY8 1BB", "source": "Website", "tags": "repeat", "notes": "Updated note",
+        }, follow_redirects=True)
+        self.assertEqual(saved.status_code, 200)
+        self.assertIn("Customer details saved", saved.get_data(as_text=True))
+        customer = self.mod.q("SELECT * FROM customers WHERE id=?", (self.first_id,), one=True)
+        self.assertEqual(customer["email"], "alice.updated@real.test")
+        self.assertEqual(customer["address"], "3 New Street")
 
     def test_complete_genuine_intake_syncs_but_incomplete_and_test_data_do_not(self):
         genuine = {"name": "Alice Jones", "email": "alice@real.test", "phone": "07802563213", "address": "1 High Street", "postcode": "SY8 1AA"}

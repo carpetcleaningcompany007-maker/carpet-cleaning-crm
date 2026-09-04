@@ -28,8 +28,9 @@
   </div>
   <div class="customer-record-tools" aria-label="Customer record actions">
     <div class="xero-status {% if customer.xero_contact_id %}is-synced{% elif customer.xero_contact_error %}is-failed{% endif %}">
-      <strong>{% if customer.xero_contact_id %}✓ Xero synced{% elif customer.xero_contact_error %}Xero needs attention{% else %}Not yet in Xero{% endif %}</strong>
-      <span>{% if customer.xero_contact_id %}Verified contact {{ customer.xero_contact_id }}{% if customer.xero_contact_synced_at %} · Last synced {{ customer.xero_contact_synced_at }}{% endif %}{% elif customer.xero_contact_error %}{{ friendly_xero_error(customer.xero_contact_error) }}{% elif xero_decision_needed %}Needs your confirmation — missing {{ xero_missing_summary }}. You can update the record or continue with the safe details available.{% elif not xero_identity_ready %}Add the customer’s full name and a phone number or email before Xero can continue.{% else %}Use the button to safely create or match this contact.{% endif %}</span>
+      <strong>{% if customer.xero_contact_id %}✓ Synced with Xero{% elif customer.xero_contact_error %}Xero needs attention{% else %}Not yet in Xero{% endif %}</strong>
+      <span>{% if customer.xero_contact_id %}{% if customer.xero_contact_synced_at %}Last synced {{ friendly_local_datetime(customer.xero_contact_synced_at) }}{% else %}The Xero contact is connected.{% endif %}{% elif customer.xero_contact_error %}{{ friendly_xero_error(customer.xero_contact_error) }}{% elif xero_decision_needed %}Needs your confirmation — missing {{ xero_missing_summary }}. You can update the record or continue with the safe details available.{% elif not xero_identity_ready %}Add the customer’s full name and a phone number or email before Xero can continue.{% else %}Use the button to safely create or match this contact.{% endif %}</span>
+      {% if customer.xero_contact_id %}<details class="xero-technical-detail"><summary>Technical details</summary><code>Xero contact reference: {{ customer.xero_contact_id }}</code></details>{% endif %}
     </div>
     <div class="customer-record-action-grid">
       <form method="post" action="{{ url_for('xero_sync_contact', customer_id=customer.id) }}" {% if xero_decision_needed %}onsubmit="return confirm('Missing {{ xero_missing_summary }}. Continue to Xero anyway with the available customer details?');"{% endif %}>
@@ -692,6 +693,137 @@ window.addEventListener('hashchange', openCustomerToolsForHash);
 openCustomerToolsForHash();
 </script>
 
+<section class="panel customer-section customer-details-workflow" id="customer-details">
+  <div class="panel-head panel-head-stack customer-details-intro">
+    <div>
+      <div class="section-kicker">Customer information</div>
+      <h3>Customer details, one clear stage at a time</h3>
+      <p>Work through the open section, save once at the end, then move straight into Xero, jobs or messages.</p>
+    </div>
+    <div class="customer-detail-progress" aria-live="polite"><strong id="customer-detail-progress-value">0 of 3 ready</strong><span>Customer record progress</span></div>
+  </div>
+  {% if request.args.get('details_saved') == '1' %}
+    <div class="send-form-inline-success"><strong>Customer details saved</strong><span>The main customer record has been updated.</span></div>
+  {% endif %}
+  <form method="post" action="{{ url_for('customer_edit', customer_id=customer.id) }}" class="form customer-details-stage-form" novalidate>
+    <details class="customer-detail-stage" data-customer-stage="1" open>
+      <summary><span class="customer-stage-number">1</span><div><strong>Customer and contact</strong><small class="customer-stage-missing"></small></div><em class="customer-stage-status">Checking</em></summary>
+      <div class="customer-stage-body">
+        <p>Who the customer is and the best way to reach them.</p>
+        <div class="cols"><label>First name<input name="first_name" value="{{ customer.first_name }}" placeholder="First name" required></label><label>Last name<input name="last_name" value="{{ customer.last_name }}" placeholder="Last name" required></label></div>
+        <div class="cols"><label>Phone<input name="phone" value="{{ customer.phone or '' }}" placeholder="Phone"></label><label>Email<input type="email" name="email" value="{{ customer.email or '' }}" placeholder="Email"></label></div>
+        <div class="customer-stage-actions"><button type="button" class="btn primary customer-stage-next">Save progress &amp; next</button></div>
+      </div>
+    </details>
+    <details class="customer-detail-stage" data-customer-stage="2">
+      <summary><span class="customer-stage-number">2</span><div><strong>Address and property</strong><small class="customer-stage-missing"></small></div><em class="customer-stage-status">Checking</em></summary>
+      <div class="customer-stage-body">
+        <p>Where the work takes place. A complete address also makes Xero and scheduling cleaner.</p>
+        <label>Address<input name="address" value="{{ customer.address or '' }}" placeholder="Address"></label>
+        <div class="cols"><label>Town<input name="town" value="{{ customer.town or '' }}" placeholder="Town"></label><label>Postcode<input name="postcode" value="{{ customer.postcode or '' }}" placeholder="Postcode"></label></div>
+        <div class="customer-stage-actions"><button type="button" class="btn secondary customer-stage-back">Back</button><button type="button" class="btn primary customer-stage-next">Save progress &amp; next</button></div>
+      </div>
+    </details>
+    <details class="customer-detail-stage" data-customer-stage="3">
+      <summary><span class="customer-stage-number">3</span><div><strong>CRM context and notes</strong><small class="customer-stage-missing"></small></div><em class="customer-stage-status">Checking</em></summary>
+      <div class="customer-stage-body">
+        <p>Optional information that helps organise and understand this customer.</p>
+        <div class="cols"><label>Source<input name="source" value="{{ customer.source or '' }}" placeholder="Source"></label><label>Tags<input name="tags" value="{{ customer.tags or '' }}" placeholder="Tags"></label></div>
+        <label>General notes<textarea name="notes" placeholder="General notes">{{ customer.notes or '' }}</textarea></label>
+        <div class="customer-stage-actions"><button type="button" class="btn secondary customer-stage-back">Back</button><button type="button" class="btn primary customer-stage-next">Save progress &amp; review</button></div>
+      </div>
+    </details>
+    <details class="customer-detail-stage customer-detail-review" data-customer-stage="4">
+      <summary><span class="customer-stage-number">4</span><div><strong>Review and save</strong><small class="customer-stage-missing">Check the summary, then save the customer record.</small></div><em class="customer-stage-status">Ready to review</em></summary>
+      <div class="customer-stage-body">
+        <div class="customer-record-review" id="customer-record-review"></div>
+        <div class="customer-stage-actions final"><button type="button" class="btn secondary customer-stage-back">Back</button><button class="btn primary" type="submit">Save customer details</button></div>
+      </div>
+    </details>
+    <div class="customer-details-error" id="customer-details-error" role="alert" hidden></div>
+  </form>
+  <div class="customer-details-next-actions">
+    <div><strong>{% if customer.xero_contact_id %}✓ Synced with Xero{% elif xero_decision_needed %}Xero needs your confirmation{% else %}Next: check Xero{% endif %}</strong><span>{% if customer.xero_contact_id %}{% if customer.xero_contact_synced_at %}Last synced {{ friendly_local_datetime(customer.xero_contact_synced_at) }}{% else %}Xero contact connected{% endif %}{% elif xero_decision_needed %}Missing {{ xero_missing_summary }}{% else %}Create or safely match the Xero contact after saving.{% endif %}</span></div>
+    <a class="btn secondary" href="#customer-stage-2">Xero status</a>
+    <a class="btn secondary" href="#customer-sales">Jobs and sales</a>
+    <a class="btn secondary" href="#customer-comms">Messages</a>
+    {% if is_archived %}
+    <form method="post" action="{{ url_for('customer_restore', customer_id=customer.id) }}"><button type="submit" class="btn secondary">Restore customer</button></form>
+    {% else %}
+    <form method="post" action="{{ url_for('customer_delete', customer_id=customer.id) }}" onsubmit="return confirm('Archive this customer?')"><button type="submit" class="btn danger">Archive customer</button></form>
+    {% endif %}
+  </div>
+</section>
+<script>
+(function(){
+  var form=document.querySelector('.customer-details-stage-form');
+  if(!form)return;
+  var stages=Array.prototype.slice.call(form.querySelectorAll('.customer-detail-stage'));
+  var labels={first_name:'first name',last_name:'last name',phone:'phone number',email:'email address',address:'address',town:'town',postcode:'postcode',source:'source',tags:'tags',notes:'notes'};
+  function value(name){var field=form.elements[name];return field?String(field.value||'').trim():'';}
+  function state(stage){
+    var number=stage.dataset.customerStage;
+    var missing=[];
+    var tone='complete',label='Complete';
+    if(number==='1'){
+      if(!value('first_name'))missing.push('first name');
+      if(!value('last_name'))missing.push('last name');
+      if(!value('phone')&&!value('email'))missing.push('phone number or email');
+      if(missing.length){tone=(missing.indexOf('first name')>=0||missing.indexOf('last name')>=0)?'missing':'attention';label=tone==='missing'?'Missing information':'Needs attention';}
+    }else if(number==='2'){
+      if(!value('address'))missing.push('address');
+      if(!value('town'))missing.push('town');
+      if(!value('postcode'))missing.push('postcode');
+      if(missing.length){tone='attention';label='Needs attention';}
+    }else if(number==='3'){
+      if(!value('source')&&!value('tags')&&!value('notes')){tone='optional';label='Optional';}
+    }else{
+      var blockers=stages.slice(0,3).some(function(item){return ['missing','attention'].indexOf(state(item).tone)>=0;});
+      tone=blockers?'attention':'complete';label=blockers?'Check missing details':'Ready to save';
+    }
+    return {tone:tone,label:label,missing:missing};
+  }
+  function refresh(){
+    var ready=0;
+    stages.forEach(function(stage,index){
+      var result=state(stage),status=stage.querySelector('.customer-stage-status'),missing=stage.querySelector('.customer-stage-missing');
+      stage.dataset.status=result.tone;
+      if(status)status.textContent=result.label;
+      if(missing&&index<3)missing.textContent=result.missing.length?'Still needed: '+result.missing.join(', '):(result.tone==='optional'?'Optional notes and organisation':'Ready');
+      if(index<3&&result.tone==='complete')ready++;
+    });
+    var progress=document.getElementById('customer-detail-progress-value');if(progress)progress.textContent=ready+' of 3 ready';
+    var review=document.getElementById('customer-record-review');
+    if(review)review.textContent=(value('first_name')+' '+value('last_name')).trim()+' · '+(value('phone')||value('email')||'No contact method')+' · '+([value('address'),value('town'),value('postcode')].filter(Boolean).join(', ')||'No address saved');
+  }
+  function openStage(index){
+    if(!stages[index])return;
+    stages.forEach(function(stage,i){stage.open=i===index;});refresh();stages[index].scrollIntoView({behavior:'smooth',block:'start'});
+  }
+  stages.forEach(function(stage,index){
+    stage.addEventListener('toggle',function(){if(stage.open)stages.forEach(function(other){if(other!==stage)other.open=false;});});
+    var next=stage.querySelector('.customer-stage-next'),back=stage.querySelector('.customer-stage-back');
+    if(next)next.addEventListener('click',function(){
+      var invalid=stage.querySelector(':invalid');
+      if(invalid){invalid.reportValidity();invalid.focus();return;}
+      openStage(index+1);
+    });
+    if(back)back.addEventListener('click',function(){openStage(index-1);});
+  });
+  form.addEventListener('input',refresh);form.addEventListener('change',refresh);
+  form.addEventListener('submit',function(event){
+    var invalid=form.querySelector(':invalid');
+    if(!invalid)return;
+    event.preventDefault();var containing=invalid.closest('.customer-detail-stage');if(containing){stages.forEach(function(stage){stage.open=stage===containing;});}
+    var error=document.getElementById('customer-details-error');if(error){error.hidden=false;error.textContent='Please correct '+(labels[invalid.name]||'the highlighted field')+' before saving.';}
+    invalid.reportValidity();invalid.focus();refresh();
+  });
+  refresh();
+  var firstIncomplete=stages.slice(0,3).findIndex(function(stage){return state(stage).tone!=='complete'&&state(stage).tone!=='optional';});
+  if(firstIncomplete>0)openStage(firstIncomplete);
+})();
+</script>
+
 <details class="hub-collapse customer-library-record" id="customer-library-record">
   <summary>Customer library record, history and advanced details</summary>
   <div class="hub-collapse-body">
@@ -722,38 +854,6 @@ openCustomerToolsForHash();
 
 <div class="customer-layout">
   <div>
-    <section class="panel customer-section" id="customer-details">
-      <div class="panel-head panel-head-stack">
-        <div>
-          <div class="section-kicker">Step 1</div>
-          <h3>Customer details</h3>
-          <p>Keep the basic record accurate first. Everything else depends on this being right.</p>
-        </div>
-      </div>
-      <form method="post" action="{{ url_for('customer_edit', customer_id=customer.id) }}" class="form">
-        {% if request.args.get('details_saved') == '1' %}
-          <div class="send-form-inline-success">
-            <strong>Customer details saved</strong>
-            <span>The main customer record has been updated.</span>
-          </div>
-        {% endif %}
-        <div class="cols"><input name="first_name" value="{{ customer.first_name }}" placeholder="First name"><input name="last_name" value="{{ customer.last_name }}" placeholder="Last name"></div>
-        <div class="cols"><input name="phone" value="{{ customer.phone or '' }}" placeholder="Phone"><input name="email" value="{{ customer.email or '' }}" placeholder="Email"></div>
-        <input name="address" value="{{ customer.address or '' }}" placeholder="Address">
-        <div class="cols"><input name="town" value="{{ customer.town or '' }}" placeholder="Town"><input name="postcode" value="{{ customer.postcode or '' }}" placeholder="Postcode"></div>
-        <div class="cols"><input name="source" value="{{ customer.source or '' }}" placeholder="Source"><input name="tags" value="{{ customer.tags or '' }}" placeholder="Tags"></div>
-        <textarea name="notes" placeholder="General notes">{{ customer.notes or '' }}</textarea>
-        <div class="row-actions">
-          <button class="btn primary" type="submit">Save Changes</button>
-          {% if is_archived %}
-          <button type="submit" formaction="{{ url_for('customer_restore', customer_id=customer.id) }}" class="btn secondary">Restore Customer</button>
-          {% else %}
-          <button type="submit" formaction="{{ url_for('customer_delete', customer_id=customer.id) }}" class="btn danger" onclick="return confirm('Archive this customer?')">Archive Customer</button>
-          {% endif %}
-        </div>
-      </form>
-    </section>
-
     <section class="panel customer-section" id="customer-sales">
       <div class="panel-head panel-head-stack">
         <div>
