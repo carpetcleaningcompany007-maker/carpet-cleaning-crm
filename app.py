@@ -9227,6 +9227,20 @@ def customers():
     }[sort]
     sql = "SELECT * FROM customers WHERE " + " AND ".join(where_parts) + " ORDER BY " + sort_sql
     rows = q(sql, tuple(params))
+    if search and rows:
+        search_words = [word for word in re.findall(r"[a-z0-9]+", search.lower()) if word]
+        name_matches = []
+        for row in rows:
+            name_words = re.findall(
+                r"[a-z0-9]+",
+                f"{clean_str(row_value(row, 'first_name'))} {clean_str(row_value(row, 'last_name'))}".lower(),
+            )
+            if search_words and all(any(name_word.startswith(term) for name_word in name_words) for term in search_words):
+                name_matches.append(row)
+        # If the search clearly matches a customer name, do not bury it among
+        # incidental matches such as "marketing" in somebody else's email.
+        if name_matches:
+            rows = name_matches
     annotate_rows_with_last_contact(rows, key="id")
     letters = [chr(c) for c in range(ord('A'), ord('Z')+1)]
     customer_stats = {

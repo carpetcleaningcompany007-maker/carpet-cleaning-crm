@@ -47,6 +47,25 @@ class ReviewRequestPersonalisationTests(unittest.TestCase):
         self.assertEqual(replacements["{{first_name}}"], "there")
         self.assertEqual(replacements["{{name}}"], "there")
 
+    def test_customer_name_search_ignores_incidental_email_matches(self):
+        self.appmod.run(
+            "INSERT INTO customers(first_name,last_name,email,phone) VALUES (?,?,?,?)",
+            ("Mark", "Cooksey", "mark@example.com", "07000000001"),
+        )
+        self.appmod.run(
+            "INSERT INTO customers(first_name,last_name,email,phone) VALUES (?,?,?,?)",
+            ("Other", "Person", "marketing@example.com", "07000000002"),
+        )
+        client = self.appmod.app.test_client()
+        with client.session_transaction() as session:
+            session["logged_in"] = True
+
+        response = client.get("/customers?q=Mark&scope=all")
+        body = response.get_data(as_text=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Mark Cooksey", body)
+        self.assertNotIn("Other Person", body)
+
 
 if __name__ == "__main__":
     unittest.main()

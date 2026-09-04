@@ -22,6 +22,7 @@
     <input type="hidden" name="action_type" value="{{ action_type }}">
     <label class="customer-search-label">Find a customer
       <input type="search" id="quickSendSearch" placeholder="Start typing a name, email or mobile number" autocomplete="off">
+      <small class="customer-search-status" id="quickSendSearchStatus" aria-live="polite">Start typing and I’ll select a single matching customer for you.</small>
     </label>
     <label class="saved-customer-picker">Choose a saved customer <span class="optional-label">optional</span>
       <select name="customer_id" id="quickSendCustomer">
@@ -36,10 +37,8 @@
     <aside class="xero-refresh-card">
       <span class="xero-refresh-icon">X</span>
       <div><strong>Can’t find the customer?</strong><small>Bring every current customer from Xero into this list, then search again.</small></div>
-      <form method="post" action="{{ url_for('xero_pull_contacts') }}">
-        <input type="hidden" name="next_url" value="{{ url_for('send_contact_form', action_type='review') }}">
-        <button class="btn xero-refresh-btn" type="submit">Refresh customers from Xero</button>
-      </form>
+      <input type="hidden" name="next_url" value="{{ url_for('send_contact_form', action_type='review') }}">
+      <button class="btn xero-refresh-btn" type="submit" formmethod="post" formaction="{{ url_for('xero_pull_contacts') }}">Refresh customers from Xero</button>
     </aside>
     {% endif %}
     <div class="send-contact-grid">
@@ -85,14 +84,25 @@
 (() => {
   const picker = document.getElementById('quickSendCustomer');
   const search = document.getElementById('quickSendSearch');
+  const searchStatus = document.getElementById('quickSendSearchStatus');
   if (!picker) return;
   const originalOptions = Array.from(picker.options).slice(1).map(option => option.cloneNode(true));
   if (search) search.addEventListener('input', () => {
     const term = search.value.trim().toLowerCase();
     const current = picker.value;
     picker.querySelectorAll('option:not(:first-child)').forEach(option => option.remove());
-    originalOptions.filter(option => !term || option.textContent.toLowerCase().includes(term)).forEach(option => picker.appendChild(option.cloneNode(true)));
-    if (Array.from(picker.options).some(option => option.value === current)) picker.value = current;
+    const matches = originalOptions.filter(option => !term || option.textContent.toLowerCase().includes(term));
+    const nameMatches = matches.filter(option => (option.dataset.name || '').toLowerCase().split(/\s+/).some(word => word.startsWith(term)));
+    matches.forEach(option => picker.appendChild(option.cloneNode(true)));
+    const automaticMatch = nameMatches.length === 1 ? nameMatches[0] : (matches.length === 1 ? matches[0] : null);
+    if (automaticMatch && term) {
+      picker.value = automaticMatch.value;
+      picker.dispatchEvent(new Event('change'));
+      if (searchStatus) searchStatus.textContent = `Found and selected ${automaticMatch.dataset.name || automaticMatch.textContent}.`;
+    } else {
+      if (Array.from(picker.options).some(option => option.value === current)) picker.value = current;
+      if (searchStatus) searchStatus.textContent = term ? (matches.length ? `${matches.length} customers found — choose the right one below.` : 'No matching customer found. Try their surname, email, mobile, or refresh from Xero.') : 'Start typing and I’ll select a single matching customer for you.';
+    }
   });
   picker.addEventListener('change', () => {
     const option = picker.options[picker.selectedIndex];
