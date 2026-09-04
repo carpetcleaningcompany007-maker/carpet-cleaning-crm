@@ -7828,6 +7828,17 @@ def lead_id_from_update_token(token):
         return None
 
 
+def intake_update_short_url(lead_id):
+    return crm_external_url("intake_update_shortlink", token=signed_intake_update_token(lead_id))
+
+
+@app.route("/u/<token>")
+def intake_update_shortlink(token):
+    if not lead_id_from_update_token(token):
+        return "This customer update link is not valid.", 404
+    return redirect(url_for("booking_form", update_token=token))
+
+
 def parse_intake_parking_summary(parking):
     result = {"parking_issues": "", "steps_access": "", "property_access": "", "access_info": ""}
     notes = []
@@ -15482,9 +15493,7 @@ def intake_request_missing_details(lead_id):
         return redirect(url_for("intake_form_view", lead_id=lead_id))
     customer_id = safe_intake_customer_id(lead)
     customer = q("SELECT * FROM customers WHERE id=?", (customer_id,), one=True) if customer_id else None
-    prefill = intake_prefill_values(lead)
-    prefill["update_token"] = signed_intake_update_token(lead_id)
-    form_link = booking_form_url(customer, prefill=prefill)
+    form_link = intake_update_short_url(lead_id)
     recipient_name = clean_str(row_get(lead, "name"))
     email_to = clean_str(row_get(lead, "email"))
     sms_to = clean_str(row_get(lead, "phone"))

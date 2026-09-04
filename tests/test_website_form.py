@@ -579,6 +579,25 @@ class WebsiteFormTests(unittest.TestCase):
         self.assertIn("Continue without their reply", page)
         self.assertIn("Resend missing-details request", page)
 
+    def test_missing_details_update_link_is_short_and_opens_prefilled_form(self):
+        lead_id = self.appmod.run("""INSERT INTO intake_submissions
+            (name, phone, email, postcode, what_cleaned, status)
+            VALUES (?,?,?,?,?,?)""",
+            ("Short Link Customer", "07802 563213", "short@example.com", "SY8 1AA", "Carpet cleaning", "Needs missing details"))
+        with self.app.test_request_context("/"):
+            short_url = self.appmod.intake_update_short_url(lead_id)
+        self.assertIn("/u/", short_url)
+        self.assertLess(len(short_url), 140)
+        short_path = short_url[short_url.index("/u/"):]
+        self.assertEqual(self.appmod.lead_id_from_update_token(short_path.split("/u/", 1)[1]), lead_id)
+        with self.app.test_client() as client:
+            redirect_response = client.get(short_path)
+            self.assertEqual(redirect_response.status_code, 302, short_url + redirect_response.get_data(as_text=True))
+            form_response = client.get(redirect_response.headers["Location"])
+        page = form_response.get_data(as_text=True)
+        self.assertIn("Short Link Customer", page)
+        self.assertIn("short@example.com", page)
+
     def test_test_enquiry_cannot_schedule_follow_up(self):
         lead_id = self.appmod.run("""INSERT INTO intake_submissions
             (name, phone, is_test, ignore_alerts) VALUES (?,?,1,1)""", ("Test", "07802 563213"))
