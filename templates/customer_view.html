@@ -51,7 +51,22 @@
   </div>
 </section>
 
+<section class="customer-due-next {% if not customer_due_next.has_action %}is-clear{% endif %}" aria-labelledby="customer-due-next-title">
+  <div class="due-next-marker"><span></span><small>Due next</small></div>
+  <div class="due-next-copy">
+    <h3 id="customer-due-next-title">{{ customer_due_next.title }}</h3>
+    <p>{{ customer_due_next.reason }}</p>
+  </div>
+  <div class="due-next-time"><small>When</small><strong>{{ customer_due_next.due }}</strong></div>
+  <a class="btn {% if customer_due_next.has_action %}primary{% else %}secondary{% endif %}" href="{{ customer_due_next.href }}">{{ customer_due_next.button }}</a>
+</section>
+
 <style>
+  .customer-due-next{display:grid;grid-template-columns:auto minmax(0,1fr) minmax(180px,auto) auto;align-items:center;gap:16px;max-width:1180px;margin:14px auto 18px;padding:16px 18px;border:1px solid #d8bd70;border-radius:17px;background:linear-gradient(135deg,#fffdf7,#f7eed7);box-shadow:0 13px 30px rgba(57,43,18,.10)}
+  .due-next-marker{display:grid;justify-items:center;gap:4px;color:#6d520f;text-transform:uppercase;font-weight:900;letter-spacing:.05em}.due-next-marker span{width:11px;height:11px;border-radius:50%;background:#dcae2f;box-shadow:0 0 0 5px rgba(220,174,47,.17)}.due-next-marker small{font-size:10px}
+  .due-next-copy{min-width:0}.due-next-copy h3{margin:0 0 3px;color:#092642;font-size:19px}.due-next-copy p{margin:0;color:#52687a;font-size:13px;line-height:1.4}
+  .due-next-time{display:grid;gap:2px;padding-left:15px;border-left:1px solid #dacda9}.due-next-time small{color:#776b50;font-size:10px;font-weight:850;text-transform:uppercase;letter-spacing:.06em}.due-next-time strong{color:#193851;font-size:13px}.customer-due-next>.btn{white-space:nowrap}.customer-due-next.is-clear{border-color:#b8dccc;background:linear-gradient(135deg,#f5fcf9,#fff)}.customer-due-next.is-clear .due-next-marker span{background:#279a77;box-shadow:0 0 0 5px rgba(39,154,119,.14)}
+  @media(max-width:700px){.customer-due-next{grid-template-columns:auto minmax(0,1fr);gap:11px;margin:10px 0 14px;padding:14px}.due-next-marker{grid-row:1/3}.due-next-time{grid-column:2;padding:0;border:0}.customer-due-next>.btn{grid-column:1/-1;width:100%}.due-next-copy h3{font-size:17px}}
   body.app-page .customer-hero{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(350px,440px)!important;gap:22px!important;align-items:start!important;padding:26px!important;background:radial-gradient(circle at 8% 12%,rgba(194,151,67,.16),transparent 28%),linear-gradient(145deg,#f4ead7 0%,#fcf8ef 52%,#e9dcc3 100%)!important;border:1px solid #b99958!important;border-top:5px solid #a97c29!important;box-shadow:0 22px 54px rgba(42,36,27,.18),0 2px 0 rgba(255,255,255,.72) inset!important}
   body.app-page .customer-hero h3{color:#081a30!important;letter-spacing:-.025em}
   body.app-page .customer-hero p{color:#34495d!important}

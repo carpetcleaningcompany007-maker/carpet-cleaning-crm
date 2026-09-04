@@ -8842,6 +8842,43 @@ def customer_hub_stage_context(customer, quotes=None, jobs=None, invoices=None, 
     }
 
 
+def customer_due_next_summary(customer_hub, latest_job=None, reminders=None):
+    stages = list((customer_hub or {}).get("stages") or [])
+    if not stages or all(stage.get("complete") for stage in stages):
+        return {"has_action": False, "title": "Nothing due right now", "reason": "This customer's current workflow is complete.", "due": "No outstanding date or time", "href": "#customer-stage-overview", "button": "View workflow"}
+    current = next((stage for stage in stages if stage.get("state") == "current"), stages[0])
+    number = int(current.get("number") or 1)
+    titles = {1: "Complete the missing customer details", 2: "Sync this customer with Xero", 3: "Confirm the quote and booking", 4: "Progress the booked job", 5: "Send the review request", 6: "Set the next follow-up reminder"}
+    missing = list(current.get("missing") or [])
+    reason = ("Still needed: " + ", ".join(missing) + ".") if missing else clean_str(current.get("subtitle"))
+    due = "No date or time set"
+    if number in {3, 4} and latest_job and clean_str(row_value(latest_job, "job_date")):
+        raw_date = clean_str(row_value(latest_job, "job_date"))
+        try:
+            parsed_date = date.fromisoformat(raw_date[:10])
+            due = f"{parsed_date.day} {parsed_date.strftime('%B %Y')}"
+        except ValueError:
+            due = raw_date
+        job_time = clean_str(row_value(latest_job, "job_time"))
+        if job_time:
+            due += f" at {job_time}"
+    if number == 6:
+        open_reminder = next((item for item in (reminders or []) if clean_str(row_value(item, "status")).lower() != "completed"), None)
+        if open_reminder:
+            reminder_title = clean_str(row_value(open_reminder, "title"))
+            if reminder_title:
+                titles[6] = reminder_title
+            raw_due = clean_str(row_value(open_reminder, "reminder_date"))
+            if raw_due:
+                try:
+                    parsed_due = date.fromisoformat(raw_due[:10])
+                    due = f"{parsed_due.day} {parsed_due.strftime('%B %Y')}"
+                except ValueError:
+                    due = raw_due
+            reason = clean_str(row_value(open_reminder, "notes")) or "This follow-up reminder is still open."
+    return {"has_action": True, "title": titles.get(number, clean_str(current.get("action_label")) or "Continue customer workflow"), "reason": reason or "This is the next incomplete workflow stage.", "due": due, "href": f"#customer-stage-{number}", "button": "Open next action"}
+
+
 def set_customer_workflow(customer_id, status, notes="", action_label=None):
     customer = q("SELECT * FROM customers WHERE id=?", (customer_id,), one=True)
     if not customer:
@@ -9814,6 +9851,7 @@ def customer_view(customer_id):
     latest_intake = q("SELECT * FROM intake_submissions WHERE customer_id=? ORDER BY id DESC LIMIT 1", (customer_id,), one=True)
     latest_job = jobs[0] if jobs else None
     customer_hub = customer_hub_stage_context(customer, quotes, jobs, invoices, all_recent_contacts, feedback, reminders, latest_intake=latest_intake)
+    customer_due_next = customer_due_next_summary(customer_hub, latest_job=latest_job, reminders=reminders)
     customer_hub_details = customer_hub_detail_summary(customer, latest_intake=latest_intake, latest_job=latest_job)
     send_form_values = {
         "name": clean_str(request.args.get("form_name")) or customer_name(customer),
@@ -9850,7 +9888,7 @@ def customer_view(customer_id):
     for stage in customer_hub["stages"]:
         stage["templates"] = [customer_action_template_map[key] for key in stage.get("template_keys", []) if key in customer_action_template_map]
     saved_message_templates = q("SELECT * FROM communication_templates ORDER BY name COLLATE NOCASE ASC, id DESC")
-    return render_template("customer_view.html", customer=customer, timeline=timeline, quotes=quotes, jobs=jobs, invoices=invoices, feedback=feedback, reminders=reminders, subscription_summary=subscription_summary, is_archived=bool(customer and customer["archived_at"]), last_contacted_at=last_contacted_at, last_contacted_label=contact_badge_text(last_contacted_at), recent_contacts=recent_contacts, contact_summary=contact_summary, recent_sms=recent_sms, sms_summary=sms_summary, sms_thread=sms_thread, workflow=workflow, workflow_stages=WORKFLOW_STAGES, customer_hub=customer_hub, customer_hub_details=customer_hub_details, workflow_messages=workflow_messages, send_form_values=send_form_values, latest_intake=latest_intake, customer_form_sending_paused=CUSTOMER_FORM_SENDING_PAUSED, customer_action_templates=customer_action_templates, saved_message_templates=saved_message_templates, app_settings=settings())
+    return render_template("customer_view.html", customer=customer, timeline=timeline, quotes=quotes, jobs=jobs, invoices=invoices, feedback=feedback, reminders=reminders, subscription_summary=subscription_summary, is_archived=bool(customer and customer["archived_at"]), last_contacted_at=last_contacted_at, last_contacted_label=contact_badge_text(last_contacted_at), recent_contacts=recent_contacts, contact_summary=contact_summary, recent_sms=recent_sms, sms_summary=sms_summary, sms_thread=sms_thread, workflow=workflow, workflow_stages=WORKFLOW_STAGES, customer_hub=customer_hub, customer_due_next=customer_due_next, customer_hub_details=customer_hub_details, workflow_messages=workflow_messages, send_form_values=send_form_values, latest_intake=latest_intake, customer_form_sending_paused=CUSTOMER_FORM_SENDING_PAUSED, customer_action_templates=customer_action_templates, saved_message_templates=saved_message_templates, app_settings=settings())
 
 
 @app.route("/customers/<int:customer_id>/save-booking-details", methods=["POST"])

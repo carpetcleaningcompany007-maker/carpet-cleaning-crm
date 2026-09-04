@@ -107,6 +107,40 @@ class CustomerXeroExportTests(unittest.TestCase):
         self.assertIn("customer-library-accordion", page)
         self.assertIn("if(other!==stage)other.open=false", page)
 
+    def test_due_next_summary_uses_current_stage_and_real_job_time(self):
+        hub = {"stages": [
+            {"number": 1, "state": "done", "complete": True, "missing": []},
+            {"number": 3, "state": "current", "complete": False, "missing": ["Booking confirmation sent"], "subtitle": "Confirm booking"},
+        ]}
+        result = self.mod.customer_due_next_summary(hub, latest_job={"job_date": "2026-09-08", "job_time": "14:30"})
+        self.assertTrue(result["has_action"])
+        self.assertEqual(result["title"], "Confirm the quote and booking")
+        self.assertEqual(result["due"], "8 September 2026 at 14:30")
+        self.assertEqual(result["href"], "#customer-stage-3")
+        self.assertIn("Booking confirmation sent", result["reason"])
+
+    def test_due_next_summary_never_invents_work_when_every_stage_is_complete(self):
+        hub = {"stages": [{"number": number, "state": "done", "complete": True, "missing": []} for number in range(1, 7)]}
+        result = self.mod.customer_due_next_summary(hub)
+        self.assertFalse(result["has_action"])
+        self.assertEqual(result["title"], "Nothing due right now")
+        self.assertEqual(result["due"], "No outstanding date or time")
+
+    def test_due_next_summary_uses_open_follow_up_reminder(self):
+        hub = {"stages": [{"number": 6, "state": "current", "complete": False, "missing": ["Maintenance reminder sent"], "subtitle": "Follow up"}]}
+        result = self.mod.customer_due_next_summary(hub, reminders=[{"status": "Open", "title": "Annual clean reminder", "reminder_date": "2026-10-12", "notes": "Customer is due for a yearly clean."}])
+        self.assertEqual(result["title"], "Annual clean reminder")
+        self.assertEqual(result["due"], "12 October 2026")
+        self.assertEqual(result["reason"], "Customer is due for a yearly clean.")
+
+    def test_customer_page_renders_compact_due_next_action(self):
+        response = self.client.get(f"/customers/{self.first_id}")
+        page = response.get_data(as_text=True)
+        self.assertIn('class="customer-due-next', page)
+        self.assertIn("Due next", page)
+        self.assertIn("Open next action", page)
+        self.assertIn('href="#customer-stage-1"', page)
+
     def test_complete_genuine_intake_syncs_but_incomplete_and_test_data_do_not(self):
         genuine = {"name": "Alice Jones", "email": "alice@real.test", "phone": "07802563213", "address": "1 High Street", "postcode": "SY8 1AA"}
         lead_id, customer_id = self.mod.create_intake_from_website_payload(genuine, require_valid_phone=True)
