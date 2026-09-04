@@ -116,19 +116,17 @@
       searchResults.replaceChildren();
       const visibleMatches = nameMatches.length ? nameMatches : matches;
       if (term) visibleMatches.slice(0, 8).forEach(option => {
-        const resultButton = document.createElement('button');
-        resultButton.type = 'button';
+        const resultButton = document.createElement('a');
         resultButton.className = 'customer-search-result';
+        const resultUrl = new URL(window.location.href);
+        resultUrl.searchParams.set('action_type', 'review');
+        resultUrl.searchParams.set('customer_id', option.value);
+        resultButton.href = resultUrl.toString();
         const resultName = document.createElement('strong');
         const resultContact = document.createElement('small');
         resultName.textContent = option.dataset.name || 'Unnamed customer';
         resultContact.textContent = option.dataset.phone || option.dataset.email || 'Open customer record';
         resultButton.append(resultName, resultContact);
-        resultButton.addEventListener('click', () => {
-          applyCustomer(option);
-          searchStatus.textContent = `Selected ${option.dataset.name || option.textContent}.`;
-          searchResults.querySelectorAll('button').forEach(button => button.classList.toggle('selected', button === resultButton));
-        });
         searchResults.appendChild(resultButton);
       });
     }
