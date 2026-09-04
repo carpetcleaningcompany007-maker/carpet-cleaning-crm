@@ -1,0 +1,82 @@
+{% extends "layout.html" %}
+{% block title %}Business Goals{% endblock %}
+{% block page_title %}Business Goals{% endblock %}
+{% block body_content %}
+<style>
+  .goals-shell{display:grid;gap:22px;max-width:1480px;margin:0 auto}
+  .goals-hero{position:relative;overflow:hidden;display:grid;grid-template-columns:minmax(0,1.25fr) minmax(300px,.75fr);gap:28px;padding:42px;border-radius:24px;background:linear-gradient(125deg,#061c31 0%,#0a4350 68%,#0a624d 100%);color:#fff;box-shadow:0 28px 70px rgba(7,28,49,.24)}
+  .goals-hero:after{content:"";position:absolute;right:-80px;top:-120px;width:360px;height:360px;border-radius:50%;background:radial-gradient(circle,rgba(237,204,119,.34),transparent 68%)}
+  .goals-kicker{color:#f0ce79;font-size:13px;font-weight:950;letter-spacing:.16em;text-transform:uppercase}
+  .goals-hero h3{max-width:760px;margin:12px 0 14px;color:#fff;font-family:Georgia,"Times New Roman",serif;font-size:clamp(40px,5vw,66px);line-height:1;letter-spacing:-.035em}
+  .goals-hero p{max-width:720px;margin:0;color:#d9e8ec;font-size:18px;line-height:1.6}
+  .target-ring{position:relative;z-index:1;display:grid;place-items:center;align-content:center;min-height:250px;border:1px solid rgba(255,255,255,.18);border-radius:20px;background:rgba(255,255,255,.09);backdrop-filter:blur(12px);text-align:center}
+  .target-ring span{color:#d8e7e9;font-size:13px;font-weight:850;text-transform:uppercase;letter-spacing:.1em}.target-ring strong{display:block;margin:4px 0;color:#f4d27d;font-family:Georgia,serif;font-size:62px;line-height:1}.target-ring small{color:#fff;font-size:15px}
+  .goal-card-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+  .goal-card{padding:22px;border:1px solid #dce6ed;border-radius:18px;background:#fff;box-shadow:0 12px 30px rgba(14,39,61,.07)}
+  .goal-card .label{display:flex;justify-content:space-between;gap:10px;color:#647688;font-size:13px;font-weight:900;text-transform:uppercase;letter-spacing:.05em}.goal-card strong{display:block;margin:12px 0 10px;color:#071b30;font-family:Georgia,serif;font-size:34px}.goal-card small{color:#6b7d8e}.goal-card .bar{height:9px;margin:15px 0 8px;overflow:hidden;border-radius:999px;background:#e8eef2}.goal-card .bar i{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#d6a93f,#efcf77)}
+  .goal-card.good .bar i{background:linear-gradient(90deg,#087b5b,#20ae82)}
+  .goal-grid-2{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(330px,.85fr);gap:20px}
+  .goal-panel{padding:25px;border:1px solid #dce6ed;border-radius:20px;background:#fff;box-shadow:0 12px 32px rgba(14,39,61,.065)}
+  .goal-panel-head{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;margin-bottom:20px}.goal-panel-head h3{margin:0;color:#071b30;font-family:Georgia,serif;font-size:30px}.goal-panel-head p{margin:5px 0 0;color:#647688;font-size:14px}
+  .income-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.income-metric{padding:17px;border-radius:14px;background:#f5f8fa}.income-metric span{display:block;color:#697b8c;font-size:12px;font-weight:900;text-transform:uppercase}.income-metric strong{display:block;margin-top:7px;color:#0a273e;font-size:25px}
+  .month-chart{display:grid;gap:13px}.month-row{display:grid;grid-template-columns:85px minmax(0,1fr) 110px;gap:13px;align-items:center}.month-label{font-weight:900;color:#20374b}.month-bars{position:relative;height:28px;border-radius:8px;background:#edf2f5;overflow:hidden}.month-target,.month-paid{position:absolute;left:0;border-radius:6px}.month-target{top:4px;height:8px;background:#cad6df}.month-paid{bottom:4px;height:12px;background:linear-gradient(90deg,#0b8062,#28b78c)}.month-value{text-align:right;font-weight:900;color:#0b2b40}.month-value small{display:block;color:#7b8a98;font-weight:700}
+  .target-form{display:grid;grid-template-columns:1fr 1fr;gap:14px}.target-form label,.action-form label{font-weight:900;color:#22384c}.target-form input,.target-form select,.action-form input,.action-form textarea{margin-top:7px;width:100%}.target-form .btn{grid-column:1/-1;width:100%}
+  .xero-box{margin-top:18px;padding:18px;border-radius:15px;background:linear-gradient(135deg,#eaf8f5,#f4fbf9);border:1px solid #bfe2d8}.xero-box strong{display:block;color:#09664f}.xero-box p{margin:5px 0 13px;color:#496b62;font-size:14px}
+  .action-form{display:grid;grid-template-columns:1.4fr .7fr;gap:13px;margin-bottom:18px}.action-form .wide{grid-column:1/-1}.action-form .btn{align-self:end}
+  .action-list{display:grid;gap:10px}.action-item{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:13px;align-items:center;padding:15px;border:1px solid #dce6ed;border-radius:14px;background:#fbfdfe}.action-status{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:#fff0c9;color:#6f500d;font-weight:950}.action-item.done{background:#f2fbf7;border-color:#bde2d4}.action-item.done .action-status{background:#0b8b68;color:#fff}.action-copy strong{display:block;color:#132a3d}.action-copy span{display:block;margin-top:3px;color:#6b7d8c;font-size:13px}.action-copy small{color:#8a6416}.action-item.done .action-copy strong{text-decoration:line-through;color:#63756e}
+  .goal-note{padding:14px 18px;border-left:4px solid #d5aa43;border-radius:8px;background:#fff8e8;color:#654f1e;font-size:14px}
+  @media(max-width:1100px){.goal-card-grid,.income-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.goal-grid-2{grid-template-columns:1fr}}
+  @media(max-width:720px){.goals-shell{gap:14px}.goals-hero{grid-template-columns:1fr;padding:25px 20px;border-radius:18px}.goals-hero h3{font-size:38px}.goals-hero p{font-size:15px}.target-ring{min-height:190px}.target-ring strong{font-size:52px}.goal-card-grid,.income-grid{grid-template-columns:1fr 1fr;gap:10px}.goal-card{padding:16px}.goal-card strong{font-size:27px}.goal-panel{padding:18px}.goal-panel-head{display:block}.month-row{grid-template-columns:68px minmax(0,1fr);gap:9px}.month-value{grid-column:2;text-align:left}.target-form,.action-form{grid-template-columns:1fr}.target-form .btn,.action-form .wide{grid-column:auto}.action-item{grid-template-columns:auto minmax(0,1fr)}.action-item form{grid-column:1/-1}.action-item .btn{width:100%}}
+</style>
+<div class="goals-shell">
+  <section class="goals-hero">
+    <div><div class="goals-kicker">Your business growth command centre</div><h3>Turn every working day into measurable progress.</h3><p>See what has been booked, invoiced and actually paid—then use a clear action plan to keep the business moving towards the target.</p></div>
+    <div class="target-ring"><span>Daily income goal</span><strong>£{{ '%.0f'|format(data.daily_target) }}</strong><small>{{ data.working_days }} working days each week</small></div>
+  </section>
+
+  <div class="goal-card-grid">
+    <article class="goal-card {% if data.today_progress >= 100 %}good{% endif %}"><div class="label"><span>Today paid</span><span>{{ data.today_progress }}%</span></div><strong>£{{ '%.2f'|format(data.paid_today) }}</strong><small>Target £{{ '%.2f'|format(data.today_target) }}</small><div class="bar"><i style="width:{{ data.today_progress }}%"></i></div></article>
+    <article class="goal-card {% if data.week_progress >= 100 %}good{% endif %}"><div class="label"><span>This week</span><span>{{ data.week_progress }}%</span></div><strong>£{{ '%.2f'|format(data.paid_week) }}</strong><small>Target £{{ '%.2f'|format(data.week_target) }}</small><div class="bar"><i style="width:{{ data.week_progress }}%"></i></div></article>
+    <article class="goal-card {% if data.month_progress >= 100 %}good{% endif %}"><div class="label"><span>This month</span><span>{{ data.month_progress }}%</span></div><strong>£{{ '%.2f'|format(data.paid_month) }}</strong><small>Target £{{ '%.2f'|format(data.month_target) }}</small><div class="bar"><i style="width:{{ data.month_progress }}%"></i></div></article>
+    <article class="goal-card"><div class="label"><span>Target days hit</span><span>This month</span></div><strong>{{ data.days_hit_month }}</strong><small>Days at or above £{{ '%.0f'|format(data.daily_target) }}</small><div class="bar"><i style="width:{{ [100, (data.days_hit_month * 5)]|min }}%"></i></div></article>
+  </div>
+
+  <section class="goal-panel">
+    <div class="goal-panel-head"><div><h3>What the business is producing</h3><p>Booked work is your pipeline. Invoiced is billed. Paid is money recorded as received.</p></div></div>
+    <div class="income-grid">
+      <div class="income-metric"><span>Booked this month</span><strong>£{{ '%.2f'|format(data.booked_month) }}</strong></div>
+      <div class="income-metric"><span>Still to complete</span><strong>£{{ '%.2f'|format(data.future_booked) }}</strong></div>
+      <div class="income-metric"><span>Invoiced this month</span><strong>£{{ '%.2f'|format(data.invoiced_month) }}</strong></div>
+      <div class="income-metric"><span>Outstanding invoices</span><strong>£{{ '%.2f'|format(data.outstanding) }}</strong></div>
+    </div>
+  </section>
+
+  <div class="goal-grid-2">
+    <section class="goal-panel">
+      <div class="goal-panel-head"><div><h3>Month-by-month performance</h3><p>Green shows paid income; the grey line shows the target for that month.</p></div></div>
+      <div class="month-chart">{% for month in data.months %}<div class="month-row"><div class="month-label">{{ month.label }}</div><div class="month-bars"><i class="month-target" style="width:{{ month.target_width }}%"></i><i class="month-paid" style="width:{{ month.paid_width }}%"></i></div><div class="month-value">£{{ '%.0f'|format(month.paid) }}<small>of £{{ '%.0f'|format(month.target) }}</small></div></div>{% endfor %}</div>
+    </section>
+    <aside class="goal-panel">
+      <div class="goal-panel-head"><div><h3>Set your target</h3><p>Start at £300 and change it whenever the business is ready.</p></div></div>
+      <form method="post" action="{{ url_for('business_goals_settings') }}" class="target-form">
+        <label>Daily income target<input type="number" name="daily_revenue_target" min="1" step="10" value="{{ '%.0f'|format(data.daily_target) }}" required></label>
+        <label>Working days<select name="working_days_per_week">{% for day in range(1,8) %}<option value="{{ day }}" {% if day == data.working_days %}selected{% endif %}>{{ day }} day{{ '' if day == 1 else 's' }}</option>{% endfor %}</select></label>
+        <button class="btn primary" type="submit">Update My Goal</button>
+      </form>
+      <div class="xero-box"><strong>{% if data.xero_connected %}Xero is connected{% else %}Xero needs connecting{% endif %}</strong><p>{% if data.xero_snapshot_count %}{{ data.xero_snapshot_count }} invoice records available. Last refreshed {{ data.xero_last_fetched or 'not yet' }}.{% else %}Refresh Xero to bring invoice and payment figures into this dashboard.{% endif %}</p>{% if data.xero_connected %}<form method="post" action="{{ url_for('business_goals_refresh_xero') }}"><button class="btn secondary" type="submit">Refresh Income from Xero</button></form>{% else %}<a class="btn secondary" href="{{ url_for('xero_dashboard') }}">Connect Xero</a>{% endif %}</div>
+    </aside>
+  </div>
+
+  <section class="goal-panel" id="action-plan">
+    <div class="goal-panel-head"><div><h3>Your plan of action</h3><p>Turn the goal into specific actions and record what has actually been implemented.</p></div></div>
+    <form method="post" action="{{ url_for('business_goal_action_add') }}" class="action-form">
+      <label>Action<input name="title" maxlength="180" placeholder="For example: Contact every outstanding quote" required></label>
+      <label>Target date<input type="date" name="due_date"></label>
+      <label class="wide">Why this matters / next move<textarea name="notes" rows="2" maxlength="1000" placeholder="Add the practical detail that will make this happen"></textarea></label>
+      <button class="btn primary" type="submit">Add to My Plan</button>
+    </form>
+    <div class="action-list">{% for item in data.actions %}<article class="action-item {% if item.status == 'Implemented' %}done{% endif %}"><div class="action-status">{% if item.status == 'Implemented' %}✓{% else %}→{% endif %}</div><div class="action-copy"><strong>{{ item.title }}</strong>{% if item.notes %}<span>{{ item.notes }}</span>{% endif %}{% if item.due_date %}<small>Target: {{ item.due_date }}</small>{% endif %}</div><form method="post" action="{{ url_for('business_goal_action_toggle', action_id=item.id) }}"><button class="btn secondary" type="submit">{{ 'Move Back to Planned' if item.status == 'Implemented' else 'Mark Implemented' }}</button></form></article>{% else %}<div class="goal-note">No actions yet. Add the first practical step that will help you reach £{{ '%.0f'|format(data.daily_target) }} each working day.</div>{% endfor %}</div>
+  </section>
+  <div class="goal-note"><strong>How figures are treated:</strong> income is counted when an invoice is marked paid. Xero figures take priority after a refresh; CRM invoices not linked to Xero are included without double-counting. This page measures revenue and pipeline, not profit after expenses.</div>
+</div>
+{% endblock %}

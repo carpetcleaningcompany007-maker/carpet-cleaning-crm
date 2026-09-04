@@ -7127,6 +7127,34 @@ def init_db():
         payload_json TEXT,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
+    CREATE TABLE IF NOT EXISTS business_goal_settings (
+        id INTEGER PRIMARY KEY CHECK (id=1),
+        daily_revenue_target REAL DEFAULT 300,
+        working_days_per_week INTEGER DEFAULT 5,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS xero_invoice_snapshot (
+        xero_invoice_id TEXT PRIMARY KEY,
+        invoice_number TEXT DEFAULT '',
+        contact_name TEXT DEFAULT '',
+        invoice_date TEXT DEFAULT '',
+        due_date TEXT DEFAULT '',
+        fully_paid_on_date TEXT DEFAULT '',
+        status TEXT DEFAULT '',
+        total REAL DEFAULT 0,
+        amount_paid REAL DEFAULT 0,
+        amount_due REAL DEFAULT 0,
+        fetched_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS business_goal_actions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        notes TEXT DEFAULT '',
+        due_date TEXT DEFAULT '',
+        status TEXT DEFAULT 'Planned',
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        completed_at TEXT DEFAULT ''
+    );
     CREATE TABLE IF NOT EXISTS expenses (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         expense_date TEXT,
@@ -7777,11 +7805,13 @@ def init_db():
         except sqlite3.OperationalError:
             pass
     conn.execute("INSERT OR IGNORE INTO settings (id) VALUES (1)")
+    conn.execute("INSERT OR IGNORE INTO business_goal_settings (id) VALUES (1)")
     conn.execute("INSERT OR IGNORE INTO pricing_config (id, data_json) VALUES (1, ?)", (json.dumps(PRICING_DEFAULTS),))
     conn.execute("INSERT OR IGNORE INTO lead_generation_settings (id) VALUES (1)")
     conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_public_leads_source_url ON public_leads(source_url) WHERE source_url<>''")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_public_leads_status_score ON public_leads(status, lead_score DESC)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_public_leads_fingerprint ON public_leads(duplicate_fingerprint)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_xero_invoice_snapshot_date ON xero_invoice_snapshot(invoice_date)")
     for key, template in DEFAULT_MESSAGE_TEMPLATES.items():
         conn.execute(
             "INSERT OR IGNORE INTO message_templates(template_key, name, subject, body, updated_at) VALUES (?,?,?,?,datetime('now'))",
@@ -11871,6 +11901,202 @@ def download_saved_backup(filename):
 def reports():
     report_data = build_reports_data(6)
     return render_template("reports.html", report_data=report_data, segment_data=build_customer_segmentation_snapshot())
+
+
+def goal_month_start(day, offset=0):
+    index = day.year * 12 + day.month - 1 + offset
+    return date(index // 12, index % 12 + 1, 1)
+
+
+def goal_date(value):
+    match = re.search(r"\d{4}-\d{2}-\d{2}", clean_str(value))
+    return parse_iso_date(match.group(0)) if match else None
+
+
+def goal_invoice_rows():
+    snapshots = q("SELECT * FROM xero_invoice_snapshot")
+    snapshot_ids = {clean_str(row["xero_invoice_id"]) for row in snapshots}
+    rows = []
+    for row in snapshots:
+        status = clean_str(row["status"]).upper()
+        if status in {"VOIDED", "DELETED"}:
+            continue
+        invoice_day = goal_date(row["invoice_date"])
+        paid_day = goal_date(row["fully_paid_on_date"]) or (invoice_day if status == "PAID" else None)
+        rows.append({"invoice_date": invoice_day, "paid_date": paid_day, "total": float(row["total"] or 0),
+                     "paid": float(row["amount_paid"] or 0), "due": float(row["amount_due"] or 0), "source": "Xero"})
+    local_rows = q("SELECT * FROM invoices WHERE lower(IFNULL(status,''))<>'archived'")
+    for row in local_rows:
+        if clean_str(row["xero_invoice_id"]) in snapshot_ids:
+            continue
+        status = clean_str(row["status"]).upper()
+        invoice_day = goal_date(row["invoice_date"])
+        paid = float(row["xero_amount_paid"] or 0)
+        if status == "PAID" and paid <= 0:
+            paid = float(row["total"] or 0)
+        rows.append({"invoice_date": invoice_day, "paid_date": invoice_day if paid > 0 else None,
+                     "total": float(row["total"] or 0), "paid": paid,
+                     "due": float(row["xero_amount_due"] or (0 if status == "PAID" else row["total"] or 0)), "source": "CRM"})
+    return rows
+
+
+def working_days_between(start, end, working_days):
+    return sum(1 for offset in range((end - start).days + 1)
+               if (start + timedelta(days=offset)).weekday() < working_days)
+
+
+def business_goals_data(today=None):
+    today = today or uk_today()
+    goal = q("SELECT * FROM business_goal_settings WHERE id=1", one=True)
+    daily_target = float(goal["daily_revenue_target"] or 300)
+    working_days = min(7, max(1, int(goal["working_days_per_week"] or 5)))
+    week_start = today - timedelta(days=today.weekday())
+    week_end = week_start + timedelta(days=6)
+    month_start = today.replace(day=1)
+    month_end = goal_month_start(today, 1) - timedelta(days=1)
+    invoices = goal_invoice_rows()
+    jobs = q("SELECT * FROM jobs WHERE lower(IFNULL(status,'')) NOT IN ('archived','cancelled')")
+
+    def invoice_sum(field, date_field, start, end):
+        return sum(float(item[field] or 0) for item in invoices
+                   if item[date_field] and start <= item[date_field] <= end)
+
+    paid_today = invoice_sum("paid", "paid_date", today, today)
+    paid_week = invoice_sum("paid", "paid_date", week_start, week_end)
+    paid_month = invoice_sum("paid", "paid_date", month_start, month_end)
+    invoiced_month = invoice_sum("total", "invoice_date", month_start, month_end)
+    booked_month = sum(float(row["amount"] or 0) for row in jobs
+                       if (goal_date(row["job_date"]) and month_start <= goal_date(row["job_date"]) <= month_end))
+    future_booked = sum(float(row["amount"] or 0) for row in jobs
+                        if (goal_date(row["job_date"]) and today <= goal_date(row["job_date"]) <= month_end))
+    month_target = daily_target * working_days_between(month_start, month_end, working_days)
+    week_target = daily_target * working_days
+    today_target = daily_target if today.weekday() < working_days else 0
+    outstanding = sum(max(0, float(item["due"] or 0)) for item in invoices)
+    achieved_days = {}
+    for item in invoices:
+        if item["paid_date"]:
+            achieved_days[item["paid_date"]] = achieved_days.get(item["paid_date"], 0) + float(item["paid"] or 0)
+    months = []
+    max_month_value = 1.0
+    for offset in range(-11, 1):
+        start = goal_month_start(today, offset)
+        end = goal_month_start(today, offset + 1) - timedelta(days=1)
+        target = daily_target * working_days_between(start, end, working_days)
+        invoiced = invoice_sum("total", "invoice_date", start, end)
+        paid = invoice_sum("paid", "paid_date", start, end)
+        booked = sum(float(row["amount"] or 0) for row in jobs
+                     if goal_date(row["job_date"]) and start <= goal_date(row["job_date"]) <= end)
+        max_month_value = max(max_month_value, invoiced, paid, booked, target)
+        months.append({"label": start.strftime("%b %Y"), "start": start, "target": target,
+                       "invoiced": invoiced, "paid": paid, "booked": booked,
+                       "hit": paid >= target and target > 0})
+    for item in months:
+        item["target_width"] = round(item["target"] / max_month_value * 100, 1)
+        item["paid_width"] = round(item["paid"] / max_month_value * 100, 1)
+    actions = q("SELECT * FROM business_goal_actions ORDER BY CASE status WHEN 'Planned' THEN 0 ELSE 1 END, COALESCE(NULLIF(due_date,''),'9999-12-31'), id DESC")
+    return {
+        "goal": goal, "daily_target": daily_target, "working_days": working_days,
+        "today_target": today_target, "week_target": week_target, "month_target": month_target,
+        "paid_today": paid_today, "paid_week": paid_week, "paid_month": paid_month,
+        "invoiced_month": invoiced_month, "booked_month": booked_month, "future_booked": future_booked,
+        "outstanding": outstanding, "months": months, "actions": actions,
+        "month_progress": min(100, round(paid_month / month_target * 100)) if month_target else 0,
+        "week_progress": min(100, round(paid_week / week_target * 100)) if week_target else 0,
+        "today_progress": min(100, round(paid_today / today_target * 100)) if today_target else 0,
+        "days_hit_month": sum(1 for day, value in achieved_days.items() if month_start <= day <= month_end and value >= daily_target),
+        "xero_connected": bool(xero_token_row() and xero_token_row()["refresh_token"]),
+        "xero_snapshot_count": len(q("SELECT xero_invoice_id FROM xero_invoice_snapshot")),
+        "xero_last_fetched": q("SELECT MAX(fetched_at) AS value FROM xero_invoice_snapshot", one=True)["value"],
+    }
+
+
+@app.route("/business-goals")
+@login_required
+def business_goals():
+    return render_template("business_goals.html", data=business_goals_data())
+
+
+@app.route("/business-goals/settings", methods=["POST"])
+@login_required
+def business_goals_settings():
+    try:
+        daily_target = min(100000, max(1, float(request.form.get("daily_revenue_target") or 300)))
+        working_days = min(7, max(1, int(request.form.get("working_days_per_week") or 5)))
+    except (TypeError, ValueError):
+        flash("Enter a valid daily target and number of working days.")
+        return redirect(url_for("business_goals"))
+    run("UPDATE business_goal_settings SET daily_revenue_target=?, working_days_per_week=?, updated_at=datetime('now') WHERE id=1",
+        (daily_target, working_days))
+    flash("Business target updated.")
+    return redirect(url_for("business_goals"))
+
+
+@app.route("/business-goals/actions", methods=["POST"])
+@login_required
+def business_goal_action_add():
+    title = clean_str(request.form.get("title"))[:180]
+    if not title:
+        flash("Add a clear action before saving.")
+    else:
+        run("INSERT INTO business_goal_actions(title,notes,due_date) VALUES (?,?,?)",
+            (title, clean_str(request.form.get("notes"))[:1000], clean_str(request.form.get("due_date"))[:10]))
+        flash("Action added to your growth plan.")
+    return redirect(url_for("business_goals") + "#action-plan")
+
+
+@app.route("/business-goals/actions/<int:action_id>/toggle", methods=["POST"])
+@login_required
+def business_goal_action_toggle(action_id):
+    item = q("SELECT * FROM business_goal_actions WHERE id=?", (action_id,), one=True)
+    if item:
+        completed = clean_str(item["status"]) != "Implemented"
+        run("UPDATE business_goal_actions SET status=?, completed_at=? WHERE id=?",
+            ("Implemented" if completed else "Planned", datetime.now().isoformat(timespec="seconds") if completed else "", action_id))
+        flash("Action marked as implemented." if completed else "Action moved back to planned.")
+    return redirect(url_for("business_goals") + "#action-plan")
+
+
+def refresh_xero_revenue_snapshot():
+    fetched = 0
+    for page in range(1, 21):
+        url = XERO_INVOICES_URL + "?" + urllib.parse.urlencode({"where": 'Type=="ACCREC"', "page": page})
+        result = xero_api_request(url)
+        invoices = result.get("Invoices") or []
+        for item in invoices:
+            invoice_id = clean_str(item.get("InvoiceID"))
+            if not invoice_id:
+                continue
+            run("""INSERT INTO xero_invoice_snapshot
+                   (xero_invoice_id,invoice_number,contact_name,invoice_date,due_date,fully_paid_on_date,status,total,amount_paid,amount_due,fetched_at)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,datetime('now'))
+                   ON CONFLICT(xero_invoice_id) DO UPDATE SET invoice_number=excluded.invoice_number,
+                   contact_name=excluded.contact_name, invoice_date=excluded.invoice_date, due_date=excluded.due_date,
+                   fully_paid_on_date=excluded.fully_paid_on_date, status=excluded.status, total=excluded.total,
+                   amount_paid=excluded.amount_paid, amount_due=excluded.amount_due, fetched_at=datetime('now')""", (
+                invoice_id, clean_str(item.get("InvoiceNumber")), clean_str((item.get("Contact") or {}).get("Name")),
+                clean_str(item.get("DateString") or item.get("Date")), clean_str(item.get("DueDateString") or item.get("DueDate")),
+                clean_str(item.get("FullyPaidOnDate")), clean_str(item.get("Status")), float(item.get("Total") or 0),
+                float(item.get("AmountPaid") or 0), float(item.get("AmountDue") or 0),
+            ))
+            fetched += 1
+        if len(invoices) < 100:
+            break
+    return fetched
+
+
+@app.route("/business-goals/refresh-xero", methods=["POST"])
+@login_required
+def business_goals_refresh_xero():
+    try:
+        fetched = refresh_xero_revenue_snapshot()
+        log_xero_sync("goals", 1, "refresh_revenue", "ok", f"Refreshed {fetched} Xero invoices")
+        flash(f"Xero income refreshed: {fetched} invoices checked.")
+    except Exception as exc:
+        logger.exception("Xero revenue refresh failed")
+        log_xero_sync("goals", 1, "refresh_revenue", "error", str(exc))
+        flash(f"Xero income could not refresh: {friendly_xero_error(exc)}")
+    return redirect(url_for("business_goals"))
 
 
 @app.route("/feedback")

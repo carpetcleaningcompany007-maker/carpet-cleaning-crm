@@ -8,7 +8,7 @@
   <link rel="icon" href="{{ url_for('static', filename='site/site-icon-512.png') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=auth-polish-20260904-1">
   <link rel="stylesheet" href="{{ url_for('static', filename='beautiful.css') }}?v=proper-redesign-20260606-1">
-  <link rel="stylesheet" href="{{ url_for('static', filename='crm-redesign.css') }}?v=website-command-centre-20260904-15">
+  <link rel="stylesheet" href="{{ url_for('static', filename='crm-redesign.css') }}?v=business-goals-20260904-16">
   <style>:root{--accent: {{ biz.accent or '#56718f' }}; --sidebar-color: {{ biz.sidebar_color or '#1f2933' }};}</style>
 </head>
 {% if session.get('logged_in') and not public_mode %}
@@ -46,6 +46,7 @@
       <a class="nav-link {% if ep in ['jobs','job_view','jobs_new'] %}active{% endif %}" href="{{ url_for('jobs') }}"><span class="nav-icon" data-icon="briefcase"></span><span>Jobs</span></a>
       <a class="nav-link {% if ep=='full_calendar' or ep=='scheduler' %}active{% endif %}" href="{{ url_for('full_calendar') }}"><span class="nav-icon" data-icon="calendar"></span><span>Calendar</span></a>
       <a class="nav-link {% if ep in ['invoices','invoice_view','quotes','quote_view','calculator'] %}active{% endif %}" href="{{ url_for('invoices') }}"><span class="nav-icon" data-icon="invoice"></span><span>Money</span></a>
+      <a class="nav-link nav-goals {% if ep.startswith('business_goal') %}active{% endif %}" href="{{ url_for('business_goals') }}"><span class="nav-icon" data-icon="target"></span><span>Goals</span></a>
       <a class="nav-link nav-review {% if ep=='send_contact_form' and request.args.get('action_type')=='review' %}active{% endif %}" href="{{ url_for('send_contact_form', action_type='review') }}"><span class="nav-icon" data-icon="star"></span><span>Send review</span></a>
       <details class="nav-more">
         <summary>More <span aria-hidden="true">⌄</span></summary>
@@ -58,6 +59,7 @@
           <a href="{{ url_for('workflow') }}">Workflow Board</a>
           <a href="{{ url_for('google_calendar_dashboard') }}">Google Calendar</a>
           <a href="{{ url_for('website_analytics_dashboard') }}">Site Analytics</a>
+          <a href="{{ url_for('business_goals') }}">Business Goals</a>
           <a href="{{ url_for('message_settings') }}">Messages</a>
           <a href="{{ url_for('communication_automation_settings') }}">Automation</a>
           <a href="{{ url_for('ai_settings_page') }}">AI Replies</a>
