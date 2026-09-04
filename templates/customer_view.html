@@ -47,27 +47,29 @@
 </section>
 
 <style>
-  body.app-page .customer-hero{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(350px,440px)!important;gap:22px!important;align-items:start!important;padding:26px!important;background:linear-gradient(145deg,#fffdf8 0%,#fff 54%,#f8f3e8 100%)!important;border:1px solid #eadcb8!important;border-top:4px solid #d7ad46!important;box-shadow:0 20px 50px rgba(31,45,61,.12)!important}
-  body.app-page .customer-hero h3{color:#0b1d33!important;letter-spacing:-.025em}
-  body.app-page .customer-hero p{color:#4b6073!important}
-  body.app-page .customer-hero .section-kicker{color:#825f13!important;background:#f8e8b8!important;border-color:#e5c66f!important}
+  body.app-page .customer-hero{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(350px,440px)!important;gap:22px!important;align-items:start!important;padding:26px!important;background:radial-gradient(circle at 8% 12%,rgba(194,151,67,.16),transparent 28%),linear-gradient(145deg,#f4ead7 0%,#fcf8ef 52%,#e9dcc3 100%)!important;border:1px solid #b99958!important;border-top:5px solid #a97c29!important;box-shadow:0 22px 54px rgba(42,36,27,.18),0 2px 0 rgba(255,255,255,.72) inset!important}
+  body.app-page .customer-hero h3{color:#081a30!important;letter-spacing:-.025em}
+  body.app-page .customer-hero p{color:#34495d!important}
+  body.app-page .customer-hero .section-kicker{color:#60440d!important;background:linear-gradient(135deg,#f1d991,#e7c668)!important;border-color:#c59b42!important;box-shadow:0 5px 14px rgba(113,80,16,.12)}
   body.app-page .customer-hero>div.customer-identity-shell:first-child{display:grid;grid-template-columns:1fr!important;gap:10px!important;align-items:start;min-width:0;text-align:center}
   .customer-identity-shell .avatar{justify-self:center}
   .customer-identity-copy{display:grid;justify-items:center}
   @media(min-width:521px){body.app-page .customer-hero>div.customer-identity-shell:first-child{grid-template-columns:64px minmax(0,1fr)!important;gap:16px!important;text-align:left}.customer-identity-shell .avatar{justify-self:start}.customer-identity-copy{display:block}}
   .customer-identity-copy{min-width:0}
-  .customer-record-tools{display:grid;gap:12px;align-self:start;padding:16px;border:1px solid #e5dcc8;border-radius:16px;background:linear-gradient(180deg,#fff,#fbf8f1);box-shadow:0 12px 28px rgba(45,39,25,.07)}
+  .customer-record-tools{display:grid;gap:12px;align-self:start;padding:16px;border:1px solid #c8b991;border-radius:16px;background:linear-gradient(180deg,#fbf7ed,#f0e8d9);box-shadow:0 14px 32px rgba(55,44,24,.13),0 1px 0 rgba(255,255,255,.9) inset}
   .customer-record-action-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
   .customer-record-tools form{margin:0;display:flex}
   .customer-record-tools .btn{display:flex;align-items:center;justify-content:center;width:100%;min-height:50px;padding:10px 14px;border-radius:13px;font-size:14px;line-height:1.2;font-weight:900;text-align:center}
   .customer-record-tools .xero-action{background:linear-gradient(135deg,#14b8e6,#0877b8);color:#fff;border:0;box-shadow:0 10px 24px rgba(8,119,184,.24)}
-  .customer-record-tools .customer-export-action{background:#fff;color:#102744;border:1px solid #cbdfea}
+  .customer-record-tools .customer-export-action{background:#fffdf8;color:#0b2039;border:1px solid #b9aa83;box-shadow:0 7px 16px rgba(55,44,24,.08)}
   .customer-record-tools small{color:#617083;line-height:1.4;text-align:center}
   .customer-record-tools .xero-status{flex-basis:100%;display:grid;gap:3px;border:1px solid #d7e3ec;background:#f8fbfd;border-radius:12px;padding:11px 13px;color:#102744}
   .customer-record-tools .xero-status.is-synced{border-color:#a9dccb;background:#eefaf5;color:#0b7058}
   .customer-record-tools .xero-status.is-failed{border-color:#efc0b4;background:#fff7f4;color:#8a1f0c}
   .customer-record-tools .xero-status span{font-size:13px;word-break:break-word}
   body.app-page .customer-hero>.row-actions{grid-column:1/-1}
+  body.app-page .customer-hero .customer-mobile-actions .btn.primary{background:linear-gradient(135deg,#123b66,#081f3d)!important;border-color:#081f3d!important;box-shadow:0 10px 22px rgba(8,31,61,.2)!important}
+  body.app-page .customer-hero .customer-mobile-actions .btn.secondary{background:#fffaf0!important;color:#0b2039!important;border:1px solid #bcae88!important;box-shadow:0 8px 18px rgba(55,44,24,.09)!important}
   @media(max-width:900px){body.app-page .customer-hero{grid-template-columns:1fr!important}.customer-record-tools{width:100%;margin:0}.customer-record-action-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
   @media(max-width:520px){body.app-page .customer-hero>div.customer-identity-shell:first-child{grid-template-columns:1fr!important;gap:10px!important;text-align:center}.customer-identity-shell .avatar{justify-self:center}.customer-identity-copy{display:grid;justify-items:center;width:100%}body.app-page .customer-identity-copy h3,body.app-page .customer-identity-copy p{width:auto!important;max-width:290px!important;margin-left:auto!important;margin-right:auto!important;text-align:center!important}.customer-mobile-actions{width:100%}.customer-record-tools{padding:14px;text-align:left}.customer-record-action-grid{grid-template-columns:1fr}.customer-record-tools .btn{min-height:52px;font-size:15px}.customer-record-tools small{font-size:12px;text-align:center}}
   .saved-template-collapse{margin-top:14px;border:1px solid #d7e0e9;border-radius:12px;background:#f8fafc;padding:12px}
