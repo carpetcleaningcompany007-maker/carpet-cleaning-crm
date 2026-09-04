@@ -504,6 +504,19 @@ def clean_str(value):
     return str(value).strip()
 
 
+def customer_first_name(value, fallback="there"):
+    """Return a human first name, never an imported placeholder such as 0."""
+    candidate = clean_str(value)
+    if not candidate:
+        return fallback
+    first = candidate.split()[0].strip(" ,.;:-")
+    if not first or first.lower() in {"0", "none", "null", "n/a", "na", "unknown", "customer"}:
+        return fallback
+    if not any(character.isalpha() for character in first):
+        return fallback
+    return first
+
+
 def normalize_phone(value):
     phone = re.sub(r"[^0-9+]", "", clean_str(value))
     if phone.startswith("00"):
@@ -1660,8 +1673,8 @@ DEFAULT_MESSAGE_TEMPLATES = {
     },
     "appointment_reminder_sms": {"name": "Appointment reminder SMS", "subject": "", "body": "Hi {{name}}, just a quick reminder that your carpet clean is booked in for {{date}} at {{time}}. Thanks, Paul."},
     "thank_you_message": {"name": "Thank you message", "subject": "Thank you", "body": "Hi {{name}},\n\nThank you for choosing The Carpet Cleaning Company today. I hope you are happy with the clean.\n\nIf you notice anything you are unsure about, please message me and I will be happy to help.\n\nThanks\nPaul"},
-    "review_request_message": {"name": "Review request message", "subject": "Review request", "body": "Hi {{name}},\n\nThank you again for choosing The Carpet Cleaning Company.\n\nIf you are happy with the work, I would really appreciate a quick Google review. It helps a small local business and helps new customers see the results we achieve.\n\nPlease click the button below to leave a Google review.\n\nThanks\nPaul"},
-    "review_request_sms": {"name": "Review request SMS", "subject": "", "body": "Hi {{name}}, thank you again for choosing The Carpet Cleaning Company. If you are happy with the work, I would really appreciate a quick Google review. It helps a small local business and helps new customers see the results we achieve.\n\nHere is the link to my Google reviews:\n{{review_link}}\n\nThanks, Paul Nicholas\nThe Carpet Cleaning Company"},
+    "review_request_message": {"name": "Review request message", "subject": "A small favour, {{first_name}}", "body": "Hi {{first_name}},\n\nThank you for choosing me to clean your carpets. I really appreciate your custom.\n\nIf you are happy with the work, would you mind leaving me a quick Google review? It only takes a minute, and it genuinely helps my small local business.\n\nPlease click the button below to leave your review.\n\nThank you again,\nPaul\nThe Carpet Cleaning Company"},
+    "review_request_sms": {"name": "Review request SMS", "subject": "", "body": "Hi {{first_name}}, thank you for choosing me to clean your carpets. I really appreciate your custom. If you are happy with the work, would you mind leaving me a quick Google review? It genuinely helps my small local business: {{review_link}} Thanks again, Paul"},
     "payment_received_email": {"name": "Payment received email", "subject": "Thank you for your payment", "body": "Hi {{name}},\n\nThank you very much for your payment. It's greatly appreciated.\n\nThank you for choosing The Carpet Cleaning Company. We really appreciate your business and your continued support.\n\nIf you were happy with the service, we'd be very grateful if you could leave us a Google review. You can also follow us on Facebook to see our latest work, videos and cleaning tips.\n\nGoogle Reviews:\n{{review_link}}\n\nFacebook:\n{{facebook}}\n\nThanks\nPaul\n{{business_name}}"},
     "payment_received_sms": {"name": "Payment received SMS", "subject": "", "body": "Hi {{name}}, thank you very much for your payment. It's greatly appreciated. If you were happy with the service, a Google review would really help: {{review_link}} Thanks, Paul - {{business_name}}"},
     "unable_to_reach_email": {"name": "Unable to reach customer email", "subject": "I tried to contact you", "body": "Hi {{name}},\n\nThank you very much for your enquiry. I really appreciate you getting in touch with The Carpet Cleaning Company.\n\nI have tried to contact you so we can discuss your carpet or upholstery cleaning requirements, but I have not been able to get hold of you yet. I did not want you to think your message had been missed.\n\nIf you would still like a quote or would like to talk through the best cleaning options, please reply to this email or call/text me on 07802 563213. I will be happy to help.\n\nIf it is easier, you can also send over a few photos of the areas you would like cleaned, along with your address and any useful parking or access details. That helps me give better advice and a more accurate quote.\n\nYou can also see recent cleans, videos and before-and-after photos on Facebook:\n{{facebook}}\n\nGoogle reviews:\n{{review_link}}\n\nThanks again for contacting us.\n\nPaul\nThe Carpet Cleaning Company\n07802 563213"},
@@ -3600,7 +3613,7 @@ def directions_url_for_customer(row):
 
 def template_context_for_job(job):
     s = settings()
-    name = clean_str(row_value(job, "first_name")) or "there"
+    name = customer_first_name(row_value(job, "first_name"))
     address_parts = [
         clean_str(row_value(job, "address")),
         clean_str(row_value(job, "town")),
@@ -3994,7 +4007,7 @@ def customer_message_replacements(customer, job=None):
         replacements.update(template_context_for_job(job))
     else:
         replacements["{{name}}"] = customer_full_name(customer) or "there"
-        replacements["{{first_name}}"] = clean_str(row_value(customer, "first_name")) or "there"
+        replacements["{{first_name}}"] = customer_first_name(row_value(customer, "first_name"))
         replacements["{{address}}"] = customer_address_text(customer)
         replacements["{{postcode}}"] = clean_str(row_value(customer, "postcode"))
     return replacements
@@ -7692,6 +7705,17 @@ def init_db():
               AND body LIKE 'New website enquiry for The Carpet Cleaning Company.%'""",
         (DEFAULT_MESSAGE_TEMPLATES["owner_enquiry_alert_sms"]["body"],),
     )
+    for template_key, legacy_phrase in (
+        ("review_request_message", "%Thank you again for choosing The Carpet Cleaning Company.%"),
+        ("review_request_sms", "%thank you again for choosing The Carpet Cleaning Company.%"),
+    ):
+        template = DEFAULT_MESSAGE_TEMPLATES[template_key]
+        conn.execute(
+            """UPDATE message_templates
+                  SET subject=?, body=?, updated_at=datetime('now')
+                WHERE template_key=? AND body LIKE ?""",
+            (template["subject"], template["body"], template_key, legacy_phrase),
+        )
     template_refresh_rules = {
         "today_run_coming_email": "%I am on my way to your carpet cleaning appointment now%",
         "today_run_coming_sms": "%I am on my way to your carpet cleaning appointment now%",
@@ -7699,8 +7723,6 @@ def init_db():
         "today_run_reminder_sms": "%Just a quick reminder that your carpet clean is booked in%",
         "appointment_reminder_sms": "%just a quick reminder that your carpet clean is booked in%",
         "thank_you_message": "%If you notice anything you are unsure about%",
-        "review_request_message": "%Please click the button below to leave a Google review.%",
-        "review_request_sms": "%Here is the link to my Google reviews:%",
         "unable_to_reach_email": "%I really appreciate you getting in touch%",
         "unable_to_reach_sms": "%thanks for your enquiry%",
     }
@@ -12264,7 +12286,8 @@ def comms_replacements(customer=None):
             name = clean_str(customer["name"])
         except Exception:
             name = clean_str(f"{row_value(customer, 'first_name')} {row_value(customer, 'last_name')}")
-    first_name = name.split(" ")[0] if name else ""
+    explicit_first_name = row_value(customer, "first_name") if customer else ""
+    first_name = customer_first_name(explicit_first_name or name)
     email = row_value(customer, "email") if customer else ""
     phone = row_value(customer, "phone") if customer else ""
     address = customer_address_text(customer) if customer else ""
