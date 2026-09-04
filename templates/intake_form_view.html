@@ -3,24 +3,26 @@
 {% block page_title %}Review Customer Details{% endblock %}
 {% block body_content %}
 <style>
-  .review-shell{display:grid;gap:18px}
-  .review-hero{background:linear-gradient(135deg,#eaf6ff 0%,#f7fbff 48%,#ffffff 100%);border:1px solid #d8e9f6;border-radius:16px;padding:22px;display:flex;justify-content:space-between;gap:18px;align-items:flex-start}
-  .review-hero h3{margin:0 0 8px;font-size:28px;color:#071524}
-  .review-hero p{margin:0;color:#36516b;max-width:760px}
+  .review-shell{display:grid;gap:20px;max-width:1260px;margin:0 auto}
+  .review-hero{background:linear-gradient(135deg,#081a30 0%,#123a61 100%);border:1px solid rgba(239,198,90,.28);border-radius:22px;padding:28px;display:flex;justify-content:space-between;gap:22px;align-items:flex-start;box-shadow:0 20px 48px rgba(8,26,48,.18)}
+  body.app-page .review-hero h3{margin:0 0 8px;font-size:32px;color:#fff!important;letter-spacing:-.025em;text-shadow:0 1px 0 rgba(0,0,0,.12)}
+  .review-hero p{margin:0;color:#d3dfeb;max-width:760px;line-height:1.55}
   .review-pill{display:inline-flex;align-items:center;gap:8px;border:1px solid #b8d9f1;background:#fff;color:#155b8f;border-radius:999px;padding:8px 12px;font-weight:800;white-space:nowrap}
   .review-card-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:16px}
-  .review-card{border:1px solid #dce8f1;border-radius:14px;background:#fff;padding:18px}
+  .review-card{border:1px solid #dce6ee;border-radius:18px;background:#fff;padding:22px;box-shadow:0 10px 30px rgba(15,35,58,.055)}
   .review-card h4{margin:0 0 12px;font-size:20px;color:#071524}
   .customer-preview{display:grid;gap:10px}
   .preview-row{border:1px solid #e1ebf3;background:#f9fcff;border-radius:12px;padding:12px}
   .preview-row strong{display:block;color:#64748b;font-size:12px;text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px}
   .preview-row span{display:block;color:#132238;white-space:pre-wrap;font-weight:700}
-  .approval-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+  .approval-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:16px}
+  .approval-actions form,.approval-actions .btn{width:100%;margin:0}
+  .approval-actions .btn{display:flex;align-items:center;justify-content:center;min-height:50px;border-radius:13px;text-align:center}
   .status-line{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
   .status-line div{border:1px solid #e2ebf3;border-radius:12px;padding:11px;background:#fbfdff}
   .status-line strong{display:block;color:#64748b;font-size:12px;text-transform:uppercase;margin-bottom:4px}
   .edit-form .span-2{grid-column:1/-1}
-  .lead-action-panel{border:1px solid #cfe1ef;background:#fff;border-radius:16px;padding:18px;display:grid;gap:16px}
+  .lead-action-panel{border:1px solid #d6e2eb;background:linear-gradient(180deg,#fff,#fbfdff);border-radius:22px;padding:24px;display:grid;gap:18px;box-shadow:0 16px 42px rgba(15,35,58,.075)}
   .lead-action-head{display:flex;justify-content:space-between;gap:14px;align-items:flex-start}
   .lead-action-head h4{margin:0;font-size:22px;color:#071524}
   .lead-action-head p{margin:6px 0 0;color:#486174}
@@ -37,9 +39,9 @@
   .missing-warning{border:1px solid #f0c36a;background:#fff8e8;border-radius:14px;padding:14px;color:#5a3700}
   .missing-warning strong{display:block;font-size:15px;margin-bottom:8px}
   .missing-warning ul{margin:0;padding-left:18px;display:grid;gap:4px}
-  .lead-action-buttons{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+  .lead-action-buttons{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
   .lead-action-buttons form,.lead-action-buttons a{margin:0}
-  .lead-action-buttons .btn{width:100%;min-height:48px}
+  .lead-action-buttons .btn{display:flex;align-items:center;justify-content:center;width:100%;min-height:50px;padding:10px 14px;border-radius:13px;text-align:center;font-weight:850;line-height:1.2}
   .message-approval{border:1px solid #bddbed;background:#f8fcff;border-radius:14px;padding:14px;display:grid;gap:12px}
   .message-approval h5{margin:0;color:#071524;font-size:18px}
   .message-approval p{margin:0;color:#486174}
@@ -53,6 +55,12 @@
     .review-card-grid,.status-line,.message-preview-grid{grid-template-columns:1fr}
     .lead-action-head{display:block}
     .lead-next-pill{margin-top:12px;white-space:normal}
+  }
+  @media (max-width:560px){
+    .review-shell{gap:14px}.review-hero{padding:20px;border-radius:18px}.review-hero h3{font-size:27px}.review-pill{display:flex;width:100%;justify-content:center;text-align:center}
+    .lead-action-panel{padding:17px;border-radius:18px;gap:15px}.lead-action-head h4{font-size:21px}.lead-next-pill{display:flex;width:100%;border-radius:14px;line-height:1.35}.lead-action-buttons,.approval-actions{grid-template-columns:1fr}
+    .lead-action-buttons .btn,.approval-actions .btn{min-height:52px;font-size:15px}.review-card{padding:17px;border-radius:16px}
+    .lead-progress-details{border-radius:14px}.lead-progress-details>summary{padding:15px}.lead-check-grid{grid-template-columns:1fr}
   }
 </style>
 

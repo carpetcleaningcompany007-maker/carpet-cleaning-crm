@@ -3,9 +3,9 @@
 {% block body_content %}
 {% set is_archived = customer.archived_at is defined and customer.archived_at %}
 <section class="customer-hero">
-  <div style="display:flex;gap:16px;align-items:flex-start;">
+  <div class="customer-identity-shell">
     <div class="avatar">{{ (customer.first_name or '?')[:1] }}{{ (customer.last_name or '')[:1] }}</div>
-    <div>
+    <div class="customer-identity-copy">
       <div class="section-kicker">Customer hub</div>
       <h3 style="margin:0 0 6px;">{{ customer.first_name }} {{ customer.last_name }}</h3>
       <p style="margin:0;color:#d9dfe5;max-width:700px;">Keep this page as the main working record for the customer. Quotes, jobs, invoices, communications, SMS, notes, and recurring plans all sit here.</p>
@@ -21,19 +21,21 @@
         {% if customer.email %}<a class="btn secondary" href="mailto:{{ customer.email }}">Email</a>{% endif %}
         <a class="btn secondary" href="#customer-message-actions">Templates</a>
       </div>
-      <div class="customer-record-tools" aria-label="Customer record actions">
-        <div class="xero-status {% if customer.xero_contact_id %}is-synced{% elif customer.xero_contact_error %}is-failed{% endif %}">
-          <strong>{% if customer.xero_contact_id %}✓ Xero synced{% elif customer.xero_contact_error %}Xero needs attention{% else %}Not yet in Xero{% endif %}</strong>
-          <span>{% if customer.xero_contact_id %}Verified contact {{ customer.xero_contact_id }}{% if customer.xero_contact_synced_at %} · Last synced {{ customer.xero_contact_synced_at }}{% endif %}{% elif customer.xero_contact_error %}{{ friendly_xero_error(customer.xero_contact_error) }}{% else %}Use the button to safely create or match this contact.{% endif %}</span>
-        </div>
-        <form method="post" action="{{ url_for('xero_sync_contact', customer_id=customer.id) }}">
-          <input type="hidden" name="next_url" value="{{ url_for('customer_view', customer_id=customer.id) }}">
-          <button class="btn xero-action" type="submit">{% if customer.xero_contact_id %}Update in Xero{% else %}Create / match in Xero{% endif %}</button>
-        </form>
-        <a class="btn customer-export-action" href="{{ url_for('export_customer_csv', customer_id=customer.id) }}">Download customer CSV</a>
-        <small>This button checks for a safe Xero match first and stops if a possible duplicate is ambiguous.</small>
-      </div>
     </div>
+  </div>
+  <div class="customer-record-tools" aria-label="Customer record actions">
+    <div class="xero-status {% if customer.xero_contact_id %}is-synced{% elif customer.xero_contact_error %}is-failed{% endif %}">
+      <strong>{% if customer.xero_contact_id %}✓ Xero synced{% elif customer.xero_contact_error %}Xero needs attention{% else %}Not yet in Xero{% endif %}</strong>
+      <span>{% if customer.xero_contact_id %}Verified contact {{ customer.xero_contact_id }}{% if customer.xero_contact_synced_at %} · Last synced {{ customer.xero_contact_synced_at }}{% endif %}{% elif customer.xero_contact_error %}{{ friendly_xero_error(customer.xero_contact_error) }}{% else %}Use the button to safely create or match this contact.{% endif %}</span>
+    </div>
+    <div class="customer-record-action-grid">
+      <form method="post" action="{{ url_for('xero_sync_contact', customer_id=customer.id) }}">
+        <input type="hidden" name="next_url" value="{{ url_for('customer_view', customer_id=customer.id) }}">
+        <button class="btn xero-action" type="submit">{% if customer.xero_contact_id %}Update in Xero{% else %}Create / match in Xero{% endif %}</button>
+      </form>
+      <a class="btn customer-export-action" href="{{ url_for('export_customer_csv', customer_id=customer.id) }}">Download customer CSV</a>
+    </div>
+    <small>This checks for a safe Xero match first and stops if a possible duplicate is ambiguous.</small>
   </div>
   <div class="row-actions">
     <a class="btn primary" href="#send-customer-form">Send Contact Form</a>
@@ -45,17 +47,26 @@
 </section>
 
 <style>
-  .customer-record-tools{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:16px}
-  .customer-record-tools form{margin:0}
-  .customer-record-tools .btn{min-height:46px;border-radius:12px;font-weight:900}
+  body.app-page .customer-hero{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(350px,440px)!important;gap:22px!important;align-items:start!important;padding:26px!important;background:linear-gradient(135deg,#081a30 0%,#102f51 62%,#174970 100%)!important;border:1px solid rgba(239,198,90,.24)!important;box-shadow:0 22px 54px rgba(8,26,48,.22)!important}
+  body.app-page .customer-hero h3{color:#fff!important;letter-spacing:-.025em}
+  body.app-page .customer-hero p{color:#cedbec!important}
+  body.app-page .customer-hero .section-kicker{color:#efc65a!important}
+  .customer-identity-shell{display:grid;grid-template-columns:64px minmax(0,1fr);gap:16px;align-items:start;min-width:0}
+  .customer-identity-copy{min-width:0}
+  .customer-record-tools{display:grid;gap:12px;align-self:start;padding:16px;border:1px solid #dbe6ef;border-radius:16px;background:linear-gradient(180deg,#f9fcff,#f3f8fc);box-shadow:0 12px 28px rgba(15,35,58,.08)}
+  .customer-record-action-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .customer-record-tools form{margin:0;display:flex}
+  .customer-record-tools .btn{display:flex;align-items:center;justify-content:center;width:100%;min-height:50px;padding:10px 14px;border-radius:13px;font-size:14px;line-height:1.2;font-weight:900;text-align:center}
   .customer-record-tools .xero-action{background:linear-gradient(135deg,#14b8e6,#0877b8);color:#fff;border:0;box-shadow:0 10px 24px rgba(8,119,184,.24)}
   .customer-record-tools .customer-export-action{background:#fff;color:#102744;border:1px solid #cbdfea}
-  .customer-record-tools small{flex-basis:100%;color:#617083;line-height:1.4}
+  .customer-record-tools small{color:#617083;line-height:1.4;text-align:center}
   .customer-record-tools .xero-status{flex-basis:100%;display:grid;gap:3px;border:1px solid #d7e3ec;background:#f8fbfd;border-radius:12px;padding:11px 13px;color:#102744}
   .customer-record-tools .xero-status.is-synced{border-color:#a9dccb;background:#eefaf5;color:#0b7058}
   .customer-record-tools .xero-status.is-failed{border-color:#efc0b4;background:#fff7f4;color:#8a1f0c}
   .customer-record-tools .xero-status span{font-size:13px;word-break:break-word}
-  @media(max-width:720px){.customer-record-tools{display:grid;grid-template-columns:1fr}.customer-record-tools form,.customer-record-tools .btn{width:100%}.customer-record-tools small{font-size:12px}}
+  body.app-page .customer-hero>.row-actions{grid-column:1/-1}
+  @media(max-width:900px){body.app-page .customer-hero{grid-template-columns:1fr!important}.customer-record-tools{width:100%;margin:0}.customer-record-action-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  @media(max-width:520px){.customer-identity-shell{grid-template-columns:52px minmax(0,1fr);gap:12px}.customer-record-tools{padding:14px}.customer-record-action-grid{grid-template-columns:1fr}.customer-record-tools .btn{min-height:52px;font-size:15px}.customer-record-tools small{font-size:12px;text-align:left}}
   .saved-template-collapse{margin-top:14px;border:1px solid #d7e0e9;border-radius:12px;background:#f8fafc;padding:12px}
   .saved-template-collapse summary{cursor:pointer;font-weight:900;color:#102033}
   .saved-template-collapse form{margin-top:12px}
@@ -85,15 +96,15 @@
   .workflow-message textarea{width:100%;min-height:150px;margin:14px 0;border:1px solid #cbdfea;border-radius:10px;padding:14px;font-size:18px}
   .workflow-history{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-top:22px}
   .workflow-history-item{border:1px solid #d7e0e9;border-radius:10px;padding:18px;background:#f8fafc;font-size:18px}
-  .customer-stage-overview{border:1px solid #cbdfea;background:#fff;border-radius:18px;padding:22px;margin:22px 0;box-shadow:0 18px 40px rgba(16,39,68,.08)}
+  .customer-stage-overview{border:1px solid #d8e3ec;background:linear-gradient(180deg,#fff,#fbfdff);border-radius:22px;padding:26px;margin:24px 0;box-shadow:0 18px 46px rgba(16,39,68,.09)}
   .stage-overview-head{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;align-items:center;margin-bottom:18px}
   .stage-overview-head h3{margin:4px 0 6px;font-size:34px;line-height:1.08;color:#071524}
   .stage-overview-head p{margin:0;color:#47657f;font-size:18px;line-height:1.45}
   .stage-pill{display:inline-flex;align-items:center;gap:8px;border:1px solid #b7d5eb;background:#eef8ff;color:#0b5f94;border-radius:999px;padding:8px 12px;font-weight:900;font-size:14px;text-transform:uppercase}
   .stage-progress{height:12px;background:#e3edf5;border-radius:999px;overflow:hidden;margin:18px 0}
   .stage-progress span{display:block;height:100%;background:linear-gradient(90deg,#1167d8,#13a4c8)}
-  .customer-stage-flow{display:grid;gap:18px;margin-top:18px}
-  .customer-stage-card{display:block;min-width:0;color:#102033;border:1px solid #d7e3ec;border-radius:18px;background:#f8fbfd;padding:20px}
+  .customer-stage-flow{display:grid;gap:14px;margin-top:20px}
+  .customer-stage-card{display:block;min-width:0;color:#102033;border:1px solid #dce5ec;border-radius:18px;background:#fff;padding:22px;box-shadow:0 8px 24px rgba(15,35,58,.045)}
   .customer-stage-card.is-current{border-color:#1167d8;background:#eef7ff;box-shadow:0 16px 30px rgba(17,103,216,.12)}
   .customer-stage-card.is-done{border-color:#bfe5d8;background:#f2fbf7}
   .customer-stage-card.is-todo{opacity:.94}
@@ -122,7 +133,7 @@
   .stage-sent-list{margin:12px 0 0;padding:0;list-style:none;display:grid;gap:7px;color:#47657f;font-size:15px}
   .stage-sent-list li{padding-left:16px;position:relative}
   .stage-sent-list li:before{content:"";position:absolute;left:0;top:.62em;width:6px;height:6px;border-radius:999px;background:#1167d8}
-  .stage-current-action{margin-top:16px;border:1px solid #d7e3ec;background:#fff;border-radius:16px;padding:20px}
+  .stage-current-action{margin-top:18px;border:0;border-top:1px solid #dce5ec;background:transparent;border-radius:0;padding:20px 0 0}
   .stage-current-action.is-complete{border-color:#bfe5d8;background:#f2fbf7}
   .stage-current-action h4{margin:0 0 10px;font-size:24px;color:#071524}
   .stage-current-action form{margin:0}
@@ -146,14 +157,14 @@
   .stage-action-head strong{display:block;font-size:18px;color:#071524}
   .stage-action-head span{display:block;font-size:14px;color:#617083;margin-top:3px}
   .stage-template-list{display:grid;gap:12px}
-  .stage-template-card{border:1px solid #cfe0ee;background:linear-gradient(180deg,#fff,#f8fbff);border-radius:16px;padding:14px;margin-top:10px;box-shadow:0 12px 28px rgba(15,35,58,.06)}
+  .stage-template-card{border:0;border-top:1px solid #dbe6ef;background:transparent;border-radius:0;padding:16px 0 0;margin-top:12px;box-shadow:none}
   .stage-template-card strong{display:block;font-size:17px;color:#102033}
   .stage-template-card p{margin:5px 0 10px;color:#617083;font-size:13px;line-height:1.35}
   .stage-template-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
   .stage-template-actions form{margin:0}
   .stage-template-actions .btn{padding:9px 12px;font-size:13px;border-radius:10px;min-height:40px}
   .stage-template-actions .btn.primary{box-shadow:0 10px 20px rgba(28,104,210,.16)}
-  .template-send-row{border:1px solid #d8e8f4;background:#fff;border-radius:13px;padding:10px;margin:10px 0 8px}
+  .template-send-row{border:0;background:#f4f8fb;border-radius:14px;padding:13px;margin:12px 0 8px}
   .template-send-row .muted{margin:0 0 8px;font-size:12px}
   .stage-template-card .template-preview{margin-top:9px;border:1px solid #d8e8f4;background:#fff;border-radius:13px;overflow:hidden}
   .stage-template-card .template-preview summary{font-size:13px;padding:10px 12px;font-weight:900;cursor:pointer;color:#102033;background:#f7fbff}
@@ -174,7 +185,7 @@
   .extra-customer-tools{margin:18px 0 24px}
   @media(max-width:1180px){.stage-detail-panel,.stage-action-fields{grid-template-columns:1fr}}
   @media(max-width:1000px){.workflow-main{grid-template-columns:1fr}.workflow-current{font-size:40px}.workflow-next{font-size:26px}.customer-form-send-fields,.unlinked-review-grid{grid-template-columns:1fr}}
-  @media(max-width:720px){body.app-page .customer-hero{padding:16px!important}body.app-page .customer-hero p{display:none!important}body.app-page .customer-hero>.row-actions{display:none!important}body.app-page .customer-hero .badge-row{display:none!important}body.app-page .customer-mobile-actions{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important}.stage-overview-head,.stage-section-head{grid-template-columns:auto minmax(0,1fr)}.stage-overview-head h3{font-size:28px}.customer-stage-overview{padding:16px;margin:14px 0}.stage-check-list,.stage-detail-grid{grid-template-columns:1fr}.customer-stage-card{padding:15px}.stage-mini-status{grid-column:2;white-space:normal}.stage-detail-main,.stage-next-box,.stage-current-action{padding:15px}.stage-template-actions .btn{width:100%;justify-content:center}}
+  @media(max-width:720px){body.app-page .customer-hero{padding:18px!important;gap:16px!important}body.app-page .customer-hero p{display:block!important;font-size:14px!important;line-height:1.45!important}body.app-page .customer-hero>.row-actions{display:none!important}body.app-page .customer-hero .badge-row{display:none!important}body.app-page .customer-mobile-actions{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important}body.app-page .customer-mobile-actions .btn{display:flex!important;align-items:center!important;justify-content:center!important;min-height:48px!important;border-radius:13px!important}.stage-overview-head,.stage-section-head{grid-template-columns:auto minmax(0,1fr)}.stage-overview-head h3{font-size:28px}.customer-stage-overview{padding:18px;margin:16px 0;border-radius:18px}.stage-check-list,.stage-detail-grid{grid-template-columns:1fr}.customer-stage-card{padding:17px}.stage-mini-status{grid-column:2;white-space:normal}.stage-detail-main,.stage-next-box{padding:15px}.stage-current-action{padding:16px 0 0}.stage-template-actions{display:grid;grid-template-columns:1fr}.stage-template-actions form,.stage-template-actions .btn{width:100%;justify-content:center;min-height:48px}.template-send-row{padding:12px}}
 </style>
 
 {% macro stage_template_buttons(item) %}
