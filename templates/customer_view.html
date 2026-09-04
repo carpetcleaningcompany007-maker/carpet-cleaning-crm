@@ -290,7 +290,9 @@
   </div>
 {% endmacro %}
 
-<section class="customer-stage-overview" id="customer-stage-overview">
+<details class="customer-stage-overview customer-page-accordion" id="customer-stage-overview" open>
+  <summary class="page-accordion-summary"><span>Current workflow</span><strong>{{ customer_hub.summary }}</strong><em>Open now</em></summary>
+  <div class="page-accordion-body">
   <div class="stage-overview-head">
     <div>
       <span class="stage-pill">Customer workflow</span>
@@ -301,15 +303,18 @@
   </div>
   <div class="stage-progress"><span style="width:{{ customer_hub.progress }}%"></span></div>
   <div class="customer-stage-flow">
-    <section class="customer-stage-card is-{{ customer_hub.stages[0].state }}" id="customer-stage-1">
-      <div class="stage-section-head">
+    <details class="customer-stage-card customer-workflow-accordion is-{{ customer_hub.stages[0].state }}" id="customer-stage-1" {% if customer_hub.stages[0].state == 'current' %}open{% endif %}>
+      <summary class="stage-section-head">
         <span class="stage-number">1</span>
         <span class="stage-card-copy">
           <span class="stage-card-title">Stage 1 - Check customer details</span>
           <span class="stage-card-subtitle">Everything needed to understand the enquiry and prepare the quote.</span>
         </span>
         <span class="stage-mini-status">{{ customer_hub.stages[0].completed_count }}/{{ customer_hub.stages[0].total_count }} complete</span>
-      </div>
+      </summary>
+      <div class="workflow-stage-body">
+      <details class="workflow-subaccordion">
+        <summary>Customer information checklist <span>{{ customer_hub.stages[0].completed_count }}/{{ customer_hub.stages[0].total_count }} complete</span></summary>
       <div class="stage-detail-grid">
         {% for detail in customer_hub_details %}
         <div class="stage-detail-item {% if not detail.value %}is-missing{% endif %}">
@@ -318,6 +323,7 @@
         </div>
         {% endfor %}
       </div>
+      </details>
       <div class="stage-current-action {% if customer_hub.stages[0].complete %}is-complete{% endif %}">
         <h4>Is the form complete?</h4>
         {% if customer_hub.stages[0].complete %}
@@ -342,6 +348,8 @@
           {% endif %}
         {% endif %}
       </div>
+      <details class="workflow-subaccordion">
+        <summary>Contact and form actions <span>Open when needed</span></summary>
       <div class="stage-current-action">
         <h4>Stage 1 actions</h4>
         <p class="muted">Use these if the customer has not completed the form, needs to update missing details, or you have tried to contact them.</p>
@@ -355,6 +363,9 @@
           {{ stage_template_buttons(item) }}
         {% endfor %}
       </div>
+      </details>
+      <details class="workflow-subaccordion">
+        <summary>Quote and booking details <span>Price, diary and confirmation</span></summary>
       <div class="stage-current-action">
         <h4>Quote and booking basics</h4>
         <p class="muted">Choose the agreed date and time. The final button checks the diary, books the job, adds it to Google Calendar, and only then sends the confirmation.</p>
@@ -421,20 +432,24 @@
         </form>
         {% endif %}
       </div>
-    </section>
+      </details>
+      </div>
+    </details>
 
-    <section class="customer-stage-card is-{{ customer_hub.stages[1].state }}" id="customer-stage-2">
-      <div class="stage-section-head">
+    <details class="customer-stage-card customer-workflow-accordion is-{{ customer_hub.stages[1].state }}" id="customer-stage-2" {% if customer_hub.stages[1].state == 'current' %}open{% endif %}>
+      <summary class="stage-section-head">
         <span class="stage-number">2</span>
         <span class="stage-card-copy">
           <span class="stage-card-title">Stage 2 - Upload or update Xero</span>
           <span class="stage-card-subtitle">Create the Xero contact, or refresh it if details were only partly done.</span>
         </span>
         <span class="stage-mini-status">{{ customer_hub.stages[1].completed_count }}/{{ customer_hub.stages[1].total_count }} complete</span>
-      </div>
+      </summary>
+      <div class="workflow-stage-body">
       {% if customer.xero_contact_id %}
-        <div class="stage-done-banner"><span class="stage-check-mark" aria-hidden="true"></span><span>Linked to Xero</span></div>
-        <p class="stage-helper-note">Xero ContactID: {{ customer.xero_contact_id }}{% if customer.xero_contact_synced_at %}. Last successfully synced {{ customer.xero_contact_synced_at }}{% endif %}. This step is complete. If details change, press Update Xero details to send the latest CRM record again.</p>
+        <div class="stage-done-banner"><span class="stage-check-mark" aria-hidden="true"></span><span>Synced with Xero</span></div>
+        <p class="stage-helper-note">{% if customer.xero_contact_synced_at %}Last synced {{ friendly_local_datetime(customer.xero_contact_synced_at) }}. {% endif %}This step is complete. If details change, press Update Xero details to send the latest CRM record again.</p>
+        <details class="xero-technical-detail"><summary>Technical details</summary><code>Xero contact reference: {{ customer.xero_contact_id }}</code></details>
         <div class="stage-action-row">
           <form method="post" action="{{ url_for('xero_sync_contact', customer_id=customer.id) }}">
             <input type="hidden" name="next_url" value="{{ url_for('customer_view', customer_id=customer.id) }}#customer-stage-2">
@@ -472,17 +487,19 @@
         {% endfor %}
       </div>
       {% endif %}
-    </section>
+      </div>
+    </details>
 
-    <section class="customer-stage-card is-{{ customer_hub.stages[2].state }}" id="customer-stage-3">
-      <div class="stage-section-head">
+    <details class="customer-stage-card customer-workflow-accordion is-{{ customer_hub.stages[2].state }}" id="customer-stage-3" {% if customer_hub.stages[2].state == 'current' %}open{% endif %}>
+      <summary class="stage-section-head">
         <span class="stage-number">3</span>
         <span class="stage-card-copy">
           <span class="stage-card-title">Stage 3 - Send booking confirmation</span>
           <span class="stage-card-subtitle">Confirm the booking message once price, date and time are ready.</span>
         </span>
         <span class="stage-mini-status">{{ customer_hub.stages[2].completed_count }}/{{ customer_hub.stages[2].total_count }} complete</span>
-      </div>
+      </summary>
+      <div class="workflow-stage-body">
       <div class="stage-check-list">
         {% for item in customer_hub.stages[2]["items"] %}
         <div class="stage-check {% if item.done %}is-done{% else %}is-pending{% endif %}">
@@ -504,18 +521,20 @@
           {% endfor %}
         {% endif %}
       </div>
-    </section>
+      </div>
+    </details>
 
     {% for stage in customer_hub.stages[3:] %}
-    <section class="customer-stage-card is-{{ stage.state }}" id="customer-stage-{{ stage.number }}">
-      <div class="stage-section-head">
+    <details class="customer-stage-card customer-workflow-accordion is-{{ stage.state }}" id="customer-stage-{{ stage.number }}" {% if stage.state == 'current' %}open{% endif %}>
+      <summary class="stage-section-head">
         <span class="stage-number">{{ stage.number }}</span>
         <span class="stage-card-copy">
           <span class="stage-card-title">Stage {{ stage.number }} - {{ stage.title }}</span>
           <span class="stage-card-subtitle">{{ stage.subtitle }}</span>
         </span>
         <span class="stage-mini-status">{{ stage.completed_count }}/{{ stage.total_count }} complete</span>
-      </div>
+      </summary>
+      <div class="workflow-stage-body">
       <div class="stage-check-list">
         {% for item in stage["items"] %}
         <div class="stage-check {% if item.done %}is-done{% else %}is-pending{% endif %}">
@@ -539,10 +558,12 @@
           <p class="stage-helper-note">No message template is attached to this stage yet.</p>
         {% endif %}
       </div>
-    </section>
+      </div>
+    </details>
     {% endfor %}
   </div>
-</section>
+</div>
+</details>
 
 <details class="hub-collapse extra-customer-tools" id="customer-message-actions">
   <summary>Extra customer tools, form links and saved templates</summary>
@@ -693,7 +714,9 @@ window.addEventListener('hashchange', openCustomerToolsForHash);
 openCustomerToolsForHash();
 </script>
 
-<section class="panel customer-section customer-details-workflow" id="customer-details">
+<details class="panel customer-section customer-details-workflow customer-page-accordion" id="customer-details">
+  <summary class="page-accordion-summary"><span>Customer details</span><strong>{{ customer.first_name }} {{ customer.last_name }}</strong><em>{% if xero_identity_ready and not xero_decision_needed %}Complete{% else %}Needs attention{% endif %}</em></summary>
+  <div class="page-accordion-body">
   <div class="panel-head panel-head-stack customer-details-intro">
     <div>
       <div class="section-kicker">Customer information</div>
@@ -753,7 +776,8 @@ openCustomerToolsForHash();
     <form method="post" action="{{ url_for('customer_delete', customer_id=customer.id) }}" onsubmit="return confirm('Archive this customer?')"><button type="submit" class="btn danger">Archive customer</button></form>
     {% endif %}
   </div>
-</section>
+</div>
+</details>
 <script>
 (function(){
   var form=document.querySelector('.customer-details-stage-form');
@@ -1106,6 +1130,45 @@ openCustomerToolsForHash();
 </div>
 </div>
 </details>
+<script>
+(function(){
+  var library=document.getElementById('customer-library-record');
+  if(library){
+    Array.prototype.slice.call(library.querySelectorAll('.customer-section')).forEach(function(section,index){
+      if(section.tagName.toLowerCase()==='details')return;
+      var details=document.createElement('details');
+      details.className=section.className+' customer-library-accordion';
+      if(section.id)details.id=section.id;
+      var heading=section.querySelector('h3');
+      var description=section.querySelector('.panel-head p');
+      var summary=document.createElement('summary');
+      summary.className='page-accordion-summary compact';
+      var label=document.createElement('span');label.textContent=(heading&&heading.textContent.trim())||'Customer section';
+      var copy=document.createElement('strong');copy.textContent=(description&&description.textContent.trim())||'Open customer information';
+      var state=document.createElement('em');state.textContent='Collapsed';
+      summary.appendChild(label);summary.appendChild(copy);summary.appendChild(state);
+      var body=document.createElement('div');body.className='page-accordion-body';
+      while(section.firstChild)body.appendChild(section.firstChild);
+      details.appendChild(summary);details.appendChild(body);section.replaceWith(details);
+      details.addEventListener('toggle',function(){state.textContent=details.open?'Open':'Collapsed';});
+    });
+  }
+
+  var workflowStages=Array.prototype.slice.call(document.querySelectorAll('.customer-workflow-accordion'));
+  workflowStages.forEach(function(stage){stage.addEventListener('toggle',function(){if(stage.open)workflowStages.forEach(function(other){if(other!==stage)other.open=false;});});});
+
+  var topLevel=[document.getElementById('customer-stage-overview'),document.getElementById('customer-details'),document.getElementById('customer-message-actions'),document.getElementById('customer-library-record')].filter(Boolean);
+  topLevel.forEach(function(panel){panel.addEventListener('toggle',function(){if(panel.open)topLevel.forEach(function(other){if(other!==panel)other.open=false;});});});
+
+  function revealHash(){
+    if(!location.hash)return;
+    var target=document.querySelector(location.hash);if(!target)return;
+    var cursor=target;
+    while(cursor){if(cursor.tagName&&cursor.tagName.toLowerCase()==='details')cursor.open=true;cursor=cursor.parentElement;}
+  }
+  window.addEventListener('hashchange',revealHash);revealHash();
+})();
+</script>
 <style>
 .calendar-check{display:flex!important;gap:10px;align-items:center;margin:14px 0}.calendar-check input{width:auto}
 .booking-calendar-preview{margin-top:18px;border:1px solid #cddbd5;border-radius:14px;background:#f8fbfa;overflow:hidden}

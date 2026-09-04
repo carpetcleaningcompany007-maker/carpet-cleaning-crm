@@ -94,6 +94,19 @@ class CustomerXeroExportTests(unittest.TestCase):
         self.assertEqual(customer["email"], "alice.updated@real.test")
         self.assertEqual(customer["address"], "3 New Street")
 
+    def test_customer_page_defaults_to_one_current_workflow_and_collapses_long_sections(self):
+        response = self.client.get(f"/customers/{self.first_id}")
+        page = response.get_data(as_text=True)
+        self.assertIn('id="customer-stage-overview" open', page)
+        self.assertIn('id="customer-stage-1" open', page)
+        self.assertNotIn('id="customer-stage-2" open', page)
+        self.assertIn('<details class="panel customer-section customer-details-workflow customer-page-accordion" id="customer-details">', page)
+        self.assertIn('<details class="hub-collapse extra-customer-tools" id="customer-message-actions">', page)
+        self.assertIn('<details class="hub-collapse customer-library-record" id="customer-library-record">', page)
+        self.assertEqual(page.count('class="workflow-subaccordion"'), 3)
+        self.assertIn("customer-library-accordion", page)
+        self.assertIn("if(other!==stage)other.open=false", page)
+
     def test_complete_genuine_intake_syncs_but_incomplete_and_test_data_do_not(self):
         genuine = {"name": "Alice Jones", "email": "alice@real.test", "phone": "07802563213", "address": "1 High Street", "postcode": "SY8 1AA"}
         lead_id, customer_id = self.mod.create_intake_from_website_payload(genuine, require_valid_phone=True)
