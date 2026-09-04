@@ -153,6 +153,79 @@ body.app-page .contacts-head h3{color:#fff!important}body.app-page .contacts-hea
 @media(max-width:760px){.app-page .customer-search-results{grid-template-columns:1fr}.app-page .customer-search-result{min-height:58px}}
 @media(max-width:760px){body.app-page .contact-stat-strip{grid-template-columns:1fr 1fr!important}.app-page .xero-refresh-card{grid-template-columns:48px minmax(0,1fr)!important}}
 
+/* Customers overview: a composed, centred mobile hero with balanced KPI rhythm. */
+@media(max-width:760px){
+  body.app-page .contacts-head{
+    min-height:430px!important;
+    padding:34px 20px 28px!important;
+    display:flex!important;
+    flex-direction:column!important;
+    align-items:center!important;
+    justify-content:flex-end!important;
+    gap:22px!important;
+    text-align:center!important;
+    background:
+      linear-gradient(180deg,rgba(7,25,50,.32) 0%,rgba(7,25,50,.78) 43%,rgba(7,25,50,.98) 100%),
+      url('/static/site/hero-carpet-cleaning.webp') center 38%/cover no-repeat!important;
+  }
+  body.app-page .contacts-head-copy{
+    width:100%!important;
+    max-width:340px!important;
+    margin:0 auto!important;
+    display:flex!important;
+    flex-direction:column!important;
+    align-items:center!important;
+  }
+  body.app-page .contacts-head .section-kicker{
+    display:inline-flex!important;
+    width:max-content!important;
+    max-width:100%!important;
+    margin:0 auto 10px!important;
+    justify-content:center!important;
+  }
+  body.app-page .contacts-head h3{
+    margin:0 0 11px!important;
+    font-size:clamp(36px,10vw,43px)!important;
+    line-height:1.02!important;
+    text-wrap:balance!important;
+  }
+  body.app-page .contacts-head p{
+    max-width:320px!important;
+    margin:0 auto!important;
+    line-height:1.55!important;
+    text-wrap:balance!important;
+  }
+  body.app-page .contacts-head .contacts-actions{
+    width:min(100%,320px)!important;
+    margin:0 auto!important;
+    display:grid!important;
+    grid-template-columns:1fr!important;
+    gap:10px!important;
+  }
+  body.app-page .contacts-head .contacts-actions .btn{
+    width:100%!important;
+    min-height:50px!important;
+    margin:0!important;
+    justify-content:center!important;
+    text-align:center!important;
+  }
+  body.app-page .contact-stat-strip{
+    width:100%!important;
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    gap:10px!important;
+    margin:0!important;
+  }
+  body.app-page .contact-stat-strip>div{
+    min-height:86px!important;
+    padding:14px!important;
+    display:flex!important;
+    flex-direction:column!important;
+    align-items:center!important;
+    justify-content:center!important;
+    text-align:center!important;
+  }
+}
+
 @media(min-width:1060px){
   body.app-page .sidebar{overflow:visible!important;min-height:76px!important;height:76px!important}
   body.app-page .brand{min-width:250px!important;width:250px!important;gap:12px!important}
