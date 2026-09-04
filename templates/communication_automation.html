@@ -3,13 +3,13 @@
 {% block page_title %}Communication Automation{% endblock %}
 {% block body_content %}
 <section class="panel page-shell">
-  <div class="panel-head panel-head-stack">
+  <div class="panel-head panel-head-stack automation-page-head">
     <div>
       <span class="section-kicker">Global communication settings</span>
       <h3>Automatic customer emails and texts</h3>
       <p>Choose which customer messages are automatic and which stay manual. Manual buttons on customer and job pages still work.</p>
     </div>
-    <form method="post" action="{{ url_for('automation_run_due', dry_run=1) }}">
+    <form class="automation-test-form" method="post" action="{{ url_for('automation_run_due', dry_run=1) }}">
       <button class="btn secondary" type="submit">Test Due Check</button>
     </form>
   </div>
