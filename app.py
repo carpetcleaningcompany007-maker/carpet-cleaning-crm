@@ -38,9 +38,9 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("CRM_SECRET_KEY", "change-this-secret")
-_cookie_secure_default = "1" if os.environ.get("CRM_PUBLIC_BASE_URL", "").lower().startswith("https://") else "0"
 app.config.update(
-    SESSION_COOKIE_SECURE=os.environ.get("CRM_COOKIE_SECURE", _cookie_secure_default).lower() in {"1", "true", "yes", "on"},
+    # The deployed CRM is HTTPS-only. Local HTTP development must explicitly opt out.
+    SESSION_COOKIE_SECURE=os.environ.get("CRM_COOKIE_SECURE", "1").lower() in {"1", "true", "yes", "on"},
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE="Lax",
     PERMANENT_SESSION_LIFETIME=timedelta(hours=12),
