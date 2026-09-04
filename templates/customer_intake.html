@@ -39,15 +39,18 @@
           </div>
         </section>
       {% endif %}
+      <div class="customer-form-error customer-form-global-error" id="customer-form-error" role="alert" hidden></div>
 
-      <section class="customer-form-card">
-        <div class="customer-form-card-head">
+      <details class="customer-form-card intake-stage" data-stage="1" open>
+        <summary class="customer-form-card-head">
           <span>Step 1</span>
           <div>
             <h2>Your contact details</h2>
             <p>The best details to use if we need to confirm anything with you.</p>
+            <small class="stage-missing" aria-live="polite"></small>
           </div>
-        </div>
+          <strong class="stage-status">In progress</strong>
+        </summary>
         <div class="customer-form-grid">
           <label>Full name
             <input name="name" autocomplete="name" value="{% if prefill.name %}{{ prefill.name }}{% elif linked_customer %}{{ linked_customer.first_name }} {{ linked_customer.last_name }}{% endif %}" required>
@@ -59,16 +62,19 @@
             <input type="email" name="email" autocomplete="email" value="{% if prefill.email %}{{ prefill.email }}{% elif linked_customer %}{{ linked_customer.email or '' }}{% endif %}">
           </label>
         </div>
-      </section>
+        <div class="stage-controls"><button type="button" class="stage-next">Save progress &amp; next stage</button></div>
+      </details>
 
-      <section class="customer-form-card">
-        <div class="customer-form-card-head">
+      <details class="customer-form-card intake-stage" data-stage="2">
+        <summary class="customer-form-card-head">
           <span>Step 2</span>
           <div>
-            <h2>Your address</h2>
-            <p>Please include the full address. What3Words is optional, but useful for hard-to-find properties.</p>
+            <h2>Property and address</h2>
+            <p>Your address and any location details that will help us find you.</p>
+            <small class="stage-missing" aria-live="polite"></small>
           </div>
-        </div>
+          <strong class="stage-status">Not started</strong>
+        </summary>
         <div class="customer-form-grid">
           <label class="wide">Full address
             <textarea name="full_address" rows="4" autocomplete="street-address" placeholder="House number, street, town, and any useful directions">{% if prefill.full_address %}{{ prefill.full_address }}{% elif linked_customer %}{{ linked_customer.address or '' }}{% endif %}</textarea>
@@ -80,16 +86,19 @@
             <input name="what3words" placeholder="example: filled.count.soap" value="{{ prefill.what3words or '' }}">
           </label>
         </div>
-      </section>
+        <div class="stage-controls"><button type="button" class="stage-back">Back</button><button type="button" class="stage-next">Save progress &amp; next stage</button></div>
+      </details>
 
-      <section class="customer-form-card">
-        <div class="customer-form-card-head">
+      <details class="customer-form-card intake-stage" data-stage="3">
+        <summary class="customer-form-card-head">
           <span>Step 3</span>
           <div>
             <h2>Access and parking</h2>
             <p>Please complete this section. We need these details so we can arrive prepared, park safely and bring the right equipment to your door.</p>
+            <small class="stage-missing" aria-live="polite"></small>
           </div>
-        </div>
+          <strong class="stage-status">Not started</strong>
+        </summary>
         <div class="customer-form-grid">
           <label>Parking near the property
             <select name="parking_issues" required>
@@ -119,16 +128,19 @@
             <textarea name="access_info" rows="3" placeholder="Your extra details like: gates, flats, lift, stairs, key safe, narrow access, pets, parking permits, or anything useful">{{ prefill.access_info or '' }}</textarea>
           </label>
         </div>
-      </section>
+        <div class="stage-controls"><button type="button" class="stage-back">Back</button><button type="button" class="stage-next">Save progress &amp; next stage</button></div>
+      </details>
 
-      <section class="customer-form-card">
-        <div class="customer-form-card-head">
+      <details class="customer-form-card intake-stage" data-stage="4">
+        <summary class="customer-form-card-head">
           <span>Step 4</span>
           <div>
             <h2>Cleaning details</h2>
             <p>A quick description helps us understand what you need before we call and quote.</p>
+            <small class="stage-missing" aria-live="polite"></small>
           </div>
-        </div>
+          <strong class="stage-status">Not started</strong>
+        </summary>
         <div class="customer-form-grid">
           <label class="wide">Describe what needs cleaning
             <textarea name="job_notes" rows="4" placeholder="Tell us what you would like cleaned and anything important about the condition, fabric, stains, traffic lanes, odours or previous cleaning">{{ prefill.job_notes or '' }}</textarea>
@@ -139,18 +151,30 @@
           <label class="wide">Stains or problem areas
             <textarea name="stains" rows="3" placeholder="Pet stains, drink spills, traffic lanes, heavy soiling, odours, marks, anything we should know">{{ prefill.stains or '' }}</textarea>
           </label>
+        </div>
+        <div class="stage-controls"><button type="button" class="stage-back">Back</button><button type="button" class="stage-next">Save progress &amp; next stage</button></div>
+      </details>
+
+      <details class="customer-form-card customer-photo-card intake-stage" data-stage="5">
+        <summary class="customer-form-card-head">
+          <span>Step 5</span>
+          <div>
+            <h2>Preferences, notes and photos</h2>
+            <p>Add preferred times, any final instructions and useful photos.</p>
+            <small class="stage-missing" aria-live="polite"></small>
+          </div>
+          <strong class="stage-status">Optional</strong>
+        </summary>
+        <div class="customer-form-grid">
           <label class="wide">Anything else you would like us to know?
             <textarea name="additional_notes" rows="3" placeholder="Preferred times, urgency, special instructions, or any questions">{{ prefill.additional_notes or '' }}</textarea>
           </label>
         </div>
-      </section>
-
-      <section class="customer-form-card customer-photo-card">
-        <div class="customer-form-card-head">
-          <span>Step 5</span>
+        <div class="customer-form-card-head photo-subhead">
+          <span>Photos</span>
           <div>
             <h2>Send photos if you haven't already</h2>
-            <p>Only send photos if you have not already sent them. Photos of the areas, stains, upholstery, stairs or access help us quote more accurately and prepare properly.</p>
+            <p>Photos of the areas, stains, upholstery, stairs or access help us quote more accurately and prepare properly.</p>
             {% set wa_number = whatsapp_phone(biz.phone or '07802 563213') %}
             <a class="customer-whatsapp-btn" href="https://wa.me/{{ wa_number }}?text={{ 'Hi Paul, I would like to send photos for my carpet cleaning quote.'|urlencode }}" target="_blank" rel="noopener">Send via WhatsApp</a>
           </div>
@@ -161,16 +185,22 @@
           <span>Carpets, stairs, upholstery, stains, parking/access, or anything useful.</span>
         </label>
         <p class="customer-privacy-note">Please only upload photos relevant to the cleaning enquiry. Avoid including people, children, private documents, bank details, medical information or anything sensitive.</p>
-      </section>
+        <div class="stage-controls"><button type="button" class="stage-back">Back</button><button type="button" class="stage-next">Save progress &amp; review</button></div>
+      </details>
 
-      <section class="customer-form-card customer-privacy-card">
-        <div class="customer-form-card-head">
-          <span>Privacy</span>
+      <details class="customer-form-card customer-privacy-card intake-stage" data-stage="6">
+        <summary class="customer-form-card-head">
+          <span>Step 6</span>
           <div>
-            <h2>How we use your details</h2>
-            <p>We use the information you send to respond to your enquiry, prepare quotes, manage bookings and handle service messages.</p>
+            <h2>Review and send</h2>
+            <p>Check the details above, choose your contact preferences and send securely.</p>
+            <small class="stage-missing" aria-live="polite"></small>
           </div>
-        </div>
+          <strong class="stage-status">Not ready</strong>
+        </summary>
+        <div class="customer-review-summary" aria-live="polite"></div>
+        <h3>How we use your details</h3>
+        <p>We use the information you send to respond to your enquiry, prepare quotes, manage bookings and handle service messages.</p>
         <div class="customer-privacy-panel">
           <p>We keep records only as long as needed for enquiries, bookings, accounts, legal obligations and customer service.</p>
           <p>You can ask us to access, correct or delete your personal information where legally allowed by contacting The Carpet Cleaning Company.</p>
@@ -185,14 +215,11 @@
             <span>I am happy to receive occasional rebooking reminders or offers by email/SMS. This is optional.</span>
           </label>
         </div>
-      </section>
-
-      <input type="hidden" name="what_cleaned" value="{{ prefill.what_cleaned or 'Customer contact form' }}">
-
-      <section class="customer-form-submit">
-        <div class="customer-form-error" id="customer-form-error" role="alert" hidden></div>
-        <button class="customer-submit-btn" type="submit">Send now</button>
-      </section>
+        <input type="hidden" name="what_cleaned" value="{{ prefill.what_cleaned or 'Customer contact form' }}">
+        <div class="customer-form-submit">
+          <div class="stage-controls final-controls"><button type="button" class="stage-back">Back</button><button class="customer-submit-btn" type="submit">Send my details securely</button></div>
+        </div>
+      </details>
     </form>
   </div>
 </section>
@@ -211,6 +238,90 @@
       privacy_acknowledgement: "privacy acknowledgement"
     };
 
+    var stages = Array.prototype.slice.call(form.querySelectorAll(".intake-stage"));
+    var recommended = {
+      2: ["full_address", "postcode"],
+      4: ["job_notes", "rooms_areas"]
+    };
+
+    function fieldIsFilled(field) {
+      if (!field) return false;
+      return field.type === "checkbox" ? field.checked : String(field.value || "").trim().length > 0;
+    }
+
+    function stageState(stage) {
+      var requiredMissing = Array.prototype.filter.call(stage.querySelectorAll("[required]"), function (field) {
+        return !fieldIsFilled(field);
+      });
+      var suggestedMissing = (recommended[stage.dataset.stage] || []).filter(function (name) {
+        return !fieldIsFilled(form.elements[name]);
+      });
+      if (requiredMissing.length) {
+        return {tone: "missing", label: "Missing information", missing: requiredMissing.map(function (field) { return labels[field.name] || field.name; })};
+      }
+      if (suggestedMissing.length) {
+        return {tone: "attention", label: "Needs attention", missing: suggestedMissing.map(function (name) { return labels[name] || name.replace(/_/g, " "); })};
+      }
+      if (stage.dataset.stage === "5") {
+        var hasOptional = Array.prototype.some.call(stage.querySelectorAll("textarea, input[type=file]"), fieldIsFilled);
+        return {tone: hasOptional ? "complete" : "optional", label: hasOptional ? "Complete" : "Optional", missing: []};
+      }
+      return {tone: "complete", label: "Complete", missing: []};
+    }
+
+    function refreshStages() {
+      stages.forEach(function (stage) {
+        var state = stageState(stage);
+        var status = stage.querySelector(".stage-status");
+        var missing = stage.querySelector(".stage-missing");
+        stage.dataset.status = state.tone;
+        if (status) status.textContent = state.label;
+        if (missing) missing.textContent = state.missing.length ? "Still needed: " + state.missing.join(", ") : "";
+      });
+      var review = form.querySelector(".customer-review-summary");
+      if (review) {
+        var name = String((form.elements.name || {}).value || "").trim() || "Name not added";
+        var contact = String((form.elements.phone || {}).value || "").trim() || String((form.elements.email || {}).value || "").trim() || "Contact details not added";
+        var address = String((form.elements.full_address || {}).value || "").trim() || "Address not added";
+        review.textContent = name + " · " + contact + " · " + address;
+      }
+    }
+
+    function openStage(index) {
+      if (!stages[index]) return;
+      stages.forEach(function (stage, stageIndex) { stage.open = stageIndex === index; });
+      refreshStages();
+      stages[index].scrollIntoView({behavior: "smooth", block: "start"});
+      var focusTarget = stages[index].querySelector("input:not([type=hidden]), select, textarea, button");
+      if (focusTarget) window.setTimeout(function () { focusTarget.focus({preventScroll: true}); }, 250);
+    }
+
+    stages.forEach(function (stage, index) {
+      var next = stage.querySelector(".stage-next");
+      var back = stage.querySelector(".stage-back");
+      if (next) next.addEventListener("click", function () {
+        var firstInvalid = stage.querySelector("[required]:invalid");
+        if (firstInvalid) {
+          refreshStages();
+          firstInvalid.reportValidity();
+          firstInvalid.focus();
+          return;
+        }
+        openStage(index + 1);
+      });
+      if (back) back.addEventListener("click", function () { openStage(index - 1); });
+    });
+
+    form.addEventListener("input", refreshStages);
+    form.addEventListener("change", refreshStages);
+    refreshStages();
+
+    var firstIncomplete = stages.findIndex(function (stage) {
+      var tone = stageState(stage).tone;
+      return tone === "missing" || tone === "attention";
+    });
+    if (firstIncomplete > 0 && {{ 'true' if update_lead else 'false' }}) openStage(firstIncomplete);
+
     form.addEventListener("submit", function (event) {
       var missing = [];
       Array.prototype.forEach.call(form.querySelectorAll("[required]"), function (field) {
@@ -224,7 +335,14 @@
         error.hidden = false;
         error.textContent = "Please complete these required details before sending: " + missing.join(", ") + ".";
         var firstMissing = form.querySelector("[required]:invalid") || form.querySelector("[required]");
-        if (firstMissing && firstMissing.focus) firstMissing.focus();
+        if (firstMissing && firstMissing.focus) {
+          var stage = firstMissing.closest(".intake-stage");
+          if (stage) {
+            stages.forEach(function (item) { item.open = item === stage; });
+          }
+          firstMissing.focus();
+          error.scrollIntoView({behavior: "smooth", block: "center"});
+        }
       } else {
         error.hidden = true;
       }
