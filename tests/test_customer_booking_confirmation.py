@@ -13,6 +13,7 @@ class CustomerBookingConfirmationTests(unittest.TestCase):
         os.environ["DISABLE_CRM_BACKGROUND_AUTOMATION"] = "1"
         import app
         self.mod = importlib.reload(app)
+        self.mod.app.config["TESTING"] = True
         self.ctx = self.mod.app.app_context()
         self.ctx.push()
         self.mod.init_db()

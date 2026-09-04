@@ -19,6 +19,16 @@ services:
         value: /data/uploads
       - key: CRM_PUBLIC_BASE_URL
         value: https://carpet-cleaning-crm.onrender.com
+      - key: CRM_SECRET_KEY
+        sync: false
+      - key: AUTOMATION_SECRET
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: CLICKSEND_WEBHOOK_SECRET
+        sync: false
+      - key: CUSTOMER_UPDATE_LINK_DAYS
+        value: "30"
       - key: CRM_ASSISTANT_API_TOKEN
         sync: false
       - key: OPENAI_API_KEY

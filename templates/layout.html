@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
   <title>{% block title %}The Carpet Cleaning Company{% endblock %}</title>
   <link rel="icon" href="{{ url_for('static', filename='site/site-icon-512.png') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=own-website-skin-20260605-1">
@@ -120,7 +121,7 @@
   {% endwith %}
   {% block public_content %}{% endblock %}
 {% endif %}
-<script src="{{ url_for('static', filename='app.js') }}"></script>
+<script src="{{ url_for('static', filename='app.js', v='security-20260904-1') }}"></script>
 <script>
 (function(){
   function setModal(id, open){

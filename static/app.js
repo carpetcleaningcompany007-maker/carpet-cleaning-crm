@@ -1,4 +1,13 @@
 (function() {
+  const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || "";
+  document.querySelectorAll('form').forEach(form => {
+    if ((form.method || "get").toLowerCase() !== "post" || form.querySelector('input[name="_csrf_token"]')) return;
+    const tokenField = document.createElement("input");
+    tokenField.type = "hidden";
+    tokenField.name = "_csrf_token";
+    tokenField.value = csrfToken;
+    form.appendChild(tokenField);
+  });
   const zones = document.querySelectorAll(".dropzone");
   let dragged = null;
   document.querySelectorAll(".job-card").forEach(card => {
@@ -12,7 +21,7 @@
       zone.appendChild(dragged);
       const form = new FormData();
       form.append("job_date", zone.dataset.date || "");
-      await fetch(`/jobs/${dragged.dataset.jobId}/move_date`, { method: "POST", body: form });
+      await fetch(`/jobs/${dragged.dataset.jobId}/move_date`, { method: "POST", body: form, headers: {"X-CSRF-Token": csrfToken} });
       dragged = null;
     });
   });

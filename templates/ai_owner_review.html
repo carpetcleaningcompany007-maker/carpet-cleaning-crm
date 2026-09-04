@@ -20,6 +20,7 @@
         <div class="status">This draft is {{ draft.status|lower }}. No further action is available.</div>
       {% else %}
       <form method="post">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
         {% if draft.channel|upper == 'EMAIL' %}<label class="field">Subject<input name="subject" value="{{ draft.subject or '' }}"></label>{% else %}<input type="hidden" name="subject" value="{{ draft.subject or '' }}">{% endif %}
         <label class="field">Check or edit the message<textarea name="body" rows="11" required>{{ draft.body or '' }}</textarea></label>
         <div class="actions">

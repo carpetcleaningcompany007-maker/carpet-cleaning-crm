@@ -15,6 +15,7 @@ class AssistantCustomerApiTests(unittest.TestCase):
         import app
         self.appmod = importlib.reload(app)
         self.app = self.appmod.app
+        self.app.config["TESTING"] = True
         self.ctx = self.app.app_context()
         self.ctx.push()
         self.appmod.init_db()

@@ -27,6 +27,8 @@ import uuid
 import calendar as pycalendar
 import threading
 import math
+import hmac
+import hashlib
 from difflib import SequenceMatcher
 
 from flask import Flask, render_template, request, redirect, url_for, flash, session, g, Response, send_file, send_from_directory, has_request_context, jsonify
@@ -36,6 +38,13 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("CRM_SECRET_KEY", "change-this-secret")
+_cookie_secure_default = "1" if os.environ.get("CRM_PUBLIC_BASE_URL", "").lower().startswith("https://") else "0"
+app.config.update(
+    SESSION_COOKIE_SECURE=os.environ.get("CRM_COOKIE_SECURE", _cookie_secure_default).lower() in {"1", "true", "yes", "on"},
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+    PERMANENT_SESSION_LIFETIME=timedelta(hours=12),
+)
 app.config["UPLOAD_FOLDER"] = os.environ.get("CRM_UPLOAD_FOLDER", os.path.join("static", "uploads"))
 EMAIL_RENDER_BUILD = "customer-form-cleanup-2026-07-08-01"
 DB_PATH = os.environ.get("CRM_DB_PATH", "crm.db")
@@ -95,6 +104,18 @@ def add_website_form_cors_headers(response):
         response.headers["Access-Control-Allow-Origin"] = "*"
         response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
         response.headers["Access-Control-Allow-Headers"] = "Content-Type, Accept"
+    response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+    response.headers.setdefault(
+        "Content-Security-Policy",
+        "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+        "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+        "img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'; frame-src 'self'; "
+        "base-uri 'self'; form-action 'self' https://login.xero.com; frame-ancestors 'none'",
+    )
     return response
 
 
@@ -3437,6 +3458,67 @@ def safe_next_url(value):
     if parsed.scheme or parsed.netloc or not value.startswith("/"):
         return url_for("dashboard")
     return value
+
+
+CSRF_EXEMPT_ENDPOINTS = {
+    "assistant_customer_create", "customer_contact_form_submit", "website_form_submit",
+    "website_engagement_alert", "website_analytics_event", "booking_form",
+    "customer_intake", "quote_portal_submit", "sms_status_twilio", "sms_inbound_twilio",
+    "sms_status_clicksend", "sms_inbound_clicksend", "xero_callback",
+}
+
+
+def csrf_token():
+    token = session.get("csrf_token")
+    if not token:
+        token = secrets.token_urlsafe(32)
+        session["csrf_token"] = token
+    return token
+
+
+app.jinja_env.globals["csrf_token"] = csrf_token
+
+
+@app.before_request
+def protect_browser_mutations():
+    if request.method in {"GET", "HEAD", "OPTIONS"}:
+        if request.endpoint == "login" or session.get("logged_in"):
+            csrf_token()
+        return None
+    if app.config.get("TESTING") or request.endpoint in CSRF_EXEMPT_ENDPOINTS:
+        return None
+    if request.endpoint == "automation_run_due" and not session.get("logged_in"):
+        return None
+    expected = session.get("csrf_token")
+    supplied = request.form.get("_csrf_token", "") or request.headers.get("X-CSRF-Token", "")
+    if not expected or not supplied or not secrets.compare_digest(expected, supplied):
+        return "The security check for this form expired. Reload the page and try again.", 400
+
+
+def request_client_address():
+    return clean_str(request.headers.get("CF-Connecting-IP") or request.remote_addr)[:80]
+
+
+def ensure_login_security_table():
+    run("""CREATE TABLE IF NOT EXISTS login_security_events (
+           id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT DEFAULT '', ip_address TEXT DEFAULT '',
+           user_agent TEXT DEFAULT '', event_type TEXT DEFAULT '', created_at TEXT DEFAULT (datetime('now'))
+         )""")
+
+
+def record_login_event(username, event_type):
+    ensure_login_security_table()
+    run("INSERT INTO login_security_events(username,ip_address,user_agent,event_type) VALUES (?,?,?,?)", (
+        clean_str(username)[:120], request_client_address(), clean_str(request.headers.get("User-Agent"))[:240], event_type,
+    ))
+
+
+def login_is_rate_limited(username):
+    ensure_login_security_table()
+    row = q("""SELECT COUNT(*) AS c FROM login_security_events
+               WHERE event_type='failed' AND created_at >= datetime('now','-15 minutes')
+                 AND (lower(username)=lower(?) OR ip_address=?)""", (clean_str(username)[:120], request_client_address()), one=True)
+    return bool(row and int(row["c"] or 0) >= 5)
 
 
 def login_required(fn):
@@ -7851,7 +7933,7 @@ def row_get(row, key, default=""):
 
 
 def intake_update_serializer():
-    return URLSafeSerializer(app.config["SECRET_KEY"], salt="intake-update-form")
+    return URLSafeTimedSerializer(app.config["SECRET_KEY"], salt="intake-update-form")
 
 
 def signed_intake_update_token(lead_id):
@@ -7863,9 +7945,10 @@ def lead_id_from_update_token(token):
     if not token:
         return None
     try:
-        data = intake_update_serializer().loads(token)
+        max_age_days = max(1, int(os.environ.get("CUSTOMER_UPDATE_LINK_DAYS", "30")))
+        data = intake_update_serializer().loads(token, max_age=max_age_days * 24 * 60 * 60)
         return int(data.get("lead_id") or 0) or None
-    except (BadSignature, TypeError, ValueError):
+    except (BadSignature, SignatureExpired, TypeError, ValueError):
         return None
 
 
@@ -8646,20 +8729,56 @@ def login():
     if request.method == "POST":
         submitted_username = (request.form.get("username") or "").strip()
         submitted_password = request.form.get("password") or ""
+        if login_is_rate_limited(submitted_username):
+            record_login_event(submitted_username, "blocked")
+            time.sleep(1.0)
+            return render_template("login.html", next_url=next_url, login_error="Too many attempts. Please wait 15 minutes and try again."), 429
         username_ok = submitted_username == (s["username"] or "")
         password_ok = verify_password(s["password"], submitted_password)
         if username_ok and password_ok:
             if s["password"] and not is_password_hash(s["password"]):
                 run("UPDATE settings SET password=? WHERE id=1", (normalize_password_for_storage(s["password"]),))
+            record_login_event(submitted_username, "success")
+            session.clear()
+            session.permanent = True
             session["logged_in"] = True
+            csrf_token()
             return redirect(next_url)
+        record_login_event(submitted_username, "failed")
+        time.sleep(0.75)
         flash("Login details were incorrect.")
-    return render_template("login.html", next_url=next_url)
+    return render_template("login.html", next_url=next_url, login_error="")
 
-@app.route("/logout")
+@app.route("/logout", methods=["POST"])
 def logout():
     session.clear()
     return redirect(url_for("login"))
+
+
+@app.route("/security/setup", methods=["GET", "POST"])
+@login_required
+def security_setup():
+    current = settings()
+    using_factory_login = (current["username"] or "") == "admin" and verify_password(current["password"], "admin123")
+    if request.method == "POST":
+        current_password = request.form.get("current_password") or ""
+        new_username = clean_str(request.form.get("new_username"))
+        new_password = request.form.get("new_password") or ""
+        confirm_password = request.form.get("confirm_password") or ""
+        if not verify_password(current["password"], current_password):
+            return render_template("security_setup.html", using_factory_login=using_factory_login, error="The current password was incorrect."), 400
+        if len(new_username) < 4:
+            return render_template("security_setup.html", using_factory_login=using_factory_login, error="Use a username with at least 4 characters."), 400
+        if len(new_password) < 14 or new_password.lower() in {"admin123", "password123456", "thecarpetcleaningcompany"}:
+            return render_template("security_setup.html", using_factory_login=using_factory_login, error="Use a unique password of at least 14 characters."), 400
+        if new_password != confirm_password:
+            return render_template("security_setup.html", using_factory_login=using_factory_login, error="The new passwords did not match."), 400
+        run("UPDATE settings SET username=?, password=? WHERE id=1", (new_username, generate_password_hash(new_password)))
+        record_login_event(new_username, "credentials_changed")
+        session.clear()
+        flash("Security login updated. Sign in again with the new details.")
+        return redirect(url_for("login"))
+    return render_template("security_setup.html", using_factory_login=using_factory_login, error="")
 
 
 
@@ -10181,13 +10300,13 @@ def communication_automation_settings():
 
 def automation_request_authorized():
     secret = os.environ.get("AUTOMATION_SECRET", "").strip()
-    supplied = request.headers.get("X-Automation-Secret", "").strip() or request.args.get("secret", "").strip()
+    supplied = request.headers.get("X-Automation-Secret", "").strip()
     if secret and supplied and secrets.compare_digest(secret, supplied):
         return True
     return bool(session.get("logged_in"))
 
 
-@app.route("/automation/run-due", methods=["GET", "POST"])
+@app.route("/automation/run-due", methods=["POST"])
 def automation_run_due():
     if not automation_request_authorized():
         return {"ok": False, "error": "Not authorised"}, 403
@@ -11479,7 +11598,7 @@ def download_backup():
         download_name=f"crm_backup_{stamp}.zip"
     )
 
-@app.route("/backup/create")
+@app.route("/backup/create", methods=["POST"])
 @login_required
 def create_backup_snapshot_route():
     backup_path = save_backup_snapshot()
@@ -12597,8 +12716,34 @@ def communications_send_customer():
 
 
 
+def public_request_url():
+    base = clean_str(os.environ.get("CRM_PUBLIC_BASE_URL")).rstrip("/")
+    return (base + request.full_path.rstrip("?")) if base else request.url
+
+
+def twilio_webhook_authorized():
+    auth_token = clean_str(os.environ.get("TWILIO_AUTH_TOKEN"))
+    if not auth_token:
+        return True
+    value = public_request_url() + "".join(
+        key + request.form.get(key, "") for key in sorted(request.form.keys())
+    )
+    expected = base64.b64encode(hmac.new(auth_token.encode(), value.encode(), hashlib.sha1).digest()).decode()
+    return secrets.compare_digest(expected, clean_str(request.headers.get("X-Twilio-Signature")))
+
+
+def clicksend_webhook_authorized():
+    expected = clean_str(os.environ.get("CLICKSEND_WEBHOOK_SECRET"))
+    if not expected:
+        return True
+    supplied = clean_str(request.headers.get("X-Webhook-Secret"))
+    return bool(supplied and secrets.compare_digest(expected, supplied))
+
+
 @app.route("/webhooks/sms/status/twilio", methods=["POST"])
 def sms_status_twilio():
+    if not twilio_webhook_authorized():
+        return ("not authorised", 403)
     external_id = request.form.get("MessageSid") or request.form.get("SmsSid") or ""
     status = request.form.get("MessageStatus") or request.form.get("SmsStatus") or "Updated"
     payload = request.form.to_dict(flat=True)
@@ -12607,6 +12752,8 @@ def sms_status_twilio():
 
 @app.route("/webhooks/sms/inbound/twilio", methods=["POST"])
 def sms_inbound_twilio():
+    if not twilio_webhook_authorized():
+        return ("not authorised", 403)
     payload = request.form.to_dict(flat=True)
     from_phone = normalize_phone(payload.get("From") or "")
     to_phone = normalize_phone(payload.get("To") or "")
@@ -12630,6 +12777,8 @@ def sms_inbound_twilio():
 
 @app.route("/webhooks/sms/status/clicksend", methods=["POST"])
 def sms_status_clicksend():
+    if not clicksend_webhook_authorized():
+        return ("not authorised", 403)
     payload = request.get_json(silent=True) or request.form.to_dict(flat=True) or {}
     data = payload.get('data') if isinstance(payload, dict) else None
     if isinstance(data, list) and data:
@@ -12646,6 +12795,8 @@ def sms_status_clicksend():
 
 @app.route("/webhooks/sms/inbound/clicksend", methods=["POST"])
 def sms_inbound_clicksend():
+    if not clicksend_webhook_authorized():
+        return ("not authorised", 403)
     payload = request.get_json(silent=True) or request.form.to_dict(flat=True) or {}
     data = payload.get('data') if isinstance(payload, dict) else None
     if isinstance(data, list) and data:
@@ -13038,6 +13189,9 @@ def settings_page():
         new_username = (request.form.get("username") or s["username"] or "admin").strip()
         new_password = request.form.get("password") or ""
         confirm_password = request.form.get("confirm_password") or ""
+        if new_password and len(new_password) < 14:
+            flash("Use a new password with at least 14 characters.")
+            return redirect(url_for("settings_page"))
         if new_password and new_password != confirm_password:
             flash("New password and confirm password did not match.")
             return redirect(url_for("settings_page"))

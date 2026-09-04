@@ -16,10 +16,12 @@
       </div>
     </div>
     <form method="post" class="login-card simple-login-card">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
       <input type="hidden" name="next" value="{{ next_url or '' }}">
       <span class="section-kicker">Sign in</span>
       <h2>Welcome back</h2>
       <p>Use your CRM login to continue.</p>
+      {% if login_error %}<div class="notice">{{ login_error }}</div>{% endif %}
       <label>
         <span>Username</span>
         <input name="username" placeholder="Username" required>

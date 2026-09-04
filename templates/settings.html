@@ -120,6 +120,7 @@
       <button class="btn primary" id="saveSettingsBtn">Save Settings</button>
     </form>
     <form id="leadSettingsForm" method="post" action="{{ url_for('lead_generation_settings_update') }}"></form>
+    <p><a class="btn primary" href="{{ url_for('security_setup') }}">Open Secure Login Setup</a></p>
   </section>
   <aside class="utility-rail">
     <div class="utility-card"><h4>What this page controls</h4><p>Business identity, colours, email sending, SMS sending, and login security all live here. Change settings carefully and test Communications after saving.</p></div>

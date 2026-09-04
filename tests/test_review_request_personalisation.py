@@ -12,6 +12,7 @@ class ReviewRequestPersonalisationTests(unittest.TestCase):
         os.environ["DISABLE_CRM_BACKGROUND_AUTOMATION"] = "1"
         import app
         self.appmod = importlib.reload(app)
+        self.appmod.app.config["TESTING"] = True
         self.context = self.appmod.app.app_context()
         self.context.push()
         self.appmod.init_db()

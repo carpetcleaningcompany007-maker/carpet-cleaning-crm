@@ -1,0 +1,18 @@
+{% extends "layout.html" %}
+{% block title %}Security Setup{% endblock %}
+{% block page_title %}Security Setup{% endblock %}
+{% block body_content %}
+<section class="panel page-shell" style="max-width:760px;margin:auto">
+  <div class="panel-head"><div><span class="section-kicker">Account protection</span><h3>Replace the CRM login</h3><p>Use a unique username and a password you do not use anywhere else.</p></div></div>
+  {% if using_factory_login %}<div class="notice"><strong>Urgent:</strong> the factory admin login is still active. Replace it now.</div>{% endif %}
+  {% if error %}<div class="notice">{{ error }}</div>{% endif %}
+  <form method="post" class="form-grid">
+    <label>Current password<input type="password" name="current_password" autocomplete="current-password" required></label>
+    <label>New username<input name="new_username" autocomplete="username" minlength="4" required></label>
+    <label>New password<input type="password" name="new_password" autocomplete="new-password" minlength="14" required></label>
+    <label>Confirm new password<input type="password" name="confirm_password" autocomplete="new-password" minlength="14" required></label>
+    <p class="muted">Use at least 14 characters. A password manager-generated password is best. Saving signs every browser out.</p>
+    <button class="btn primary" type="submit">Replace Login Securely</button>
+  </form>
+</section>
+{% endblock %}
