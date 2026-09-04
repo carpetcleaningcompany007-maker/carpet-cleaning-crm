@@ -167,6 +167,64 @@ class CustomerXeroExportTests(unittest.TestCase):
         self.assertFalse(result[0])
         sync.assert_not_called()
 
+    def test_single_token_intake_keeps_blank_surname(self):
+        lead_id, customer_id = self.mod.create_intake_from_website_payload({
+            "name": "SARAH", "email": "sarah@real.test", "address": "4 High Street", "postcode": "SY8 1AA",
+        })
+        customer = self.mod.q("SELECT * FROM customers WHERE id=?", (customer_id,), one=True)
+        self.assertEqual(customer["first_name"], "SARAH")
+        self.assertEqual(customer["last_name"], "")
+        payload = self.mod.xero_contact_payload_from_lead(
+            self.mod.q("SELECT * FROM intake_submissions WHERE id=?", (lead_id,), one=True)
+        )["Contacts"][0]
+        self.assertEqual(payload["Name"], "SARAH")
+        self.assertEqual(payload["FirstName"], "SARAH")
+        self.assertEqual(payload["LastName"], "")
+
+    def test_existing_contact_update_prefers_real_intake_over_legacy_placeholder(self):
+        legacy_id = self.mod.run(
+            "INSERT INTO customers(first_name,last_name,email,address,postcode,xero_contact_id) VALUES (?,?,?,?,?,?)",
+            ("SARAH", "Customer", "sarah@real.test", "4 High Street", "SY8 1AA", "xero-existing"),
+        )
+        self.mod.run(
+            "INSERT INTO intake_submissions(name,email,full_address,postcode,customer_id) VALUES (?,?,?,?,?)",
+            ("SARAH", "sarah@real.test", "4 High Street", "SY8 1AA", legacy_id),
+        )
+        captured = {}
+
+        def fake_request(url, method="GET", payload=None, **kwargs):
+            captured["payload"] = payload
+            return {"Contacts": [{"ContactID": "xero-existing"}]}
+
+        with mock.patch.object(self.mod, "find_xero_contact_match_for_customer", return_value={
+            "contact_id": "xero-existing", "reason": "existing ContactID"
+        }), mock.patch.object(self.mod, "xero_api_request", side_effect=fake_request):
+            self.mod.ensure_xero_contact_for_customer(legacy_id)
+        contact = captured["payload"]["Contacts"][0]
+        self.assertEqual(contact["Name"], "SARAH")
+        self.assertEqual(contact["LastName"], "")
+        self.assertEqual(contact["ContactID"], "xero-existing")
+
+    def test_invoice_or_quote_reuses_contact_id_without_copying_a_display_name(self):
+        invoice = {
+            "id": 9, "customer_id": self.first_id, "payload_json": "", "subtotal": 100,
+            "vat": 0, "total": 100, "invoice_date": "2026-09-05", "due_date": "2026-09-05",
+            "invoice_number": "Q-9", "notes": "Carpet cleaning",
+        }
+        payload = self.mod.xero_invoice_payload(invoice, "xero-existing")["Invoices"][0]
+        self.assertEqual(payload["Contact"], {"ContactID": "xero-existing"})
+        self.assertNotIn("Name", payload["Contact"])
+
+    def test_placeholder_name_is_rejected_before_any_xero_write(self):
+        placeholder_id = self.mod.run(
+            "INSERT INTO customers(first_name,last_name,email,address,postcode) VALUES (?,?,?,?,?)",
+            ("Website", "Customer", "person@real.test", "4 High Street", "SY8 1AA"),
+        )
+        with mock.patch.object(self.mod, "xero_api_request") as request_mock:
+            with self.assertRaisesRegex(RuntimeError, "Confirm the customer's real name"):
+                self.mod.ensure_xero_contact_for_customer(placeholder_id)
+        request_mock.assert_not_called()
+
     def test_operator_can_explicitly_continue_without_address_and_action_is_audited(self):
         self.mod.run("UPDATE customers SET address='', postcode='' WHERE id=?", (self.first_id,))
         with mock.patch.object(self.mod, "find_xero_contact_match_for_customer", return_value={"contact": None, "reason": "No exact match found"}), \

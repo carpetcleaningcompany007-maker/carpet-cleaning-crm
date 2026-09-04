@@ -3182,9 +3182,9 @@ def sync_xero_contact_for_intake(lead_id, allow_incomplete=False):
     if missing:
         raise RuntimeError("Xero upload stopped. Missing: " + ", ".join(missing) + ". Add these details before uploading to Xero.")
 
+    payload = xero_contact_payload_from_lead(lead)
     match = find_xero_contact_match_for_lead(lead, block_possible_duplicates=True)
     contact_id = match.get("contact_id", "")
-    payload = xero_contact_payload_from_lead(lead)
     if contact_id:
         payload["Contacts"][0]["ContactID"] = contact_id
     result = xero_api_request(
@@ -6947,7 +6947,7 @@ def generate_daily_lead_summary(limit=5, mark_sent=True):
 
 
 def xero_contact_payload_from_public_lead(lead):
-    name = lead_display_name(lead)
+    name = confirmed_xero_customer_name(lead_display_name(lead))
     email = clean_str(row_value(lead, "public_email"))
     phone = clean_str(row_value(lead, "public_phone"))
     address = lead_full_address(lead)
@@ -7013,10 +7013,10 @@ def create_xero_contact_for_public_lead(lead_id, create_anyway=False, link_conta
                 WHERE id=?""", (link_contact_id, lead_id))
         log_lead_event("xero_linked", lead_id, row_value(lead, "source_website"), "Linked", link_contact_id)
         return link_contact_id
+    payload = xero_contact_payload_from_public_lead(lead)
     matches = find_xero_contact_matches_for_public_lead(lead)
     if matches and not create_anyway:
         raise RuntimeError("A matching contact already exists.")
-    payload = xero_contact_payload_from_public_lead(lead)
     result = xero_api_request(
         XERO_CONTACTS_URL,
         method="POST",
@@ -14851,10 +14851,52 @@ def choose_xero_tenant(access_token):
 def split_customer_name(name):
     parts = clean_str(name).split()
     if not parts:
-        return "Customer", "Lead"
+        return "", ""
     if len(parts) == 1:
-        return parts[0], "Customer"
+        return parts[0], ""
     return parts[0], " ".join(parts[1:])
+
+
+XERO_SYNTHETIC_NAMES = {
+    "customer", "customer lead", "website customer", "new customer",
+    "customer imported", "imported customer", "xero customer",
+    "unknown", "unnamed", "n a", "na", "test", "test customer",
+}
+
+
+def genuine_xero_customer_name(value):
+    """Return a cleaned customer name, or blank for generated/placeholder labels."""
+    value = clean_str(value)
+    normalised = normalise_match_text(value)
+    if not normalised or normalised in XERO_SYNTHETIC_NAMES:
+        return ""
+    parts = normalised.split()
+    if len(parts) > 1 and parts[-1] in {"customer", "lead", "imported", "xero"}:
+        return ""
+    return value
+
+
+def confirmed_xero_customer_name(value):
+    name = genuine_xero_customer_name(value)
+    if not name:
+        raise RuntimeError(
+            "Xero upload stopped. Confirm the customer's real name before uploading; placeholder names are never sent to Xero."
+        )
+    return name
+
+
+def xero_customer_name_from_record(customer):
+    """Prefer a genuine submitted name when the CRM name contains a legacy placeholder."""
+    crm_name = clean_str(f"{row_get(customer, 'first_name')} {row_get(customer, 'last_name')}")
+    if genuine_xero_customer_name(crm_name):
+        return crm_name
+    customer_id = int(row_get(customer, "id") or 0)
+    latest_intake = q(
+        "SELECT name FROM intake_submissions WHERE customer_id=? ORDER BY id DESC LIMIT 1",
+        (customer_id,), one=True,
+    ) if customer_id else None
+    intake_name = genuine_xero_customer_name(row_get(latest_intake, "name"))
+    return confirmed_xero_customer_name(intake_name)
 
 
 def create_customer_from_intake(lead):
@@ -14949,7 +14991,7 @@ def xero_contact_addresses(address_line, city="", postcode="", what3words=""):
 
 
 def xero_contact_payload_from_lead(lead):
-    name = clean_str(lead["name"]) or "Customer"
+    name = confirmed_xero_customer_name(row_get(lead, "name"))
     first_name, last_name = split_customer_name(name)
     what3words = clean_str(row_get(lead, "what3words"))
     contact = {
@@ -14966,11 +15008,12 @@ def xero_contact_payload_from_lead(lead):
 
 
 def xero_contact_payload_from_customer(customer):
-    full_name = clean_str(f"{customer['first_name'] or ''} {customer['last_name'] or ''}") or f"Customer {customer['id']}"
+    full_name = xero_customer_name_from_record(customer)
+    first_name, last_name = split_customer_name(full_name)
     contact = {
         "Name": full_name,
-        "FirstName": clean_str(customer["first_name"]),
-        "LastName": clean_str(customer["last_name"]),
+        "FirstName": first_name,
+        "LastName": last_name,
         "ContactNumber": f"CRM-{customer['id']}",
         "Phones": [{"PhoneType": "MOBILE", "PhoneNumber": clean_str(customer["phone"])}] if customer["phone"] else [],
         "Addresses": xero_contact_addresses(customer["address"], customer["town"], customer["postcode"], ""),
@@ -15351,10 +15394,10 @@ def ensure_xero_contact_for_customer(customer_id, return_outcome=False, allow_in
         missing = [field for field in missing if field in {"name", "phone or email"}]
     if missing:
         raise RuntimeError("Xero upload stopped. Missing: " + ", ".join(missing) + ". Add these details before uploading to Xero.")
+    payload = xero_contact_payload_from_customer(customer)
     match = find_xero_contact_match_for_customer(customer, block_possible_duplicates=True)
     contact_id = match.get("contact_id", "")
     if contact_id:
-        payload = xero_contact_payload_from_customer(customer)
         payload["Contacts"][0]["ContactID"] = contact_id
         result = xero_api_request(
             XERO_CONTACTS_URL,
@@ -15369,7 +15412,7 @@ def ensure_xero_contact_for_customer(customer_id, return_outcome=False, allow_in
     result = xero_api_request(
         XERO_CONTACTS_URL,
         method="POST",
-        payload=xero_contact_payload_from_customer(customer),
+        payload=payload,
         idempotency_key=f"crm-contact-{customer_id}",
     )
     contacts = result.get("Contacts") or []
