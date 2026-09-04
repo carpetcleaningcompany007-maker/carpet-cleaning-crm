@@ -89,6 +89,22 @@
   const searchResults = document.getElementById('quickSendSearchResults');
   if (!picker) return;
   const originalOptions = Array.from(picker.options).slice(1).map(option => option.cloneNode(true));
+  const applyCustomer = option => {
+    if (!option || !option.value) return;
+    picker.value = option.value;
+    const selectedOption = picker.options[picker.selectedIndex] || option;
+    document.querySelector('[name="name"]').value = selectedOption.dataset.name || '';
+    document.querySelector('[name="email"]').value = selectedOption.dataset.email || '';
+    document.querySelector('[name="phone"]').value = selectedOption.dataset.phone || '';
+    const frame = document.getElementById('reviewEmailPreview');
+    const link = document.getElementById('reviewEmailPreviewLink');
+    if (frame && link) {
+      const previewUrl = new URL('{{ url_for("standalone_review_email_preview") }}', window.location.origin);
+      previewUrl.searchParams.set('customer_id', selectedOption.value);
+      frame.src = previewUrl.toString();
+      link.href = previewUrl.toString();
+    }
+  };
   if (search) search.addEventListener('input', () => {
     const term = search.value.trim().toLowerCase();
     const current = picker.value;
@@ -109,8 +125,7 @@
         resultContact.textContent = option.dataset.phone || option.dataset.email || 'Open customer record';
         resultButton.append(resultName, resultContact);
         resultButton.addEventListener('click', () => {
-          picker.value = option.value;
-          picker.dispatchEvent(new Event('change'));
+          applyCustomer(option);
           searchStatus.textContent = `Selected ${option.dataset.name || option.textContent}.`;
           searchResults.querySelectorAll('button').forEach(button => button.classList.toggle('selected', button === resultButton));
         });
@@ -119,28 +134,16 @@
     }
     const automaticMatch = nameMatches.length === 1 ? nameMatches[0] : (matches.length === 1 ? matches[0] : null);
     if (automaticMatch && term) {
-      picker.value = automaticMatch.value;
-      picker.dispatchEvent(new Event('change'));
+      applyCustomer(automaticMatch);
       if (searchStatus) searchStatus.textContent = `Found and selected ${automaticMatch.dataset.name || automaticMatch.textContent}.`;
     } else {
       if (Array.from(picker.options).some(option => option.value === current)) picker.value = current;
-      if (searchStatus) searchStatus.textContent = term ? (matches.length ? `${matches.length} customers found — choose the right one below.` : 'No matching customer found. Try their surname, email, mobile, or refresh from Xero.') : 'Start typing and I’ll select a single matching customer for you.';
+      const visibleCount = nameMatches.length || matches.length;
+      if (searchStatus) searchStatus.textContent = term ? (visibleCount ? `${visibleCount} customers found — choose the right one below.` : 'No matching customer found. Try their surname, email, mobile, or refresh from Xero.') : 'Start typing and I’ll select a single matching customer for you.';
     }
   });
   picker.addEventListener('change', () => {
-    const option = picker.options[picker.selectedIndex];
-    if (!option || !option.value) return;
-    document.querySelector('[name="name"]').value = option.dataset.name || '';
-    document.querySelector('[name="email"]').value = option.dataset.email || '';
-    document.querySelector('[name="phone"]').value = option.dataset.phone || '';
-    const frame = document.getElementById('reviewEmailPreview');
-    const link = document.getElementById('reviewEmailPreviewLink');
-    if (frame && link) {
-      const previewUrl = new URL('{{ url_for("standalone_review_email_preview") }}', window.location.origin);
-      previewUrl.searchParams.set('customer_id', option.value);
-      frame.src = previewUrl.toString();
-      link.href = previewUrl.toString();
-    }
+    applyCustomer(picker.options[picker.selectedIndex]);
   });
   document.querySelectorAll('[data-preview]').forEach(button => button.addEventListener('click', () => {
     const selected = button.dataset.preview;
