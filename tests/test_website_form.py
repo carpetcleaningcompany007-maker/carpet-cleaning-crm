@@ -598,6 +598,20 @@ class WebsiteFormTests(unittest.TestCase):
         self.assertIn("Short Link Customer", page)
         self.assertIn("short@example.com", page)
 
+    def test_successful_automation_texts_owner_confirmation(self):
+        rule = {"rule_key": "review_request_after_completion", "label": "Review request after completion"}
+        customer = {"first_name": "Jane", "last_name": "Customer"}
+        with mock.patch.object(self.appmod, "owner_contact_form_recipients", return_value=("", "+447802563213")), \
+             mock.patch.object(self.appmod, "send_clicksend_env_sms", return_value=(True, "queued")) as sms_send:
+            ok, message, recipient, notice = self.appmod.send_owner_automation_confirmation(rule, customer, 42, "email", "jane@example.com")
+        self.assertTrue(ok)
+        self.assertEqual(message, "queued")
+        self.assertEqual(recipient, "+447802563213")
+        self.assertIn("Review request after completion", notice)
+        self.assertIn("Jane Customer", notice)
+        self.assertIn("Job #42", notice)
+        sms_send.assert_called_once_with("+447802563213", notice, customer=None, category="Automation Sent Confirmation")
+
     def test_test_enquiry_cannot_schedule_follow_up(self):
         lead_id = self.appmod.run("""INSERT INTO intake_submissions
             (name, phone, is_test, ignore_alerts) VALUES (?,?,1,1)""", ("Test", "07802 563213"))

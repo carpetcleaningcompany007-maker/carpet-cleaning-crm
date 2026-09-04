@@ -4356,6 +4356,17 @@ def automation_log(rule_key, customer_id, job_id, channel, recipient, subject, b
         (rule_key, customer_id, job_id, channel, recipient, subject, body, status, message, due_at.isoformat() if due_at else ""))
 
 
+def send_owner_automation_confirmation(rule, customer, job_id, channel, recipient):
+    _owner_email, owner_mobile = owner_contact_form_recipients()
+    rule_label = clean_str(row_value(rule, "label")) or "Automatic customer message"
+    customer_label = customer_full_name(customer) or "customer"
+    notice = f"CRM confirmation: {rule_label} sent by {channel.upper()} to {customer_label}. Job #{job_id}."
+    if not owner_mobile:
+        return False, "No owner mobile configured.", "", notice
+    ok, message = send_clicksend_env_sms(owner_mobile, notice, customer=None, category="Automation Sent Confirmation")
+    return ok, message, owner_mobile, notice
+
+
 def automation_job_rows():
     return q("""SELECT jobs.id AS job_id, jobs.customer_id, jobs.quote_id, jobs.title, jobs.service_type,
                        jobs.job_date, jobs.job_time, jobs.status, jobs.amount, jobs.assigned_to,
@@ -4426,6 +4437,12 @@ def automation_send_for_rule(rule, job, dry_run=False):
             automation_log(row_value(rule, "rule_key"), customer_id, job_id, channel, recipient, subject, body, status, msg, due_at)
         if ok and not dry_run:
             log_customer_message(customer_id, "Automation " + ("Email" if channel == "email" else "SMS"), subject, body)
+            alert_ok, alert_msg, alert_recipient, alert_body = send_owner_automation_confirmation(rule, customer, job_id, channel, recipient)
+            automation_log(
+                clean_str(row_value(rule, "rule_key")) + "_owner_alert",
+                customer_id, job_id, "owner_sms", alert_recipient, "Automation sent confirmation",
+                alert_body, "Sent" if alert_ok else "Failed", alert_msg, due_at,
+            )
         results.append({"rule": row_value(rule, "rule_key"), "job_id": job_id, "customer_id": customer_id, "channel": channel, "status": status, "message": msg})
     return results
 
