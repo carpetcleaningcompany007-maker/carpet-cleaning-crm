@@ -1,34 +1,33 @@
 /* Dashboard-only reference calibration. Loaded after the legacy redesign sheet. */
 @media (max-width:760px){
   body.app-page.page-dashboard{background:#fff!important}
-  body.app-page.page-dashboard .mobile-appbar{min-height:89px!important;height:89px!important;padding:11px 19px!important;background:#031d3d!important;border:0!important;box-shadow:none!important}
+  body.app-page.page-dashboard .mobile-appbar{min-height:99px!important;height:99px!important;padding:16px 19px!important;background:#031d3d!important;border:0!important;box-shadow:none!important}
   body.app-page.page-dashboard .mobile-appbar-title{gap:18px!important}
-  body.app-page.page-dashboard .mobile-appbar-mark{display:block!important;width:64px!important;height:64px!important;flex:0 0 64px!important;fill:#e8ad28!important;stroke:#e8ad28!important;stroke-width:3!important;stroke-linecap:round!important;stroke-linejoin:round!important}
-  body.app-page.page-dashboard .mobile-appbar-mark path{fill:none!important}
+  body.app-page.page-dashboard .mobile-appbar-mark{display:block!important;width:69px!important;height:54px!important;flex:0 0 69px!important;object-fit:contain!important;object-position:center!important;background:transparent!important}
   body.app-page.page-dashboard .mobile-appbar-title strong{overflow:visible!important;color:#fff!important;font:800 23px/1 system-ui,-apple-system,"Segoe UI",sans-serif!important;letter-spacing:-.035em!important;text-overflow:clip!important;white-space:nowrap!important}
   body.app-page.page-dashboard .mobile-appbar-title>span{transform:translateY(5px)!important}
   body.app-page.page-dashboard .mobile-appbar-title small{margin-top:4px!important;color:#e8ad28!important;font:800 16px/1 system-ui,-apple-system,"Segoe UI",sans-serif!important;letter-spacing:.01em!important;text-transform:none!important}
   body.app-page.page-dashboard .mobile-alert-action{width:34px!important;height:44px!important;flex:0 0 34px!important;padding:4px!important;border:0!important;background:transparent!important;box-shadow:none!important}
   body.app-page.page-dashboard .mobile-alert-action svg{width:27px!important;height:27px!important;fill:none!important;stroke:#e8ad28!important;stroke-width:1.8!important}
   body.app-page.page-dashboard .main{width:100%!important;padding:0 10px 18px!important;background:#fff!important}
-  body.app-page.page-dashboard .pro-dashboard{padding:16px 0 8px!important}
-  body.app-page.page-dashboard .pro-dashboard-title{margin:0 4px 1px!important;padding:0!important;color:#071b3c!important;font:800 23px/1.1 system-ui,-apple-system,"Segoe UI",sans-serif!important;letter-spacing:-.035em!important}
+  body.app-page.page-dashboard .pro-dashboard{padding:18px 0 12px!important}
+  body.app-page.page-dashboard .pro-dashboard-title{margin:0 4px 7px!important;padding:0!important;color:#071b3c!important;font:800 24px/1.1 system-ui,-apple-system,"Segoe UI",sans-serif!important;letter-spacing:-.035em!important}
   body.app-page.page-dashboard .pro-dashboard-title::before,body.app-page.page-dashboard .pro-dashboard-title::after{content:none!important;display:none!important}
   body.app-page.page-dashboard .pro-metrics{grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:5px!important}
-  body.app-page.page-dashboard .pro-metric{min-height:151px!important;height:151px!important;padding:10px 3px 0!important;border:1px solid #e2e5e9!important;border-radius:9px!important;background:#fff!important;box-shadow:0 3px 9px rgba(8,31,59,.09)!important}
+  body.app-page.page-dashboard .pro-metric{min-height:168px!important;height:168px!important;padding:13px 3px 0!important;border:1px solid #e2e5e9!important;border-radius:9px!important;background:#fff!important;box-shadow:0 3px 9px rgba(8,31,59,.09)!important}
   body.app-page.page-dashboard .pro-metric::before{content:none!important}
-  body.app-page.page-dashboard .pro-metric-icon{width:44px!important;height:44px!important;border:0!important;background:#fff4df!important;color:#ba7d00!important;box-shadow:none!important}
+  body.app-page.page-dashboard .pro-metric-icon{width:48px!important;height:48px!important;border:0!important;background:#fff4df!important;color:#ba7d00!important;box-shadow:none!important}
   body.app-page.page-dashboard .pro-metric-icon svg{width:25px!important;height:25px!important;fill:none!important;stroke:currentColor!important;stroke-width:1.8!important}
-  body.app-page.page-dashboard .pro-metric-label{min-height:30px!important;margin-top:7px!important;color:#071b3c!important;font-size:10px!important;font-weight:750!important;line-height:1.15!important}
+  body.app-page.page-dashboard .pro-metric-label{min-height:32px!important;margin-top:9px!important;color:#071b3c!important;font-size:10px!important;font-weight:750!important;line-height:1.15!important}
   body.app-page.page-dashboard .pro-metric>strong{margin:1px 0 8px!important;color:#071b3c!important;font-size:23px!important;font-weight:850!important}
   body.app-page.page-dashboard .pro-metric-link{min-height:31px!important;padding:0 8px 0 2px!important;border-top:1px solid #e5e7ea!important;background:#fff!important;color:#646e7b!important;font-size:9px!important;font-weight:500!important}
-  body.app-page.page-dashboard .pro-activity,body.app-page.page-dashboard .pro-actions{margin-top:13px!important;padding:14px 12px!important;border:1px solid #e4e6e9!important;border-radius:10px!important;background:#fff!important;box-shadow:0 2px 7px rgba(8,31,59,.07)!important}
+  body.app-page.page-dashboard .pro-activity,body.app-page.page-dashboard .pro-actions{margin-top:16px!important;padding:17px 14px!important;border:1px solid #e4e6e9!important;border-radius:10px!important;background:#fff!important;box-shadow:0 2px 7px rgba(8,31,59,.07)!important}
   body.app-page.page-dashboard .pro-activity{min-height:242px!important}
   body.app-page.page-dashboard .pro-activity h2,body.app-page.page-dashboard .pro-actions h2{margin:0 0 8px!important;font-size:20px!important}
-  body.app-page.page-dashboard .pro-activity-list>a{min-height:61px!important;grid-template-columns:38px minmax(0,1fr) 12px!important;gap:9px!important}
-  body.app-page.page-dashboard .pro-list-icon{width:35px!important;height:35px!important}
+  body.app-page.page-dashboard .pro-activity-list>a{min-height:65px!important;grid-template-columns:42px minmax(0,1fr) 12px!important;gap:11px!important}
+  body.app-page.page-dashboard .pro-list-icon{width:39px!important;height:39px!important}
   body.app-page.page-dashboard .pro-actions{padding-bottom:0!important}
-  body.app-page.page-dashboard .pro-action-strip a{min-height:42px!important;padding:5px 2px!important}
+  body.app-page.page-dashboard .pro-action-strip a{min-height:72px!important;padding:9px 2px!important}
   body.app-page.page-dashboard .mobile-bottom-nav{min-height:84px!important;height:84px!important;padding:8px 5px calc(8px + env(safe-area-inset-bottom))!important;background:#fff!important;border-top:1px solid #e0e3e7!important;box-shadow:none!important}
   body.app-page.page-dashboard .mobile-bottom-nav a{gap:3px!important;border-radius:0!important;background:transparent!important;color:#69717d!important;font-size:11px!important;font-weight:500!important}
   body.app-page.page-dashboard .mobile-bottom-nav a>span,body.app-page.page-dashboard .mobile-bottom-nav .mobile-add>span{width:33px!important;min-width:33px!important;height:33px!important;margin:0!important;border:0!important;border-radius:0!important;background:transparent!important;color:inherit!important;box-shadow:none!important}

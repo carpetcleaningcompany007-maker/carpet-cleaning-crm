@@ -8,13 +8,13 @@
   <link rel="icon" href="{{ url_for('static', filename='site/site-icon-512.png') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=auth-polish-20260904-1">
   <link rel="stylesheet" href="{{ url_for('static', filename='beautiful.css') }}?v=proper-redesign-20260606-1">
-  <link rel="stylesheet" href="{{ url_for('static', filename='crm-redesign.css', v='app-shell-20260905-8') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='dashboard-reference.css', v='20260905-1') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='crm-redesign.css', v='app-shell-20260905-9') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='dashboard-reference.css', v='20260905-2') }}">
   <style>:root{--accent: {{ biz.accent or '#56718f' }}; --sidebar-color: {{ biz.sidebar_color or '#1f2933' }};}</style>
 </head>
 {% if session.get('logged_in') and not public_mode %}
 {% set ep = request.endpoint or '' %}
-<body class="app-page page-{{ ep|replace('_','-') }}" data-ui-build="20260905.8">
+<body class="app-page page-{{ ep|replace('_','-') }}" data-ui-build="20260905.9">
 {% else %}
 <body class="public-page page-public">
 {% endif %}
@@ -25,7 +25,7 @@
   </button>
   <div class="mobile-appbar-title">
     {% if ep == 'dashboard' %}
-    <svg class="mobile-appbar-mark" viewBox="0 0 64 64" aria-hidden="true"><circle cx="39" cy="11" r="7"/><path d="M31 22l9-5 7 12M31 22l-8 16-12 2M32 23l2 17 12 12M24 38l-8 15M8 54h31M42 34l13 20M48 39l10-4M54 33l5 5"/></svg>
+    <img class="mobile-appbar-mark" src="{{ url_for('static', filename='site/cleaner-mark-reference.png', v='20260905-2') }}" alt="">
     {% else %}
     <img class="mobile-appbar-logo" src="{% if biz.logo_filename %}{{ url_for('uploaded_file', filename=biz.logo_filename) }}{% else %}{{ url_for('static', filename='site/logo.webp') }}{% endif %}" alt="">
     {% endif %}
