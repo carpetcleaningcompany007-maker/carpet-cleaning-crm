@@ -57,11 +57,28 @@ class SecurityHardeningTests(unittest.TestCase):
         response = self.client.get("/dashboard")
         self.assertEqual(response.status_code, 200)
         self.assertIn("no-store", response.headers["Cache-Control"])
-        self.assertEqual(response.headers["X-CRM-UI-Version"], "20260905.9")
-        self.assertIn(b'data-ui-build="20260905.9"', response.data)
+        self.assertEqual(response.headers["X-CRM-UI-Version"], "20260905.10")
+        self.assertIn(b'data-ui-build="20260905.10"', response.data)
         self.assertIn(b"app-shell-20260905-9", response.data)
+        self.assertIn(b"app-theme.css", response.data)
         self.assertIn(b"Carpet Clean Pro", response.data)
         self.assertNotIn(b"Business workspace", response.data)
+
+    def test_notification_feed_is_authenticated_real_and_seen_state_is_ui_only(self):
+        denied = self.client.get("/notifications")
+        self.assertEqual(denied.status_code, 302)
+        self.login()
+        lead_id = self.mod.run("""INSERT INTO intake_submissions(name,status,follow_up_status,is_test,ignore_alerts)
+                                  VALUES ('Real Alert','New','Follow up required',0,0)""")
+        response = self.client.get("/notifications")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"Real Alert", response.data)
+        token = self.csrf()
+        marked = self.client.post("/notifications/mark-seen", data={"_csrf_token": token})
+        self.assertEqual(marked.status_code, 302)
+        self.assertIsNotNone(self.mod.q("SELECT * FROM intake_submissions WHERE id=?", (lead_id,), one=True))
+        state = self.mod.q("SELECT * FROM ui_notification_state WHERE notification_key=?", (f"enquiry:{lead_id}",), one=True)
+        self.assertTrue(state["seen_at"])
 
     def test_login_rotates_session_and_requires_csrf(self):
         with self.client.session_transaction() as session:

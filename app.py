@@ -147,7 +147,7 @@ def add_website_form_cors_headers(response):
         response.headers["Cache-Control"] = "no-store, private, max-age=0, must-revalidate"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
-        response.headers["X-CRM-UI-Version"] = "20260905.9"
+        response.headers["X-CRM-UI-Version"] = "20260905.10"
     elif request.path == "/static/crm-redesign.css":
         response.headers["Cache-Control"] = "no-cache, max-age=0, must-revalidate"
     return response
@@ -3718,6 +3718,12 @@ def inject_layout_globals():
         google_connected = bool(google_calendar_token_row()) if google_calendar_is_configured() else False
     except Exception:
         google_connected = False
+    notification_count = 0
+    if session.get("logged_in"):
+        try:
+            notification_count = sum(1 for item in build_notification_feed() if not item.get("seen"))
+        except Exception:
+            notification_count = 0
     return {
         'biz': biz,
         'app_settings': biz,
@@ -3728,7 +3734,71 @@ def inject_layout_globals():
         'booking_time_options': BOOKING_TIME_OPTIONS,
         'google_calendar_configured': google_calendar_is_configured(),
         'google_calendar_connected': google_connected,
+        'notification_count': notification_count,
     }
+
+
+def build_notification_feed():
+    """Aggregate real actionable CRM state without changing business records."""
+    items = []
+    leads = q("""SELECT id,name,status,follow_up_status,created_at FROM intake_submissions
+                 WHERE IFNULL(is_test,0)=0 AND IFNULL(ignore_alerts,0)=0
+                   AND IFNULL(status,'New') NOT IN ('Booked','Closed','Closed - no reply')
+                   AND IFNULL(follow_up_status,'Follow up required') IN ('','Pending','Follow up required')
+                 ORDER BY id DESC LIMIT 12""")
+    for row in leads:
+        items.append({"key": f"enquiry:{row['id']}", "kind": "Enquiry", "priority": "Needs action",
+                      "title": row["name"] or "New customer enquiry",
+                      "detail": row["follow_up_status"] or row["status"] or "Follow up required",
+                      "time": row["created_at"] or "", "url": url_for("intake_form_view", lead_id=row["id"])})
+    reminders = q("""SELECT future_reminders.id,future_reminders.reminder_date,future_reminders.title,future_reminders.notes,
+                            customers.first_name || ' ' || customers.last_name AS customer_name
+                     FROM future_reminders LEFT JOIN customers ON customers.id=future_reminders.customer_id
+                     WHERE IFNULL(future_reminders.status,'Open')='Open'
+                       AND COALESCE(future_reminders.reminder_date,'9999-12-31') <= ?
+                     ORDER BY future_reminders.reminder_date ASC LIMIT 10""", (uk_today().isoformat(),))
+    for row in reminders:
+        items.append({"key": f"reminder:{row['id']}", "kind": "Reminder", "priority": "Due",
+                      "title": row["customer_name"] or row["title"] or "Customer reminder", "detail": row["notes"] or "Reminder is due",
+                      "time": row["reminder_date"] or "", "url": url_for("reminders")})
+    invoices = q("""SELECT invoices.id,invoices.invoice_number,invoices.due_date,invoices.total,
+                           customers.first_name || ' ' || customers.last_name AS customer_name
+                    FROM invoices LEFT JOIN customers ON customers.id=invoices.customer_id
+                    WHERE due_date < ? AND lower(IFNULL(status,'')) NOT IN ('paid','cancelled','voided','archived')
+                    ORDER BY due_date ASC LIMIT 10""", (uk_today().isoformat(),))
+    for row in invoices:
+        items.append({"key": f"invoice:{row['id']}", "kind": "Money", "priority": "Overdue",
+                      "title": row["customer_name"] or row["invoice_number"] or "Overdue invoice",
+                      "detail": f"£{float(row['total'] or 0):.2f} invoice needs attention", "time": row["due_date"] or "",
+                      "url": url_for("invoice_view", invoice_id=row["id"])})
+    failures = q("""SELECT id,title,google_calendar_sync_error,created_at FROM jobs
+                    WHERE TRIM(IFNULL(google_calendar_sync_error,''))<>'' ORDER BY id DESC LIMIT 8""")
+    for row in failures:
+        items.append({"key": f"calendar-sync:{row['id']}", "kind": "Sync", "priority": "Failed",
+                      "title": row["title"] or "Calendar sync failed", "detail": row["google_calendar_sync_error"],
+                      "time": row["created_at"] or "", "url": url_for("job_view", job_id=row["id"])})
+    state_rows = q("SELECT notification_key,seen_at FROM ui_notification_state")
+    seen = {row["notification_key"] for row in state_rows if row["seen_at"]}
+    for item in items:
+        item["seen"] = item["key"] in seen
+    return items
+
+
+@app.route("/notifications")
+@login_required
+def notifications():
+    return render_template("notifications.html", notifications=build_notification_feed())
+
+
+@app.route("/notifications/mark-seen", methods=["POST"])
+@login_required
+def notifications_mark_seen():
+    for item in build_notification_feed():
+        run("""INSERT INTO ui_notification_state(notification_key,seen_at)
+               VALUES (?,datetime('now')) ON CONFLICT(notification_key) DO UPDATE SET seen_at=excluded.seen_at""",
+            (item["key"],))
+    flash("Notifications marked as seen. The underlying work is still active.")
+    return redirect(url_for("notifications"))
 
 
 def sort_rows(rows, key, reverse=False):
@@ -8060,6 +8130,11 @@ def init_db():
                 WHERE template_key=?""",
             (template["subject"], template["body"], template_key),
         )
+    conn.execute("""CREATE TABLE IF NOT EXISTS ui_notification_state (
+        notification_key TEXT PRIMARY KEY,
+        seen_at TEXT DEFAULT '',
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )""")
     conn.commit()
     conn.close()
     try:

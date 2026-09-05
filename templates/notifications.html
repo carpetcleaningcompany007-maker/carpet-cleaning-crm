@@ -1,0 +1,19 @@
+{% extends "layout.html" %}
+{% block page_title %}Notifications{% endblock %}
+{% block body_content %}
+<section class="panel notification-centre">
+  <div class="panel-head">
+    <div><span class="section-kicker">Action centre</span><h3>What needs your attention</h3><p>These alerts come directly from live CRM records. Marking them seen never closes or changes the underlying work.</p></div>
+    {% if notifications %}<form method="post" action="{{ url_for('notifications_mark_seen') }}"><input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><button class="btn secondary" type="submit">Mark all as seen</button></form>{% endif %}
+  </div>
+  <div class="notification-list">
+    {% for item in notifications %}
+    <a class="notification-item{% if not item.seen %} is-unread{% endif %}" href="{{ item.url }}">
+      <span class="notification-icon" aria-hidden="true">{% if item.kind == 'Money' %}£{% elif item.kind == 'Sync' %}↻{% elif item.kind == 'Reminder' %}◷{% else %}●{% endif %}</span>
+      <span class="notification-copy"><strong>{{ item.title }}</strong><small>{{ item.kind }} · {{ item.detail }}{% if item.time %} · {{ item.time }}{% endif %}</small></span>
+      <span class="notification-priority">{{ item.priority }} ›</span>
+    </a>
+    {% else %}<div class="notification-empty"><strong>You’re all caught up</strong><p>No actionable CRM alerts are open right now.</p></div>{% endfor %}
+  </div>
+</section>
+{% endblock %}

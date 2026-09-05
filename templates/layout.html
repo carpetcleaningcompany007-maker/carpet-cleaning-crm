@@ -10,11 +10,12 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='beautiful.css') }}?v=proper-redesign-20260606-1">
   <link rel="stylesheet" href="{{ url_for('static', filename='crm-redesign.css', v='app-shell-20260905-9') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='dashboard-reference.css', v='20260905-2') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='app-theme.css', v='20260905-1') }}">
   <style>:root{--accent: {{ biz.accent or '#56718f' }}; --sidebar-color: {{ biz.sidebar_color or '#1f2933' }};}</style>
 </head>
 {% if session.get('logged_in') and not public_mode %}
 {% set ep = request.endpoint or '' %}
-<body class="app-page page-{{ ep|replace('_','-') }}" data-ui-build="20260905.9">
+<body class="app-page page-{{ ep|replace('_','-') }}" data-ui-build="20260905.10">
 {% else %}
 <body class="public-page page-public">
 {% endif %}
@@ -24,20 +25,16 @@
     <span></span><span></span><span></span>
   </button>
   <div class="mobile-appbar-title">
-    {% if ep == 'dashboard' %}
     <img class="mobile-appbar-mark" src="{{ url_for('static', filename='site/cleaner-mark-reference.png', v='20260905-2') }}" alt="">
-    {% else %}
-    <img class="mobile-appbar-logo" src="{% if biz.logo_filename %}{{ url_for('uploaded_file', filename=biz.logo_filename) }}{% else %}{{ url_for('static', filename='site/logo.webp') }}{% endif %}" alt="">
-    {% endif %}
     <span><strong>Carpet Clean Pro</strong><small>CRM</small></span>
   </div>
-  <a class="icon-btn mobile-alert-action" href="{{ url_for('intake_forms') }}" aria-label="Open enquiries"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg></a>
+  <a class="icon-btn mobile-alert-action" href="{{ url_for('notifications') }}" aria-label="Open notifications{% if notification_count %}, {{ notification_count }} need attention{% endif %}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg>{% if notification_count %}<span class="notification-badge">{{ notification_count if notification_count < 100 else '99+' }}</span>{% endif %}</a>
 </div>
 <div class="sidebar-backdrop" data-sidebar-close></div>
 <div class="shell shell-tabler">
   <aside class="sidebar" id="mainSidebar">
     <div class="brand brand-tabler">
-      <img class="brand-logo" src="{% if biz.logo_filename %}{{ url_for('uploaded_file', filename=biz.logo_filename) }}{% else %}{{ url_for('static', filename='site/logo.webp') }}{% endif %}" alt="{{ biz.business_name }}">
+      <img class="brand-logo" src="{{ url_for('static', filename='site/cleaner-mark-reference.png', v='20260905-2') }}" alt="">
       <div>
         <h1>Carpet Clean Pro CRM</h1>
         <p>Professional customer workspace</p>
