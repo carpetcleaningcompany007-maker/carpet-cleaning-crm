@@ -147,7 +147,7 @@ def add_website_form_cors_headers(response):
         response.headers["Cache-Control"] = "no-store, private, max-age=0, must-revalidate"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
-        response.headers["X-CRM-UI-Version"] = "20260905.10"
+        response.headers["X-CRM-UI-Version"] = "20260905.11"
     elif request.path == "/static/crm-redesign.css":
         response.headers["Cache-Control"] = "no-cache, max-age=0, must-revalidate"
     return response
@@ -11675,9 +11675,11 @@ def jobs():
     rows = q(sql, tuple(params))
     return render_template("jobs.html", jobs=rows, search=search, status_filter=status, scope=scope)
 
-@app.route("/jobs/new", methods=["POST"])
+@app.route("/jobs/new", methods=["GET", "POST"])
 @login_required
 def jobs_new():
+    if request.method == "GET":
+        return redirect(url_for("jobs", new="1"))
     title = clean_str(request.form.get("title"))
     if not title:
         flash("Job title is required.")

@@ -57,8 +57,8 @@ class SecurityHardeningTests(unittest.TestCase):
         response = self.client.get("/dashboard")
         self.assertEqual(response.status_code, 200)
         self.assertIn("no-store", response.headers["Cache-Control"])
-        self.assertEqual(response.headers["X-CRM-UI-Version"], "20260905.10")
-        self.assertIn(b'data-ui-build="20260905.10"', response.data)
+        self.assertEqual(response.headers["X-CRM-UI-Version"], "20260905.11")
+        self.assertIn(b'data-ui-build="20260905.11"', response.data)
         self.assertIn(b"app-shell-20260905-9", response.data)
         self.assertIn(b"app-theme.css", response.data)
         self.assertIn(b"Carpet Clean Pro", response.data)
@@ -90,6 +90,18 @@ class SecurityHardeningTests(unittest.TestCase):
         response = self.client.get("/dashboard")
         self.assertIn(b"mobile-more-20260905-1", response.data)
         self.assertGreaterEqual(response.data.count(b"data-sidebar-toggle"), 2)
+
+    def test_mobile_booking_entry_opens_real_job_form_and_calendar_agenda(self):
+        self.login()
+        response = self.client.get("/jobs/new")
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/jobs?new=1", response.headers["Location"])
+        form = self.client.get(response.headers["Location"])
+        self.assertIn(b'modal-shell is-open', form.data)
+        self.assertIn(b'action="/jobs/new"', form.data)
+        calendar = self.client.get("/calendar")
+        self.assertEqual(calendar.status_code, 200)
+        self.assertIn(b"calendar-mobile-agenda", calendar.data)
 
     def test_login_rotates_session_and_requires_csrf(self):
         with self.client.session_transaction() as session:

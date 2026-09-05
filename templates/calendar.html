@@ -77,6 +77,24 @@
             {% endfor %}
           {% endfor %}
         </div>
+        {% set agenda = namespace(has_items=false) %}
+        <div class="calendar-mobile-agenda" aria-label="Mobile month agenda">
+          {% for week in weeks %}{% for d in week %}
+            {% if d.is_current_month and (d.jobs or d.invoice_alerts or d.is_today) %}
+              {% set agenda.has_items = true %}
+              <article class="calendar-agenda-day {{ 'is-today' if d.is_today else '' }}">
+                <div class="calendar-agenda-date"><strong>{{ d.day_num }}</strong><span>{{ d.date }}</span></div>
+                <div class="calendar-agenda-items">
+                  {% for job in d.jobs %}<a class="calendar-item job" href="{{ url_for('job_view', job_id=job.id) }}"><strong>{{ job.title }}</strong><span>{{ job.customer_name or 'No customer' }}</span></a>{% endfor %}
+                  {% for inv in d.invoice_alerts %}<a class="calendar-item invoice" href="{{ url_for('invoice_view', invoice_id=inv.id) }}"><strong>{{ inv.invoice_number or ('Invoice #' ~ inv.id) }}</strong><span>Due {{ inv.due_date }}</span></a>{% endfor %}
+                  {% if not d.jobs and not d.invoice_alerts %}<span class="calendar-agenda-clear">Nothing booked today</span>{% endif %}
+                </div>
+                <a class="mini-link" href="{{ url_for('scheduler') }}?date={{ d.date }}">Open day ›</a>
+              </article>
+            {% endif %}
+          {% endfor %}{% endfor %}
+          {% if not agenda.has_items %}<div class="calendar-agenda-empty"><strong>No booked work this month</strong><span>Choose a day in the scheduler to add work.</span><a class="btn primary" href="{{ url_for('scheduler') }}">Open Scheduler</a></div>{% endif %}
+        </div>
       {% elif view_mode == 'week' %}
         <div class="calendar-week-stack">
           {% for d in week_days %}
