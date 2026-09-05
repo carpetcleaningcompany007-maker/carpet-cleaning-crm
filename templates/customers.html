@@ -5,13 +5,12 @@
   <div class="contacts-head">
     <div class="contacts-head-copy">
       <span class="section-kicker">Customer library</span>
-      <h3>Your customers</h3>
+      <h1>Your customers</h1>
       <p>Find somebody quickly, see the essentials, and open their booking workspace.</p>
     </div>
     <div class="contacts-actions">
       <button class="btn primary" type="button" data-open-modal="customerModal">Add customer</button>
-      <a class="btn secondary" href="{{ url_for('xero_dashboard') }}">Xero sync</a>
-      <a class="btn secondary" href="{{ url_for('export_customers_csv') }}">Download all customers CSV</a>
+      <details class="customer-list-more"><summary class="btn secondary">More customer tools</summary><div><a href="{{ url_for('xero_dashboard') }}">Xero sync</a><a href="{{ url_for('export_customers_csv') }}">Download all customers CSV</a></div></details>
     </div>
   </div>
 
