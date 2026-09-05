@@ -21,6 +21,10 @@ Each checked route was freshly rendered at 390 × 844 and 1440 × 1000 after its
 | `/settings` | checked | checked | none (390/390, 1440/1440) | High-contrast settings heading and readable grouped configuration cards |
 | `/message-settings` | checked | checked | none (390/390, 1440/1440) | High-contrast message heading and intact editable template cards |
 | `/feedback` | checked | checked | none (390/390, 1440/1440) | Purpose-built mobile feedback cards replace the desktop table on phones |
+| `/social-studio` | checked | checked | none (390/390, 1440/1440) | Dark marketing hero removed; ivory heading and clear disconnected status card |
+| `/xero` | checked | checked | none (390/390, 1440/1440) | Dark intro removed; ivory sync heading and readable connection/action controls |
+| `/today-run` | checked | checked | none (390/390, 1440/1440) | Dark run hero removed; date control and compact 2×2 daily metrics |
+| `/workflow` | checked | checked | none (390/390, 1440/1440) | Dark workflow hero removed; readable context, paired actions and 2×2 workflow metrics |
 
 Phase screenshots: `audit-g1-*-phone-final2.png`, `audit-g1-*-desktop-final2.png` and `audit-goals-{phone,desktop}.png` in the local temporary QA directory.
 

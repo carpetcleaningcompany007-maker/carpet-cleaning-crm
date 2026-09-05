@@ -2,17 +2,17 @@
 {% block title %}Today Run{% endblock %}
 {% block page_title %}Today Run{% endblock %}
 {% block body_content %}
-<section class="run-hero">
+<header class="approved-feature-heading today-run-heading">
   <div>
     <span class="section-kicker">Mobile job run</span>
-    <h3>Today’s jobs, in order.</h3>
+    <h1>Today’s jobs, in order.</h1>
     <p>Use this on your phone from morning directions through messages, payment, review request, then onto the next job.</p>
   </div>
   <form method="get" class="run-date-form">
     <input type="date" name="date" value="{{ selected_date }}">
     <button class="btn secondary">Show Day</button>
   </form>
-</section>
+</header>
 
 <section class="run-stats">
   <div><span>Jobs today</span><strong>{{ stats.total }}</strong></div>

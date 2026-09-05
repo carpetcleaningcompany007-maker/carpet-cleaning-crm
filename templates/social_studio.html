@@ -3,10 +3,10 @@
 {% block page_title %}Social Post Studio{% endblock %}
 {% block body_content %}
 <div class="social-studio-page" id="socialStudioTop">
-  <section class="social-hero">
+  <header class="approved-feature-heading social-studio-heading">
     <div><span class="social-kicker">Marketing · approval first</span><h1>Turn your best work into posts worth stopping for.</h1><p>Create the visual, perfect the wording and see exactly how it will look—before anything can leave the CRM.</p></div>
     <div class="social-connection-card"><span class="social-status-dot"></span><div><strong>Meta is not connected</strong><small>Safe setup mode. Publishing is disabled.</small></div><button class="btn secondary" disabled>Connect later</button></div>
-  </section>
+  </header>
   <section class="social-metrics" aria-label="Post queue summary">
     {% for label in ['Draft','Ready for approval','Scheduled','Published','Failed'] %}<div><span>{{ label }}</span><strong>{{ social_counts[label] }}</strong></div>{% endfor %}
   </section>

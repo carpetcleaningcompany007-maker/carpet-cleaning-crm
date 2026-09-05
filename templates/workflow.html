@@ -2,7 +2,7 @@
 {% block title %}Workflow{% endblock %}
 {% block page_title %}Do Next{% endblock %}
 {% block body_content %}
-<section class="cc-hero cc-hero-workflow">
+<header class="approved-feature-heading workflow-page-heading">
   <div class="cc-hero-copy">
     <span class="cc-chip">Customer workflow</span>
     <h1>Who needs your attention?</h1>
@@ -12,12 +12,12 @@
       <a class="cc-btn cc-btn-light" href="{{ url_for('booking_form') }}" target="_blank">Open Booking Form</a>
     </div>
   </div>
-  <div class="cc-hero-panel">
+  <div class="workflow-waiting-card">
     <span>Waiting</span>
     <strong>{{ data.new_intake + data.open_quotes + data.booked_jobs + data.unpaid_invoices }}</strong>
     <p>workflow items</p>
   </div>
-</section>
+</header>
 
 <section class="cc-stat-grid">
   <a href="{{ url_for('intake_forms') }}"><span>New enquiries</span><strong>{{ data.new_intake }}</strong></a>
