@@ -1,7 +1,7 @@
 {% extends "layout.html" %}
 {% block page_title %}Expenses{% endblock %}
 {% block body_content %}
-<div class="page-intro">
+<header class="approved-feature-heading expenses-page-heading">
   <div class="page-intro-copy">
     <div class="section-kicker">Finance area</div>
     <h3>Track business costs clearly</h3>
@@ -13,7 +13,7 @@
     <a class="btn {% if expense_view == 'all' %}primary{% else %}secondary{% endif %}" href="{{ url_for('expenses', view='all') }}">All</a>
     <a class="btn secondary" href="{{ url_for('export_expenses_csv') }}">Export CSV</a>
   </div>
-</div>
+</header>
 <div class="soft-stat-grid">
   <div class="soft-stat"><span>Net Expenses</span><strong>£{{ '%.2f'|format(totals.amount) }}</strong></div>
   <div class="soft-stat"><span>VAT Logged</span><strong>£{{ '%.2f'|format(totals.vat) }}</strong></div>

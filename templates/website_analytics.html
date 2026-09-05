@@ -3,16 +3,14 @@
 {% block body_content %}
 {% macro pct(value) -%}{{ ((value or 0) * 100 / visitors)|round|int if visitors else 0 }}%{%- endmacro %}
 <div class="report-stack">
-  <section class="report-hero">
-    <div class="page-intro" style="margin-bottom:0">
-      <div class="page-intro-copy">
+  <header class="approved-feature-heading analytics-page-heading">
+      <div>
         <div class="section-kicker">Anonymous landing-page activity</div>
-        <h3>What visitors do on the new landing page</h3>
+        <h1>What visitors do on the new landing page</h1>
         <p>Counts begin on {{ from_date }}. Quote choices and field progress are recorded. Unsubmitted names, contact details, postcodes and message contents are not shown; their completion status is recorded instead.</p>
       </div>
       <form method="get" class="page-intro-actions"><label>From <input type="date" name="from" value="{{ from_date }}"></label><button class="btn primary">Update</button></form>
-    </div>
-  </section>
+  </header>
 
   <div class="soft-stat-grid">
     <div class="soft-stat"><span>Visitors</span><strong>{{ visitors }}</strong></div>

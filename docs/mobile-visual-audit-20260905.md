@@ -25,12 +25,16 @@ Each checked route was freshly rendered at 390 × 844 and 1440 × 1000 after its
 | `/xero` | checked | checked | none (390/390, 1440/1440) | Dark intro removed; ivory sync heading and readable connection/action controls |
 | `/today-run` | checked | checked | none (390/390, 1440/1440) | Dark run hero removed; date control and compact 2×2 daily metrics |
 | `/workflow` | checked | checked | none (390/390, 1440/1440) | Dark workflow hero removed; readable context, paired actions and 2×2 workflow metrics |
+| `/send-contact-form?action_type=review` | checked | checked | none (390/390, 1440/1440) | Formal recheck passed for the ivory two-step review sender and preview/test actions |
+| `/inbox` | checked | checked | none (390/390, 1440/1440) | Light customer-email heading, setup guidance and clear empty state |
+| `/reminders` | checked | checked | none (390/390, 1440/1440) | Compact heading/tabs and explicit empty state without oversized blank card |
+| `/expenses` | checked | checked | none (390/390, 1440/1440) | Ivory heading, 2×2 actions/metrics and readable expense forms |
+| `/website-analytics` | checked | checked | none (390/390, 1440/1440) | Old report hero removed; ivory heading/date controls and 2×3 phone metrics |
+| `/calculator` | checked | checked | none (390/390, 1440/1440) | Photo/dark quote hero removed; ivory heading with paired management actions |
+| `/new-leads` | checked | checked | none (390/390, 1440/1440) | Balanced primary-plus-2×2 actions and readable lead/source cards |
 
 Phase screenshots: `audit-g1-*-phone-final2.png`, `audit-g1-*-desktop-final2.png` and `audit-goals-{phone,desktop}.png` in the local temporary QA directory.
 
 ## Remaining phases
 
-- Remaining communications forms and social pages
-- More-menu operational pages
-- Settings and configuration subpages
 - Available create/edit/detail views using safe local records or isolated test data

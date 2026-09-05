@@ -2,8 +2,8 @@
 {% block title %}Future Reminders{% endblock %}
 {% block page_title %}Future Reminders{% endblock %}
 {% block body_content %}
-<section class="panel">
-  <div class="panel-head">
+<section class="panel reminders-library-page">
+  <header class="approved-settings-heading reminders-page-heading">
     <div>
       <h3>Future reminders</h3>
       <p>Keep rebooking, aftercare, protector and annual clean follow ups in one place.</p>
@@ -13,7 +13,7 @@
       <a class="scope-tab {% if scope=='completed' %}active{% endif %}" href="{{ url_for('reminders_library', scope='completed') }}">Completed</a>
       <a class="scope-tab {% if scope=='all' %}active{% endif %}" href="{{ url_for('reminders_library', scope='all') }}">All</a>
     </div>
-  </div>
+  </header>
   <div class="table-wrap">
     <table>
       <thead><tr><th>Due</th><th>Customer</th><th>Type</th><th>Title</th><th>Status</th><th></th></tr></thead>
@@ -40,5 +40,6 @@
       </tbody>
     </table>
   </div>
+  {% if not reminders %}<div class="mobile-empty-card reminders-empty-state">No reminders in this view.</div>{% endif %}
 </section>
 {% endblock %}

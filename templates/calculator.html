@@ -1,17 +1,17 @@
 {% extends "layout.html" %}
 {% block page_title %}Calculator{% endblock %}
 {% block body_content %}
-<section class="quote-builder-hero">
+<header class="approved-feature-heading calculator-page-heading">
   <div>
     <div class="hero-tag">Integrated calculator</div>
-    <h3>Build a quote and move it straight into the job flow.</h3>
+    <h1>Build a quote and move it into the job flow.</h1>
     <p>Create the price, save it to the customer, then carry it forward into jobs and invoices.</p>
   </div>
   <div class="quote-hero-actions">
     <a class="btn secondary" href="{{ url_for('calculator_manager') }}">Manage Calculator</a>
     <a class="btn primary" href="{{ url_for('public_quote_portal') }}" target="_blank">Open Customer Portal</a>
   </div>
-</section>
+</header>
 
 <div class="quote-builder-layout">
   <section class="panel quote-items-panel">
