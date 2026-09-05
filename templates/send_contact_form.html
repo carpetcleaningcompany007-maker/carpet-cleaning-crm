@@ -3,151 +3,51 @@
 {% block title %}{{ 'Send a Review Request' if is_review else 'Send Customer Form' }}{% endblock %}
 {% block page_title %}{{ 'Send a Review' if is_review else 'Send Customer Form' }}{% endblock %}
 {% block body_content %}
-<section class="page-intro-card send-form-intro {{ 'review-send-intro' if is_review else '' }}">
-  <div class="section-kicker">{{ 'A lovely finishing touch' if is_review else 'Email, text, or both' }}</div>
-  <h3>{{ 'Turn a happy customer into a brilliant review' if is_review else 'Send someone your customer details form' }}</h3>
-  <p>{{ 'Find the customer, choose email, text, or both, preview the message and send. Their personal request includes your Google review link.' if is_review else 'Choose an existing customer or enter a new name and contact detail. They receive a personal link to complete their information.' }}</p>
-</section>
-
-{% if sent_confirmation %}
-<section class="send-form-success">
-  <strong>{{ 'Review request sent' if is_review else 'Customer form sent' }}</strong>
-  <span>{{ 'The customer received the polished review request using your chosen channel.' if is_review else 'The personal form link has been sent using the option you selected.' }}</span>
-</section>
-{% endif %}
-
-<section class="panel send-contact-panel">
-  <div class="panel-head"><h3>{{ 'Who would you like to thank?' if is_review else 'Who should receive the form?' }}</h3><p>{{ 'Choose somebody already saved in the CRM or synced from Xero.' if is_review else '' }}</p></div>
-  <form method="post" class="send-contact-form">
-    <input type="hidden" name="action_type" value="{{ action_type }}">
-    <label class="customer-search-label">Find a customer
-      <input type="search" id="quickSendSearch" placeholder="Start typing a name, email or mobile number" autocomplete="off">
-      <small class="customer-search-status" id="quickSendSearchStatus" aria-live="polite">Start typing and I’ll select a single matching customer for you.</small>
-      <span class="customer-search-results" id="quickSendSearchResults" aria-label="Matching customers"></span>
-    </label>
-    <label class="saved-customer-picker">Choose a saved customer <span class="optional-label">optional</span>
-      <select name="customer_id" id="quickSendCustomer">
-        <option value="">Or enter new details below</option>
-        {% for customer in customers %}
-          {% set full_name = ((customer.first_name or '') ~ ' ' ~ (customer.last_name or ''))|trim %}
-          <option value="{{ customer.id }}" data-name="{{ full_name }}" data-email="{{ customer.email or '' }}" data-phone="{{ customer.phone or '' }}" {% if form_values.customer_id|string == customer.id|string %}selected{% endif %}>{{ full_name or 'Unnamed customer' }}{% if customer.phone %} — {{ customer.phone }}{% elif customer.email %} — {{ customer.email }}{% endif %}</option>
-        {% endfor %}
-      </select>
-    </label>
-    {% if is_review %}
-    <aside class="xero-refresh-card">
-      <span class="xero-refresh-icon">X</span>
-      <div><strong>Can’t find the customer?</strong><small>Bring every current customer from Xero into this list, then search again.</small></div>
-      <input type="hidden" name="next_url" value="{{ url_for('send_contact_form', action_type='review') }}">
-      <button class="btn xero-refresh-btn" type="submit" formmethod="post" formaction="{{ url_for('xero_pull_contacts') }}">Refresh customers from Xero</button>
+{% if is_review %}
+<div class="review-request-page">
+  <header class="review-request-heading"><span>Review request</span><h1>Send a review request</h1><p>Choose the customer, check how you want to contact them, then preview everything before you send.</p></header>
+  {% if sent_confirmation %}<div class="send-form-success"><strong>Review request sent</strong><span>The request was sent using the channel you selected.</span></div>{% endif %}
+  <form method="post" class="review-request-layout" id="reviewRequestForm">
+    <input type="hidden" name="action_type" value="review">
+    <section class="panel review-customer-step">
+      <div class="review-step-head"><span>1</span><div><h2>Choose a customer</h2><p>Search your saved CRM and Xero contacts.</p></div></div>
+      <label class="review-search-label">Find a customer<input type="search" id="quickSendSearch" placeholder="Name, email or mobile number" autocomplete="off"><small id="quickSendSearchStatus" aria-live="polite">Start typing to find one customer.</small><span id="quickSendSearchResults" class="customer-search-results"></span></label>
+      <label class="review-customer-select">Saved customer<select name="customer_id" id="quickSendCustomer"><option value="">Choose a customer</option>{% for customer in customers %}{% set full_name=((customer.first_name or '') ~ ' ' ~ (customer.last_name or ''))|trim %}<option value="{{ customer.id }}" data-name="{{ full_name }}" data-email="{{ customer.email or '' }}" data-phone="{{ customer.phone or '' }}" {% if form_values.customer_id|string==customer.id|string %}selected{% endif %}>{{ full_name or 'Unnamed customer' }}{% if customer.phone %} — {{ customer.phone }}{% elif customer.email %} — {{ customer.email }}{% endif %}</option>{% endfor %}</select></label>
+      <div class="selected-customer-card" id="selectedCustomerCard" {% if not form_values.customer_id %}hidden{% endif %}>
+        <span class="selected-customer-avatar" id="selectedCustomerAvatar">{{ (form_values.name or '?')[:1]|upper }}</span>
+        <div><strong id="selectedCustomerName">{{ form_values.name or 'No customer selected' }}</strong><small id="selectedCustomerEmail">{{ form_values.email or 'Email missing' }}</small><small id="selectedCustomerPhone">{{ form_values.phone or 'Mobile missing' }}</small></div>
+        <b id="selectedCustomerReady" class="contact-readiness">{% if form_values.email and form_values.phone %}Email & text ready{% elif form_values.email %}Email ready · mobile missing{% elif form_values.phone %}Text ready · email missing{% else %}Contact details missing{% endif %}</b>
+      </div>
+      <div class="review-xero-compact"><div><strong>Can’t find them?</strong><span>Refresh the customer list from Xero, then search again.</span></div><input type="hidden" name="next_url" value="{{ url_for('send_contact_form', action_type='review') }}"><button class="btn secondary" type="submit" formmethod="post" formaction="{{ url_for('xero_pull_contacts') }}">Refresh from Xero</button></div>
+      <details class="review-more-options"><summary>More options <span>Manual details, templates and testing</span></summary><div class="review-advanced-fields"><label>Name<input name="name" autocomplete="name" value="{{ form_values.name or '' }}"></label><label>Email address<input type="email" name="email" autocomplete="email" value="{{ form_values.email or '' }}"></label><label>Mobile number<input name="phone" autocomplete="tel" value="{{ form_values.phone or '' }}"></label><div class="row-actions"><a class="btn secondary" href="{{ url_for('message_settings') }}">Edit message templates</a><button class="btn secondary" name="use_test_details" value="1" type="submit">Test on me</button></div></div></details>
+    </section>
+    <aside class="panel review-channel-step">
+      <div class="review-step-head"><span>2</span><div><h2>Choose how to ask</h2><p>Only available channels can be sent.</p></div></div>
+      <div class="review-channel-cards" role="radiogroup" aria-label="Send review request by">
+        <label><input type="radio" name="review_channel" value="email" checked><span>✉</span><b>Email</b><small>Full branded email</small></label>
+        <label><input type="radio" name="review_channel" value="sms"><span>▣</span><b>Text</b><small>Short phone message</small></label>
+        <label><input type="radio" name="review_channel" value="both"><span>✦</span><b>Both</b><small>Email and text</small></label>
+      </div>
+      <div class="review-snippet"><div><strong>Message preview</strong><button type="button" id="toggleReviewPreview">Show text</button></div><div class="review-email-snippet" id="reviewEmailSnippet"><b>{{ review_email_subject }}</b><p>{{ review_email_message[:230] }}{% if review_email_message|length>230 %}…{% endif %}</p></div><div class="review-sms-snippet" id="reviewSmsSnippet" hidden><p>{{ review_sms_message }}</p></div></div>
+      <details class="review-preview-test" open><summary>Preview & test <span>No customer message is sent</span></summary><div>
+        <a class="btn secondary" id="reviewEmailPreviewLink" href="{{ review_preview_url }}" target="_blank" rel="noopener">Preview email ↗</a>
+        <button class="btn secondary" type="button" id="previewTextButton">Preview text</button>
+        <button class="btn secondary" type="submit" name="use_test_details" value="1" data-test-channel="email">Test email to me</button>
+        <button class="btn secondary" type="submit" name="use_test_details" value="1" data-test-channel="sms">Test SMS to me</button>
+      </div></details>
+      <div class="review-send-readiness" id="reviewSendReadiness">Choose a customer to check contact readiness.</div>
+      <span class="review-final-label">Send to customer</span><button class="btn primary review-preview-send" type="submit">Preview & send request</button>
+      <p class="review-send-note">Nothing sends automatically. This action uses your chosen channel and the saved message template.</p>
     </aside>
-    {% endif %}
-    <div class="send-contact-grid">
-      <label>Name <span class="optional-label">optional</span><input name="name" autocomplete="name" value="{{ form_values.name or '' }}"></label>
-      <label>Email address <span class="optional-label">optional</span><input type="email" name="email" autocomplete="email" value="{{ form_values.email or '' }}"></label>
-      <label>Mobile number <span class="optional-label">optional</span><input name="phone" autocomplete="tel" placeholder="07..." value="{{ form_values.phone or '' }}"></label>
-    </div>
-    <div class="send-contact-options channel-choices">
-      <label><input type="checkbox" name="send_email" value="1"> <span><strong>Email</strong><small>Beautiful branded message</small></span></label>
-      <label><input type="checkbox" name="send_sms" value="1"> <span><strong>Text message</strong><small>Fast and easy to open</small></span></label>
-    </div>
-    <div class="row-actions">
-      <button class="btn primary send-contact-submit" type="submit">{{ 'Send Review Request' if is_review else 'Send Customer Form' }}</button>
-      <button class="btn secondary" name="use_test_details" value="1" type="submit">Test on Me</button>
-    </div>
   </form>
-</section>
-
-<section class="panel send-contact-preview">
-  <div class="panel-head"><div><div class="section-kicker">Check it before it goes</div><h3>{{ 'Preview your request' if is_review else 'Form link' }}</h3></div>{% if not is_review %}<a class="btn secondary" href="{{ form_link }}" target="_blank" rel="noopener">Preview Form</a>{% endif %}</div>
-  {% if is_review %}
-    <div class="preview-switcher" role="tablist" aria-label="Message preview options">
-      <button class="preview-option active" type="button" data-preview="email" role="tab" aria-selected="true"><span>✉</span><strong>Email preview</strong><small>See the branded version</small></button>
-      <button class="preview-option" type="button" data-preview="sms" role="tab" aria-selected="false"><span>▣</span><strong>Text preview</strong><small>See the phone message</small></button>
-      <a class="preview-option" href="{{ review_link }}" target="_blank" rel="noopener"><span>★</span><strong>Review page</strong><small>Open the Google link</small></a>
-    </div>
-    <div class="review-preview-pane active" data-preview-pane="email">
-      <div class="real-email-preview"><div class="real-preview-bar"><span>Actual customer email</span><small>This is the real design that will be sent</small></div><iframe id="reviewEmailPreview" src="{{ review_preview_url }}" title="Actual review request email preview"></iframe></div>
-      <a class="btn preview-full-btn" id="reviewEmailPreviewLink" href="{{ review_preview_url }}" target="_blank" rel="noopener">Open full email preview <span>↗</span></a>
-    </div>
-    <div class="review-preview-pane" data-preview-pane="sms">
-      <div class="phone-preview"><div class="phone-preview-top"><span></span><strong>Message</strong><span>•••</span></div><div class="phone-contact">TC</div><b>The Carpet Cleaning Company</b><div class="sms-bubble">{{ review_sms_message }}</div></div>
-      <textarea id="standaloneFormMessage" readonly>{{ review_sms_message }}</textarea>
-      <button class="btn secondary" type="button" data-copy-target="standaloneFormMessage">Copy text message</button>
-    </div>
-  {% else %}
-    <input id="standaloneFormUrl" value="{{ form_link }}" readonly>
-    <textarea id="standaloneFormMessage" readonly>{{ message }}</textarea>
-    <div class="row-actions"><button class="btn secondary" type="button" data-copy-target="standaloneFormUrl">Copy Link</button><button class="btn secondary" type="button" data-copy-target="standaloneFormMessage">Copy Message</button></div>
-  {% endif %}
-</section>
+</div>
+{% else %}
+<section class="page-intro-card send-form-intro"><div class="section-kicker">Email, text, or both</div><h3>Send someone your customer details form</h3><p>Choose an existing customer or enter a new name and contact detail.</p></section>
+<section class="panel send-contact-panel"><form method="post" class="send-contact-form"><input type="hidden" name="action_type" value="form"><label>Choose a saved customer<select name="customer_id"> <option value="">Enter new details</option>{% for customer in customers %}<option value="{{customer.id}}">{{customer.first_name}} {{customer.last_name}}</option>{% endfor %}</select></label><div class="send-contact-grid"><label>Name<input name="name" value="{{form_values.name or ''}}"></label><label>Email<input type="email" name="email" value="{{form_values.email or ''}}"></label><label>Mobile<input name="phone" value="{{form_values.phone or ''}}"></label></div><div class="send-contact-options channel-choices"><label><input type="checkbox" name="send_email" value="1"> Email</label><label><input type="checkbox" name="send_sms" value="1"> Text message</label></div><button class="btn primary" type="submit">Send Customer Form</button></form></section>
+{% endif %}
 <script>
-(() => {
-  const picker = document.getElementById('quickSendCustomer');
-  const search = document.getElementById('quickSendSearch');
-  const searchStatus = document.getElementById('quickSendSearchStatus');
-  const searchResults = document.getElementById('quickSendSearchResults');
-  if (!picker) return;
-  const originalOptions = Array.from(picker.options).slice(1).map(option => option.cloneNode(true));
-  const applyCustomer = option => {
-    if (!option || !option.value) return;
-    picker.value = option.value;
-    const selectedOption = picker.options[picker.selectedIndex] || option;
-    document.querySelector('[name="name"]').value = selectedOption.dataset.name || '';
-    document.querySelector('[name="email"]').value = selectedOption.dataset.email || '';
-    document.querySelector('[name="phone"]').value = selectedOption.dataset.phone || '';
-    const frame = document.getElementById('reviewEmailPreview');
-    const link = document.getElementById('reviewEmailPreviewLink');
-    if (frame && link) {
-      const previewUrl = new URL('{{ url_for("standalone_review_email_preview") }}', window.location.origin);
-      previewUrl.searchParams.set('customer_id', selectedOption.value);
-      frame.src = previewUrl.toString();
-      link.href = previewUrl.toString();
-    }
-  };
-  if (search) search.addEventListener('input', () => {
-    const term = search.value.trim().toLowerCase();
-    const current = picker.value;
-    picker.querySelectorAll('option:not(:first-child)').forEach(option => option.remove());
-    const matches = originalOptions.filter(option => !term || option.textContent.toLowerCase().includes(term));
-    const nameMatches = matches.filter(option => (option.dataset.name || '').toLowerCase().split(/\s+/).some(word => word.startsWith(term)));
-    matches.forEach(option => picker.appendChild(option.cloneNode(true)));
-    if (searchResults) {
-      searchResults.replaceChildren();
-      const visibleMatches = nameMatches.length ? nameMatches : matches;
-      if (term) visibleMatches.slice(0, 8).forEach(option => {
-        const resultButton = document.createElement('a');
-        resultButton.className = 'customer-search-result';
-        const resultUrl = new URL(window.location.href);
-        resultUrl.searchParams.set('action_type', 'review');
-        resultUrl.searchParams.set('customer_id', option.value);
-        resultButton.href = resultUrl.toString();
-        const resultName = document.createElement('strong');
-        const resultContact = document.createElement('small');
-        resultName.textContent = option.dataset.name || 'Unnamed customer';
-        resultContact.textContent = option.dataset.phone || option.dataset.email || 'Open customer record';
-        resultButton.append(resultName, resultContact);
-        searchResults.appendChild(resultButton);
-      });
-    }
-    const automaticMatch = nameMatches.length === 1 ? nameMatches[0] : (matches.length === 1 ? matches[0] : null);
-    if (automaticMatch && term) {
-      applyCustomer(automaticMatch);
-      if (searchStatus) searchStatus.textContent = `Found and selected ${automaticMatch.dataset.name || automaticMatch.textContent}.`;
-    } else {
-      if (Array.from(picker.options).some(option => option.value === current)) picker.value = current;
-      const visibleCount = nameMatches.length || matches.length;
-      if (searchStatus) searchStatus.textContent = term ? (visibleCount ? `${visibleCount} customers found — choose the right one below.` : 'No matching customer found. Try their surname, email, mobile, or refresh from Xero.') : 'Start typing and I’ll select a single matching customer for you.';
-    }
-  });
-  picker.addEventListener('change', () => {
-    applyCustomer(picker.options[picker.selectedIndex]);
-  });
-  document.querySelectorAll('[data-preview]').forEach(button => button.addEventListener('click', () => {
-    const selected = button.dataset.preview;
-    document.querySelectorAll('.preview-option[data-preview]').forEach(item => { item.classList.toggle('active', item === button); item.setAttribute('aria-selected', item === button ? 'true' : 'false'); });
-    document.querySelectorAll('[data-preview-pane]').forEach(pane => pane.classList.toggle('active', pane.dataset.previewPane === selected));
-  }));
-})();
+(()=>{const picker=document.getElementById('quickSendCustomer'),search=document.getElementById('quickSendSearch');if(!picker)return;const original=[...picker.options].slice(1).map(o=>o.cloneNode(true));const fields={name:document.querySelector('[name="name"]'),email:document.querySelector('[name="email"]'),phone:document.querySelector('[name="phone"]')};function apply(o){if(!o||!o.value)return;picker.value=o.value;const current=picker.options[picker.selectedIndex]||o;Object.keys(fields).forEach(k=>fields[k].value=current.dataset[k]||'');document.getElementById('selectedCustomerCard').hidden=false;document.getElementById('selectedCustomerName').textContent=current.dataset.name||'Unnamed customer';document.getElementById('selectedCustomerAvatar').textContent=(current.dataset.name||'?').trim().charAt(0).toUpperCase();document.getElementById('selectedCustomerEmail').textContent=current.dataset.email||'Email missing';document.getElementById('selectedCustomerPhone').textContent=current.dataset.phone||'Mobile missing';const e=!!current.dataset.email,p=!!current.dataset.phone;document.getElementById('selectedCustomerReady').textContent=e&&p?'Email & text ready':e?'Email ready · mobile missing':p?'Text ready · email missing':'Contact details missing';document.getElementById('reviewSendReadiness').textContent=e&&p?'Ready for email, text or both.':e?'Email is ready. Add a mobile number before choosing Text or Both.':p?'Text is ready. Add an email before choosing Email or Both.':'Add an email address or mobile number before sending.';const u=new URL('{{ url_for("standalone_review_email_preview") }}',location.origin);u.searchParams.set('customer_id',current.value);document.getElementById('reviewEmailPreviewLink').href=u;}
+if(picker.value)apply(picker.options[picker.selectedIndex]);picker.addEventListener('change',()=>apply(picker.options[picker.selectedIndex]));search.addEventListener('input',()=>{const term=search.value.trim().toLowerCase(),results=document.getElementById('quickSendSearchResults');results.replaceChildren();const matches=original.filter(o=>!term||o.textContent.toLowerCase().includes(term));matches.slice(0,8).forEach(o=>{if(!term)return;const a=document.createElement('button');a.type='button';a.className='customer-search-result';a.innerHTML='<strong></strong><small></small>';a.querySelector('strong').textContent=o.dataset.name||'Unnamed customer';a.querySelector('small').textContent=o.dataset.email||o.dataset.phone||'Contact details missing';a.onclick=()=>{if(![...picker.options].some(x=>x.value===o.value))picker.appendChild(o.cloneNode(true));apply([...picker.options].find(x=>x.value===o.value));results.replaceChildren();search.value=o.dataset.name||''};results.appendChild(a)});document.getElementById('quickSendSearchStatus').textContent=term?(matches.length?`${matches.length} customer${matches.length===1?'':'s'} found.`:'No match. Try another detail or refresh from Xero.'):'Start typing to find one customer.'});
+function togglePreview(showText){const sms=document.getElementById('reviewSmsSnippet'),email=document.getElementById('reviewEmailSnippet');sms.hidden=!showText;email.hidden=showText;document.getElementById('toggleReviewPreview').textContent=showText?'Show email':'Show text'}document.getElementById('toggleReviewPreview').addEventListener('click',()=>togglePreview(document.getElementById('reviewSmsSnippet').hidden));document.getElementById('previewTextButton').addEventListener('click',()=>togglePreview(true));document.querySelectorAll('[data-test-channel]').forEach(b=>b.addEventListener('click',()=>{const r=document.querySelector(`[name="review_channel"][value="${b.dataset.testChannel}"]`);if(r)r.checked=true}));})();
 </script>
 {% endblock %}
