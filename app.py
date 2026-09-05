@@ -9318,6 +9318,9 @@ def build_follow_up_dashboard(days=90, limit=12):
 @login_required
 def dashboard():
     archive_counts = active_archived_counts()
+    today = uk_today()
+    week_start = today - timedelta(days=today.weekday())
+    week_end = week_start + timedelta(days=6)
     stats = {
         "customers": archive_counts["customers_active"],
         "quotes": archive_counts["quotes_active"],
@@ -9330,6 +9333,17 @@ def dashboard():
     jobs = q("""SELECT jobs.*, customers.first_name || ' ' || customers.last_name AS customer_name
                 FROM jobs LEFT JOIN customers ON customers.id = jobs.customer_id
                 ORDER BY COALESCE(job_date,'9999-12-31') ASC LIMIT 6""")
+    dashboard_metrics = {
+        "jobs_today": q("SELECT COUNT(*) AS c FROM jobs WHERE job_date=? AND IFNULL(status,'') <> 'Archived'", (today.isoformat(),), one=True)["c"],
+        "jobs_week": q("SELECT COUNT(*) AS c FROM jobs WHERE job_date BETWEEN ? AND ? AND IFNULL(status,'') <> 'Archived'", (week_start.isoformat(), week_end.isoformat()), one=True)["c"],
+        "revenue_week": q("""SELECT COALESCE(SUM(total),0) AS total FROM invoices
+                              WHERE invoice_date BETWEEN ? AND ?
+                                AND lower(IFNULL(status,'')) NOT IN ('cancelled','voided','archived')""",
+                           (week_start.isoformat(), week_end.isoformat()), one=True)["total"],
+    }
+    recent_invoices = q("""SELECT invoices.*, customers.first_name || ' ' || customers.last_name AS customer_name
+                             FROM invoices LEFT JOIN customers ON customers.id=invoices.customer_id
+                             ORDER BY invoices.id DESC LIMIT 4""")
     report_summary = build_reports_data(3)
     invoice_alerts = invoice_alert_rows(limit=5)
     follow_up_summary = build_follow_up_dashboard(90, 8)
@@ -9360,7 +9374,16 @@ def dashboard():
                               WHEN IFNULL(status,'') IN ('Contacted','Waiting for customer','Quoted') THEN 1
                               ELSE 2
                             END, id DESC LIMIT 8""")
-    return render_template("dashboard.html", stats=stats, recent_quotes=quotes, recent_jobs=jobs, archive_counts=archive_counts, report_summary=report_summary, invoice_alerts=invoice_alerts, app_settings=settings(), follow_up_summary=follow_up_summary, cashflow=cashflow, reminders_due=reminders_due, feedback_recent=feedback_recent, intake_new=intake_new["c"] if intake_new else 0, intake_needs_contact=intake_needs_contact["c"] if intake_needs_contact else 0, intake_waiting=intake_waiting["c"] if intake_waiting else 0, recent_enquiries=recent_enquiries)
+    return render_template("dashboard.html", stats=stats, dashboard_metrics=dashboard_metrics,
+                           recent_quotes=quotes, recent_jobs=jobs, recent_invoices=recent_invoices,
+                           archive_counts=archive_counts, report_summary=report_summary,
+                           invoice_alerts=invoice_alerts, app_settings=settings(),
+                           follow_up_summary=follow_up_summary, cashflow=cashflow,
+                           reminders_due=reminders_due, feedback_recent=feedback_recent,
+                           intake_new=intake_new["c"] if intake_new else 0,
+                           intake_needs_contact=intake_needs_contact["c"] if intake_needs_contact else 0,
+                           intake_waiting=intake_waiting["c"] if intake_waiting else 0,
+                           recent_enquiries=recent_enquiries)
 
 
 @app.route("/send-contact-form", methods=["GET", "POST"])

@@ -1,142 +1,32 @@
 {% extends "layout.html" %}
-{% block page_title %}Today{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
 {% block body_content %}
-{% set alert_rows = (invoice_alerts.overdue if invoice_alerts.overdue is defined else []) + (invoice_alerts.due_soon if invoice_alerts.due_soon is defined else []) + (invoice_alerts.no_due_date if invoice_alerts.no_due_date is defined else []) %}
-
-<section class="cc-hero cc-hero-dashboard">
-  <div class="cc-hero-copy">
-    <span class="cc-chip">Your day at a glance</span>
-    <h1>Good work starts with a clear plan.</h1>
-    <p>Customers, enquiries, jobs and money—organised around what needs your attention now.</p>
-    <div class="cc-hero-actions">
-      <a class="cc-btn cc-btn-primary" href="{{ url_for('intake_forms') }}">Work new enquiries</a>
-      <a class="cc-btn cc-btn-light" href="{{ url_for('today_run') }}">Open today’s run</a>
+<div class="pro-dashboard">
+  <h1 class="pro-dashboard-title">Dashboard</h1>
+  <section class="pro-metrics" aria-label="Business summary">
+    <a class="pro-metric" href="{{ url_for('today_run') }}"><span class="pro-metric-icon" aria-hidden="true">▦</span><span class="pro-metric-label">Jobs Today</span><strong>{{ dashboard_metrics.jobs_today }}</strong><span class="pro-metric-link">View jobs <b aria-hidden="true">›</b></span></a>
+    <a class="pro-metric" href="{{ url_for('quotes') }}"><span class="pro-metric-icon" aria-hidden="true">▤</span><span class="pro-metric-label">Quotes</span><strong>{{ stats.quotes }}</strong><span class="pro-metric-link">View quotes <b aria-hidden="true">›</b></span></a>
+    <a class="pro-metric" href="{{ url_for('jobs') }}"><span class="pro-metric-icon" aria-hidden="true">⌁</span><span class="pro-metric-label">Jobs This Week</span><strong>{{ dashboard_metrics.jobs_week }}</strong><span class="pro-metric-link">View jobs <b aria-hidden="true">›</b></span></a>
+    <a class="pro-metric" href="{{ url_for('invoices') }}"><span class="pro-metric-icon" aria-hidden="true">£</span><span class="pro-metric-label">Revenue This Week</span><strong>£{{ '%.0f'|format(dashboard_metrics.revenue_week or 0) }}</strong><span class="pro-metric-link">View money <b aria-hidden="true">›</b></span></a>
+  </section>
+  <section class="pro-activity">
+    <h2>Recent Activity</h2>
+    <div class="pro-activity-list">
+      {% for row in recent_jobs[:1] %}<a href="{{ url_for('job_view', job_id=row.id) }}"><span class="pro-list-icon">▦</span><span><strong>Job scheduled</strong><small>{{ row.customer_name or row.title or 'Customer job' }}{% if row.job_date %} · {{ row.job_date }}{% endif %}</small></span><b>›</b></a>{% endfor %}
+      {% for row in recent_quotes[:1] %}<a href="{{ url_for('quote_view', quote_id=row.id) }}"><span class="pro-list-icon">▤</span><span><strong>Quote {{ row.status|lower if row.status else 'created' }}</strong><small>{{ row.customer_name or row.title or row.quote_number or 'Customer quote' }}</small></span><b>›</b></a>{% endfor %}
+      {% for row in recent_invoices[:1] %}<a href="{{ url_for('invoice_view', invoice_id=row.id) }}"><span class="pro-list-icon">£</span><span><strong>Invoice {{ row.status|lower if row.status else 'created' }}</strong><small>{{ row.customer_name or row.invoice_number or 'Customer invoice' }} · £{{ '%.2f'|format(row.total or 0) }}</small></span><b>›</b></a>{% endfor %}
+      {% for lead in recent_enquiries[:1] %}<a href="{{ url_for('intake_form_view', lead_id=lead.id) }}"><span class="pro-list-icon">●</span><span><strong>Customer enquiry</strong><small>{{ lead.name or 'New customer' }} · {{ lead.status or 'Waiting for review' }}</small></span><b>›</b></a>{% endfor %}
+      {% if not recent_jobs and not recent_quotes and not recent_invoices and not recent_enquiries %}<div class="pro-activity-empty">No recent activity yet. New jobs, quotes, invoices and enquiries will appear here.</div>{% endif %}
     </div>
-  </div>
-  <div class="cc-hero-panel">
-    <span>Needs attention</span>
-    <strong>{{ intake_needs_contact + alert_rows|length }}</strong>
-    <p>{{ intake_needs_contact }} enquiries · {{ alert_rows|length }} invoice alerts</p>
-  </div>
-</section>
-
-<section class="cc-quick-grid">
-  <a class="cc-quick-card is-red" href="{{ url_for('intake_forms') }}">
-    <span>New enquiries</span>
-    <strong>{{ intake_needs_contact }}</strong>
-    <em>customers need a response</em>
-  </a>
-  <a class="cc-quick-card is-gold" href="{{ url_for('jobs') }}">
-    <span>Active work</span>
-    <strong>{{ stats.jobs }}</strong>
-    <em>jobs on the system</em>
-  </a>
-  <a class="cc-quick-card is-navy" href="{{ url_for('calculator') }}">
-    <span>Quote a customer</span>
-    <strong>Create</strong>
-    <em>build a clear quotation</em>
-  </a>
-  <a class="cc-quick-card is-green" href="{{ url_for('invoices') }}">
-    <span>Invoice attention</span>
-    <strong>{{ alert_rows|length }}</strong>
-    <em>items to check</em>
-  </a>
-</section>
-
-<section class="cc-section">
-  <div class="cc-section-head">
-    <div>
-      <span class="cc-chip">Recommended next</span>
-      <h2>Move the day forward.</h2>
-      <p>Four clear routes through the work that matters.</p>
+  </section>
+  <section class="pro-actions">
+    <h2>Quick Actions</h2>
+    <div class="pro-action-strip">
+      <a href="{{ url_for('jobs_new') }}"><span>▦</span><strong>New Job</strong></a>
+      <a href="{{ url_for('calculator') }}"><span>▤</span><strong>New Quote</strong></a>
+      <a href="{{ url_for('intake_forms') }}"><span>●</span><strong>Enquiries</strong></a>
+      <a href="{{ url_for('invoices') }}"><span>£</span><strong>Invoices</strong></a>
     </div>
-    <a class="cc-btn cc-btn-primary" href="{{ url_for('workflow') }}">Do Next</a>
-  </div>
-  <div class="cc-action-grid">
-    <a href="{{ url_for('intake_forms') }}"><b>01</b><strong>Reply to enquiries</strong><span>{{ intake_new }} waiting for review</span></a>
-    <a href="{{ url_for('today_run') }}"><b>02</b><strong>Run today’s jobs</strong><span>Directions, timings and job actions</span></a>
-    <a href="{{ url_for('workflow') }}"><b>03</b><strong>Progress customers</strong><span>Quote, book, invoice, payment, review</span></a>
-    <a href="{{ url_for('invoices') }}"><b>04</b><strong>Check the money</strong><span>{{ alert_rows|length }} invoice alerts</span></a>
-  </div>
-</section>
-
-<section class="cc-section">
-  <div class="cc-section-head">
-    <div>
-      <span class="cc-chip">Customer inbox</span>
-      <h2>People waiting to hear from you.</h2>
-      <p>Open an enquiry, contact the customer and move it to the next stage.</p>
-    </div>
-    <a class="cc-btn cc-btn-primary" href="{{ url_for('intake_forms') }}">Open All Enquiries</a>
-  </div>
-  <div class="dashboard-waiting-list">
-    {% for lead in recent_enquiries %}
-      {% set message_status = lead.customer_email_status or lead.customer_sms_status or 'Message pending' %}
-      <article class="dashboard-waiting-card">
-        <div class="dashboard-waiting-person">
-          <span class="dashboard-waiting-avatar" aria-hidden="true">{{ (lead.name or 'C')[:1]|upper }}</span>
-          <div>
-            <small>{{ lead.created_at }}</small>
-            <h3>{{ lead.name or 'New customer' }}</h3>
-            <div class="dashboard-waiting-contact">
-              {% if lead.phone %}<a href="tel:{{ lead.phone }}">{{ lead.phone }}</a>{% endif %}
-              {% if lead.email %}<a href="mailto:{{ lead.email }}">{{ lead.email }}</a>{% endif %}
-            </div>
-          </div>
-        </div>
-        <div class="dashboard-waiting-service"><small>Enquiring about</small><strong>{{ lead.what_cleaned or lead.rooms_areas or 'Website enquiry' }}</strong></div>
-        <div class="dashboard-waiting-state">
-          <span>{{ lead.status or 'Waiting for review' }}</span>
-          <strong>{{ lead.follow_up_status or 'Follow up required' }}</strong>
-          <small>{{ message_status }}</small>
-        </div>
-        <a class="dashboard-waiting-action" href="{{ url_for('intake_form_view', lead_id=lead.id) }}#lead-action-panel"><span>Do next</span> {{ lead.follow_up_status or 'Follow up' }} <b aria-hidden="true">→</b></a>
-      </article>
-    {% else %}
-      <div class="enquiry-empty"><span aria-hidden="true">✦</span><h4>Everyone has been answered</h4><p>New website enquiries will appear here.</p></div>
-    {% endfor %}
-  </div>
-</section>
-
-<section class="cc-two-col">
-  <div class="cc-panel">
-    <div class="cc-panel-head">
-      <div>
-        <span class="cc-chip">Upcoming</span>
-        <h2>Jobs</h2>
-      </div>
-      <a href="{{ url_for('jobs') }}">See all</a>
-    </div>
-    <div class="cc-list">
-      {% for row in recent_jobs[:5] %}
-      <a href="{{ url_for('job_view', job_id=row.id) }}">
-        <strong>{{ row.title }}</strong>
-        <span>{{ row.job_date or 'No date' }}{% if row.customer_name %} · {{ row.customer_name }}{% endif %}</span>
-      </a>
-      {% else %}
-      <div class="cc-empty">No jobs found.</div>
-      {% endfor %}
-    </div>
-  </div>
-
-  <div class="cc-panel">
-    <div class="cc-panel-head">
-      <div>
-        <span class="cc-chip">Money</span>
-        <h2>Invoice alerts</h2>
-      </div>
-      <a href="{{ url_for('invoices') }}">See all</a>
-    </div>
-    <div class="cc-list">
-      {% for row in alert_rows[:5] %}
-      <a href="{{ url_for('invoice_view', invoice_id=row.id) }}">
-        <strong>{{ row.invoice_number or ('Invoice ' ~ row.id) }}</strong>
-        <span>{{ row.status or 'Draft' }}{% if row.customer_name %} · {{ row.customer_name }}{% endif %}</span>
-      </a>
-      {% else %}
-      <div class="cc-empty">No invoice alerts right now.</div>
-      {% endfor %}
-    </div>
-  </div>
-</section>
+  </section>
+</div>
 {% endblock %}
