@@ -104,6 +104,65 @@
   .app-page .nav-review{min-height:42px!important;margin:0 5px 0 auto!important;padding:0 18px!important;border-radius:999px!important;background:var(--crm-gold)!important;color:var(--crm-navy-deep)!important;box-shadow:0 8px 20px rgba(0,0,0,.18)!important}.app-page .nav-review.active{box-shadow:0 8px 20px rgba(0,0,0,.18)!important}.app-page .nav-review:hover{background:#f8d878!important}
 }
 
+/* Premium app shell and dashboard — compact, readable and touch-friendly. */
+@media(max-width:760px){
+  body.app-page{overflow-x:hidden!important;padding-bottom:calc(78px + env(safe-area-inset-bottom))!important;background:linear-gradient(180deg,#edf4f9 0,#f8fafc 38%,#f4f6f8 100%)!important}
+  body.app-page .mobile-appbar{min-height:68px!important;padding:10px 14px!important;gap:11px!important;background:linear-gradient(135deg,#06162b 0%,#0b2a4f 100%)!important;border-bottom:1px solid rgba(235,193,92,.55)!important;box-shadow:0 8px 28px rgba(5,20,39,.18)!important}
+  body.app-page .mobile-appbar-title{display:flex!important;align-items:center!important;gap:10px!important;min-width:0!important;flex:1!important;font-family:inherit!important}
+  body.app-page .mobile-appbar-title>span{display:flex!important;min-width:0!important;flex-direction:column!important;line-height:1.15!important}
+  body.app-page .mobile-appbar-title strong{overflow:hidden!important;color:#fff!important;font:800 14px/1.2 system-ui,-apple-system,"Segoe UI",sans-serif!important;letter-spacing:-.01em!important;text-overflow:ellipsis!important;white-space:nowrap!important}
+  body.app-page .mobile-appbar-title small{margin-top:2px!important;color:#c5d2df!important;font:700 8px/1.2 system-ui,-apple-system,"Segoe UI",sans-serif!important;letter-spacing:.12em!important;text-transform:uppercase!important}
+  body.app-page .mobile-appbar-logo{width:40px!important;height:40px!important;flex:0 0 40px!important;border:2px solid #e8bf58!important;background:#fff!important;box-shadow:0 4px 14px rgba(0,0,0,.2)!important}
+  body.app-page .mobile-appbar .icon-btn{width:40px!important;height:40px!important;flex:0 0 40px!important;border:1px solid rgba(235,193,92,.42)!important;border-radius:13px!important;background:rgba(255,255,255,.08)!important;color:#f3cf73!important;box-shadow:none!important}
+  body.app-page .mobile-menu-toggle span{background:#f8fbff!important}
+  body.app-page .mobile-alert-action span{display:grid!important;width:23px!important;height:23px!important;place-items:center!important;border-radius:50%!important;background:#e9be58!important;color:#071a31!important;font-size:13px!important;font-weight:950!important}
+  body.app-page .main{width:calc(100% - 24px)!important;max-width:100%!important;margin-inline:auto!important;overflow:visible!important}
+  body.app-page .page-dashboard .topbar,body.app-page.page-dashboard .topbar{min-height:58px!important;padding:14px 2px 8px!important}
+  body.app-page.page-dashboard .page-title{font-size:25px!important;letter-spacing:-.035em!important}
+  body.app-page.page-dashboard .cc-hero{padding:22px 19px!important;border-radius:20px!important;gap:18px!important;box-shadow:0 18px 42px rgba(6,25,48,.18)!important}
+  body.app-page.page-dashboard .cc-hero h1{max-width:320px!important;font-size:34px!important;line-height:.98!important;letter-spacing:-.035em!important}
+  body.app-page.page-dashboard .cc-hero-copy>p{max-width:330px!important;font-size:14px!important;line-height:1.5!important}
+  body.app-page.page-dashboard .cc-hero-panel{padding:16px!important;border:1px solid rgba(255,255,255,.18)!important;border-radius:16px!important;background:rgba(4,19,38,.72)!important;backdrop-filter:blur(10px)!important}
+  body.app-page.page-dashboard .cc-hero-panel strong{font-size:38px!important}
+  body.app-page.page-dashboard .cc-hero-actions{grid-template-columns:1fr 1fr!important;gap:8px!important}
+  body.app-page.page-dashboard .cc-hero-actions .cc-btn{min-width:0!important;padding-inline:10px!important;font-size:11px!important}
+  body.app-page.page-dashboard .cc-quick-grid{gap:10px!important;margin:12px 0 16px!important}
+  body.app-page.page-dashboard .cc-quick-card{min-height:108px!important;padding:14px!important;border:1px solid #dce6ef!important;border-top:3px solid var(--crm-gold)!important;border-radius:16px!important;background:linear-gradient(145deg,#fff 0%,#f8fbfd 100%)!important;box-shadow:0 8px 24px rgba(13,40,70,.07)!important}
+  body.app-page.page-dashboard .cc-quick-card span{font-size:9px!important;letter-spacing:.12em!important}
+  body.app-page.page-dashboard .cc-quick-card strong{font-size:25px!important;line-height:1!important}
+  body.app-page.page-dashboard .cc-quick-card small{font-size:10px!important;line-height:1.35!important}
+  body.app-page.page-dashboard .cc-section{padding:18px!important;border-radius:18px!important;box-shadow:0 10px 28px rgba(13,40,70,.07)!important}
+  body.app-page.page-dashboard .cc-section h2{font-size:25px!important;line-height:1.05!important}
+  body.app-page.page-dashboard .cc-action-grid{gap:9px!important}
+  body.app-page.page-dashboard .cc-action-card{min-height:0!important;padding:15px!important;border-radius:14px!important}
+  body.app-page.page-dashboard .dashboard-waiting-card{gap:12px!important;padding:15px!important;border-radius:15px!important;box-shadow:none!important}
+  body.app-page.page-dashboard .dashboard-waiting-avatar{width:40px!important;height:40px!important;flex-basis:40px!important;border-radius:12px!important}
+  body.app-page.page-dashboard .dashboard-waiting-service{padding:11px 0!important}
+  .mobile-bottom-nav{min-height:72px!important;padding:7px 7px calc(7px + env(safe-area-inset-bottom))!important;border-top:1px solid rgba(13,42,79,.12)!important;background:rgba(255,255,255,.96)!important;box-shadow:0 -10px 32px rgba(6,25,48,.12)!important}
+  .mobile-bottom-nav a{min-width:0!important;gap:4px!important;border-radius:12px!important;color:#69798c!important;font-size:9px!important;font-weight:850!important;letter-spacing:.01em!important}
+  .mobile-bottom-nav a>span{display:grid!important;min-width:28px!important;height:27px!important;place-items:center!important;border-radius:9px!important;font-size:17px!important}
+  .mobile-bottom-nav a.active{color:#082344!important;background:linear-gradient(180deg,rgba(235,193,92,.19),rgba(235,193,92,.05))!important}
+  .mobile-bottom-nav a.active>span{color:#082344!important;background:#efd078!important}
+  .mobile-bottom-nav .mobile-add{color:#082344!important}
+  .mobile-bottom-nav .mobile-add>span{width:44px!important;height:44px!important;margin-top:-24px!important;border:3px solid #fff!important;border-radius:50%!important;background:linear-gradient(145deg,#f1d27e,#d8a839)!important;color:#071a31!important;box-shadow:0 8px 22px rgba(172,124,23,.32)!important}
+  body.app-page a:focus-visible,body.app-page button:focus-visible{outline:3px solid #f0c65d!important;outline-offset:3px!important}
+}
+
+@media(max-width:390px){
+  body.app-page .mobile-appbar{padding-inline:10px!important;gap:8px!important}
+  body.app-page .mobile-appbar-title strong{font-size:13px!important}
+  body.app-page.page-dashboard .cc-hero-actions{grid-template-columns:1fr!important}
+  body.app-page.page-dashboard .cc-quick-card{padding:12px!important}
+  .mobile-bottom-nav{padding-inline:3px!important}
+  .mobile-bottom-nav a{font-size:8.5px!important}
+}
+
+@media(min-width:1060px){
+  body.app-page.page-dashboard .main{max-width:1440px!important}
+  body.app-page.page-dashboard .cc-quick-card{border-top-width:4px!important;border-radius:18px!important;box-shadow:0 10px 28px rgba(13,40,70,.07)!important}
+  body.app-page.page-dashboard .cc-section{border-radius:20px!important;box-shadow:0 12px 34px rgba(13,40,70,.065)!important}
+}
+
 /* Premium enquiry inbox: replaces the wide operational spreadsheet. */
 .enquiry-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;margin:24px 0 16px;overflow:hidden;border:1px solid rgba(16,39,59,.09);border-radius:18px;background:rgba(16,39,59,.08)}
 .enquiry-summary>div{display:flex;flex-direction:column;gap:3px;padding:17px 20px;background:#fff}.enquiry-summary strong{color:#10273b;font-family:Georgia,"Times New Roman",serif;font-size:1.05rem}.enquiry-summary span{color:#71808c;font-size:.78rem}
