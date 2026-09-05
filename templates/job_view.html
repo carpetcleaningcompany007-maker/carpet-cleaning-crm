@@ -14,8 +14,8 @@
   <h2>{{ job.title }}</h2>
   <p class="job-summary-customer">{{ (job.first_name or '') ~ ' ' ~ (job.last_name or '') }}</p>
   <div class="job-summary-facts">
-    <span><i aria-hidden="true">□</i><b>{{ job_display_date }}</b>{% if job.job_time %}<small>{{ job.job_time }}</small>{% endif %}</span>
-    <span><i aria-hidden="true">£</i><b>£{{ '%.2f'|format(job.amount or 0) }}</b><small>Agreed price</small></span>
+    <a class="job-date-link" href="{{ url_for('full_calendar', view='day', day=job.job_date) if job.job_date else '#job-edit-details' }}" aria-label="{{ 'Open calendar for ' ~ job_display_date ~ (', ' ~ job.job_time if job.job_time else '') if job.job_date else 'Add the job date and time' }}"><i aria-hidden="true">▣</i><span><small>Scheduled</small><b>{{ job_display_date }}</b>{% if job.job_time %}<em>{{ job.job_time }}</em>{% endif %}</span><strong aria-hidden="true">›</strong></a>
+    <div class="job-price-fact"><i aria-hidden="true">£</i><span><small>Agreed price</small>{% if (job.amount or 0)|float > 0 %}<b>£{{ '%.2f'|format(job.amount) }}</b>{% else %}<b class="not-set">Price not set</b>{% endif %}</span></div>
   </div>
   {% if job.customer_id %}<a class="job-open-customer" href="{{ url_for('customer_view', customer_id=job.customer_id) }}">Open customer <span>›</span></a>{% else %}<a class="job-open-customer" href="#job-edit-details">Link a customer <span>›</span></a>{% endif %}
 </section>
