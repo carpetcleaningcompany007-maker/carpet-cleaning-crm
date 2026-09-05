@@ -52,6 +52,17 @@ class SecurityHardeningTests(unittest.TestCase):
         self.assertEqual(self.app.config["SESSION_COOKIE_SAMESITE"], "Lax")
         self.assertTrue(self.app.config["SESSION_COOKIE_HTTPONLY"])
 
+    def test_authenticated_shell_cannot_be_served_from_stale_browser_cache(self):
+        self.login()
+        response = self.client.get("/dashboard")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("no-store", response.headers["Cache-Control"])
+        self.assertEqual(response.headers["X-CRM-UI-Version"], "20260905.6")
+        self.assertIn(b'data-ui-build="20260905.6"', response.data)
+        self.assertIn(b"app-shell-20260905-6", response.data)
+        self.assertIn(b"Carpet Clean Pro", response.data)
+        self.assertNotIn(b"Business workspace", response.data)
+
     def test_login_rotates_session_and_requires_csrf(self):
         with self.client.session_transaction() as session:
             session["attacker_marker"] = "remove-me"

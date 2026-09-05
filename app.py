@@ -140,6 +140,16 @@ def add_website_form_cors_headers(response):
         "img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'; frame-src 'self'; "
         "base-uri 'self'; form-action 'self' https://login.xero.com; frame-ancestors 'none'",
     )
+    # Authenticated CRM pages must never be restored from an embedded browser's
+    # stale page cache after a UI deployment. Static CSS still revalidates by ETag.
+    content_type = clean_str(response.headers.get("Content-Type")).lower()
+    if request.method == "GET" and session.get("logged_in") and "text/html" in content_type:
+        response.headers["Cache-Control"] = "no-store, private, max-age=0, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+        response.headers["X-CRM-UI-Version"] = "20260905.6"
+    elif request.path == "/static/crm-redesign.css":
+        response.headers["Cache-Control"] = "no-cache, max-age=0, must-revalidate"
     return response
 
 
