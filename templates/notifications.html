@@ -1,6 +1,20 @@
 {% extends "layout.html" %}
 {% block page_title %}Notifications{% endblock %}
 {% block body_content %}
+<section class="pwa-setup-card">
+  <div class="pwa-setup-copy"><span class="section-kicker">Phone app & alerts</span><h3>Keep the CRM close</h3><p>Install Carpet Clean Pro CRM on your iPhone, then choose the business alerts you want on this device.</p></div>
+  <ol class="pwa-install-steps"><li><b>1</b><span>Open this page in <strong>Safari</strong></span></li><li><b>2</b><span>Tap <strong>Share</strong>, then <strong>Add to Home Screen</strong></span></li><li><b>3</b><span>Open the installed CRM and tap <strong>Enable phone alerts</strong></span></li></ol>
+  <div class="push-preferences">
+    <h4>Alert me about</h4>
+    <div class="push-category-grid">
+      {% for key,label in [('enquiries','New genuine enquiries'),('replies','Customer replies'),('jobs','Jobs due or overdue'),('money','Invoice and payment issues'),('sync','Calendar and Xero sync failures')] %}
+      <label><input type="checkbox" data-push-category="{{ key }}" checked><span>{{ label }}</span></label>
+      {% endfor %}
+    </div>
+    <div class="push-actions"><button class="btn primary" type="button" data-enable-push>Enable phone alerts</button><button class="btn secondary" type="button" data-disable-push>Turn off on this device</button></div>
+    <p class="push-status" data-push-status>Permission is requested only when you tap Enable. On iPhone, notifications require the Home Screen app.</p>
+  </div>
+</section>
 <section class="panel notification-centre">
   <div class="panel-head">
     <div><span class="section-kicker">Action centre</span><h3>What needs your attention</h3><p>These alerts come directly from live CRM records. Marking them seen never closes or changes the underlying work.</p></div>

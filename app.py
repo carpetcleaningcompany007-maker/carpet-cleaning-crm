@@ -147,7 +147,7 @@ def add_website_form_cors_headers(response):
         response.headers["Cache-Control"] = "no-store, private, max-age=0, must-revalidate"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
-        response.headers["X-CRM-UI-Version"] = "20260905.15"
+        response.headers["X-CRM-UI-Version"] = "20260905.16"
     elif request.path == "/static/crm-redesign.css":
         response.headers["Cache-Control"] = "no-cache, max-age=0, must-revalidate"
     return response
@@ -3702,6 +3702,43 @@ def login_required(fn):
     return wrapper
 
 
+@app.route("/app.webmanifest")
+def pwa_manifest():
+    return jsonify({
+        "id": "/", "name": "Carpet Clean Pro CRM", "short_name": "Carpet Clean Pro",
+        "description": "Private customer, job and business workspace.",
+        "start_url": "/dashboard?source=pwa", "scope": "/", "display": "standalone",
+        "background_color": "#f3f7fa", "theme_color": "#062747", "orientation": "portrait-primary",
+        "icons": [
+            {"src": "/static/site/site-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"},
+        ],
+        "shortcuts": [
+            {"name": "Today", "url": "/dashboard", "icons": [{"src": "/static/site/site-icon-512.png", "sizes": "512x512"}]},
+            {"name": "Notifications", "url": "/notifications", "icons": [{"src": "/static/site/site-icon-512.png", "sizes": "512x512"}]},
+        ],
+    })
+
+
+@app.route("/service-worker.js")
+def pwa_service_worker():
+    source = """const CACHE='carpet-clean-pro-v2';
+const SHELL=['/offline','/static/app-theme.css?v=20260905-7','/static/app.js?v=mobile-more-20260905-1','/static/site/site-icon-512.png'];
+self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL)).then(()=>self.skipWaiting())));
+self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim())));
+self.addEventListener('fetch',event=>{if(event.request.method!=='GET')return;const url=new URL(event.request.url);if(url.origin!==location.origin)return;if(event.request.mode==='navigate'){event.respondWith(fetch(event.request).catch(()=>caches.match('/offline')));return;}if(url.pathname.startsWith('/static/'))event.respondWith(caches.match(event.request).then(hit=>hit||fetch(event.request).then(response=>{const copy=response.clone();caches.open(CACHE).then(cache=>cache.put(event.request,copy));return response;})));});
+self.addEventListener('push',event=>{let data={};try{data=event.data?event.data.json():{}}catch(e){}const title=data.title||'Carpet Clean Pro CRM';const options={body:data.body||'Open the CRM to review an update.',icon:'/static/site/site-icon-512.png',badge:'/static/site/site-icon-512.png',tag:data.tag||'crm-update',renotify:false,data:{url:data.url||'/notifications'}};event.waitUntil(Promise.all([self.registration.showNotification(title,options),self.navigator.setAppBadge&&self.navigator.setAppBadge(Number(data.badge||0))]));});
+self.addEventListener('notificationclick',event=>{event.notification.close();const target=new URL(event.notification.data.url||'/notifications',self.location.origin).href;event.waitUntil(clients.matchAll({type:'window',includeUncontrolled:true}).then(list=>{for(const client of list){if(client.url.startsWith(self.location.origin)){client.navigate(target);return client.focus();}}return clients.openWindow(target);}));});"""
+    response = Response(source, mimetype="application/javascript")
+    response.headers["Service-Worker-Allowed"] = "/"
+    response.headers["Cache-Control"] = "no-cache"
+    return response
+
+
+@app.route("/offline")
+def pwa_offline():
+    return Response("""<!doctype html><meta name=viewport content='width=device-width,initial-scale=1'><meta name=theme-color content='#062747'><title>Carpet Clean Pro CRM</title><style>body{margin:0;background:#f3f7fa;color:#062747;font:16px system-ui;display:grid;min-height:100vh;place-items:center}.c{max-width:340px;margin:20px;padding:28px;border:1px solid #d8e2ec;border-radius:16px;background:#fff;text-align:center}h1{font:800 32px Georgia;margin:10px 0}p{color:#607487;line-height:1.55}button{min-height:48px;padding:0 20px;border:0;border-radius:8px;background:#062747;color:#fff;font-weight:800}</style><div class=c><img src='/static/site/site-icon-192.png' width=88 height=88 alt=''><h1>You’re offline</h1><p>Your CRM data stays private. Reconnect to the internet, then try again.</p><button onclick=location.reload()>Try again</button></div>""", mimetype="text/html")
+
+
 @app.route("/uploads/<path:filename>")
 @login_required
 def uploaded_file(filename):
@@ -3777,6 +3814,31 @@ def build_notification_feed():
         items.append({"key": f"calendar-sync:{row['id']}", "kind": "Sync", "priority": "Failed",
                       "title": row["title"] or "Calendar sync failed", "detail": row["google_calendar_sync_error"],
                       "time": row["created_at"] or "", "url": url_for("job_view", job_id=row["id"])})
+    due_jobs = q("""SELECT id,title,job_date,status FROM jobs
+                    WHERE TRIM(IFNULL(job_date,''))<>'' AND date(job_date) <= date(?)
+                      AND lower(IFNULL(status,'')) NOT IN ('completed','invoiced','paid','cancelled','archived')
+                    ORDER BY date(job_date),id LIMIT 10""", (uk_today().isoformat(),))
+    for row in due_jobs:
+        overdue = clean_str(row["job_date"]) < uk_today().isoformat()
+        items.append({"key": f"job-due:{row['id']}:{row['job_date']}", "kind": "Job", "priority": "Overdue" if overdue else "Today",
+                      "title": row["title"] or "Scheduled job", "detail": "Job is overdue" if overdue else "Job is due today",
+                      "time": row["job_date"] or "", "url": url_for("job_view", job_id=row["id"])})
+    replies = q("""SELECT communications.id,communications.customer_id,communications.created_at
+                   FROM communications WHERE lower(IFNULL(subject,''))='inbound sms'
+                     AND datetime(created_at) >= datetime('now','-7 days')
+                   ORDER BY id DESC LIMIT 10""")
+    for row in replies:
+        items.append({"key": f"reply:{row['id']}", "kind": "Reply", "priority": "New",
+                      "title": "Customer reply needs attention", "detail": "Open the conversation to review it",
+                      "time": row["created_at"] or "", "url": url_for("sms_thread_view", customer_id=row["customer_id"])})
+    xero_failures = q("""SELECT id,xero_contact_error,xero_contact_synced_at FROM customers
+                          WHERE archived_at IS NULL AND TRIM(IFNULL(xero_contact_error,''))<>''
+                          ORDER BY id DESC LIMIT 8""")
+    for row in xero_failures:
+        items.append({"key": f"xero-sync:{row['id']}:{hashlib.sha256(clean_str(row['xero_contact_error']).encode()).hexdigest()[:12]}",
+                      "kind": "Sync", "priority": "Failed", "title": "Xero contact sync needs attention",
+                      "detail": "Open the customer record to retry safely", "time": row["xero_contact_synced_at"] or "",
+                      "url": url_for("customer_view", customer_id=row["id"])})
     state_rows = q("SELECT notification_key,seen_at FROM ui_notification_state")
     seen = {row["notification_key"] for row in state_rows if row["seen_at"]}
     for item in items:
@@ -3799,6 +3861,151 @@ def notifications_mark_seen():
             (item["key"],))
     flash("Notifications marked as seen. The underlying work is still active.")
     return redirect(url_for("notifications"))
+
+
+PUSH_CATEGORIES = ("enquiries", "replies", "jobs", "money", "sync")
+
+
+def push_configured():
+    return all(clean_str(os.environ.get(name)) for name in ("VAPID_PUBLIC_KEY", "VAPID_PRIVATE_KEY", "VAPID_SUBJECT"))
+
+
+def push_fernet():
+    material = str(app.config["SECRET_KEY"]).encode("utf-8")
+    return Fernet(base64.urlsafe_b64encode(hashlib.sha256(material + b":crm-web-push-v1").digest()))
+
+
+def encrypt_push_subscription(value):
+    return push_fernet().encrypt(json.dumps(value, separators=(",", ":")).encode("utf-8")).decode("ascii")
+
+
+def decrypt_push_subscription(value):
+    try:
+        return json.loads(push_fernet().decrypt(clean_str(value).encode("ascii")).decode("utf-8"))
+    except (InvalidToken, ValueError, TypeError, json.JSONDecodeError):
+        return None
+
+
+def validate_push_subscription(payload):
+    if not isinstance(payload, dict):
+        return None
+    endpoint = clean_str(payload.get("endpoint"))
+    keys = payload.get("keys") if isinstance(payload.get("keys"), dict) else {}
+    p256dh, auth = clean_str(keys.get("p256dh")), clean_str(keys.get("auth"))
+    if not endpoint.startswith("https://") or len(endpoint) > 2048:
+        return None
+    if not (20 <= len(p256dh) <= 512 and 8 <= len(auth) <= 256):
+        return None
+    return {"endpoint": endpoint, "expirationTime": payload.get("expirationTime"), "keys": {"p256dh": p256dh, "auth": auth}}
+
+
+def push_category(item):
+    return {"Enquiry": "enquiries", "Reply": "replies", "Job": "jobs", "Reminder": "jobs", "Money": "money", "Sync": "sync"}.get(item.get("kind"), "jobs")
+
+
+def push_safe_payload(item, badge_count=0):
+    category = push_category(item)
+    title = {"enquiries": "New enquiry needs attention", "replies": "Customer reply received",
+             "jobs": "Job diary needs attention", "money": "Invoice needs attention",
+             "sync": "CRM sync needs attention"}[category]
+    body = {"enquiries": "Open the CRM to review the new enquiry.", "replies": "Open the CRM to review the conversation.",
+            "jobs": "Open the CRM to review the scheduled work.", "money": "Open the CRM to review the invoice.",
+            "sync": "Open the CRM to review and retry safely."}[category]
+    return {"title": title, "body": body, "url": item.get("url") or url_for("notifications"),
+            "tag": item.get("key"), "category": category, "badge": max(0, int(badge_count or 0))}
+
+
+def send_web_push(subscription_info, payload):
+    from pywebpush import webpush
+    return webpush(subscription_info=subscription_info, data=json.dumps(payload, separators=(",", ":")),
+                   vapid_private_key=os.environ["VAPID_PRIVATE_KEY"],
+                   vapid_claims={"sub": os.environ["VAPID_SUBJECT"]}, ttl=300)
+
+
+def run_due_push_notifications(sender=None):
+    if not push_configured():
+        return {"status": "disabled", "sent": 0, "failed": 0}
+    if not has_request_context():
+        with app.test_request_context("/"):
+            return run_due_push_notifications(sender=sender)
+    sender = sender or send_web_push
+    feed = [item for item in build_notification_feed() if not item.get("seen")]
+    subscriptions = q("SELECT * FROM push_subscriptions WHERE enabled=1 ORDER BY id")
+    sent = failed = 0
+    for row in subscriptions:
+        subscription = decrypt_push_subscription(row["subscription_encrypted"])
+        if not subscription:
+            run("UPDATE push_subscriptions SET enabled=0,last_error='Stored subscription could not be read' WHERE id=?", (row["id"],))
+            continue
+        try:
+            preferences = json.loads(row["preferences_json"] or "{}")
+        except json.JSONDecodeError:
+            preferences = {}
+        for item in feed:
+            category = push_category(item)
+            if preferences.get(category, True) is False:
+                continue
+            exists = q("SELECT id FROM push_delivery_log WHERE subscription_id=? AND notification_key=?", (row["id"], item["key"]), one=True)
+            if exists:
+                continue
+            try:
+                sender(subscription, push_safe_payload(item, len(feed)))
+                run("INSERT INTO push_delivery_log(subscription_id,notification_key,category,status) VALUES (?,?,?,'sent')",
+                    (row["id"], item["key"], category))
+                run("UPDATE push_subscriptions SET last_success_at=datetime('now'),last_error='' WHERE id=?", (row["id"],))
+                sent += 1
+            except Exception as exc:
+                status_code = getattr(getattr(exc, "response", None), "status_code", None)
+                safe_error = f"Push provider returned {status_code}" if status_code else "Push delivery failed"
+                run("INSERT OR IGNORE INTO push_delivery_log(subscription_id,notification_key,category,status,error) VALUES (?,?,?,'failed',?)",
+                    (row["id"], item["key"], category, safe_error))
+                run("UPDATE push_subscriptions SET enabled=CASE WHEN ? IN (404,410) THEN 0 ELSE enabled END,last_error=? WHERE id=?",
+                    (status_code or 0, safe_error, row["id"]))
+                failed += 1
+    return {"status": "ok", "sent": sent, "failed": failed}
+
+
+@app.route("/api/push/config")
+@login_required
+def push_config():
+    return jsonify({"configured": push_configured(), "publicKey": clean_str(os.environ.get("VAPID_PUBLIC_KEY")) if push_configured() else ""})
+
+
+@app.route("/api/push/subscriptions", methods=["POST", "DELETE"])
+@login_required
+def push_subscriptions_api():
+    if request.content_length and request.content_length > 12288:
+        return jsonify({"ok": False, "message": "Subscription request is too large."}), 413
+    payload = request.get_json(silent=True) or {}
+    subscription = validate_push_subscription(payload.get("subscription"))
+    if not subscription:
+        return jsonify({"ok": False, "message": "A valid push subscription is required."}), 400
+    endpoint_hash = hashlib.sha256(subscription["endpoint"].encode("utf-8")).hexdigest()
+    if request.method == "DELETE":
+        run("UPDATE push_subscriptions SET enabled=0,updated_at=datetime('now') WHERE endpoint_hash=?", (endpoint_hash,))
+        return jsonify({"ok": True})
+    preferences = payload.get("preferences") if isinstance(payload.get("preferences"), dict) else {}
+    preferences = {key: bool(preferences.get(key, True)) for key in PUSH_CATEGORIES}
+    run("""INSERT INTO push_subscriptions(endpoint_hash,subscription_encrypted,preferences_json,enabled)
+           VALUES (?,?,?,1) ON CONFLICT(endpoint_hash) DO UPDATE SET subscription_encrypted=excluded.subscription_encrypted,
+           preferences_json=excluded.preferences_json,enabled=1,updated_at=datetime('now'),last_error=''""",
+        (endpoint_hash, encrypt_push_subscription(subscription), json.dumps(preferences, separators=(",", ":"))))
+    return jsonify({"ok": True})
+
+
+@app.route("/api/push/preferences", methods=["POST"])
+@login_required
+def push_preferences_api():
+    payload = request.get_json(silent=True) or {}
+    endpoint = clean_str(payload.get("endpoint"))
+    if not endpoint.startswith("https://") or len(endpoint) > 2048:
+        return jsonify({"ok": False}), 400
+    preferences = payload.get("preferences") if isinstance(payload.get("preferences"), dict) else {}
+    preferences = {key: bool(preferences.get(key, True)) for key in PUSH_CATEGORIES}
+    endpoint_hash = hashlib.sha256(endpoint.encode("utf-8")).hexdigest()
+    run("UPDATE push_subscriptions SET preferences_json=?,updated_at=datetime('now') WHERE endpoint_hash=? AND enabled=1",
+        (json.dumps(preferences, separators=(",", ":")), endpoint_hash))
+    return jsonify({"ok": True})
 
 
 def sort_rows(rows, key, reverse=False):
@@ -8134,6 +8341,27 @@ def init_db():
         notification_key TEXT PRIMARY KEY,
         seen_at TEXT DEFAULT '',
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )""")
+    conn.execute("""CREATE TABLE IF NOT EXISTS push_subscriptions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        endpoint_hash TEXT NOT NULL UNIQUE,
+        subscription_encrypted TEXT NOT NULL,
+        preferences_json TEXT NOT NULL DEFAULT '{}',
+        enabled INTEGER NOT NULL DEFAULT 1,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        last_success_at TEXT DEFAULT '',
+        last_error TEXT DEFAULT ''
+    )""")
+    conn.execute("""CREATE TABLE IF NOT EXISTS push_delivery_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        subscription_id INTEGER NOT NULL,
+        notification_key TEXT NOT NULL,
+        category TEXT NOT NULL,
+        status TEXT NOT NULL,
+        error TEXT DEFAULT '',
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(subscription_id, notification_key)
     )""")
     conn.commit()
     conn.close()
@@ -17339,10 +17567,13 @@ def automation_background_loop():
                 run_due_lead_generation_check(force=False)
                 results = run_due_communication_automations(dry_run=False)
                 visit_summaries = send_due_website_visit_summaries(dry_run=False)
+                push_results = run_due_push_notifications()
                 if results:
                     logger.info("Background automation processed %s message(s).", len(results))
                 if visit_summaries:
                     logger.info("Background analytics emailed %s visit summary/summaries.", len(visit_summaries))
+                if push_results.get("sent"):
+                    logger.info("Background owner alerts delivered %s push notification(s).", push_results["sent"])
         except Exception:
             logger.exception("Background automation runner failed")
         # Check frequently enough that a five minute customer acknowledgement

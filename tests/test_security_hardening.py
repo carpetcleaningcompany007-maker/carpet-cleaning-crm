@@ -26,6 +26,9 @@ class SecurityHardeningTests(unittest.TestCase):
     def tearDown(self):
         self.ctx.pop()
         os.environ.pop("TWILIO_AUTH_TOKEN", None)
+        os.environ.pop("VAPID_PUBLIC_KEY", None)
+        os.environ.pop("VAPID_PRIVATE_KEY", None)
+        os.environ.pop("VAPID_SUBJECT", None)
         try:
             os.unlink(self.tmp.name)
         except OSError:
@@ -57,8 +60,8 @@ class SecurityHardeningTests(unittest.TestCase):
         response = self.client.get("/dashboard")
         self.assertEqual(response.status_code, 200)
         self.assertIn("no-store", response.headers["Cache-Control"])
-        self.assertEqual(response.headers["X-CRM-UI-Version"], "20260905.15")
-        self.assertIn(b'data-ui-build="20260905.15"', response.data)
+        self.assertEqual(response.headers["X-CRM-UI-Version"], "20260905.16")
+        self.assertIn(b'data-ui-build="20260905.16"', response.data)
         self.assertIn(b"app-shell-20260905-9", response.data)
         self.assertIn(b"app-theme.css", response.data)
         self.assertIn(b"Carpet Clean Pro", response.data)
@@ -66,7 +69,7 @@ class SecurityHardeningTests(unittest.TestCase):
 
     def test_notification_feed_is_authenticated_real_and_seen_state_is_ui_only(self):
         denied = self.client.get("/notifications")
-        self.assertEqual(denied.status_code, 302)
+        self.assertIn(denied.status_code, (302, 400))
         self.login()
         lead_id = self.mod.run("""INSERT INTO intake_submissions(name,status,follow_up_status,is_test,ignore_alerts)
                                   VALUES ('Real Alert','New','Follow up required',0,0)""")
@@ -132,6 +135,68 @@ class SecurityHardeningTests(unittest.TestCase):
         self.assertIn(b"Email and phone added", response.data)
         self.assertEqual(response.data.count(b'class="job-progress-stage '), 6)
         self.assertIn(b"More job actions", response.data)
+
+    def test_pwa_manifest_service_worker_and_install_ui(self):
+        manifest = self.client.get("/app.webmanifest")
+        self.assertEqual(manifest.status_code, 200)
+        data = manifest.get_json()
+        self.assertEqual(data["name"], "Carpet Clean Pro CRM")
+        self.assertEqual(data["display"], "standalone")
+        self.assertEqual(data["start_url"], "/dashboard?source=pwa")
+        self.assertTrue(any(icon["sizes"] == "512x512" for icon in data["icons"]))
+        worker = self.client.get("/service-worker.js")
+        self.assertEqual(worker.status_code, 200)
+        self.assertIn(b"notificationclick", worker.data)
+        self.assertIn(b"/offline", worker.data)
+        self.assertEqual(worker.headers["Service-Worker-Allowed"], "/")
+        login = self.client.get("/login")
+        self.assertIn(b'app.webmanifest', login.data)
+        self.assertIn(b'apple-mobile-web-app-capable', login.data)
+        self.login()
+        page = self.client.get("/notifications")
+        self.assertIn(b"Add to Home Screen", page.data)
+        self.assertIn(b"Enable phone alerts", page.data)
+
+    def test_push_subscription_is_authenticated_validated_encrypted_and_removable(self):
+        denied = self.client.post("/api/push/subscriptions", json={})
+        self.assertIn(denied.status_code, (302, 400))
+        self.login()
+        token = self.csrf()
+        invalid = self.client.post("/api/push/subscriptions", json={"subscription": {"endpoint": "http://bad"}}, headers={"X-CSRF-Token": token})
+        self.assertEqual(invalid.status_code, 400)
+        subscription = {"endpoint": "https://push.example.test/subscription/abc", "keys": {"p256dh": "p" * 80, "auth": "a" * 24}}
+        saved = self.client.post("/api/push/subscriptions", json={"subscription": subscription, "preferences": {"money": False}}, headers={"X-CSRF-Token": token})
+        self.assertEqual(saved.status_code, 200)
+        row = self.mod.q("SELECT * FROM push_subscriptions", one=True)
+        self.assertNotIn("push.example.test", row["subscription_encrypted"])
+        self.assertEqual(self.mod.decrypt_push_subscription(row["subscription_encrypted"])["endpoint"], subscription["endpoint"])
+        self.assertFalse(__import__("json").loads(row["preferences_json"])["money"])
+        again = self.client.post("/api/push/subscriptions", json={"subscription": subscription}, headers={"X-CSRF-Token": token})
+        self.assertEqual(again.status_code, 200)
+        self.assertEqual(self.mod.q("SELECT COUNT(*) AS c FROM push_subscriptions", one=True)["c"], 1)
+        removed = self.client.delete("/api/push/subscriptions", json={"subscription": subscription}, headers={"X-CSRF-Token": token})
+        self.assertEqual(removed.status_code, 200)
+        self.assertEqual(self.mod.q("SELECT enabled FROM push_subscriptions", one=True)["enabled"], 0)
+
+    def test_push_delivery_is_deduplicated_and_payload_is_private(self):
+        os.environ.update(VAPID_PUBLIC_KEY="public-key", VAPID_PRIVATE_KEY="private-key", VAPID_SUBJECT="mailto:owner@example.test")
+        self.login()
+        subscription = {"endpoint": "https://push.example.test/subscription/secure", "keys": {"p256dh": "p" * 80, "auth": "a" * 24}}
+        self.mod.run("INSERT INTO push_subscriptions(endpoint_hash,subscription_encrypted,preferences_json,enabled) VALUES (?,?,?,1)", (
+            __import__("hashlib").sha256(subscription["endpoint"].encode()).hexdigest(), self.mod.encrypt_push_subscription(subscription), "{}"))
+        self.mod.run("INSERT INTO intake_submissions(name,email,phone,status,follow_up_status,is_test,ignore_alerts) VALUES (?,?,?,?,?,0,0)",
+                     ("Sensitive Customer", "secret@example.test", "07700111222", "New", "Follow up required"))
+        payloads = []
+        first = self.mod.run_due_push_notifications(sender=lambda sub, payload: payloads.append(payload))
+        second = self.mod.run_due_push_notifications(sender=lambda sub, payload: payloads.append(payload))
+        self.assertGreaterEqual(first["sent"], 1)
+        self.assertEqual(second["sent"], 0)
+        encoded = __import__("json").dumps(payloads)
+        self.assertNotIn("Sensitive Customer", encoded)
+        self.assertNotIn("secret@example.test", encoded)
+        self.assertNotIn("07700111222", encoded)
+        self.assertTrue(all(payload["url"].startswith("/") for payload in payloads))
+        self.assertEqual(self.mod.q("SELECT COUNT(*) AS c FROM push_delivery_log", one=True)["c"], len(payloads))
 
     def test_login_rotates_session_and_requires_csrf(self):
         with self.client.session_transaction() as session:

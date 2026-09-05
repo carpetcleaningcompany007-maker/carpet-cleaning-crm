@@ -6,16 +6,23 @@
   <meta name="csrf-token" content="{{ csrf_token() }}">
   <title>{% block title %}The Carpet Cleaning Company{% endblock %}</title>
   <link rel="icon" href="{{ url_for('static', filename='site/site-icon-512.png') }}">
+  <link rel="manifest" href="{{ url_for('pwa_manifest') }}">
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='site/site-icon-512.png') }}">
+  <meta name="theme-color" content="#062747">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Carpet Clean Pro">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=auth-polish-20260904-1">
   <link rel="stylesheet" href="{{ url_for('static', filename='beautiful.css') }}?v=proper-redesign-20260606-1">
   <link rel="stylesheet" href="{{ url_for('static', filename='crm-redesign.css', v='app-shell-20260905-9') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='dashboard-reference.css', v='20260905-2') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='app-theme.css', v='20260905-6') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='app-theme.css', v='20260905-7') }}">
   <style>:root{--accent: {{ biz.accent or '#56718f' }}; --sidebar-color: {{ biz.sidebar_color or '#1f2933' }};}</style>
 </head>
 {% if session.get('logged_in') and not public_mode %}
 {% set ep = request.endpoint or '' %}
-<body class="app-page page-{{ ep|replace('_','-') }}" data-ui-build="20260905.15">
+<body class="app-page page-{{ ep|replace('_','-') }}" data-ui-build="20260905.16">
 {% else %}
 <body class="public-page page-public">
 {% endif %}
@@ -126,6 +133,7 @@
   {% block public_content %}{% endblock %}
 {% endif %}
 <script src="{{ url_for('static', filename='app.js', v='mobile-more-20260905-1') }}"></script>
+<script src="{{ url_for('static', filename='pwa.js', v='20260905-2') }}" defer></script>
 <script>
 (function(){
   function setModal(id, open){
