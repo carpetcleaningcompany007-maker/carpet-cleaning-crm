@@ -303,6 +303,11 @@ class CustomerXeroExportTests(unittest.TestCase):
         self.assertEqual(next(item for item in sent if item["Code"] == "SMALL25")["SalesDetails"]["UnitPrice"], 25.0)
         self.assertEqual(len(changes), 4)
 
+    def test_xero_connection_requests_catalogue_write_permission(self):
+        self.assertIn("accounting.settings", self.mod.XERO_SCOPES.split())
+        message = self.mod.friendly_xero_error("401 Unauthorized: AuthorizationUnsuccessful")
+        self.assertIn("Reconnect Xero", message)
+
     def test_operator_can_explicitly_continue_without_address_and_action_is_audited(self):
         self.mod.run("UPDATE customers SET address='', postcode='' WHERE id=?", (self.first_id,))
         with mock.patch.object(self.mod, "find_xero_contact_match_for_customer", return_value={"contact": None, "reason": "No exact match found"}), \

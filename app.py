@@ -53,7 +53,7 @@ app.config["UPLOAD_FOLDER"] = os.environ.get("CRM_UPLOAD_FOLDER", os.path.join("
 EMAIL_RENDER_BUILD = "customer-form-cleanup-2026-07-08-01"
 DB_PATH = os.environ.get("CRM_DB_PATH", "crm.db")
 BACKUP_DIR = os.environ.get("CRM_BACKUP_DIR", "backups")
-XERO_SCOPES = "offline_access accounting.settings.read accounting.contacts accounting.contacts.read accounting.invoices accounting.invoices.read"
+XERO_SCOPES = "offline_access accounting.settings accounting.settings.read accounting.contacts accounting.contacts.read accounting.invoices accounting.invoices.read"
 XERO_AUTHORIZE_URL = "https://login.xero.com/identity/connect/authorize"
 XERO_TOKEN_URL = "https://identity.xero.com/connect/token"
 XERO_CONNECTIONS_URL = "https://api.xero.com/connections"
@@ -14857,6 +14857,8 @@ def friendly_xero_error(error):
         return text
     if "validationexception" in lowered or "validation exception" in lowered:
         return "Xero rejected the contact details. Please check the name, email, phone and address, then try again."
+    if "authorizationunsuccessful" in lowered or "unauthorized" in lowered:
+        return "Xero catalogue write permission is not active yet. Reconnect Xero once, approve the requested settings access, then retry."
     if text.startswith("Xero API request failed:"):
         return "Xero could not update the contact. Please check the customer details and try again."
     return text
