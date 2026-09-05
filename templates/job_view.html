@@ -8,59 +8,45 @@
 </section>
 {% endif %}
 
-<section class="doc-hero">
-  <div>
-    <div class="hero-tag">Job</div>
-    <h3>{{ job.title }}</h3>
-    <p>{{ job.first_name or '' }} {{ job.last_name or '' }}</p>
+<div class="premium-job-page">
+<section class="job-summary-card">
+  <div class="job-summary-eyebrow">Job</div>
+  <h2>{{ job.title }}</h2>
+  <p class="job-summary-customer">{{ (job.first_name or '') ~ ' ' ~ (job.last_name or '') }}</p>
+  <div class="job-summary-facts">
+    <span><i aria-hidden="true">□</i><b>{{ job_display_date }}</b>{% if job.job_time %}<small>{{ job.job_time }}</small>{% endif %}</span>
+    <span><i aria-hidden="true">£</i><b>£{{ '%.2f'|format(job.amount or 0) }}</b><small>Agreed price</small></span>
   </div>
-  <div class="row-actions">
-    <span class="price-pill">Price: £{{ '%.2f'|format(job.amount or 0) }}</span>
-    {% if job.customer_id %}
-    <a class="btn secondary" href="{{ url_for('customer_view', customer_id=job.customer_id) }}">Customer Record</a>
-    {% endif %}
-    <a class="btn secondary" href="{{ url_for('full_calendar') }}">Calendar</a>
-  </div>
+  {% if job.customer_id %}<a class="job-open-customer" href="{{ url_for('customer_view', customer_id=job.customer_id) }}">Open customer <span>›</span></a>{% else %}<a class="job-open-customer" href="#job-edit-details">Link a customer <span>›</span></a>{% endif %}
 </section>
 
-{% set job_next = namespace(href='#job-edit-details') %}
-{% for section in job_stage_sections %}{% for item in section.steps %}{% if item.current and item.href %}{% set job_next.href = item.href %}{% endif %}{% endfor %}{% endfor %}
-<section class="panel job-stage-panel">
-  <div class="panel-head">
-    <div>
-      <h3>Job stages</h3>
-      <p>Step-by-step view of what has been done and what still needs doing for this job.</p>
-    </div>
-  </div>
-  <div class="next-action-strip job-next-focus">
-    <div><span>Recommended next</span><strong>{{ job_next_action }}</strong></div>
-    <a class="btn primary" href="{{ job_next.href }}">Do next →</a>
-  </div>
-  <div class="job-stage-grid">
+{% set job_next = namespace(href='#job-edit-details', label='Review job', help=job_next_action) %}
+{% for section in job_stage_sections %}{% for item in section.steps %}{% if item.current %}{% set job_next.href = item.href or '#job-edit-details' %}{% set job_next.label = item.label %}{% set job_next.help = item.next %}{% endif %}{% endfor %}{% endfor %}
+<section class="job-next-card">
+  <div class="job-next-icon" aria-hidden="true">→</div>
+  <div><span>Next step</span><h3>{{ job_next.label }}</h3><p>{{ job_next.help }}</p></div>
+  <a href="{{ job_next.href }}">Do this next <span>›</span></a>
+</section>
+
+<section class="job-progress-card">
+  <div class="job-progress-head"><div><span>Workflow</span><h3>Job progress</h3></div><small>Tap a stage for details</small></div>
+  <div class="job-progress-list">
     {% for section in job_stage_sections %}
-    <div class="job-stage-card">
-      <h4>{{ section.title }}</h4>
-      <p>{{ section.summary }}</p>
-      <div class="job-stage-list">
-        {% for item in section.steps %}
-        <div class="job-stage-item {{ 'done' if item.done else 'todo' }} {{ 'current' if item.current else '' }}">
-          {% if item.href %}<a class="job-stage-link" href="{{ item.href }}" aria-label="Open {{ item.label }}">{% endif %}
-          <span>{{ 'Done' if item.done else 'To do' }}</span>
-          <div>
-            <strong>{{ item.label }}</strong>
-            {% if not item.done %}
-            <em>{{ item.next }}</em>
-            {% endif %}
-          </div>
-          <b>Open</b>
-          {% if item.href %}</a>{% endif %}
+      {% set stage = namespace(done=true, current=false) %}
+      {% for item in section.steps %}{% if not item.done %}{% set stage.done = false %}{% endif %}{% if item.current %}{% set stage.current = true %}{% endif %}{% endfor %}
+      <details class="job-progress-stage {{ 'done' if stage.done else ('current' if stage.current else 'later') }}" {% if stage.current %}open{% endif %}>
+        <summary><span class="progress-node">{{ '✓' if stage.done else loop.index }}</span><div><strong>{{ section.title.split('. ', 1)[-1] }}</strong><small>{{ 'Done' if stage.done else ('Do next' if stage.current else 'Later') }}</small></div><i>⌄</i></summary>
+        <div class="job-progress-detail">
+          {% for item in section.steps %}<a class="{{ 'done' if item.done else ('current' if item.current else '') }}" href="{{ item.href or '#job-edit-details' }}"><span>{{ '✓' if item.done else '•' }}</span><div><strong>{{ item.label }}</strong>{% if not item.done %}<small>{{ item.next }}</small>{% endif %}</div></a>{% endfor %}
         </div>
-        {% endfor %}
-      </div>
-    </div>
+      </details>
     {% endfor %}
   </div>
 </section>
+
+<details class="more-job-actions" id="more-job-actions">
+  <summary><span>More job actions</span><small>Edit, calendar, invoice and messages</small><i>＋</i></summary>
+  <div class="more-job-actions-body">
 
 <div class="grid-2">
   <section class="panel" id="job-edit-details">
@@ -278,6 +264,9 @@
     {% endfor %}
   </div>
 </section>
+  </div>
+</details>
+</div>
 <style>
 .calendar-check{display:flex!important;gap:10px;align-items:center;margin:14px 0}.calendar-check input{width:auto}
 .booking-calendar-preview{margin-top:18px;border:1px solid #cddbd5;border-radius:14px;background:#f8fbfa;overflow:hidden}
@@ -287,6 +276,12 @@
 </style>
 <script>
 (function(){
+  document.querySelectorAll('.job-next-card a,.job-progress-detail a').forEach(function(link){
+    link.addEventListener('click',function(){
+      const href=link.getAttribute('href')||'';
+      if(href.charAt(0)==='#' && document.querySelector(href)){document.getElementById('more-job-actions').open=true}
+    });
+  });
   const panel=document.querySelector('[data-calendar-preview]'); if(!panel)return;
   const form=panel.previousElementSibling, message=panel.querySelector('[data-calendar-message]'), list=panel.querySelector('[data-calendar-events]'); let timer;
   function esc(v){const d=document.createElement('div');d.textContent=v||'';return d.innerHTML}

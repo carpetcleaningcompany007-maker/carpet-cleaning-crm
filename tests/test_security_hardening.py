@@ -57,8 +57,8 @@ class SecurityHardeningTests(unittest.TestCase):
         response = self.client.get("/dashboard")
         self.assertEqual(response.status_code, 200)
         self.assertIn("no-store", response.headers["Cache-Control"])
-        self.assertEqual(response.headers["X-CRM-UI-Version"], "20260905.12")
-        self.assertIn(b'data-ui-build="20260905.12"', response.data)
+        self.assertEqual(response.headers["X-CRM-UI-Version"], "20260905.13")
+        self.assertIn(b'data-ui-build="20260905.13"', response.data)
         self.assertIn(b"app-shell-20260905-9", response.data)
         self.assertIn(b"app-theme.css", response.data)
         self.assertIn(b"Carpet Clean Pro", response.data)
@@ -109,6 +109,26 @@ class SecurityHardeningTests(unittest.TestCase):
         self.assertIn("job_date=2026-09-17", dated.headers["Location"])
         dated_form = self.client.get(dated.headers["Location"])
         self.assertIn(b'value="2026-09-17"', dated_form.data)
+
+    def test_job_detail_uses_single_summary_dynamic_next_step_and_progress(self):
+        self.login()
+        customer_id = self.mod.run(
+            "INSERT INTO customers(first_name,last_name) VALUES (?,?)",
+            ("Mark", "Cooksey"),
+        )
+        job_id = self.mod.run(
+            "INSERT INTO jobs(customer_id,title,job_date,job_time,amount,status) VALUES (?,?,?,?,?,?)",
+            (customer_id, "Lounge and stairs", "2026-09-17", "09:30", 175, "Booked"),
+        )
+        response = self.client.get(f"/jobs/{job_id}")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data.count(b'class="job-summary-card"'), 1)
+        self.assertEqual(response.data.count(b">Open customer <"), 1)
+        self.assertIn(b"17 Sep 2026", response.data)
+        self.assertIn(b'class="job-next-card"', response.data)
+        self.assertIn(b"Email and phone added", response.data)
+        self.assertEqual(response.data.count(b'class="job-progress-stage '), 6)
+        self.assertIn(b"More job actions", response.data)
 
     def test_login_rotates_session_and_requires_csrf(self):
         with self.client.session_transaction() as session:

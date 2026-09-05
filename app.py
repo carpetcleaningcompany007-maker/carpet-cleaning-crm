@@ -147,7 +147,7 @@ def add_website_form_cors_headers(response):
         response.headers["Cache-Control"] = "no-store, private, max-age=0, must-revalidate"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
-        response.headers["X-CRM-UI-Version"] = "20260905.12"
+        response.headers["X-CRM-UI-Version"] = "20260905.13"
     elif request.path == "/static/crm-redesign.css":
         response.headers["Cache-Control"] = "no-cache, max-age=0, must-revalidate"
     return response
@@ -11726,6 +11726,10 @@ def job_view(job_id):
     job_stage_sections, job_next_action = job_workflow_sections(job, existing_invoice, job_communications, ready_check)
     job_action_templates = job_action_template_cards(job)
     saved_message_templates = q("SELECT * FROM communication_templates ORDER BY name COLLATE NOCASE ASC, id DESC")
+    try:
+        job_display_date = datetime.strptime(clean_str(job["job_date"]), "%Y-%m-%d").strftime("%d %b %Y")
+    except (TypeError, ValueError):
+        job_display_date = clean_str(job["job_date"]) or "Date to confirm"
     return render_template(
         "job_view.html",
         job=job,
@@ -11739,6 +11743,7 @@ def job_view(job_id):
         job_next_action=job_next_action,
         job_action_templates=job_action_templates,
         saved_message_templates=saved_message_templates,
+        job_display_date=job_display_date,
     )
 
 
