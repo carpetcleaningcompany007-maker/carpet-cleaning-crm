@@ -151,7 +151,7 @@ def add_website_form_cors_headers(response):
         response.headers["Cache-Control"] = "no-store, private, max-age=0, must-revalidate"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
-        response.headers["X-CRM-UI-Version"] = "20260905.31"
+        response.headers["X-CRM-UI-Version"] = "20260906.32"
     elif request.path == "/static/crm-redesign.css":
         response.headers["Cache-Control"] = "no-cache, max-age=0, must-revalidate"
     return response
@@ -1740,7 +1740,7 @@ DEFAULT_MESSAGE_TEMPLATES = {
     "unable_to_reach_sms": {"name": "Unable to reach customer SMS", "subject": "", "body": "Hi {{name}}, thanks for your enquiry. I have tried to contact you to discuss your carpet cleaning requirements but could not get hold of you. If you still need help, please reply here or call/text me on 07802 563213. Thanks, Paul"},
     "carpet_cleaning_options_guide_email": {"name": "Carpet cleaning package guide email", "subject": "Choose the right carpet cleaning package", "body": "Hi {{name}},\n\nHere is the guide to help you choose the right carpet cleaning package for your home:\n\n{{carpet_options_link}}\n\nIt explains the Standard Clean, Targeted Pre Spray Treatment, Professional Deep Clean and Stain Guard options, with prices and what is included in each package.\n\nIf you are unsure, just reply with a few photos and I will help you choose the most suitable option.\n\nThanks\nPaul\n{{business_name}}"},
     "carpet_cleaning_options_guide_sms": {"name": "Carpet cleaning options guide SMS", "subject": "", "body": "Hi {{name}}, here is a quick guide to help you choose the right carpet cleaning option for your home: {{carpet_options_link}} If you are unsure, send me a few photos and I will help. Thanks, Paul"},
-    "maintenance_reminder_email": {"name": "Maintenance reminder email", "subject": "It has been a while since your last clean", "body": "Hi {{name}},\n\nI hope you are well.\n\nIt has been a while since your last carpet or upholstery clean, so I just wanted to check whether you would like to book in again.\n\nRegular cleaning helps keep carpets and upholstery looking better for longer, especially in busy areas, homes with pets, or rooms used every day.\n\nIf you would like another clean, just reply to this email and I will be happy to help.\n\nYou can also follow us on Facebook to see our latest work and cleaning tips:\n{{facebook}}\n\nThanks\nPaul\n{{business_name}}"},
+    "maintenance_reminder_email": {"name": "Carpet refresh reminder email", "subject": "Is it time to refresh your carpets, {{first_name}}?", "body": "Hi {{first_name}},\n\nI hope you are well. It has now been around {{interval_words}} since your last clean, so I wanted to check whether your carpets or upholstery could do with a freshen-up.\n\nThere is absolutely no pressure. If you would like me to take a look or arrange your next clean, simply reply to this email or give me a call.\n\nThanks again for choosing The Carpet Cleaning Company.\n\nPaul"},
     "maintenance_reminder_sms": {"name": "Maintenance reminder SMS", "subject": "", "body": "Hi {{name}}, it has been a while since your last clean. Would you like to book in again? Just reply and I will be happy to help. Thanks, Paul - {{business_name}}"},
 }
 
@@ -3725,8 +3725,8 @@ def pwa_manifest():
 
 @app.route("/service-worker.js")
 def pwa_service_worker():
-    source = """const CACHE='carpet-clean-pro-v16';
-	const SHELL=['/offline','/static/app-theme.css?v=20260905-22','/static/app.js?v=mobile-more-20260905-1','/static/site/site-icon-512.png'];
+    source = """const CACHE='carpet-clean-pro-v17';
+	const SHELL=['/offline','/static/app-theme.css?v=20260906-23','/static/app.js?v=mobile-more-20260905-1','/static/site/site-icon-512.png'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim())));
 self.addEventListener('fetch',event=>{if(event.request.method!=='GET')return;const url=new URL(event.request.url);if(url.origin!==location.origin)return;if(event.request.mode==='navigate'){event.respondWith(fetch(event.request).catch(()=>caches.match('/offline')));return;}if(url.pathname.startsWith('/static/'))event.respondWith(caches.match(event.request).then(hit=>hit||fetch(event.request).then(response=>{const copy=response.clone();caches.open(CACHE).then(cache=>cache.put(event.request,copy));return response;})));});
@@ -4691,9 +4691,9 @@ AUTOMATION_RULE_DEFAULTS = [
         "owner_email_copy": 0,
     },
     {
-        "rule_key": "maintenance_reminder_6_months",
-        "label": "Maintenance reminder after 6 months",
-        "description": "Invite the customer to book another clean after 6 months.",
+        "rule_key": "carpet_refresh_reminder",
+        "label": "Carpet refresh reminder",
+        "description": "A personal, branded email sent 3, 6 or 12 months after a completed job.",
         "template_key": "maintenance_reminder_email",
         "sms_template_key": "maintenance_reminder_sms",
         "timing_type": "months_after_completion",
@@ -4702,19 +4702,7 @@ AUTOMATION_RULE_DEFAULTS = [
         "send_email": 0,
         "send_sms": 0,
         "owner_email_copy": 0,
-    },
-    {
-        "rule_key": "maintenance_reminder_12_months",
-        "label": "Maintenance reminder after 12 months",
-        "description": "Invite the customer to book another clean after 12 months.",
-        "template_key": "maintenance_reminder_email",
-        "sms_template_key": "maintenance_reminder_sms",
-        "timing_type": "months_after_completion",
-        "timing_value": "12",
-        "send_time": "10:00",
-        "send_email": 0,
-        "send_sms": 0,
-        "owner_email_copy": 0,
+        "active": 0,
     },
 ]
 
@@ -4920,10 +4908,70 @@ def carpet_options_guide_email_html(customer, plain_body):
 </html>"""
 
 
+def carpet_refresh_interval(value):
+    try:
+        months = int(value or 6)
+    except (TypeError, ValueError):
+        months = 6
+    return months if months in {3, 6, 12} else 6
+
+
+def carpet_refresh_replacements(customer, job=None, interval=6):
+    replacements = customer_message_replacements(customer, job)
+    months = carpet_refresh_interval(interval)
+    replacements["{{interval_months}}"] = str(months)
+    replacements["{{interval_words}}"] = {3: "three months", 6: "six months", 12: "a year"}[months]
+    replacements["{{first_name}}"] = customer_first_name(row_value(customer, "first_name"))
+    return replacements
+
+
+def carpet_refresh_email_html(customer, plain_body, interval=6):
+    months = carpet_refresh_interval(interval)
+    interval_words = {3: "three months", 6: "six months", 12: "a year"}[months]
+    first_name = customer_first_name(row_value(customer, "first_name"))
+    business_settings = settings()
+    business = clean_str(row_value(business_settings, "business_name")) or "The Carpet Cleaning Company"
+    phone = clean_str(row_value(business_settings, "phone"))
+    website_url = clean_str(row_value(business_settings, "website")) or enquiry_public_site_url()
+    logo_url = public_static_or_live_url("site/email-logo.png")
+    hero_url = public_static_or_live_url("site/hero-carpet-cleaning.webp")
+    logo_html = f'<img src="{html_lib.escape(logo_url)}" alt="{html_lib.escape(business)}" width="108" style="display:block;width:108px;height:auto;border:0;margin:0 auto">' if logo_url else ""
+    hero_html = f'<img src="{html_lib.escape(hero_url)}" alt="Professional carpet cleaning in progress" width="580" style="display:block;width:100%;max-width:580px;height:auto;border:0;border-radius:18px">' if hero_url else ""
+    message_html = html_lib.escape(plain_body or "").replace("\n", "<br>")
+    contact_lines = []
+    if phone:
+        contact_lines.append(f'<a href="tel:{html_lib.escape(re.sub(r"[^0-9+]", "", phone))}" style="color:#0d5c4e;text-decoration:none;font-weight:800">{html_lib.escape(phone)}</a>')
+    if website_url:
+        contact_lines.append(f'<a href="{html_lib.escape(website_url)}" style="color:#0d5c4e;text-decoration:none;font-weight:800;word-break:break-all">{html_lib.escape(website_url.replace("https://", "").replace("http://", "").rstrip("/"))}</a>')
+    contact_html = "<br>".join(contact_lines)
+    cta_html = email_action_button("Arrange a carpet refresh", website_url, "#d8af55", "#071524") if website_url else ""
+    return f"""<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;background:#eef4f3;font-family:Arial,Helvetica,sans-serif;color:#071524">
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent">A friendly {html_lib.escape(interval_words)} carpet-care reminder from {html_lib.escape(business)}.</div>
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#eef4f3;margin:0;padding:0"><tr><td align="center" style="padding:28px 14px">
+    <table role="presentation" width="640" cellspacing="0" cellpadding="0" style="width:100%;max-width:640px;background:#fffdf8;border-radius:26px;overflow:hidden;border:1px solid #dfd7c8">
+      <tr><td style="height:8px;background:#d8af55;font-size:0;line-height:0">&nbsp;</td></tr>
+      <tr><td align="center" style="padding:28px 30px 24px;background:#fff9ec;border-bottom:1px solid #eadfc9">
+        {logo_html}<div style="margin-top:12px;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#987125;font-weight:900">A gentle carpet-care reminder</div>
+        <h1 style="margin:10px 0 0;font-family:Georgia,serif;font-size:31px;line-height:1.16;color:#071524">Could your carpets do with a refresh?</h1>
+        <p style="margin:10px auto 0;max-width:510px;font-size:16px;line-height:1.55;color:#4c5d6d">Hi {html_lib.escape(first_name)}, it has been around {html_lib.escape(interval_words)} since your last clean.</p>
+      </td></tr>
+      <tr><td style="padding:24px 30px 12px">{hero_html}</td></tr>
+      <tr><td style="padding:12px 30px 8px"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#ffffff;border:1px solid #e4ddcf;border-radius:18px"><tr><td style="padding:21px;font-size:16px;line-height:1.68;color:#405367">{message_html}</td></tr></table></td></tr>
+      <tr><td style="padding:12px 30px 8px"><table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td>{cta_html}</td></tr></table></td></tr>
+      <tr><td style="padding:14px 30px 27px"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-top:1px solid #e4ddcf"><tr><td style="padding-top:19px;font-size:15px;line-height:1.65;color:#4c5d6d"><strong style="color:#071524">Paul Nicholas</strong><br>{html_lib.escape(business)}{('<br>' + contact_html) if contact_html else ''}</td></tr></table></td></tr>
+    </table>
+  </td></tr></table>
+</body></html>"""
+
+
 def visual_customer_email_html(template_key, customer, job, plain_body):
     job_context = customer_email_job_context(customer, job)
     if template_key == "carpet_cleaning_options_guide_email":
         return carpet_options_guide_email_html(customer, plain_body)
+    if template_key == "maintenance_reminder_email":
+        return carpet_refresh_email_html(customer, plain_body, 6)
     if template_key == "booking_confirmation_email":
         return booking_confirmation_email_html(job_context)
     day_kind = {
@@ -4933,7 +4981,6 @@ def visual_customer_email_html(template_key, customer, job, plain_body):
         "review_request_message": "review",
         "payment_received_email": "payment",
         "unable_to_reach_email": "missed",
-        "maintenance_reminder_email": "maintenance",
     }.get(template_key)
     if day_kind:
         return day_run_email_html(day_kind, job_context, plain_body)
@@ -5024,7 +5071,7 @@ def automation_settings_rows():
                     merged[key] = row[key]
             merged["active"] = row["active"] if "active" in row.keys() else 1
         else:
-            merged["active"] = 1
+            merged["active"] = int(default.get("active", 0))
         merged["timing_label"] = AUTOMATION_TIMING_LABELS.get(merged["timing_type"], merged["timing_type"])
         out.append(merged)
     return out
@@ -5155,7 +5202,10 @@ def automation_send_for_rule(rule, job, dry_run=False):
     }
     job_context = dict(job)
     job_context["id"] = job_id
-    replacements = customer_message_replacements(customer, job_context)
+    if clean_str(row_value(rule, "rule_key")) == "carpet_refresh_reminder":
+        replacements = carpet_refresh_replacements(customer, job_context, row_value(rule, "timing_value"))
+    else:
+        replacements = customer_message_replacements(customer, job_context)
     channels = []
     if int(row_value(rule, "send_email", 0) or 0) == 1:
         channels.append(("email", row_value(rule, "template_key")))
@@ -5169,7 +5219,10 @@ def automation_send_for_rule(rule, job, dry_run=False):
         body = render_simple_template(template.get("body") or "", replacements)
         html_body = ""
         if channel == "email":
-            html_body = visual_customer_email_html(template_key, customer, job_context, body)
+            if clean_str(row_value(rule, "rule_key")) == "carpet_refresh_reminder":
+                html_body = carpet_refresh_email_html(customer, body, row_value(rule, "timing_value"))
+            else:
+                html_body = visual_customer_email_html(template_key, customer, job_context, body)
         if dry_run:
             ok, msg, recipient = True, "Dry run: would send.", row_value(customer, "email") if channel == "email" else row_value(customer, "phone")
         else:
@@ -8447,9 +8500,18 @@ def init_db():
             (
                 rule["rule_key"], rule["label"], rule["description"], rule["template_key"], rule["sms_template_key"],
                 rule["timing_type"], rule["timing_value"], rule["send_time"], rule["send_email"], rule["send_sms"],
-                rule["owner_email_copy"], 1,
+                rule["owner_email_copy"], int(rule.get("active", 1)),
             ),
         )
+    conn.execute(
+        """UPDATE message_templates SET name=?, subject=?, body=?, updated_at=datetime('now')
+             WHERE template_key='maintenance_reminder_email'""",
+        (
+            DEFAULT_MESSAGE_TEMPLATES["maintenance_reminder_email"]["name"],
+            DEFAULT_MESSAGE_TEMPLATES["maintenance_reminder_email"]["subject"],
+            DEFAULT_MESSAGE_TEMPLATES["maintenance_reminder_email"]["body"],
+        ),
+    )
     conn.execute(
         """UPDATE communication_automation_settings
               SET sms_template_key='review_request_sms', updated_at=datetime('now')
@@ -11289,6 +11351,10 @@ def communication_automation_settings():
             owner_email_copy = 1 if request.form.get(f"{key}_owner_email_copy") == "1" else 0
             timing_type = clean_str(request.form.get(f"{key}_timing_type")) or default["timing_type"]
             timing_value = clean_str(request.form.get(f"{key}_timing_value")) or default["timing_value"]
+            if key == "carpet_refresh_reminder":
+                timing_type = "months_after_completion"
+                timing_value = str(carpet_refresh_interval(timing_value))
+                send_sms = 0
             send_time = clean_str(request.form.get(f"{key}_send_time")) or default["send_time"]
             run("""INSERT INTO communication_automation_settings
                    (rule_key, label, description, template_key, sms_template_key, timing_type, timing_value, send_time,
@@ -11311,13 +11377,71 @@ def communication_automation_settings():
         return redirect(url_for("communication_automation_settings"))
     logs = q("""SELECT * FROM communication_automation_log
                 ORDER BY id DESC LIMIT 40""")
+    refresh_customers = q("""SELECT DISTINCT customers.id, customers.first_name, customers.last_name, customers.email
+                              FROM customers JOIN jobs ON jobs.customer_id=customers.id
+                              WHERE IFNULL(customers.archived_at,'')=''
+                                AND IFNULL(customers.email,'')<>''
+                                AND lower(IFNULL(jobs.status,'')) IN ('completed','invoiced','paid')
+                              ORDER BY customers.first_name COLLATE NOCASE, customers.last_name COLLATE NOCASE""")
+    refresh_rule = next((item for item in automation_settings_rows() if item["rule_key"] == "carpet_refresh_reminder"), None)
+    refresh_interval = carpet_refresh_interval(refresh_rule["timing_value"] if refresh_rule else 6)
+    _preview_customer, _preview_job, _preview_subject, _preview_body, refresh_preview_html = carpet_refresh_preview_payload(0, refresh_interval)
     return render_template(
         "communication_automation.html",
         rules=automation_settings_rows(),
         timing_labels=AUTOMATION_TIMING_LABELS,
         logs=logs,
         automation_secret_set=bool(os.environ.get("AUTOMATION_SECRET", "").strip()),
+        refresh_customers=refresh_customers,
+        refresh_preview_html=refresh_preview_html,
     )
+
+
+def carpet_refresh_preview_payload(customer_id=0, interval=6):
+    customer = q("SELECT * FROM customers WHERE id=?", (customer_id,), one=True) if customer_id else None
+    if not customer:
+        customer = {"id": 0, "first_name": "Sarah", "last_name": "", "email": "preview@example.invalid", "phone": "", "address": "", "town": "", "postcode": "", "sms_opt_out": 0}
+    job = latest_customer_job(row_value(customer, "id")) if row_value(customer, "id") else None
+    template = message_template("maintenance_reminder_email")
+    replacements = carpet_refresh_replacements(customer, job, interval)
+    subject = render_simple_template(template.get("subject") or "A carpet-care reminder", replacements)
+    body = render_simple_template(template.get("body") or "", replacements)
+    return customer, job, subject, body, carpet_refresh_email_html(customer, body, interval)
+
+
+@app.route("/communication-automation/carpet-refresh/preview")
+@login_required
+def carpet_refresh_preview():
+    customer_id = int(request.args.get("customer_id") or 0)
+    interval = carpet_refresh_interval(request.args.get("interval"))
+    _customer, _job, _subject, _body, email_html = carpet_refresh_preview_payload(customer_id, interval)
+    return Response(email_html, mimetype="text/html")
+
+
+@app.route("/communication-automation/carpet-refresh/send", methods=["POST"])
+@login_required
+def carpet_refresh_send():
+    customer_id = int(request.form.get("customer_id") or 0)
+    interval = carpet_refresh_interval(request.form.get("interval"))
+    test_mode = request.form.get("send_mode") == "test"
+    customer, job, subject, body, email_html = carpet_refresh_preview_payload(customer_id, interval)
+    if not test_mode and not customer_id:
+        flash("Choose a customer before sending the reminder.")
+        return redirect(url_for("communication_automation_settings") + "#carpet-refresh-reminder")
+    if not test_mode and not job:
+        flash("This customer has no job history, so the reminder was not sent.")
+        return redirect(url_for("communication_automation_settings") + "#carpet-refresh-reminder")
+    job_id = row_value(job, "id") or 0
+    if not test_mode and automation_already_sent("carpet_refresh_reminder", customer_id, job_id, "email"):
+        flash("This carpet refresh reminder has already been sent for that customer and job. Nothing was sent twice.")
+        return redirect(url_for("communication_automation_settings") + "#carpet-refresh-reminder")
+    ok, message, recipient = send_rendered_customer_message(customer, "email", subject, body, test_mode=test_mode, html_body=email_html)
+    if ok and not test_mode:
+        due_at = datetime.now(ZoneInfo("Europe/London"))
+        automation_log("carpet_refresh_reminder", customer_id, job_id, "email", recipient, subject, body, "Sent", "Manual send: " + message, due_at)
+        log_customer_message(customer_id, "Email", subject, body)
+    flash(("Test email sent: " if ok and test_mode else "Reminder sent: " if ok else "Send failed: ") + message)
+    return redirect(url_for("communication_automation_settings") + "#carpet-refresh-reminder")
 
 
 def automation_request_authorized():

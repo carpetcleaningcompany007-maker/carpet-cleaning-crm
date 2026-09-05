@@ -29,6 +29,40 @@
   <form method="post" class="form automation-settings-form">
     <div class="automation-rule-grid">
       {% for rule in rules %}
+      {% if rule.rule_key == 'carpet_refresh_reminder' %}
+      <section class="panel automation-rule-card refresh-reminder-card" id="carpet-refresh-reminder">
+        <div class="refresh-card-head">
+          <div><span class="section-kicker">Branded rebooking email</span><h3>Carpet refresh reminder</h3><p>A warm, personal reminder using the official logo, a real cleaning photograph and your saved contact details.</p></div>
+          <label class="toggle-line refresh-toggle"><input type="checkbox" name="{{ rule.rule_key }}_active" value="1" {% if rule.active|int == 1 %}checked{% endif %}><span>Automation {{ 'ON' if rule.active|int == 1 else 'OFF' }}</span></label>
+        </div>
+        <input type="hidden" name="{{ rule.rule_key }}_timing_type" value="months_after_completion">
+        <input type="hidden" name="{{ rule.rule_key }}_send_email" value="1">
+        <div class="refresh-settings-grid">
+          <label>Send after
+            <select name="{{ rule.rule_key }}_timing_value" id="refreshInterval">
+              {% for months, label in [(3,'3 months'),(6,'6 months'),(12,'12 months')] %}<option value="{{ months }}" {% if rule.timing_value|int == months %}selected{% endif %}>{{ label }} after the completed job</option>{% endfor %}
+            </select>
+          </label>
+          <label>Send time<input type="time" name="{{ rule.rule_key }}_send_time" value="{{ rule.send_time or '10:00' }}"></label>
+          <label class="refresh-owner-copy"><input type="checkbox" name="{{ rule.rule_key }}_owner_email_copy" value="1" {% if rule.owner_email_copy|int == 1 %}checked{% endif %}> Send me a copy when a customer reminder is sent</label>
+        </div>
+        <div class="refresh-safety"><strong>Safe by design</strong><span>Off by default · completed jobs only · one email per customer, job and channel · overdue sends limited by the safety window.</span></div>
+        <div class="refresh-preview-frame"><iframe id="refreshPreview" title="Exact carpet refresh email preview" srcdoc="{{ refresh_preview_html|e }}"></iframe></div>
+        <div class="refresh-manual-tools">
+          <label>Preview or send for a saved customer
+            <select id="refreshCustomer" name="refresh_customer_display">
+              <option value="">Preview with sample first name</option>
+              {% for customer in refresh_customers %}<option value="{{ customer.id }}">{{ (customer.first_name ~ ' ' ~ customer.last_name)|trim }} · {{ customer.email }}</option>{% endfor %}
+            </select>
+          </label>
+          <div class="refresh-actions">
+            <button class="btn secondary" type="button" id="refreshPreviewButton">Update exact preview</button>
+            <button class="btn secondary" type="submit" form="refreshTestForm">Test email to me</button>
+            <button class="btn primary" type="submit" form="refreshManualForm">Send to selected customer</button>
+          </div>
+        </div>
+      </section>
+      {% else %}
       <section class="panel automation-rule-card">
         <div class="panel-head compact-head">
           <div>
@@ -62,10 +96,13 @@
         </label>
         <p class="muted">Email template: <strong>{{ rule.template_key }}</strong><br>SMS template: <strong>{{ rule.sms_template_key }}</strong></p>
       </section>
+      {% endif %}
       {% endfor %}
     </div>
     <button class="btn primary">Save Automation Settings</button>
   </form>
+  <form method="post" action="{{ url_for('carpet_refresh_send') }}" id="refreshTestForm"><input type="hidden" name="send_mode" value="test"><input type="hidden" name="interval" class="refresh-interval-mirror" value="6"><input type="hidden" name="customer_id" class="refresh-customer-mirror" value=""></form>
+  <form method="post" action="{{ url_for('carpet_refresh_send') }}" id="refreshManualForm"><input type="hidden" name="send_mode" value="manual"><input type="hidden" name="interval" class="refresh-interval-mirror" value="6"><input type="hidden" name="customer_id" class="refresh-customer-mirror" value=""></form>
 </section>
 
 <section class="panel">
@@ -93,4 +130,19 @@
     </table>
   </div>
 </section>
+<script>
+(function(){
+  const interval=document.getElementById('refreshInterval');
+  const customer=document.getElementById('refreshCustomer');
+  const frame=document.getElementById('refreshPreview');
+  const button=document.getElementById('refreshPreviewButton');
+  if(!interval||!customer||!frame)return;
+  function sync(){
+    document.querySelectorAll('.refresh-interval-mirror').forEach(el=>el.value=interval.value);
+    document.querySelectorAll('.refresh-customer-mirror').forEach(el=>el.value=customer.value);
+  }
+  async function preview(){sync();const params=new URLSearchParams({interval:interval.value});if(customer.value)params.set('customer_id',customer.value);const response=await fetch('{{ url_for("carpet_refresh_preview") }}?'+params.toString(),{credentials:'same-origin'});frame.srcdoc=await response.text();}
+  interval.addEventListener('change',preview);customer.addEventListener('change',preview);button.addEventListener('click',preview);sync();
+})();
+</script>
 {% endblock %}
