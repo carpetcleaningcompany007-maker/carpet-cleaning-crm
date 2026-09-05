@@ -37,4 +37,11 @@ Phase screenshots: `audit-g1-*-phone-final2.png`, `audit-g1-*-desktop-final2.png
 
 ## Remaining phases
 
-- Available create/edit/detail views using safe local records or isolated test data
+## Detail/create pass
+
+| Route | Phone | Desktop | Overflow | Manual visual result |
+| --- | --- | --- | --- | --- |
+| `/customers/1` | checked | checked | none (390/390, 1440/1440) | Read-only QA record: balanced identity/contact summary, Xero state/actions and staged workflow |
+| `/jobs/new` → `/jobs?new=1` | checked | checked | none (390/390, 1440/1440) | New-job modal has readable labels, 48px+ controls, mobile full-width fields and desktop two-column grouping |
+
+Remaining detail/create views require isolated seeded test records because the local QA database has no jobs, quotes, invoices, enquiries, inbound emails or SMS threads.
