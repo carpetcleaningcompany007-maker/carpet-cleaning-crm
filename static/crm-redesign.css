@@ -257,6 +257,48 @@
   body.app-page.page-dashboard .mobile-appbar-title small{font-size:15px!important}
 }
 
+/* Measured alignment — final cascade override. */
+@media(max-width:760px){
+  body.app-page.page-dashboard .mobile-appbar{min-height:94px!important;padding:14px 19px!important}
+  body.app-page.page-dashboard .mobile-appbar-title{gap:18px!important}
+  body.app-page.page-dashboard .mobile-appbar-mark{width:52px!important;height:52px!important;flex-basis:52px!important}
+  body.app-page.page-dashboard .mobile-appbar-title strong{font-size:23px!important}
+  body.app-page.page-dashboard .pro-dashboard{padding-top:13px!important}
+  body.app-page.page-dashboard .pro-dashboard-title{margin-bottom:10px!important}
+  body.app-page.page-dashboard .pro-metric{min-height:163px!important;padding-top:11px!important}
+  body.app-page.page-dashboard .pro-metric-icon{width:43px!important;height:43px!important}
+  body.app-page.page-dashboard .pro-activity,body.app-page.page-dashboard .pro-actions{border-radius:8px!important;box-shadow:0 2px 7px rgba(8,31,59,.07)!important}
+  body.app-page.page-dashboard .pro-activity-list>a{min-height:61px!important}
+  body.app-page.page-dashboard .pro-activity{min-height:230px!important}
+  body.app-page.page-dashboard .pro-actions{padding-top:13px!important}
+  body.app-page.page-dashboard .pro-action-strip a{min-height:76px!important}
+  body.app-page.page-dashboard .mobile-bottom-nav{min-height:84px!important;padding-top:8px!important;padding-bottom:calc(8px + env(safe-area-inset-bottom))!important}
+  body.app-page.page-dashboard .mobile-bottom-nav a{font-size:11px!important}
+  body.app-page.page-dashboard .mobile-bottom-nav a>span,body.app-page.page-dashboard .mobile-bottom-nav .mobile-add>span{width:33px!important;height:33px!important}
+  body.app-page.page-dashboard .mobile-bottom-nav svg{width:27px!important;height:27px!important}
+}
+@media(max-width:390px){
+  body.app-page.page-dashboard .mobile-appbar{padding-inline:18px!important}
+  body.app-page.page-dashboard .mobile-appbar-title{gap:18px!important}
+  body.app-page.page-dashboard .mobile-appbar-mark{width:50px!important;height:50px!important;flex-basis:50px!important}
+  body.app-page.page-dashboard .mobile-appbar-title strong{font-size:22px!important}
+}
+
+/* Authenticated 390px screenshot calibration. */
+@media(max-width:760px){
+  body.app-page.page-dashboard .mobile-appbar{min-height:89px!important;padding-block:11px!important}
+  body.app-page.page-dashboard .mobile-appbar-title{gap:18px!important}
+  body.app-page.page-dashboard .mobile-appbar-mark{width:64px!important;height:64px!important;flex-basis:64px!important}
+  body.app-page.page-dashboard .pro-dashboard{padding-top:8px!important}
+  body.app-page.page-dashboard .pro-dashboard-title{margin-bottom:1px!important}
+  body.app-page.page-dashboard .pro-metric{min-height:168px!important}
+  body.app-page.page-dashboard .pro-action-strip a{min-height:58px!important}
+}
+@media(max-width:390px){
+  body.app-page.page-dashboard .mobile-appbar{padding-inline:18px!important}
+  body.app-page.page-dashboard .mobile-appbar-mark{width:64px!important;height:64px!important;flex-basis:64px!important}
+}
+
 /* Reference rules must remain the final phone-width authority. */
 @media(max-width:760px){
   body.app-page.page-dashboard{background:#fff!important}
@@ -285,6 +327,33 @@
   body.app-page.page-dashboard .mobile-appbar-title{gap:10px!important}
   body.app-page.page-dashboard .mobile-appbar-title strong{font-size:21px!important}
   body.app-page.page-dashboard .mobile-appbar-title small{font-size:16px!important}
+}
+
+/* Measured 390px alignment against the supplied reference and live capture. */
+@media(max-width:760px){
+  body.app-page.page-dashboard .mobile-appbar{min-height:94px!important;padding:14px 19px!important}
+  body.app-page.page-dashboard .mobile-appbar-title{gap:18px!important}
+  body.app-page.page-dashboard .mobile-appbar-mark{width:52px!important;height:52px!important;flex-basis:52px!important}
+  body.app-page.page-dashboard .mobile-appbar-title strong{font-size:23px!important}
+  body.app-page.page-dashboard .pro-dashboard{padding-top:13px!important}
+  body.app-page.page-dashboard .pro-dashboard-title{margin-bottom:10px!important}
+  body.app-page.page-dashboard .pro-metric{min-height:163px!important;padding-top:11px!important}
+  body.app-page.page-dashboard .pro-metric-icon{width:43px!important;height:43px!important}
+  body.app-page.page-dashboard .pro-activity,body.app-page.page-dashboard .pro-actions{border-radius:8px!important;box-shadow:0 2px 7px rgba(8,31,59,.07)!important}
+  body.app-page.page-dashboard .pro-activity-list>a{min-height:61px!important}
+  body.app-page.page-dashboard .pro-activity{min-height:230px!important}
+  body.app-page.page-dashboard .pro-actions{padding-top:13px!important}
+  body.app-page.page-dashboard .pro-action-strip a{min-height:76px!important}
+  body.app-page.page-dashboard .mobile-bottom-nav{min-height:84px!important;padding-top:8px!important;padding-bottom:calc(8px + env(safe-area-inset-bottom))!important}
+  body.app-page.page-dashboard .mobile-bottom-nav a{font-size:11px!important}
+  body.app-page.page-dashboard .mobile-bottom-nav a>span,body.app-page.page-dashboard .mobile-bottom-nav .mobile-add>span{width:33px!important;height:33px!important}
+  body.app-page.page-dashboard .mobile-bottom-nav svg{width:27px!important;height:27px!important}
+}
+@media(max-width:390px){
+  body.app-page.page-dashboard .mobile-appbar{padding-inline:18px!important}
+  body.app-page.page-dashboard .mobile-appbar-title{gap:18px!important}
+  body.app-page.page-dashboard .mobile-appbar-mark{width:50px!important;height:50px!important;flex-basis:50px!important}
+  body.app-page.page-dashboard .mobile-appbar-title strong{font-size:22px!important}
 }
 
 /* Mobile dashboard readability QA — deliberately last in the cascade. */
