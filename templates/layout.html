@@ -8,7 +8,7 @@
   <link rel="icon" href="{{ url_for('static', filename='site/site-icon-512.png') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=auth-polish-20260904-1">
   <link rel="stylesheet" href="{{ url_for('static', filename='beautiful.css') }}?v=proper-redesign-20260606-1">
-  <link rel="stylesheet" href="{{ url_for('static', filename='crm-redesign.css') }}?v=app-shell-20260905-2">
+  <link rel="stylesheet" href="{{ url_for('static', filename='crm-redesign.css') }}?v=app-shell-20260905-3">
   <style>:root{--accent: {{ biz.accent or '#56718f' }}; --sidebar-color: {{ biz.sidebar_color or '#1f2933' }};}</style>
 </head>
 {% if session.get('logged_in') and not public_mode %}
@@ -24,7 +24,7 @@
   </button>
   <div class="mobile-appbar-title">
     <img class="mobile-appbar-logo" src="{% if biz.logo_filename %}{{ url_for('uploaded_file', filename=biz.logo_filename) }}{% else %}{{ url_for('static', filename='site/logo.webp') }}{% endif %}" alt="">
-    <span><strong>Carpet Clean Pro CRM</strong><small>Business workspace</small></span>
+    <span><strong>Carpet Clean Pro</strong><small>CRM</small></span>
   </div>
   <a class="icon-btn mobile-alert-action" href="{{ url_for('intake_forms') }}" aria-label="Open enquiries"><span aria-hidden="true">!</span></a>
 </div>
