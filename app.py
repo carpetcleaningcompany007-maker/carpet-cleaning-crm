@@ -60,6 +60,26 @@ XERO_CONNECTIONS_URL = "https://api.xero.com/connections"
 XERO_CONTACTS_URL = "https://api.xero.com/api.xro/2.0/Contacts"
 XERO_INVOICES_URL = "https://api.xero.com/api.xro/2.0/Invoices"
 XERO_PAYMENTS_URL = "https://api.xero.com/api.xro/2.0/Payments"
+XERO_ITEMS_URL = "https://api.xero.com/api.xro/2.0/Items"
+
+XERO_QUOTE_CATALOGUE = {
+    "Lounge": {
+        "name": "Large Room / Lounge Carpet Clean", "price": 75.0,
+        "description": "Professional deep carpet cleaning for a lounge or other large room. Includes thorough vacuuming, pre-treatment of suitable marks and a deep extraction clean for a fresh, revitalised finish.",
+    },
+    "Room1": {
+        "name": "Standard Bedroom / Room Carpet Clean", "price": 45.0,
+        "description": "Professional deep carpet cleaning for one standard bedroom or room. Includes thorough vacuuming, pre-treatment of suitable marks and a deep extraction clean.",
+    },
+    "SMALL25": {
+        "name": "Small Room / Box Room / Hallway Carpet Clean", "price": 25.0,
+        "description": "Professional carpet cleaning for a small room, box room, hallway or similar small area. Includes vacuuming, suitable spot treatment and deep extraction cleaning.",
+    },
+    "PROT1": {
+        "name": "Stain Guard Protection", "price": 45.0,
+        "description": "Professional stain-guard protection applied after cleaning to help repel everyday spills and make future vacuuming and spot cleaning easier.",
+    },
+}
 GOOGLE_AUTHORIZE_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 GOOGLE_CALENDAR_API_URL = "https://www.googleapis.com/calendar/v3"
@@ -5473,7 +5493,15 @@ def normalise_quote_line(line):
         line_total = float(line.get("line_total") if line.get("line_total") not in (None, "") else line.get("total") or 0)
     except (TypeError, ValueError):
         line_total = 0.0
-    if not line_total and quantity and unit_price:
+    item_code = clean_str(line.get("item_code") or line.get("code"))
+    discount_percent = float(line.get("discount_percent") or 0)
+    base_unit_price = float(line.get("base_unit_price") or unit_price)
+    if discount_percent:
+        if item_code != "PROT1" or discount_percent != 50:
+            raise ValueError("Only the explicit half-price protection offer is supported.")
+        unit_price = round(base_unit_price * 0.5, 2)
+        line_total = round(quantity * unit_price, 2)
+    elif not line_total and quantity and unit_price:
         line_total = quantity * unit_price
     return {
         "item_name": item_name,
@@ -5482,7 +5510,22 @@ def normalise_quote_line(line):
         "unit_price": unit_price,
         "line_total": round(line_total, 2),
         "group_name": group_name,
+        "item_code": item_code,
+        "base_unit_price": base_unit_price,
+        "discount_percent": discount_percent,
     }
+
+
+def xero_catalogue_quote_line(item_code, quantity=1, offer=""):
+    item = XERO_QUOTE_CATALOGUE.get(clean_str(item_code))
+    if not item:
+        raise ValueError("Choose a recognised Xero catalogue item.")
+    discount = 50.0 if clean_str(offer).lower() in {"half price protection", "half-price protection"} and item_code == "PROT1" else 0.0
+    return normalise_quote_line({
+        "item_code": item_code, "item_name": item["name"], "method": item["description"],
+        "quantity": quantity, "unit_price": item["price"], "base_unit_price": item["price"],
+        "discount_percent": discount,
+    })
 
 
 def calc_from_payload(payload):
@@ -14730,11 +14773,11 @@ def xero_token_request(data):
         raise RuntimeError(f"Xero token request failed: {body}") from exc
 
 
-def refresh_xero_token_if_needed():
+def refresh_xero_token_if_needed(force=False):
     row = xero_token_row()
     if not row or not row["refresh_token"]:
         raise RuntimeError("Xero is not connected yet. Use Xero Connect first.")
-    if row["access_token"] and int(row["expires_at"] or 0) > int(time.time()):
+    if not force and row["access_token"] and int(row["expires_at"] or 0) > int(time.time()):
         return row["access_token"], row["tenant_id"]
     payload = xero_token_request({
         "grant_type": "refresh_token",
@@ -14745,7 +14788,7 @@ def refresh_xero_token_if_needed():
     return refreshed["access_token"], refreshed["tenant_id"]
 
 
-def xero_api_request(url, method="GET", payload=None, idempotency_key=None):
+def xero_api_request(url, method="GET", payload=None, idempotency_key=None, _retry_auth=True):
     access_token, tenant_id = refresh_xero_token_if_needed()
     if not tenant_id:
         tenant_id = choose_xero_tenant(access_token)
@@ -14767,8 +14810,37 @@ def xero_api_request(url, method="GET", payload=None, idempotency_key=None):
             return json.loads(raw) if raw else {}
     except urllib.error.HTTPError as exc:
         body_text = exc.read().decode("utf-8", errors="replace")
+        if exc.code == 401 and _retry_auth:
+            refresh_xero_token_if_needed(force=True)
+            return xero_api_request(url, method=method, payload=payload, idempotency_key=idempotency_key, _retry_auth=False)
         logger.exception("Xero API request failed: %s", body_text)
         raise RuntimeError(f"Xero API request failed: {body_text}") from exc
+
+
+def sync_xero_quote_catalogue():
+    current = xero_api_request(XERO_ITEMS_URL).get("Items", []) or []
+    by_code = {clean_str(item.get("Code")): item for item in current}
+    changes = []
+    payload_items = []
+    for code, desired in XERO_QUOTE_CATALOGUE.items():
+        existing = by_code.get(code)
+        sales = dict((existing or {}).get("SalesDetails") or {})
+        sales.update({
+            "UnitPrice": desired["price"], "Description": desired["description"],
+            "AccountCode": clean_str(sales.get("AccountCode")) or "200",
+            "TaxType": clean_str(sales.get("TaxType")) or "NONE",
+        })
+        item = {"Code": code, "Name": desired["name"], "IsSold": True, "SalesDetails": sales}
+        if existing and existing.get("ItemID"):
+            item["ItemID"] = existing["ItemID"]
+        payload_items.append(item)
+        changes.append({"action": "updated" if existing else "created", "code": code, **desired})
+    result = xero_api_request(
+        XERO_ITEMS_URL, method="POST", payload={"Items": payload_items},
+        idempotency_key="quote-catalogue-pricing-20260905-v1",
+    )
+    log_xero_sync("catalogue", 0, "sync_quote_catalogue", "ok", "Quote catalogue created or updated", result)
+    return changes
 
 
 def friendly_xero_error(error):
@@ -15449,13 +15521,18 @@ def xero_line_items_for_invoice(invoice, calc):
         unit_amount = float(line.get("unit_price") or line.get("line_total") or 0)
         if quantity <= 0:
             quantity = 1
-        line_items.append({
+        xero_line = {
             "Description": desc,
             "Quantity": quantity,
-            "UnitAmount": unit_amount,
+            "UnitAmount": float(line.get("base_unit_price") or unit_amount),
             "AccountCode": account_code,
             "TaxType": tax_type,
-        })
+        }
+        if clean_str(line.get("item_code")):
+            xero_line["ItemCode"] = clean_str(line.get("item_code"))
+        if float(line.get("discount_percent") or 0):
+            xero_line["DiscountRate"] = float(line.get("discount_percent"))
+        line_items.append(xero_line)
     if not line_items:
         subtotal = float(invoice["subtotal"] or invoice["total"] or 0)
         line_items.append({
@@ -16906,6 +16983,18 @@ def xero_test():
     except Exception as exc:
         logger.exception("Xero test failed")
         flash(str(exc))
+    return redirect(url_for("xero_dashboard"))
+
+
+@app.route("/xero/sync-quote-catalogue", methods=["POST"])
+@login_required
+def xero_sync_quote_catalogue():
+    try:
+        changes = sync_xero_quote_catalogue()
+        flash("Xero quote catalogue updated safely: " + ", ".join(item["code"] for item in changes))
+    except Exception as exc:
+        logger.exception("Xero quote catalogue sync failed")
+        flash("Xero quote catalogue was not updated: " + friendly_xero_error(exc))
     return redirect(url_for("xero_dashboard"))
 
 

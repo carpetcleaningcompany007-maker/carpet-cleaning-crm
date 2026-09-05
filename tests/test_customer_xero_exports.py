@@ -267,6 +267,42 @@ class CustomerXeroExportTests(unittest.TestCase):
             )
         self.assertEqual(outcome["contact_id"], "xero-sue")
 
+    def test_half_price_protection_is_explicit_fifty_percent_discount(self):
+        line = self.mod.xero_catalogue_quote_line("PROT1", quantity=2, offer="half-price protection")
+        self.assertEqual(line["base_unit_price"], 45.0)
+        self.assertEqual(line["discount_percent"], 50.0)
+        self.assertEqual(line["unit_price"], 22.5)
+        self.assertEqual(line["line_total"], 45.0)
+        invoice = {
+            "id": 10, "payload_json": "", "subtotal": 45, "vat": 0, "total": 45,
+            "invoice_date": "2026-09-05", "due_date": "2026-09-05", "invoice_number": "Q-10", "notes": "",
+        }
+        xero_line = self.mod.xero_line_items_for_invoice(invoice, {"lines": [line]})[0]
+        self.assertEqual(xero_line["ItemCode"], "PROT1")
+        self.assertEqual(xero_line["UnitAmount"], 45.0)
+        self.assertEqual(xero_line["DiscountRate"], 50.0)
+
+    def test_quote_catalogue_sync_preserves_codes_and_updates_without_deleting(self):
+        existing = [{
+            "ItemID": "item-prot", "Code": "PROT1", "Name": "Old protection",
+            "SalesDetails": {"UnitPrice": 30, "AccountCode": "200", "TaxType": "NONE"},
+        }]
+        calls = []
+
+        def fake_xero(url, method="GET", payload=None, **kwargs):
+            calls.append((method, payload))
+            return {"Items": existing} if method == "GET" else {"Items": payload["Items"]}
+
+        with mock.patch.object(self.mod, "xero_api_request", side_effect=fake_xero):
+            changes = self.mod.sync_xero_quote_catalogue()
+        sent = calls[1][1]["Items"]
+        self.assertEqual({item["Code"] for item in sent}, {"Lounge", "Room1", "SMALL25", "PROT1"})
+        protection = next(item for item in sent if item["Code"] == "PROT1")
+        self.assertEqual(protection["ItemID"], "item-prot")
+        self.assertEqual(protection["SalesDetails"]["UnitPrice"], 45.0)
+        self.assertEqual(next(item for item in sent if item["Code"] == "SMALL25")["SalesDetails"]["UnitPrice"], 25.0)
+        self.assertEqual(len(changes), 4)
+
     def test_operator_can_explicitly_continue_without_address_and_action_is_audited(self):
         self.mod.run("UPDATE customers SET address='', postcode='' WHERE id=?", (self.first_id,))
         with mock.patch.object(self.mod, "find_xero_contact_match_for_customer", return_value={"contact": None, "reason": "No exact match found"}), \
