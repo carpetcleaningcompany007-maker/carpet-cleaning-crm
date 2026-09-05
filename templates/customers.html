@@ -2,17 +2,17 @@
 {% block page_title %}Customers{% endblock %}
 {% block body_content %}
 <section class="contacts-workspace page-shell">
-  <div class="contacts-head">
-    <div class="contacts-head-copy">
+  <header class="customers-page-heading">
+    <div class="customers-page-heading-copy">
       <span class="section-kicker">Customer library</span>
       <h1>Your customers</h1>
       <p>Find somebody quickly, see the essentials, and open their booking workspace.</p>
     </div>
-    <div class="contacts-actions">
+    <div class="customers-page-actions">
       <button class="btn primary" type="button" data-open-modal="customerModal">Add customer</button>
       <details class="customer-list-more"><summary class="btn secondary">More customer tools</summary><div><a href="{{ url_for('xero_dashboard') }}">Xero sync</a><a href="{{ url_for('export_customers_csv') }}">Download all customers CSV</a></div></details>
     </div>
-  </div>
+  </header>
 
   <div class="contact-stat-strip" aria-label="Contact summary">
     <div><span>Total</span><strong>{{ customer_stats.total }}</strong></div>
