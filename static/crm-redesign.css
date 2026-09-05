@@ -176,6 +176,55 @@
   .mobile-bottom-nav a{font-size:8.5px!important}
 }
 
+/* Pixel-reference dashboard shell — final authority at phone widths. */
+@media(max-width:760px){
+  body.app-page.page-dashboard{background:#fff!important}
+  body.app-page.page-dashboard .mobile-appbar{min-height:90px!important;padding:13px 18px!important;background:#031d3d!important;border:0!important;box-shadow:none!important}
+  body.app-page.page-dashboard .mobile-appbar-title{gap:13px!important}
+  body.app-page.page-dashboard .mobile-appbar-mark{display:block;width:62px;height:62px;flex:0 0 62px;overflow:visible;fill:#e8ad28;stroke:#e8ad28;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+  body.app-page.page-dashboard .mobile-appbar-mark path{fill:none}
+  body.app-page.page-dashboard .mobile-appbar-title strong{font-size:23px!important;line-height:1!important;letter-spacing:-.035em!important}
+  body.app-page.page-dashboard .mobile-appbar-title small{margin-top:4px!important;color:#e8ad28!important;font-size:16px!important;line-height:1!important}
+  body.app-page.page-dashboard .mobile-alert-action{width:34px!important;height:44px!important;flex:0 0 34px!important;padding:4px!important;border:0!important;background:transparent!important}
+  body.app-page.page-dashboard .mobile-alert-action svg{width:27px;height:27px;fill:none;stroke:#e8ad28;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+  body.app-page.page-dashboard .main{padding:0 10px 18px!important;background:#fff!important}
+  body.app-page.page-dashboard .pro-dashboard{padding:14px 0 8px!important}
+  body.app-page.page-dashboard .pro-dashboard-title{margin:0 4px 11px!important;padding:0!important;color:#071b3c!important;font:800 23px/1.1 system-ui,-apple-system,"Segoe UI",sans-serif!important;letter-spacing:-.035em!important}
+  body.app-page.page-dashboard .pro-dashboard-title::before,body.app-page.page-dashboard .pro-dashboard-title::after{content:none!important;display:none!important}
+  body.app-page.page-dashboard .pro-metrics{gap:5px!important}
+  body.app-page.page-dashboard .pro-metric{min-height:151px!important;padding:10px 3px 0!important;border:1px solid #e2e5e9!important;border-radius:9px!important;background:#fff!important;box-shadow:0 3px 9px rgba(8,31,59,.09)!important}
+  body.app-page.page-dashboard .pro-metric::before{content:none!important}
+  body.app-page.page-dashboard .pro-metric-icon{width:44px!important;height:44px!important;border:0!important;background:#fff4df!important;color:#ba7d00!important;box-shadow:none!important}
+  body.app-page.page-dashboard .pro-metric-icon svg{width:25px;height:25px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+  body.app-page.page-dashboard .pro-metric-icon.pro-pound{font-size:28px!important;font-weight:700!important}
+  body.app-page.page-dashboard .pro-metric-label{min-height:30px!important;margin-top:7px!important;color:#071b3c!important;font-size:10px!important;font-weight:750!important;line-height:1.15!important}
+  body.app-page.page-dashboard .pro-metric>strong{margin:1px 0 8px!important;color:#071b3c!important;font-size:23px!important;font-weight:850!important;letter-spacing:-.035em!important}
+  body.app-page.page-dashboard .pro-metric-link{min-height:31px!important;padding:0 8px 0 2px!important;border-top:1px solid #e5e7ea!important;background:#fff!important;color:#646e7b!important;font-size:9px!important;font-weight:500!important}
+  body.app-page.page-dashboard .pro-metric-link b{right:2px!important;color:#697381!important;font-size:18px!important}
+  body.app-page.page-dashboard .pro-activity,body.app-page.page-dashboard .pro-actions{margin-top:13px!important;padding:14px 12px!important;border:1px solid #e4e6e9!important;border-radius:12px!important;background:#fff!important;box-shadow:0 3px 9px rgba(8,31,59,.08)!important}
+  body.app-page.page-dashboard .pro-activity h2,body.app-page.page-dashboard .pro-actions h2{margin:0 0 8px!important;font-size:20px!important}
+  body.app-page.page-dashboard .pro-activity-list>a{min-height:55px!important;grid-template-columns:38px minmax(0,1fr) 12px!important;gap:9px!important}
+  body.app-page.page-dashboard .pro-list-icon{width:35px!important;height:35px!important;background:#fff4df!important;color:#ba7d00!important;font-size:16px!important}
+  body.app-page.page-dashboard .pro-activity-list strong{font-size:13px!important}
+  body.app-page.page-dashboard .pro-activity-list small{color:#66707d!important;font-size:10px!important}
+  body.app-page.page-dashboard .pro-actions{padding-bottom:0!important}
+  body.app-page.page-dashboard .pro-action-strip a{min-height:79px!important;padding:10px 2px!important}
+  body.app-page.page-dashboard .pro-action-strip span{color:#ba7d00!important;font-size:24px!important}
+  body.app-page.page-dashboard .pro-action-strip strong{font-size:10px!important;font-weight:650!important}
+  body.app-page.page-dashboard .mobile-bottom-nav{min-height:72px!important;padding:5px 5px calc(5px + env(safe-area-inset-bottom))!important;background:#fff!important;border-top:1px solid #e0e3e7!important;box-shadow:none!important}
+  body.app-page.page-dashboard .mobile-bottom-nav a{gap:3px!important;border-radius:0!important;background:transparent!important;color:#69717d!important;font-size:10px!important;font-weight:500!important}
+  body.app-page.page-dashboard .mobile-bottom-nav a>span,body.app-page.page-dashboard .mobile-bottom-nav .mobile-add>span{width:29px!important;min-width:29px!important;height:29px!important;margin:0!important;border:0!important;border-radius:0!important;background:transparent!important;color:inherit!important;box-shadow:none!important}
+  body.app-page.page-dashboard .mobile-bottom-nav svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+  body.app-page.page-dashboard .mobile-bottom-nav a.active{background:transparent!important;color:#061d3d!important;font-weight:750!important}
+  body.app-page.page-dashboard .mobile-bottom-nav a.active svg{fill:#061d3d;stroke:#061d3d}
+}
+@media(max-width:390px){
+  body.app-page.page-dashboard .mobile-appbar{padding-inline:14px!important}
+  body.app-page.page-dashboard .mobile-appbar-title{gap:10px!important}
+  body.app-page.page-dashboard .mobile-appbar-mark{width:57px;height:57px;flex-basis:57px}
+  body.app-page.page-dashboard .mobile-appbar-title strong{font-size:21px!important}
+}
+
 @media(min-width:1060px){
   body.app-page.page-dashboard .main{max-width:1440px!important}
   body.app-page.page-dashboard .cc-quick-card{border-top-width:4px!important;border-radius:18px!important;box-shadow:0 10px 28px rgba(13,40,70,.07)!important}
@@ -206,6 +255,36 @@
   body.app-page.page-dashboard .mobile-appbar-logo{width:48px!important;height:48px!important;flex-basis:48px!important}
   body.app-page.page-dashboard .mobile-appbar-title strong{font-size:20px!important}
   body.app-page.page-dashboard .mobile-appbar-title small{font-size:15px!important}
+}
+
+/* Reference rules must remain the final phone-width authority. */
+@media(max-width:760px){
+  body.app-page.page-dashboard{background:#fff!important}
+  body.app-page.page-dashboard .mobile-appbar{min-height:90px!important;padding:13px 18px!important;background:#031d3d!important;border:0!important;box-shadow:none!important}
+  body.app-page.page-dashboard .mobile-appbar-title{gap:13px!important}
+  body.app-page.page-dashboard .mobile-appbar-title strong{font-size:23px!important;line-height:1!important}
+  body.app-page.page-dashboard .mobile-appbar-title small{margin-top:4px!important;color:#e8ad28!important;font-size:16px!important}
+  body.app-page.page-dashboard .main{background:#fff!important}
+  body.app-page.page-dashboard .pro-dashboard{padding-top:14px!important}
+  body.app-page.page-dashboard .pro-dashboard-title{margin:0 4px 11px!important;padding:0!important;font-size:23px!important}
+  body.app-page.page-dashboard .pro-dashboard-title::before,body.app-page.page-dashboard .pro-dashboard-title::after{content:none!important;display:none!important}
+  body.app-page.page-dashboard .pro-metric{min-height:151px!important;padding:10px 3px 0!important;border-radius:9px!important;background:#fff!important;box-shadow:0 3px 9px rgba(8,31,59,.09)!important}
+  body.app-page.page-dashboard .pro-metric::before{content:none!important}
+  body.app-page.page-dashboard .pro-metric-icon{width:44px!important;height:44px!important;border:0!important;background:#fff4df!important;box-shadow:none!important}
+  body.app-page.page-dashboard .pro-metric-label{min-height:30px!important;margin-top:7px!important;font-size:10px!important}
+  body.app-page.page-dashboard .pro-metric>strong{margin:1px 0 8px!important;font-size:23px!important}
+  body.app-page.page-dashboard .pro-metric-link{min-height:31px!important;background:#fff!important;font-size:9px!important;font-weight:500!important}
+  body.app-page.page-dashboard .pro-activity,body.app-page.page-dashboard .pro-actions{margin-top:13px!important;padding:14px 12px!important;border-radius:12px!important}
+  body.app-page.page-dashboard .pro-activity h2,body.app-page.page-dashboard .pro-actions h2{margin-bottom:8px!important;font-size:20px!important}
+  body.app-page.page-dashboard .pro-activity-list>a{min-height:55px!important;grid-template-columns:38px minmax(0,1fr) 12px!important;gap:9px!important}
+  body.app-page.page-dashboard .pro-list-icon{width:35px!important;height:35px!important}
+  body.app-page.page-dashboard .pro-action-strip a{min-height:79px!important}
+}
+@media(max-width:390px){
+  body.app-page.page-dashboard .mobile-appbar{padding-inline:14px!important}
+  body.app-page.page-dashboard .mobile-appbar-title{gap:10px!important}
+  body.app-page.page-dashboard .mobile-appbar-title strong{font-size:21px!important}
+  body.app-page.page-dashboard .mobile-appbar-title small{font-size:16px!important}
 }
 
 /* Mobile dashboard readability QA — deliberately last in the cascade. */

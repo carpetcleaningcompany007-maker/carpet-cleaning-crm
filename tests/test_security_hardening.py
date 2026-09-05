@@ -57,9 +57,9 @@ class SecurityHardeningTests(unittest.TestCase):
         response = self.client.get("/dashboard")
         self.assertEqual(response.status_code, 200)
         self.assertIn("no-store", response.headers["Cache-Control"])
-        self.assertEqual(response.headers["X-CRM-UI-Version"], "20260905.6")
-        self.assertIn(b'data-ui-build="20260905.6"', response.data)
-        self.assertIn(b"app-shell-20260905-6", response.data)
+        self.assertEqual(response.headers["X-CRM-UI-Version"], "20260905.7")
+        self.assertIn(b'data-ui-build="20260905.7"', response.data)
+        self.assertIn(b"app-shell-20260905-7", response.data)
         self.assertIn(b"Carpet Clean Pro", response.data)
         self.assertNotIn(b"Business workspace", response.data)
 
