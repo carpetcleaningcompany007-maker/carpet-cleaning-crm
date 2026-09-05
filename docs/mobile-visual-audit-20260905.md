@@ -16,12 +16,17 @@ Each checked route was freshly rendered at 390 × 844 and 1440 × 1000 after its
 | `/quotes` | checked | checked | none (390/390, 1440/1440) | Ivory library heading, compact three-stat row and balanced paired actions |
 | `/invoices` | checked | checked | none (390/390, 1440/1440) | Ivory library heading, compact stats and intentional primary-plus-secondary action grid |
 | `/communications` | checked | checked | none (390/390, 1440/1440) | Ivory hub heading, compact stats/shortcuts and readable one-off send workflow |
+| `/communication-automation` | checked | checked | none (390/390, 1440/1440) | Compact settings heading and full rule controls retained without broken mobile actions |
+| `/notifications` | checked | checked | none (390/390, 1440/1440) | Clear phone setup steps, alert controls and action-centre state |
+| `/settings` | checked | checked | none (390/390, 1440/1440) | High-contrast settings heading and readable grouped configuration cards |
+| `/message-settings` | checked | checked | none (390/390, 1440/1440) | High-contrast message heading and intact editable template cards |
+| `/feedback` | checked | checked | none (390/390, 1440/1440) | Purpose-built mobile feedback cards replace the desktop table on phones |
 
 Phase screenshots: `audit-g1-*-phone-final2.png`, `audit-g1-*-desktop-final2.png` and `audit-goals-{phone,desktop}.png` in the local temporary QA directory.
 
 ## Remaining phases
 
-- Remaining communications forms and automation pages
+- Remaining communications forms and social pages
 - More-menu operational pages
 - Settings and configuration subpages
 - Available create/edit/detail views using safe local records or isolated test data

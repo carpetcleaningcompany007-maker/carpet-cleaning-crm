@@ -3,7 +3,7 @@
 {% block page_title %}Communication Automation{% endblock %}
 {% block body_content %}
 <section class="panel page-shell">
-  <div class="panel-head panel-head-stack automation-page-head">
+  <header class="approved-settings-heading automation-page-head">
     <div>
       <span class="section-kicker">Global communication settings</span>
       <h3>Automatic customer emails and texts</h3>
@@ -12,7 +12,7 @@
     <form class="automation-test-form" method="post" action="{{ url_for('automation_run_due', dry_run=1) }}">
       <button class="btn secondary" type="submit">Test Due Check</button>
     </form>
-  </div>
+  </header>
   <div class="notice">
     Automations only send when a rule is enabled, the message is due, and that exact rule/job/channel has not already been sent. Older overdue items are ignored by the safety window to avoid accidental bulk sends.
     <br>The CRM has a built-in background runner that checks due messages about once a minute while Render is awake. For extra reliability, a Render Cron Job can also call <code>/automation/run-due</code>.

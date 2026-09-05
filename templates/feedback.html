@@ -2,14 +2,14 @@
 {% block title %}Feedback{% endblock %}
 {% block page_title %}Feedback{% endblock %}
 {% block body_content %}
-<section class="panel">
-  <div class="panel-head">
+<section class="panel feedback-library-page">
+  <header class="approved-settings-heading feedback-page-heading">
     <div>
       <h3>Customer feedback</h3>
       <p>Review job feedback and Google review request history.</p>
     </div>
-  </div>
-  <div class="table-wrap">
+  </header>
+  <div class="table-wrap feedback-table">
     <table>
       <thead><tr><th>Date</th><th>Customer</th><th>Job</th><th>Rating</th><th>Review</th><th>Feedback</th></tr></thead>
       <tbody>
@@ -27,6 +27,11 @@
       {% endfor %}
       </tbody>
     </table>
+  </div>
+  <div class="feedback-mobile-list">
+    {% for row in feedback_rows %}
+    <article><div><strong>{% if row.customer_id %}<a href="{{ url_for('customer_view', customer_id=row.customer_id) }}">{{ row.customer_name or 'Customer' }}</a>{% else %}Customer{% endif %}</strong><span>{{ row.created_at or 'Date not recorded' }}</span></div><dl><div><dt>Job</dt><dd>{{ row.job_title or 'Not linked' }}</dd></div><div><dt>Rating</dt><dd>{{ row.rating or 0 }} stars</dd></div><div><dt>Review</dt><dd>{% if row.review_requested %}Requested{% else %}Not requested{% endif %}</dd></div></dl>{% if row.feedback_text %}<p>{{ row.feedback_text }}</p>{% endif %}</article>
+    {% else %}<div class="mobile-empty-card">No feedback recorded yet.</div>{% endfor %}
   </div>
 </section>
 {% endblock %}
