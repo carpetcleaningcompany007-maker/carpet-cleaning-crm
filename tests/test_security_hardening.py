@@ -57,8 +57,8 @@ class SecurityHardeningTests(unittest.TestCase):
         response = self.client.get("/dashboard")
         self.assertEqual(response.status_code, 200)
         self.assertIn("no-store", response.headers["Cache-Control"])
-        self.assertEqual(response.headers["X-CRM-UI-Version"], "20260905.11")
-        self.assertIn(b'data-ui-build="20260905.11"', response.data)
+        self.assertEqual(response.headers["X-CRM-UI-Version"], "20260905.12")
+        self.assertIn(b'data-ui-build="20260905.12"', response.data)
         self.assertIn(b"app-shell-20260905-9", response.data)
         self.assertIn(b"app-theme.css", response.data)
         self.assertIn(b"Carpet Clean Pro", response.data)
@@ -101,7 +101,14 @@ class SecurityHardeningTests(unittest.TestCase):
         self.assertIn(b'action="/jobs/new"', form.data)
         calendar = self.client.get("/calendar")
         self.assertEqual(calendar.status_code, 200)
-        self.assertIn(b"calendar-mobile-agenda", calendar.data)
+        self.assertIn(b'class="month-grid"', calendar.data)
+        self.assertEqual(calendar.data.count(b'class="month-day '), 35)
+        self.assertNotIn(b"calendar-mobile-agenda", calendar.data)
+
+        dated = self.client.get("/jobs/new?date=2026-09-17")
+        self.assertIn("job_date=2026-09-17", dated.headers["Location"])
+        dated_form = self.client.get(dated.headers["Location"])
+        self.assertIn(b'value="2026-09-17"', dated_form.data)
 
     def test_login_rotates_session_and_requires_csrf(self):
         with self.client.session_transaction() as session:

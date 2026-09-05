@@ -1,185 +1,70 @@
 {% extends "layout.html" %}
-{% block page_title %}Calendar{% endblock %}
+{% block page_title %}Schedule{% endblock %}
 {% block body_content %}
-<div class="calendar-shell">
-  <section class="report-hero">
-    <div class="page-intro" style="margin-bottom:0;">
-      <div class="page-intro-copy">
-        <div class="section-kicker">Operations calendar</div>
-        <h3>Full size planning calendar</h3>
-        <p>Use month view for planning, week view for workload, and day view for a tighter running order. Jobs and unpaid invoice due dates are shown together so the diary and money side stay linked.</p>
-      </div>
-      <div class="page-intro-actions">
-        <a class="btn secondary" href="{{ url_for('scheduler') }}">Open Scheduler</a>
-        <a class="btn primary" href="{{ url_for('jobs') }}">Open Job Library</a>
-      </div>
+<div class="pro-calendar">
+  <header class="pro-calendar-head">
+    <div><div class="section-kicker">Your working diary</div><h2>Schedule</h2><p>See the shape of the month, focus on a day, and book work without losing your place.</p></div>
+    <a class="calendar-book-primary" href="{{ url_for('jobs_new', date=selected_day) }}"><span aria-hidden="true">＋</span> Book a job</a>
+  </header>
+  <section class="calendar-command" aria-label="Calendar controls">
+    <div class="calendar-month-nav">
+      <a class="calendar-arrow" aria-label="Previous month" href="{{ url_for('full_calendar', view='month', year=prev_year, month=prev_month) }}">‹</a>
+      <div><span>{{ month_name.split(' ')[0] }}</span><strong>{{ month_name.split(' ')[1] }}</strong></div>
+      <a class="calendar-arrow" aria-label="Next month" href="{{ url_for('full_calendar', view='month', year=next_year, month=next_month) }}">›</a>
     </div>
+    <nav class="calendar-view-switch" aria-label="Calendar view">
+      <a class="{{ 'active' if view_mode == 'month' else '' }}" href="{{ url_for('full_calendar', view='month', year=year, month=month) }}">Month</a>
+      <a class="{{ 'active' if view_mode == 'week' else '' }}" href="{{ url_for('full_calendar', view='week', day=selected_day) }}">Week</a>
+      <a class="{{ 'active' if view_mode == 'day' else '' }}" href="{{ url_for('full_calendar', view='day', day=selected_day) }}">Day</a>
+    </nav>
+    <a class="calendar-today" href="{{ url_for('full_calendar', view=view_mode) }}">Today</a>
   </section>
-
-  <section class="workspace-banner">
-    <div class="calendar-toolbar">
-      <div>
-        <div class="section-kicker">Calendar controls</div>
-        <h3 style="margin:0;">{{ month_name }}</h3>
-        <div class="calendar-legend">
-          <span class="legend-chip"><span class="legend-dot job"></span>Job booked</span>
-          <span class="legend-chip"><span class="legend-dot invoice"></span>Invoice due</span>
-        </div>
-      </div>
-      <div class="row-actions">
-        <a class="btn secondary" href="{{ url_for('full_calendar', view=view_mode, year=prev_year, month=prev_month, day=selected_day if view_mode != 'month' else None) }}">Previous</a>
-        <a class="btn secondary" href="{{ url_for('full_calendar', view=view_mode) }}">Today</a>
-        <a class="btn secondary" href="{{ url_for('full_calendar', view=view_mode, year=next_year, month=next_month, day=selected_day if view_mode != 'month' else None) }}">Next</a>
-      </div>
-    </div>
-    <div class="row-actions">
-      <a class="scope-tab {{ 'active' if view_mode == 'month' else '' }}" href="{{ url_for('full_calendar', view='month', year=year, month=month) }}">Month</a>
-      <a class="scope-tab {{ 'active' if view_mode == 'week' else '' }}" href="{{ url_for('full_calendar', view='week', day=selected_day) }}">Week</a>
-      <a class="scope-tab {{ 'active' if view_mode == 'day' else '' }}" href="{{ url_for('full_calendar', view='day', day=selected_day) }}">Day</a>
-      <span class="pill">{{ month_job_count }} jobs this month</span>
-      <span class="pill">{{ month_invoice_alert_count }} unpaid invoice alerts</span>
-    </div>
-  </section>
-
-  <div class="calendar-layout">
-    <section class="panel">
-      {% if view_mode == 'month' %}
-        <div class="calendar-month-grid calendar-weekdays">
-          {% for label in ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'] %}
-            <div class="calendar-weekday">{{ label }}</div>
-          {% endfor %}
-        </div>
-        <div class="calendar-month-grid">
-          {% for week in weeks %}
-            {% for d in week %}
-              <div class="calendar-day-card {{ 'is-outside' if not d.is_current_month else '' }} {{ 'is-today' if d.is_today else '' }}">
-                <div class="calendar-day-top">
-                  <a class="calendar-day-number" href="{{ url_for('full_calendar', view='day', day=d.date) }}">{{ d.day_num }}</a>
-                  <a class="mini-link" href="{{ url_for('scheduler') }}?date={{ d.date }}">Open day</a>
-                </div>
-                <div class="calendar-day-items">
-                  {% for job in d.jobs %}
-                    <a class="calendar-item job" href="{{ url_for('job_view', job_id=job.id) }}">
-                      <strong>{{ job.title }}</strong>
-                      <span>{{ job.customer_name or 'No customer' }}</span>
-                    </a>
-                  {% endfor %}
-                  {% if d.jobs_more %}<div class="calendar-more">{{ d.jobs_more }} more jobs</div>{% endif %}
-                  {% for inv in d.invoice_alerts %}
-                    <a class="calendar-item invoice" href="{{ url_for('invoice_view', invoice_id=inv.id) }}">
-                      <strong>{{ inv.invoice_number or ('Invoice #' ~ inv.id) }}</strong>
-                      <span>Due {{ inv.due_date }}</span>
-                    </a>
-                  {% endfor %}
-                  {% if d.invoice_more %}<div class="calendar-more">{{ d.invoice_more }} more invoice alerts</div>{% endif %}
-                </div>
-              </div>
-            {% endfor %}
-          {% endfor %}
-        </div>
-        {% set agenda = namespace(has_items=false) %}
-        <div class="calendar-mobile-agenda" aria-label="Mobile month agenda">
-          {% for week in weeks %}{% for d in week %}
-            {% if d.is_current_month and (d.jobs or d.invoice_alerts or d.is_today) %}
-              {% set agenda.has_items = true %}
-              <article class="calendar-agenda-day {{ 'is-today' if d.is_today else '' }}">
-                <div class="calendar-agenda-date"><strong>{{ d.day_num }}</strong><span>{{ d.date }}</span></div>
-                <div class="calendar-agenda-items">
-                  {% for job in d.jobs %}<a class="calendar-item job" href="{{ url_for('job_view', job_id=job.id) }}"><strong>{{ job.title }}</strong><span>{{ job.customer_name or 'No customer' }}</span></a>{% endfor %}
-                  {% for inv in d.invoice_alerts %}<a class="calendar-item invoice" href="{{ url_for('invoice_view', invoice_id=inv.id) }}"><strong>{{ inv.invoice_number or ('Invoice #' ~ inv.id) }}</strong><span>Due {{ inv.due_date }}</span></a>{% endfor %}
-                  {% if not d.jobs and not d.invoice_alerts %}<span class="calendar-agenda-clear">Nothing booked today</span>{% endif %}
-                </div>
-                <a class="mini-link" href="{{ url_for('scheduler') }}?date={{ d.date }}">Open day ›</a>
-              </article>
-            {% endif %}
-          {% endfor %}{% endfor %}
-          {% if not agenda.has_items %}<div class="calendar-agenda-empty"><strong>No booked work this month</strong><span>Choose a day in the scheduler to add work.</span><a class="btn primary" href="{{ url_for('scheduler') }}">Open Scheduler</a></div>{% endif %}
-        </div>
-      {% elif view_mode == 'week' %}
-        <div class="calendar-week-stack">
-          {% for d in week_days %}
-            <div class="calendar-list-day {{ 'is-today' if d.is_today else '' }}">
-              <div class="calendar-list-head">
-                <h4>{{ d.label }}</h4>
-                <a class="mini-link" href="{{ url_for('full_calendar', view='day', day=d.date) }}">Day view</a>
-              </div>
-              {% if d.jobs or d.invoice_alerts %}
-                <div class="calendar-list-items">
-                  {% for job in d.jobs %}
-                    <a class="calendar-item job" href="{{ url_for('job_view', job_id=job.id) }}">
-                      <strong>{{ job.title }}</strong>
-                      <span>{{ job.customer_name or 'No customer' }} · {{ job.status or 'Booked' }}</span>
-                    </a>
-                  {% endfor %}
-                  {% for inv in d.invoice_alerts %}
-                    <a class="calendar-item invoice" href="{{ url_for('invoice_view', invoice_id=inv.id) }}">
-                      <strong>{{ inv.invoice_number or ('Invoice #' ~ inv.id) }}</strong>
-                      <span>{{ inv.customer_name or 'No customer' }} · due {{ inv.due_date }}</span>
-                    </a>
-                  {% endfor %}
-                </div>
-              {% else %}
-                <div class="empty-state">No jobs or invoice alerts on this day.</div>
-              {% endif %}
-            </div>
-          {% endfor %}
-        </div>
-      {% else %}
-        <div class="calendar-list-day is-today">
-          <div class="calendar-list-head">
-            <h4>{{ day_view.label }}</h4>
-            <div class="row-actions">
-              <a class="scope-tab" href="{{ url_for('full_calendar', view='week', day=day_view.date) }}">Week view</a>
-              <a class="scope-tab" href="{{ url_for('full_calendar', view='month', year=year, month=month) }}">Month view</a>
-            </div>
-          </div>
-          {% if day_view.jobs or day_view.invoice_alerts %}
-            <div class="calendar-list-items">
-              {% for job in day_view.jobs %}
-                <a class="calendar-item job" href="{{ url_for('job_view', job_id=job.id) }}">
-                  <strong>{{ job.title }}</strong>
-                  <span>{{ job.customer_name or 'No customer' }} · {{ job.service_type or 'Service' }}</span>
-                </a>
-              {% endfor %}
-              {% for inv in day_view.invoice_alerts %}
-                <a class="calendar-item invoice" href="{{ url_for('invoice_view', invoice_id=inv.id) }}">
-                  <strong>{{ inv.invoice_number or ('Invoice #' ~ inv.id) }}</strong>
-                  <span>{{ inv.customer_name or 'No customer' }} · unpaid</span>
-                </a>
-              {% endfor %}
-            </div>
-          {% else %}
-            <div class="empty-state">No jobs or invoice alerts on this day.</div>
-          {% endif %}
-        </div>
-      {% endif %}
-    </section>
-
-    <aside class="calendar-side-stack">
-      <section class="utility-card">
-        <h4>Upcoming jobs</h4>
-        <div class="timeline">
-          {% for job in upcoming_jobs %}
-            <div class="timeline-item">
-              <strong>{{ job.job_date }}</strong>
-              <p>{{ job.title }}{% if job.customer_name %} · {{ job.customer_name }}{% endif %}</p>
-              <a class="mini-link" href="{{ url_for('job_view', job_id=job.id) }}">Open job</a>
-            </div>
-          {% else %}
-            <div class="empty-state">No future jobs saved yet.</div>
-          {% endfor %}
-        </div>
-      </section>
-      <section class="utility-card">
-        <h4>Using the calendar</h4>
-        <ul class="simple-list">
-          <li>Use Month to plan capacity and spot quiet days.</li>
-          <li>Use Week when organising runs and job flow.</li>
-          <li>Use Day to focus on the jobs and unpaid invoice pressure for that date.</li>
-          <li>The Scheduler page still handles drag and drop job moving.</li>
-        </ul>
-      </section>
-    </aside>
+  <div class="calendar-summary" aria-label="Month summary">
+    <span><i class="summary-mark job"></i><strong>{{ month_job_count }}</strong> booked {{ 'job' if month_job_count == 1 else 'jobs' }}</span>
+    <span><i class="summary-mark invoice"></i><strong>{{ month_invoice_alert_count }}</strong> unpaid {{ 'invoice' if month_invoice_alert_count == 1 else 'invoices' }}</span>
   </div>
+
+  {% if view_mode == 'month' %}
+  <section class="month-calendar" aria-label="{{ month_name }} calendar">
+    <div class="month-weekdays" aria-hidden="true">{% for label in ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'] %}<span>{{ label }}</span>{% endfor %}</div>
+    <div class="month-grid">
+      {% for week in weeks %}{% for d in week %}
+      <a class="month-day {{ 'outside' if not d.is_current_month else '' }} {{ 'today' if d.is_today else '' }} {{ 'selected' if d.date == selected_day else '' }} {{ 'has-work' if d.jobs else '' }}" href="{{ url_for('full_calendar', view='day', day=d.date) }}" aria-label="Open {{ d.date }}{% if d.jobs %}, {{ d.jobs|length + d.jobs_more }} jobs{% endif %}">
+        <span class="month-day-number">{{ d.day_num }}</span>
+        <span class="month-day-markers">{% if d.jobs %}<i class="job-dot"></i><b>{{ d.jobs|length + d.jobs_more }}</b>{% endif %}{% if d.invoice_alerts %}<i class="invoice-dot"></i>{% endif %}</span>
+        <span class="month-day-preview">{% for job in d.jobs[:2] %}<em>{{ job.job_time or 'Booked' }} · {{ job.customer_name or job.title }}</em>{% endfor %}{% if d.jobs_more %}<em>+{{ d.jobs_more }} more</em>{% endif %}</span>
+      </a>
+      {% endfor %}{% endfor %}
+    </div>
+  </section>
+  <section class="calendar-selected-strip">
+    <div><span>Selected day</span><strong>{{ day_view.label }}</strong></div>
+    <div class="calendar-selected-actions"><a href="{{ url_for('full_calendar', view='day', day=selected_day) }}">View day</a><a class="primary" href="{{ url_for('jobs_new', date=selected_day) }}">＋ Add booking</a></div>
+  </section>
+
+  {% elif view_mode == 'week' %}
+  <section class="week-schedule">
+    {% for d in week_days %}<article class="week-day {{ 'today' if d.is_today else '' }}">
+      <a class="week-date" href="{{ url_for('full_calendar', view='day', day=d.date) }}"><span>{{ d.label.split(' ')[0] }}</span><strong>{{ d.label.split(' ')[1] }}</strong><small>{{ d.label.split(' ')[2] }}</small></a>
+      <div class="week-work">
+        {% for job in d.jobs %}<a class="schedule-job" href="{{ url_for('job_view', job_id=job.id) }}"><span>{{ job.job_time or 'Time to confirm' }}</span><strong>{{ job.title }}</strong><small>{{ job.customer_name or 'No customer attached' }} · {{ job.status or 'Booked' }}</small></a>{% endfor %}
+        {% for inv in d.invoice_alerts %}<a class="schedule-invoice" href="{{ url_for('invoice_view', invoice_id=inv.id) }}"><strong>{{ inv.invoice_number or ('Invoice #' ~ inv.id) }}</strong><small>Payment due</small></a>{% endfor %}
+        {% if not d.jobs and not d.invoice_alerts %}<span class="schedule-clear">Available</span>{% endif %}
+      </div><a class="week-add" aria-label="Add booking on {{ d.label }}" href="{{ url_for('jobs_new', date=d.date) }}">＋</a>
+    </article>{% endfor %}
+  </section>
+
+  {% else %}
+  <section class="day-schedule">
+    <header class="day-schedule-head"><div><span>Selected day</span><h3>{{ day_view.label }}</h3></div><a href="{{ url_for('jobs_new', date=day_view.date) }}">＋ Add booking</a></header>
+    <div class="day-work-list">
+      {% for job in day_view.jobs %}<a class="day-job-card" href="{{ url_for('job_view', job_id=job.id) }}"><div class="day-job-time"><strong>{{ job.job_time or '—' }}</strong><span>{{ job.status or 'Booked' }}</span></div><div><strong>{{ job.title }}</strong><span>{{ job.customer_name or 'No customer attached' }}</span><small>{{ job.service_type or 'Service details not added' }}</small></div><span class="day-job-open">Open ›</span></a>{% endfor %}
+      {% for inv in day_view.invoice_alerts %}<a class="day-invoice-card" href="{{ url_for('invoice_view', invoice_id=inv.id) }}"><i></i><div><strong>{{ inv.invoice_number or ('Invoice #' ~ inv.id) }}</strong><span>{{ inv.customer_name or 'Customer' }} · payment due</span></div><b>View ›</b></a>{% endfor %}
+      {% if not day_view.jobs and not day_view.invoice_alerts %}<div class="day-empty"><span aria-hidden="true">✓</span><strong>This day is clear</strong><p>No jobs or invoice deadlines. Add a booking when you are ready.</p><a href="{{ url_for('jobs_new', date=day_view.date) }}">Book this day</a></div>{% endif %}
+    </div>
+  </section>
+  {% endif %}
+
+  <section class="calendar-next"><div><span>Coming up</span><h3>Next booked work</h3></div><div class="calendar-next-list">{% for job in upcoming_jobs[:4] %}<a href="{{ url_for('job_view', job_id=job.id) }}"><time>{{ job.job_date }}</time><strong>{{ job.title }}</strong><span>{{ job.customer_name or 'No customer attached' }}</span></a>{% else %}<p>No future jobs are currently saved.</p>{% endfor %}</div></section>
 </div>
 {% endblock %}

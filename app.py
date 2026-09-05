@@ -147,7 +147,7 @@ def add_website_form_cors_headers(response):
         response.headers["Cache-Control"] = "no-store, private, max-age=0, must-revalidate"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
-        response.headers["X-CRM-UI-Version"] = "20260905.11"
+        response.headers["X-CRM-UI-Version"] = "20260905.12"
     elif request.path == "/static/crm-redesign.css":
         response.headers["Cache-Control"] = "no-cache, max-age=0, must-revalidate"
     return response
@@ -11679,7 +11679,12 @@ def jobs():
 @login_required
 def jobs_new():
     if request.method == "GET":
-        return redirect(url_for("jobs", new="1"))
+        requested_date = clean_str(request.args.get("date"))
+        try:
+            requested_date = datetime.strptime(requested_date, "%Y-%m-%d").date().isoformat() if requested_date else ""
+        except ValueError:
+            requested_date = ""
+        return redirect(url_for("jobs", new="1", job_date=requested_date or None))
     title = clean_str(request.form.get("title"))
     if not title:
         flash("Job title is required.")

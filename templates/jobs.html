@@ -87,7 +87,7 @@
     </div>
     <form method="post" action="{{ url_for('jobs_new') }}" class="form modal-form">
       <label>Job title<input name="title" placeholder="For example: Lounge and stairs" required></label>
-      <div class="cols"><label>Service<input name="service_type" placeholder="Carpet, upholstery or other"></label><label>Appointment date<input type="date" name="job_date"></label></div>
+      <div class="cols"><label>Service<input name="service_type" placeholder="Carpet, upholstery or other"></label><label>Appointment date<input type="date" name="job_date" value="{{ request.args.get('job_date','') }}"></label></div>
       <div class="cols">
         <label>Arrival time<select name="job_time">
           <option value="">Choose booking time</option>
