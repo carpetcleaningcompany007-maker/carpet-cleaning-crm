@@ -3,13 +3,13 @@
 {% block body_content %}
 <link href="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.snow.css" rel="stylesheet">
 
-<div class="page-intro-grid">
-  <section class="page-intro-card">
+<div class="approved-library-intro">
+  <header class="approved-library-heading">
     <div class="section-kicker">Communications</div>
-    <h3>Communication Hub</h3>
+    <h1>Communication hub</h1>
     <p>Use this page for one off messages only. Templates, campaigns, SMS inbox, and history are split out so this page stays simple and easier to train people on.</p>
-  </section>
-  <section class="page-stats-grid">
+  </header>
+  <section class="approved-library-stats">
     <div class="page-stat"><span>Recent communications</span><strong>{{ rows|length }}</strong></div>
     <div class="page-stat"><span>Customers</span><strong>{{ customers|length }}</strong></div>
     <div class="page-stat"><span>Templates</span><strong>{{ templates|length }}</strong></div>
