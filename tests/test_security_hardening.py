@@ -2,6 +2,9 @@ import importlib
 import os
 import tempfile
 import unittest
+from email.message import EmailMessage
+from email.utils import format_datetime
+from datetime import datetime, timezone
 from unittest import mock
 
 
@@ -60,8 +63,8 @@ class SecurityHardeningTests(unittest.TestCase):
         response = self.client.get("/dashboard")
         self.assertEqual(response.status_code, 200)
         self.assertIn("no-store", response.headers["Cache-Control"])
-        self.assertEqual(response.headers["X-CRM-UI-Version"], "20260905.16")
-        self.assertIn(b'data-ui-build="20260905.16"', response.data)
+        self.assertEqual(response.headers["X-CRM-UI-Version"], "20260905.17")
+        self.assertIn(b'data-ui-build="20260905.17"', response.data)
         self.assertIn(b"app-shell-20260905-9", response.data)
         self.assertIn(b"app-theme.css", response.data)
         self.assertIn(b"Carpet Clean Pro", response.data)
@@ -197,6 +200,85 @@ class SecurityHardeningTests(unittest.TestCase):
         self.assertNotIn("07700111222", encoded)
         self.assertTrue(all(payload["url"].startswith("/") for payload in payloads))
         self.assertEqual(self.mod.q("SELECT COUNT(*) AS c FROM push_delivery_log", one=True)["c"], len(payloads))
+
+    def test_inbound_email_matching_attachments_dedupe_and_private_notification(self):
+        self.login()
+        customer_id = self.mod.run("INSERT INTO customers(first_name,last_name,email) VALUES (?,?,?)", ("Jane", "Example", "jane@example.test"))
+        self.mod.run("INSERT INTO intake_submissions(name,email,customer_id,status,is_test,ignore_alerts) VALUES (?,?,?,?,0,0)",
+                     ("Jane Example", "jane@example.test", customer_id, "Booked"))
+        with tempfile.TemporaryDirectory() as upload_dir:
+            self.app.config["UPLOAD_FOLDER"] = upload_dir
+            message = EmailMessage()
+            message["From"] = "Jane Example <jane@example.test>"
+            message["To"] = "owner@example.test"
+            message["Subject"] = "Photos and access details"
+            message["Message-ID"] = "<customer-email-1@example.test>"
+            message["Date"] = format_datetime(datetime.now(timezone.utc))
+            message.set_content("Here are the room photos. Parking is at the rear.")
+            message.add_attachment(b"safe-image-bytes", maintype="image", subtype="jpeg", filename="lounge.jpg")
+            created = self.mod.ingest_inbound_message(message.as_bytes(), "101")
+            self.assertEqual(created["status"], "created")
+            self.assertTrue(created["matched"])
+            self.assertEqual(created["attachments"], 1)
+            duplicate = self.mod.ingest_inbound_message(message.as_bytes(), "101")
+            self.assertEqual(duplicate["status"], "duplicate")
+            row = self.mod.q("SELECT * FROM inbound_customer_emails WHERE id=?", (created["id"],), one=True)
+            self.assertEqual(row["customer_id"], customer_id)
+            self.assertIn("Parking is at the rear", row["body_text"])
+            attachment = self.mod.q("SELECT * FROM inbound_email_attachments WHERE email_id=?", (created["id"],), one=True)
+            unauthenticated = self.app.test_client().get(f"/inbox/attachments/{attachment['id']}")
+            self.assertEqual(unauthenticated.status_code, 302)
+            protected = self.client.get(f"/inbox/attachments/{attachment['id']}")
+            self.assertEqual(protected.status_code, 200)
+            protected.close()
+            with self.app.test_request_context("/"):
+                feed = [item for item in self.mod.build_notification_feed() if item["key"] == f"customer-email:{created['id']}"]
+            self.assertEqual(feed[0]["title"], "New customer email")
+            self.assertNotIn("Jane", __import__("json").dumps(self.mod.push_safe_payload(feed[0])))
+
+            unmatched = EmailMessage()
+            unmatched["From"] = "Unknown <unknown@example.test>"
+            unmatched["To"] = "owner@example.test"
+            unmatched["Subject"] = "Question"
+            unmatched["Message-ID"] = "<unmatched-email@example.test>"
+            unmatched.set_content("Could you help?")
+            result = self.mod.ingest_inbound_message(unmatched.as_bytes(), "102")
+            self.assertFalse(result["matched"])
+            self.assertEqual(self.mod.q("SELECT match_status FROM inbound_customer_emails WHERE id=?", (result["id"],), one=True)["match_status"], "unmatched")
+
+    def test_inbound_mailbox_poll_is_read_only_and_idempotent(self):
+        self.login()
+        self.mod.run("UPDATE settings SET gmail_address=?,gmail_app_password=? WHERE id=1", ("owner@example.test", "secret-app-password"))
+        message = EmailMessage()
+        message["From"] = "Customer <customer@example.test>"
+        message["To"] = "owner@example.test"
+        message["Subject"] = "Details"
+        message["Message-ID"] = "<poll-message@example.test>"
+        message.set_content("Customer details")
+        raw = message.as_bytes()
+
+        class FakeImap:
+            instances = []
+            def __init__(self, host, port): self.calls = []; self.__class__.instances.append(self)
+            def login(self, username, password): self.calls.append(("login", username)); return "OK", []
+            def select(self, mailbox, readonly=False): self.calls.append(("select", mailbox, readonly)); return "OK", []
+            def uid(self, command, *args):
+                self.calls.append(("uid", command, args))
+                if command == "search": return "OK", [b"7"]
+                if command == "fetch": return "OK", [(b"7 BODY[]", raw)]
+                raise AssertionError("Mailbox mutation attempted")
+            def logout(self): self.calls.append(("logout",)); return "BYE", []
+
+        first = self.mod.poll_inbound_customer_emails(imap_factory=FakeImap, force=True)
+        second = self.mod.poll_inbound_customer_emails(imap_factory=FakeImap, force=True)
+        self.assertEqual(first["created"], 1)
+        self.assertEqual(second["created"], 0)
+        self.assertEqual(second["duplicates"], 1)
+        for instance in FakeImap.instances:
+            self.assertIn(("select", "INBOX", True), instance.calls)
+            commands = [call[2][0] for call in instance.calls if call[0] == "uid" and call[1] == "fetch"]
+            self.assertEqual(commands, [b"7"])
+            self.assertTrue(any("BODY.PEEK" in str(call) for call in instance.calls))
 
     def test_login_rotates_session_and_requires_csrf(self):
         with self.client.session_transaction() as session:

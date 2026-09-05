@@ -30,6 +30,10 @@ import math
 import hmac
 import hashlib
 import struct
+import imaplib
+from email import policy as email_policy
+from email.parser import BytesParser
+from email.header import decode_header, make_header
 from difflib import SequenceMatcher
 
 from flask import Flask, render_template, request, redirect, url_for, flash, session, g, Response, send_file, send_from_directory, has_request_context, jsonify
@@ -147,7 +151,7 @@ def add_website_form_cors_headers(response):
         response.headers["Cache-Control"] = "no-store, private, max-age=0, must-revalidate"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
-        response.headers["X-CRM-UI-Version"] = "20260905.16"
+        response.headers["X-CRM-UI-Version"] = "20260905.17"
     elif request.path == "/static/crm-redesign.css":
         response.headers["Cache-Control"] = "no-cache, max-age=0, must-revalidate"
     return response
@@ -3573,7 +3577,7 @@ def protect_browser_mutations():
         return None
     if app.config.get("TESTING") or request.endpoint in CSRF_EXEMPT_ENDPOINTS:
         return None
-    if request.endpoint == "automation_run_due" and not session.get("logged_in"):
+    if request.endpoint in {"automation_run_due", "inbound_email_poll"} and not session.get("logged_in"):
         return None
     expected = session.get("csrf_token")
     supplied = request.form.get("_csrf_token", "") or request.headers.get("X-CSRF-Token", "")
@@ -3721,8 +3725,8 @@ def pwa_manifest():
 
 @app.route("/service-worker.js")
 def pwa_service_worker():
-    source = """const CACHE='carpet-clean-pro-v2';
-const SHELL=['/offline','/static/app-theme.css?v=20260905-7','/static/app.js?v=mobile-more-20260905-1','/static/site/site-icon-512.png'];
+    source = """const CACHE='carpet-clean-pro-v3';
+const SHELL=['/offline','/static/app-theme.css?v=20260905-8','/static/app.js?v=mobile-more-20260905-1','/static/site/site-icon-512.png'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim())));
 self.addEventListener('fetch',event=>{if(event.request.method!=='GET')return;const url=new URL(event.request.url);if(url.origin!==location.origin)return;if(event.request.mode==='navigate'){event.respondWith(fetch(event.request).catch(()=>caches.match('/offline')));return;}if(url.pathname.startsWith('/static/'))event.respondWith(caches.match(event.request).then(hit=>hit||fetch(event.request).then(response=>{const copy=response.clone();caches.open(CACHE).then(cache=>cache.put(event.request,copy));return response;})));});
@@ -3831,6 +3835,12 @@ def build_notification_feed():
         items.append({"key": f"reply:{row['id']}", "kind": "Reply", "priority": "New",
                       "title": "Customer reply needs attention", "detail": "Open the conversation to review it",
                       "time": row["created_at"] or "", "url": url_for("sms_thread_view", customer_id=row["customer_id"])})
+    customer_emails = q("""SELECT id,received_at,match_status FROM inbound_customer_emails
+                            WHERE datetime(created_at) >= datetime('now','-14 days') ORDER BY id DESC LIMIT 12""")
+    for row in customer_emails:
+        items.append({"key": f"customer-email:{row['id']}", "kind": "Reply", "priority": "New",
+                      "title": "New customer email", "detail": "Open the secure inbox to review it",
+                      "time": row["received_at"] or "", "url": url_for("inbound_email_view", email_id=row["id"])})
     xero_failures = q("""SELECT id,xero_contact_error,xero_contact_synced_at FROM customers
                           WHERE archived_at IS NULL AND TRIM(IFNULL(xero_contact_error,''))<>''
                           ORDER BY id DESC LIMIT 8""")
@@ -4006,6 +4016,204 @@ def push_preferences_api():
     run("UPDATE push_subscriptions SET preferences_json=?,updated_at=datetime('now') WHERE endpoint_hash=? AND enabled=1",
         (json.dumps(preferences, separators=(",", ":")), endpoint_hash))
     return jsonify({"ok": True})
+
+
+INBOUND_ATTACHMENT_TYPES = {"image/jpeg": ".jpg", "image/png": ".png", "image/heic": ".heic", "image/heif": ".heif", "application/pdf": ".pdf"}
+
+
+def inbound_email_config():
+    row = settings()
+    address = clean_str(row["gmail_address"] if "gmail_address" in row.keys() else "")
+    password = clean_str(row["gmail_app_password"] if "gmail_app_password" in row.keys() else "")
+    return address, password
+
+
+def decode_email_header(value):
+    try:
+        return clean_str(str(make_header(decode_header(value or ""))))[:500]
+    except Exception:
+        return clean_str(value)[:500]
+
+
+def safe_email_body(message):
+    plain = []
+    html_parts = []
+    for part in message.walk() if message.is_multipart() else [message]:
+        if part.get_content_disposition() == "attachment":
+            continue
+        content_type = part.get_content_type()
+        if content_type not in {"text/plain", "text/html"}:
+            continue
+        try:
+            text = part.get_content()
+        except Exception:
+            payload = part.get_payload(decode=True) or b""
+            text = payload.decode(part.get_content_charset() or "utf-8", errors="replace")
+        (plain if content_type == "text/plain" else html_parts).append(str(text))
+    body = "\n".join(plain).strip()
+    if not body and html_parts:
+        body = re.sub(r"<\s*br\s*/?>|</\s*p\s*>", "\n", "\n".join(html_parts), flags=re.I)
+        body = re.sub(r"<[^>]+>", " ", body)
+        body = html_lib.unescape(body)
+    body = re.sub(r"[ \t]+", " ", body)
+    body = re.sub(r"\n{3,}", "\n\n", body)
+    return body.strip()[:50000]
+
+
+def save_inbound_attachments(message, email_id):
+    stored = []
+    total = 0
+    target = os.path.join(app.config["UPLOAD_FOLDER"], "inbound-email")
+    os.makedirs(target, exist_ok=True)
+    for part in message.walk():
+        filename = decode_email_header(part.get_filename())
+        content_type = clean_str(part.get_content_type()).lower()
+        if not filename and not content_type.startswith("image/"):
+            continue
+        extension = INBOUND_ATTACHMENT_TYPES.get(content_type)
+        if not extension:
+            continue
+        payload = part.get_payload(decode=True) or b""
+        if not payload or len(payload) > 8 * 1024 * 1024 or total + len(payload) > 20 * 1024 * 1024:
+            continue
+        total += len(payload)
+        safe_original = secure_filename(filename)[:180] if filename else f"customer-photo{extension}"
+        if not safe_original.lower().endswith(extension):
+            safe_original += extension
+        stored_name = f"{uuid.uuid4().hex}{extension}"
+        with open(os.path.join(target, stored_name), "wb") as handle:
+            handle.write(payload)
+        attachment_id = run("""INSERT INTO inbound_email_attachments(email_id,original_name,stored_name,content_type,size_bytes)
+                               VALUES (?,?,?,?,?)""", (email_id, safe_original, stored_name, content_type, len(payload)))
+        stored.append(attachment_id)
+    return stored
+
+
+def ingest_inbound_message(raw_message, mailbox_uid=""):
+    if not isinstance(raw_message, (bytes, bytearray)) or len(raw_message) > 30 * 1024 * 1024:
+        return {"status": "rejected"}
+    message = BytesParser(policy=email_policy.default).parsebytes(bytes(raw_message))
+    sender_name, sender_email = email.utils.parseaddr(message.get("From", ""))
+    sender_email = clean_str(sender_email).lower()[:320]
+    owner_email, _ = inbound_email_config()
+    if not sender_email or sender_email == owner_email.lower() or message.get("Auto-Submitted", "").lower() not in {"", "no"}:
+        return {"status": "ignored"}
+    message_id = clean_str(message.get("Message-ID"))[:500]
+    if not message_id:
+        message_id = "sha256:" + hashlib.sha256(bytes(raw_message)).hexdigest()
+    existing = q("SELECT id FROM inbound_customer_emails WHERE message_id=?", (message_id,), one=True)
+    if existing:
+        return {"status": "duplicate", "id": existing["id"]}
+    customer = q("SELECT id FROM customers WHERE archived_at IS NULL AND lower(trim(email))=? ORDER BY id LIMIT 1", (sender_email,), one=True)
+    customer_id = customer["id"] if customer else None
+    enquiry = q("SELECT id FROM intake_submissions WHERE customer_id=? ORDER BY id DESC LIMIT 1", (customer_id,), one=True) if customer_id else None
+    job = q("SELECT id FROM jobs WHERE customer_id=? AND IFNULL(status,'')<>'Archived' ORDER BY COALESCE(job_date,'') DESC,id DESC LIMIT 1", (customer_id,), one=True) if customer_id else None
+    try:
+        received = email.utils.parsedate_to_datetime(message.get("Date", ""))
+        received_at = received.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M:%S") if received else ""
+    except Exception:
+        received_at = ""
+    email_id = run("""INSERT INTO inbound_customer_emails(message_id,mailbox_uid,sender_email,sender_name,subject,body_text,received_at,customer_id,enquiry_id,job_id,match_status)
+                      VALUES (?,?,?,?,?,?,?,?,?,?,?)""", (message_id, clean_str(mailbox_uid)[:100], sender_email, decode_email_header(sender_name),
+                      decode_email_header(message.get("Subject")), safe_email_body(message), received_at, customer_id,
+                      enquiry["id"] if enquiry else None, job["id"] if job else None, "matched" if customer_id else "unmatched"))
+    attachments = save_inbound_attachments(message, email_id)
+    return {"status": "created", "id": email_id, "matched": bool(customer_id), "attachments": len(attachments)}
+
+
+def poll_inbound_customer_emails(imap_factory=None, force=False):
+    address, password = inbound_email_config()
+    if not address or not password:
+        return {"status": "disabled", "created": 0, "message": "Gmail inbox credentials are not configured."}
+    state = q("SELECT * FROM inbound_email_poll_state WHERE id=1", one=True)
+    if not force and state and state["last_checked_at"]:
+        recent = q("SELECT 1 AS ok WHERE datetime(?) >= datetime('now','-5 minutes')", (state["last_checked_at"],), one=True)
+        if recent:
+            return {"status": "not_due", "created": 0}
+    factory = imap_factory or imaplib.IMAP4_SSL
+    created = matched = unmatched = duplicates = 0
+    client = None
+    try:
+        client = factory("imap.gmail.com", 993)
+        client.login(address, password)
+        client.select("INBOX", readonly=True)
+        since = (uk_today() - timedelta(days=7)).strftime("%d-%b-%Y")
+        status, data = client.uid("search", None, "SINCE", since)
+        if status != "OK":
+            raise RuntimeError("Mailbox search failed")
+        uids = (data[0] or b"").split()[-100:]
+        for uid in uids:
+            status, response = client.uid("fetch", uid, "(BODY.PEEK[])")
+            if status != "OK":
+                continue
+            raw = next((part[1] for part in response if isinstance(part, tuple) and len(part) > 1), None)
+            result = ingest_inbound_message(raw, uid.decode("ascii", errors="ignore")) if raw else {"status": "ignored"}
+            if result["status"] == "created":
+                created += 1
+                matched += int(result.get("matched", False))
+                unmatched += int(not result.get("matched", False))
+            elif result["status"] == "duplicate":
+                duplicates += 1
+        run("UPDATE inbound_email_poll_state SET last_checked_at=datetime('now'),last_status='ok',last_error='' WHERE id=1")
+        return {"status": "ok", "created": created, "matched": matched, "unmatched": unmatched, "duplicates": duplicates}
+    except Exception:
+        run("UPDATE inbound_email_poll_state SET last_checked_at=datetime('now'),last_status='error',last_error='Mailbox check failed' WHERE id=1")
+        return {"status": "error", "created": created, "message": "Mailbox check failed safely."}
+    finally:
+        if client:
+            try:
+                client.logout()
+            except Exception:
+                pass
+
+
+@app.route("/inbox")
+@login_required
+def inbound_email_inbox():
+    rows = q("""SELECT inbound_customer_emails.*,customers.first_name || ' ' || customers.last_name AS customer_name,
+                       (SELECT COUNT(*) FROM inbound_email_attachments WHERE email_id=inbound_customer_emails.id) AS attachment_count
+                FROM inbound_customer_emails LEFT JOIN customers ON customers.id=inbound_customer_emails.customer_id
+                ORDER BY inbound_customer_emails.id DESC LIMIT 100""")
+    state = q("SELECT * FROM inbound_email_poll_state WHERE id=1", one=True)
+    address, password = inbound_email_config()
+    return render_template("inbound_email_inbox.html", emails=rows, poll_state=state, inbox_configured=bool(address and password))
+
+
+@app.route("/inbox/<int:email_id>")
+@login_required
+def inbound_email_view(email_id):
+    row = q("""SELECT inbound_customer_emails.*,customers.first_name || ' ' || customers.last_name AS customer_name
+               FROM inbound_customer_emails LEFT JOIN customers ON customers.id=inbound_customer_emails.customer_id
+               WHERE inbound_customer_emails.id=?""", (email_id,), one=True)
+    if not row:
+        return "Email not found", 404
+    attachments = q("SELECT * FROM inbound_email_attachments WHERE email_id=? ORDER BY id", (email_id,))
+    return render_template("inbound_email_view.html", email=row, attachments=attachments)
+
+
+@app.route("/inbox/attachments/<int:attachment_id>")
+@login_required
+def inbound_email_attachment(attachment_id):
+    row = q("SELECT * FROM inbound_email_attachments WHERE id=?", (attachment_id,), one=True)
+    if not row:
+        return "Attachment not found", 404
+    return send_from_directory(os.path.join(app.config["UPLOAD_FOLDER"], "inbound-email"), row["stored_name"],
+                               mimetype=row["content_type"], as_attachment=False, download_name=row["original_name"])
+
+
+@app.route("/inbox/poll", methods=["POST"])
+def inbound_email_poll():
+    logged_in = bool(session.get("logged_in"))
+    supplied = clean_str(request.headers.get("Authorization"))
+    expected = clean_str(os.environ.get("AUTOMATION_SECRET"))
+    scheduled = bool(expected and supplied.startswith("Bearer ") and secrets.compare_digest(supplied[7:], expected))
+    if not logged_in and not scheduled:
+        return jsonify({"ok": False}), 401
+    result = poll_inbound_customer_emails(force=True)
+    if logged_in:
+        flash(f"Inbox checked: {result.get('created', 0)} new customer email(s).")
+        return redirect(url_for("inbound_email_inbox"))
+    return jsonify({"ok": result["status"] in {"ok", "disabled"}, "status": result["status"], "created": result.get("created", 0)})
 
 
 def sort_rows(rows, key, reverse=False):
@@ -8363,6 +8571,37 @@ def init_db():
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(subscription_id, notification_key)
     )""")
+    conn.execute("""CREATE TABLE IF NOT EXISTS inbound_customer_emails (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        message_id TEXT NOT NULL UNIQUE,
+        mailbox_uid TEXT DEFAULT '',
+        sender_email TEXT NOT NULL,
+        sender_name TEXT DEFAULT '',
+        subject TEXT DEFAULT '',
+        body_text TEXT DEFAULT '',
+        received_at TEXT DEFAULT '',
+        customer_id INTEGER,
+        enquiry_id INTEGER,
+        job_id INTEGER,
+        match_status TEXT NOT NULL DEFAULT 'unmatched',
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )""")
+    conn.execute("""CREATE TABLE IF NOT EXISTS inbound_email_attachments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        email_id INTEGER NOT NULL,
+        original_name TEXT NOT NULL,
+        stored_name TEXT NOT NULL,
+        content_type TEXT DEFAULT 'application/octet-stream',
+        size_bytes INTEGER DEFAULT 0,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )""")
+    conn.execute("""CREATE TABLE IF NOT EXISTS inbound_email_poll_state (
+        id INTEGER PRIMARY KEY CHECK(id=1),
+        last_checked_at TEXT DEFAULT '',
+        last_status TEXT DEFAULT '',
+        last_error TEXT DEFAULT ''
+    )""")
+    conn.execute("INSERT OR IGNORE INTO inbound_email_poll_state(id) VALUES (1)")
     conn.commit()
     conn.close()
     try:
@@ -10273,7 +10512,11 @@ def customer_view(customer_id):
     for stage in customer_hub["stages"]:
         stage["templates"] = [customer_action_template_map[key] for key in stage.get("template_keys", []) if key in customer_action_template_map]
     saved_message_templates = q("SELECT * FROM communication_templates ORDER BY name COLLATE NOCASE ASC, id DESC")
-    return render_template("customer_view.html", customer=customer, timeline=timeline, quotes=quotes, jobs=jobs, invoices=invoices, feedback=feedback, reminders=reminders, subscription_summary=subscription_summary, is_archived=bool(customer and customer["archived_at"]), last_contacted_at=last_contacted_at, last_contacted_label=contact_badge_text(last_contacted_at), recent_contacts=recent_contacts, contact_summary=contact_summary, recent_sms=recent_sms, sms_summary=sms_summary, sms_thread=sms_thread, workflow=workflow, workflow_stages=WORKFLOW_STAGES, customer_hub=customer_hub, customer_due_next=customer_due_next, customer_hub_details=customer_hub_details, workflow_messages=workflow_messages, send_form_values=send_form_values, latest_intake=latest_intake, customer_form_sending_paused=CUSTOMER_FORM_SENDING_PAUSED, customer_action_templates=customer_action_templates, saved_message_templates=saved_message_templates, app_settings=settings())
+    inbound_emails = q("""SELECT e.*,
+        (SELECT COUNT(*) FROM inbound_email_attachments a WHERE a.email_id=e.id) AS attachment_count
+        FROM inbound_customer_emails e WHERE e.customer_id=?
+        ORDER BY e.received_at DESC, e.id DESC LIMIT 8""", (customer_id,))
+    return render_template("customer_view.html", customer=customer, timeline=timeline, quotes=quotes, jobs=jobs, invoices=invoices, feedback=feedback, reminders=reminders, subscription_summary=subscription_summary, is_archived=bool(customer and customer["archived_at"]), last_contacted_at=last_contacted_at, last_contacted_label=contact_badge_text(last_contacted_at), recent_contacts=recent_contacts, contact_summary=contact_summary, recent_sms=recent_sms, sms_summary=sms_summary, sms_thread=sms_thread, workflow=workflow, workflow_stages=WORKFLOW_STAGES, customer_hub=customer_hub, customer_due_next=customer_due_next, customer_hub_details=customer_hub_details, workflow_messages=workflow_messages, send_form_values=send_form_values, latest_intake=latest_intake, inbound_emails=inbound_emails, customer_form_sending_paused=CUSTOMER_FORM_SENDING_PAUSED, customer_action_templates=customer_action_templates, saved_message_templates=saved_message_templates, app_settings=settings())
 
 
 @app.route("/customers/<int:customer_id>/save-booking-details", methods=["POST"])
@@ -17568,12 +17811,15 @@ def automation_background_loop():
                 results = run_due_communication_automations(dry_run=False)
                 visit_summaries = send_due_website_visit_summaries(dry_run=False)
                 push_results = run_due_push_notifications()
+                inbox_results = poll_inbound_customer_emails(force=False)
                 if results:
                     logger.info("Background automation processed %s message(s).", len(results))
                 if visit_summaries:
                     logger.info("Background analytics emailed %s visit summary/summaries.", len(visit_summaries))
                 if push_results.get("sent"):
                     logger.info("Background owner alerts delivered %s push notification(s).", push_results["sent"])
+                if inbox_results.get("created"):
+                    logger.info("Background inbox captured %s new customer email(s).", inbox_results["created"])
         except Exception:
             logger.exception("Background automation runner failed")
         # Check frequently enough that a five minute customer acknowledgement

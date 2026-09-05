@@ -1090,6 +1090,20 @@ openCustomerToolsForHash();
           <h3>Communication log</h3>
         </div>
       </div>
+      {% if inbound_emails %}
+      <div class="customer-email-replies">
+        <div class="customer-email-replies-head">
+          <div><strong>Replies received by email</strong><span>Matched securely to this customer</span></div>
+          <a class="btn secondary small" href="{{ url_for('inbound_email_inbox') }}">Open inbox</a>
+        </div>
+        {% for message in inbound_emails %}
+        <a class="customer-email-reply" href="{{ url_for('inbound_email_view', email_id=message.id) }}">
+          <span><strong>{{ message.subject or 'No subject' }}</strong><small>{{ message.received_at or message.created_at }}{% if message.attachment_count %} · {{ message.attachment_count }} attachment{% if message.attachment_count != 1 %}s{% endif %}{% endif %}</small></span>
+          <b aria-hidden="true">View →</b>
+        </a>
+        {% endfor %}
+      </div>
+      {% endif %}
       <div class="timeline">
         {% for c in recent_contacts %}
         <div class="timeline-item">

@@ -17,12 +17,12 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='beautiful.css') }}?v=proper-redesign-20260606-1">
   <link rel="stylesheet" href="{{ url_for('static', filename='crm-redesign.css', v='app-shell-20260905-9') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='dashboard-reference.css', v='20260905-2') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='app-theme.css', v='20260905-7') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='app-theme.css', v='20260905-8') }}">
   <style>:root{--accent: {{ biz.accent or '#56718f' }}; --sidebar-color: {{ biz.sidebar_color or '#1f2933' }};}</style>
 </head>
 {% if session.get('logged_in') and not public_mode %}
 {% set ep = request.endpoint or '' %}
-<body class="app-page page-{{ ep|replace('_','-') }}" data-ui-build="20260905.16">
+<body class="app-page page-{{ ep|replace('_','-') }}" data-ui-build="20260905.17">
 {% else %}
 <body class="public-page page-public">
 {% endif %}
@@ -65,6 +65,7 @@
           <a href="{{ url_for('send_contact_form', action_type='review') }}">Send a Review Request</a>
           <a href="{{ url_for('send_contact_form') }}">Send Customer Form</a>
           <a href="{{ url_for('new_leads') }}">New Leads</a>
+          <a href="{{ url_for('inbound_email_inbox') }}">Customer Email Inbox</a>
           <a href="{{ url_for('workflow') }}">Workflow Board</a>
           <a href="{{ url_for('google_calendar_dashboard') }}">Google Calendar</a>
           <a href="{{ url_for('website_analytics_dashboard') }}">Site Analytics</a>

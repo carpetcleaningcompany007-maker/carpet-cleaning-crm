@@ -1,0 +1,15 @@
+{% extends "layout.html" %}
+{% block page_title %}Customer email{% endblock %}
+{% block body_content %}
+<div class="customer-inbox-page">
+  <header class="inbox-hero"><div><span class="section-kicker">Secure customer inbox</span><h2>Customer emails</h2><p>Replies and photos copied safely from the business Gmail inbox. The CRM never deletes, marks read or sends mailbox messages.</p></div><form method="post" action="{{ url_for('inbound_email_poll') }}"><input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><button class="btn primary" type="submit" {% if not inbox_configured %}disabled{% endif %}>Check for new email</button></form></header>
+  {% if not inbox_configured %}<div class="inbox-setup-note"><strong>Inbox capture is not connected</strong><span>Add the Gmail address and app password in Settings. Existing sending details can be reused; no password is shown here.</span><a href="{{ url_for('settings_page') }}">Open settings ›</a></div>{% elif poll_state.last_status == 'error' %}<div class="inbox-setup-note error"><strong>Last mailbox check failed safely</strong><span>The CRM did not change anything in Gmail. Check the Gmail app password and IMAP access.</span></div>{% endif %}
+  <div class="inbox-list">
+    {% for item in emails %}<a class="inbox-message-card {{ 'unmatched' if item.match_status == 'unmatched' else '' }}" href="{{ url_for('inbound_email_view', email_id=item.id) }}">
+      <span class="inbox-avatar">{{ (item.sender_name or item.sender_email or '?')[:1]|upper }}</span>
+      <span class="inbox-message-copy"><small>{{ 'Matched to ' ~ item.customer_name if item.customer_name else 'Needs matching' }}</small><strong>{{ item.subject or 'No subject' }}</strong><span>{{ item.sender_name or item.sender_email }}{% if item.attachment_count %} · {{ item.attachment_count }} attachment{{ '' if item.attachment_count == 1 else 's' }}{% endif %}</span></span>
+      <time>{{ item.received_at or item.created_at }}</time><i>›</i>
+    </a>{% else %}<div class="inbox-empty"><span>✉</span><strong>No customer emails captured yet</strong><p>New inbound Gmail messages will appear here after the next secure inbox check.</p></div>{% endfor %}
+  </div>
+</div>
+{% endblock %}

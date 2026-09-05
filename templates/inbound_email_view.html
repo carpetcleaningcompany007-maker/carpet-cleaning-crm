@@ -1,0 +1,14 @@
+{% extends "layout.html" %}
+{% block page_title %}Customer email{% endblock %}
+{% block body_content %}
+<article class="customer-email-view">
+  <a class="inbox-back" href="{{ url_for('inbound_email_inbox') }}">‹ Customer email inbox</a>
+  <header><span class="section-kicker">New customer email</span><h2>{{ email.subject or 'No subject' }}</h2><div class="email-sender-line"><strong>{{ email.sender_name or email.sender_email }}</strong><span>{{ email.sender_email }}</span><time>{{ email.received_at or email.created_at }}</time></div></header>
+  <div class="email-match-card {{ 'unmatched' if email.match_status == 'unmatched' else '' }}">
+    {% if email.customer_id %}<div><span>Matched customer</span><strong>{{ email.customer_name }}</strong></div><a href="{{ url_for('customer_view', customer_id=email.customer_id) }}">Open customer ›</a>{% else %}<div><span>Needs review</span><strong>No exact CRM email match</strong><small>Kept here safely rather than guessing the customer.</small></div><a href="{{ url_for('customers', q=email.sender_email) }}">Find customer ›</a>{% endif %}
+  </div>
+  <section class="email-body-card"><h3>Message</h3><div class="email-body-text">{{ email.body_text or 'No readable message text was included.' }}</div></section>
+  {% if attachments %}<section class="email-attachments"><h3>Photos and attachments</h3><div class="email-attachment-grid">{% for item in attachments %}<a href="{{ url_for('inbound_email_attachment', attachment_id=item.id) }}" target="_blank">{% if item.content_type.startswith('image/') %}<img src="{{ url_for('inbound_email_attachment', attachment_id=item.id) }}" alt="Customer attachment: {{ item.original_name }}">{% else %}<span>PDF</span>{% endif %}<strong>{{ item.original_name }}</strong><small>{{ (item.size_bytes / 1024)|round|int }} KB · Open securely</small></a>{% endfor %}</div></section>{% endif %}
+  <footer><span>Mailbox copy only</span><p>This CRM copy does not mark the original Gmail message read, delete it or reply to the customer.</p></footer>
+</article>
+{% endblock %}
