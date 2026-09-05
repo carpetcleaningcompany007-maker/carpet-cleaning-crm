@@ -92,7 +92,7 @@ class BusinessGoalsTests(unittest.TestCase):
         response = self.client.get("/business-goals")
         self.assertEqual(response.status_code, 200)
         body = response.get_data(as_text=True)
-        self.assertIn("Your business growth command centre", body)
+        self.assertIn("Build towards your daily target", body)
         self.assertIn("Month-by-month performance", body)
         self.assertIn("Your plan of action", body)
 

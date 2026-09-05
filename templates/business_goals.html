@@ -3,14 +3,13 @@
 {% block page_title %}Business Goals{% endblock %}
 {% block body_content %}
 <style>
-  .goals-shell{display:grid;gap:22px;max-width:1480px;margin:0 auto}
-  .goals-hero{position:relative;overflow:hidden;display:grid;grid-template-columns:minmax(0,1.25fr) minmax(300px,.75fr);gap:28px;padding:42px;border-radius:24px;background:linear-gradient(125deg,#061c31 0%,#0a4350 68%,#0a624d 100%);color:#fff;box-shadow:0 28px 70px rgba(7,28,49,.24)}
-  .goals-hero:after{content:"";position:absolute;right:-80px;top:-120px;width:360px;height:360px;border-radius:50%;background:radial-gradient(circle,rgba(237,204,119,.34),transparent 68%)}
-  .goals-kicker{color:#f0ce79;font-size:13px;font-weight:950;letter-spacing:.16em;text-transform:uppercase}
-  body.app-page .main .goals-hero h3{max-width:760px;margin:12px 0 14px;color:#fff!important;font-family:Georgia,"Times New Roman",serif;font-size:clamp(40px,5vw,66px);line-height:1;letter-spacing:-.035em}
-  .goals-hero p{max-width:720px;margin:0;color:#d9e8ec!important;font-size:18px;line-height:1.6}
-  .target-ring{position:relative;z-index:1;display:grid;place-items:center;align-content:center;min-height:250px;border:1px solid rgba(255,255,255,.18);border-radius:20px;background:rgba(255,255,255,.09);backdrop-filter:blur(12px);text-align:center}
-  .target-ring span{color:#eef7f7!important;font-size:13px;font-weight:850;text-transform:uppercase;letter-spacing:.1em}.target-ring strong{display:block;margin:4px 0;color:#f4d27d!important;font-family:Georgia,serif;font-size:62px;line-height:1}.target-ring small{color:#fff!important;font-size:15px}
+  .goals-shell{display:grid;gap:22px;max-width:1220px;margin:0 auto;padding:24px;border:1px solid #eee4d3;border-radius:26px;background:linear-gradient(145deg,#fffdf8,#fff8e9)}
+  .goals-heading{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(270px,.65fr);gap:28px;align-items:center;padding:8px 4px 2px}
+  .goals-kicker{color:#94690f;font-size:12px;font-weight:950;letter-spacing:.14em;text-transform:uppercase}
+  body.app-page .main .goals-heading h1{max-width:760px;margin:8px 0 10px;color:#071d36!important;-webkit-text-fill-color:#071d36!important;font-family:Georgia,"Times New Roman",serif;font-size:clamp(36px,4.5vw,56px);line-height:1.02;letter-spacing:-.035em}
+  .goals-heading p{max-width:720px;margin:0;color:#607185!important;font-size:16px;line-height:1.55}
+  .target-ring{display:grid;place-items:center;align-content:center;min-height:176px;border:1px solid #e4d3ae;border-radius:20px;background:#fff;box-shadow:0 12px 30px rgba(14,39,61,.07);text-align:center}
+  .target-ring span{color:#6a7785!important;font-size:12px;font-weight:850;text-transform:uppercase;letter-spacing:.1em}.target-ring strong{display:block;margin:7px 0;color:#0b2b49!important;font-family:Georgia,serif;font-size:52px;line-height:1}.target-ring small{color:#617286!important;font-size:14px}
   .goal-card-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
   .goal-card{padding:22px;border:1px solid #dce6ed;border-radius:18px;background:#fff;box-shadow:0 12px 30px rgba(14,39,61,.07)}
   .goal-card .label{display:flex;justify-content:space-between;gap:10px;color:#647688;font-size:13px;font-weight:900;text-transform:uppercase;letter-spacing:.05em}.goal-card strong{display:block;margin:12px 0 10px;color:#071b30;font-family:Georgia,serif;font-size:34px}.goal-card small{color:#6b7d8e}.goal-card .bar{height:9px;margin:15px 0 8px;overflow:hidden;border-radius:999px;background:#e8eef2}.goal-card .bar i{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#d6a93f,#efcf77)}
@@ -26,13 +25,13 @@
   .action-list{display:grid;gap:10px}.action-item{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:13px;align-items:center;padding:15px;border:1px solid #dce6ed;border-radius:14px;background:#fbfdfe}.action-status{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:#fff0c9;color:#6f500d;font-weight:950}.action-item.done{background:#f2fbf7;border-color:#bde2d4}.action-item.done .action-status{background:#0b8b68;color:#fff}.action-copy strong{display:block;color:#132a3d}.action-copy span{display:block;margin-top:3px;color:#6b7d8c;font-size:13px}.action-copy small{color:#8a6416}.action-item.done .action-copy strong{text-decoration:line-through;color:#63756e}
   .goal-note{padding:14px 18px;border-left:4px solid #d5aa43;border-radius:8px;background:#fff8e8;color:#654f1e;font-size:14px}
   @media(max-width:1100px){.goal-card-grid,.income-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.goal-grid-2{grid-template-columns:1fr}}
-  @media(max-width:720px){.goals-shell{gap:14px}.goals-hero{grid-template-columns:1fr;padding:25px 20px;border-radius:18px}.goals-hero h3{font-size:38px}.goals-hero p{font-size:15px}.target-ring{min-height:190px}.target-ring strong{font-size:52px}.goal-card-grid,.income-grid{grid-template-columns:1fr 1fr;gap:10px}.goal-card{padding:16px}.goal-card strong{font-size:27px}.goal-panel{padding:18px}.goal-panel-head{display:block}.month-row{grid-template-columns:68px minmax(0,1fr);gap:9px}.month-value{grid-column:2;text-align:left}.target-form,.action-form{grid-template-columns:1fr}.target-form .btn,.action-form .wide{grid-column:auto}.action-item{grid-template-columns:auto minmax(0,1fr)}.action-item form{grid-column:1/-1}.action-item .btn{width:100%}}
+  @media(max-width:720px){.goals-shell{gap:14px;margin:0 -7px;padding:18px 11px;border-radius:20px}.goals-heading{grid-template-columns:1fr;gap:16px;padding:3px}.goals-heading h1{font-size:36px!important}.goals-heading p{font-size:16px}.target-ring{min-height:148px}.target-ring strong{font-size:46px}.goal-card-grid,.income-grid{grid-template-columns:1fr 1fr;gap:10px}.goal-card{padding:16px}.goal-card strong{font-size:27px}.goal-panel{padding:18px}.goal-panel-head{display:block}.month-row{grid-template-columns:68px minmax(0,1fr);gap:9px}.month-value{grid-column:2;text-align:left}.target-form,.action-form{grid-template-columns:1fr}.target-form .btn,.action-form .wide{grid-column:auto}.action-item{grid-template-columns:auto minmax(0,1fr)}.action-item form{grid-column:1/-1}.action-item .btn{width:100%}}
 </style>
 <div class="goals-shell">
-  <section class="goals-hero">
-    <div><div class="goals-kicker">Your business growth command centre</div><h3>Turn every working day into measurable progress.</h3><p>See what has been booked, invoiced and actually paid—then use a clear action plan to keep the business moving towards the target.</p></div>
+  <header class="goals-heading">
+    <div><div class="goals-kicker">Business goals</div><h1>Build towards your daily target.</h1><p>See what has been booked, invoiced and paid, then choose the next practical action that moves the business forward.</p></div>
     <div class="target-ring"><span>Daily income goal</span><strong>£{{ '%.0f'|format(data.daily_target) }}</strong><small>{{ data.working_days }} working days each week</small></div>
-  </section>
+  </header>
 
   <div class="goal-card-grid">
     <article class="goal-card {% if data.today_progress >= 100 %}good{% endif %}"><div class="label"><span>Today paid</span><span>{{ data.today_progress }}%</span></div><strong>£{{ '%.2f'|format(data.paid_today) }}</strong><small>Target £{{ '%.2f'|format(data.today_target) }}</small><div class="bar"><i style="width:{{ data.today_progress }}%"></i></div></article>

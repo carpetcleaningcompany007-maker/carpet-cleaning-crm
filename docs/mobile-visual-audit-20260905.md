@@ -12,8 +12,9 @@ Each checked route was freshly rendered at 390 × 844 and 1440 × 1000 after its
 | `/jobs` | checked | checked | none (390/390, 1440/1440) | High-contrast heading; paired primary/secondary mobile actions; compact filters |
 | `/calendar` | checked | checked | none (390/390, 1440/1440) | Compact schedule heading and controls; month grid remains readable |
 | `/intake-forms` | checked | checked | none (390/390, 1440/1440) | High-contrast heading; paired booking/form actions; clear empty state |
+| `/business-goals` | checked | checked | none (390/390, 1440/1440) | Legacy dark hero removed; ivory goal workspace, compact target card and readable metric/action flow |
 
-Phase screenshots: `audit-g1-*-phone-final2.png` and `audit-g1-*-desktop-final2.png` in the local temporary QA directory.
+Phase screenshots: `audit-g1-*-phone-final2.png`, `audit-g1-*-desktop-final2.png` and `audit-goals-{phone,desktop}.png` in the local temporary QA directory.
 
 ## Remaining phases
 
