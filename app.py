@@ -151,7 +151,7 @@ def add_website_form_cors_headers(response):
         response.headers["Cache-Control"] = "no-store, private, max-age=0, must-revalidate"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
-        response.headers["X-CRM-UI-Version"] = "20260905.17"
+        response.headers["X-CRM-UI-Version"] = "20260905.18"
     elif request.path == "/static/crm-redesign.css":
         response.headers["Cache-Control"] = "no-cache, max-age=0, must-revalidate"
     return response
@@ -7999,6 +7999,32 @@ def init_db():
         review_link_sent_at TEXT DEFAULT '',
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
+    CREATE TABLE IF NOT EXISTS social_posts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        content_type TEXT NOT NULL DEFAULT 'review',
+        title TEXT DEFAULT '',
+        caption TEXT DEFAULT '',
+        visual_headline TEXT DEFAULT '',
+        visual_body TEXT DEFAULT '',
+        review_id INTEGER,
+        consent_confirmed INTEGER DEFAULT 0,
+        destination_facebook INTEGER DEFAULT 0,
+        destination_instagram INTEGER DEFAULT 0,
+        scheduled_at TEXT DEFAULT '',
+        status TEXT NOT NULL DEFAULT 'Draft',
+        approved_at TEXT DEFAULT '',
+        published_at TEXT DEFAULT '',
+        failure_reason TEXT DEFAULT '',
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS social_post_audit (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        post_id INTEGER NOT NULL,
+        action TEXT NOT NULL,
+        detail TEXT DEFAULT '',
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
     CREATE TABLE IF NOT EXISTS future_reminders (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         customer_id INTEGER,
@@ -12853,6 +12879,69 @@ def feedback_library():
                 LEFT JOIN jobs ON jobs.id = customer_feedback.job_id
                 ORDER BY customer_feedback.id DESC""")
     return render_template("feedback.html", feedback_rows=rows)
+
+
+SOCIAL_POST_TYPES = {"review", "before_after", "offer", "tip"}
+SOCIAL_POST_STATUSES = {"Draft", "Ready for approval", "Scheduled", "Published", "Failed"}
+
+
+@app.route("/social-studio")
+@login_required
+def social_studio():
+    posts = q("SELECT * FROM social_posts ORDER BY updated_at DESC, id DESC")
+    reviews = q("""SELECT id, rating, feedback_text, source, created_at FROM customer_feedback
+        WHERE length(trim(IFNULL(feedback_text,''))) > 0 ORDER BY created_at DESC, id DESC LIMIT 80""")
+    edit_id = request.args.get("edit", type=int)
+    active_post = q("SELECT * FROM social_posts WHERE id=?", (edit_id,), one=True) if edit_id else None
+    counts = {status: sum(1 for post in posts if post["status"] == status) for status in SOCIAL_POST_STATUSES}
+    return render_template("social_studio.html", posts=posts, reviews=reviews, active_post=active_post,
+                           social_counts=counts, meta_connected=False)
+
+
+@app.route("/social-studio/save", methods=["POST"])
+@login_required
+def social_studio_save():
+    post_id = request.form.get("post_id", type=int)
+    content_type = clean_str(request.form.get("content_type") or "review").lower()
+    if content_type not in SOCIAL_POST_TYPES:
+        content_type = "review"
+    title = clean_str(request.form.get("title"))[:120]
+    headline = clean_str(request.form.get("visual_headline"))[:120]
+    visual_body = clean_str(request.form.get("visual_body"))[:700]
+    caption = clean_str(request.form.get("caption"))[:2200]
+    review_id = request.form.get("review_id", type=int)
+    if review_id and not q("SELECT id FROM customer_feedback WHERE id=?", (review_id,), one=True):
+        review_id = None
+    status = "Ready for approval" if request.form.get("save_action") == "ready" else "Draft"
+    consent_confirmed = 1 if request.form.get("consent_confirmed") else 0
+    facebook = 1 if request.form.get("destination_facebook") else 0
+    instagram = 1 if request.form.get("destination_instagram") else 0
+    scheduled_at = clean_str(request.form.get("scheduled_at"))
+    if not title or not headline or not caption:
+        flash("Add a working title, image headline and caption before saving the post.")
+        return redirect(url_for("social_studio", edit=post_id) if post_id else url_for("social_studio"))
+    if status == "Ready for approval" and not consent_confirmed:
+        flash("Confirm that the wording, review and any customer material are appropriate to share before marking this ready.")
+        return redirect(url_for("social_studio", edit=post_id) if post_id else url_for("social_studio"))
+    if status == "Ready for approval" and review_id:
+        existing_review_post = q("""SELECT id FROM social_posts WHERE review_id=? AND id<>?
+            AND status IN ('Ready for approval','Scheduled','Published') LIMIT 1""", (review_id, post_id or 0), one=True)
+        if existing_review_post:
+            flash("That review is already in the approval or publishing queue. Open the existing post to avoid sharing it twice.")
+            return redirect(url_for("social_studio", edit=post_id) if post_id else url_for("social_studio"))
+    if post_id and q("SELECT id FROM social_posts WHERE id=?", (post_id,), one=True):
+        run("""UPDATE social_posts SET content_type=?,title=?,caption=?,visual_headline=?,visual_body=?,review_id=?,consent_confirmed=?,
+            destination_facebook=?,destination_instagram=?,scheduled_at=?,status=?,updated_at=datetime('now') WHERE id=?""",
+            (content_type, title, caption, headline, visual_body, review_id, consent_confirmed, facebook, instagram, scheduled_at, status, post_id))
+        action = "updated"
+    else:
+        post_id = run("""INSERT INTO social_posts(content_type,title,caption,visual_headline,visual_body,review_id,consent_confirmed,
+            destination_facebook,destination_instagram,scheduled_at,status) VALUES(?,?,?,?,?,?,?,?,?,?,?)""",
+            (content_type, title, caption, headline, visual_body, review_id, consent_confirmed, facebook, instagram, scheduled_at, status))
+        action = "created"
+    run("INSERT INTO social_post_audit(post_id,action,detail) VALUES(?,?,?)", (post_id, action, f"Saved as {status}"))
+    flash("Draft saved safely. Nothing has been posted." if status == "Draft" else "Ready for your approval. Nothing has been posted.")
+    return redirect(url_for("social_studio", edit=post_id))
 
 
 @app.route("/reminders")

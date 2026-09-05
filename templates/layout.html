@@ -17,12 +17,12 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='beautiful.css') }}?v=proper-redesign-20260606-1">
   <link rel="stylesheet" href="{{ url_for('static', filename='crm-redesign.css', v='app-shell-20260905-9') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='dashboard-reference.css', v='20260905-2') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='app-theme.css', v='20260905-8') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='app-theme.css', v='20260905-9') }}">
   <style>:root{--accent: {{ biz.accent or '#56718f' }}; --sidebar-color: {{ biz.sidebar_color or '#1f2933' }};}</style>
 </head>
 {% if session.get('logged_in') and not public_mode %}
 {% set ep = request.endpoint or '' %}
-<body class="app-page page-{{ ep|replace('_','-') }}" data-ui-build="20260905.17">
+<body class="app-page page-{{ ep|replace('_','-') }}" data-ui-build="20260905.18">
 {% else %}
 <body class="public-page page-public">
 {% endif %}
@@ -69,6 +69,7 @@
           <a href="{{ url_for('workflow') }}">Workflow Board</a>
           <a href="{{ url_for('google_calendar_dashboard') }}">Google Calendar</a>
           <a href="{{ url_for('website_analytics_dashboard') }}">Site Analytics</a>
+          <a href="{{ url_for('social_studio') }}">Social Post Studio</a>
           <a href="{{ url_for('business_goals') }}">Business Goals</a>
           <a href="{{ url_for('message_settings') }}">Messages</a>
           <a href="{{ url_for('communication_automation_settings') }}">Automation</a>

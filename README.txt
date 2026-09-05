@@ -47,3 +47,10 @@ If the Gmail address and app password in CRM Settings are valid for Gmail IMAP, 
 Only clean plain text is retained. HTML is converted to text. JPEG, PNG, HEIC/HEIF and PDF attachments are accepted up to 8 MB each and 20 MB total per message, stored on the private Render disk and served only through logged-in CRM routes. Message-ID provides idempotent deduplication. Customer email content never appears in logs or push notification bodies.
 
 If Gmail rejects the read-only inbox login, confirm IMAP access is enabled for the Gmail account and create a current Google App Password under the account's 2-Step Verification settings, then save it in CRM Settings. Do not place it in source control or a Render build log. The already configured AUTOMATION_SECRET can optionally authorize `POST /inbox/poll` with `Authorization: Bearer ...` from a Render Cron Job; the built-in runner means this is optional while the web service is awake.
+SOCIAL POST STUDIO (SETUP-ONLY PHASE)
+------------------------------------
+- Open More > Social Post Studio to create private Facebook/Instagram-ready drafts.
+- The studio supports Google review, before-and-after, offer and expert-tip concepts, with editable image wording, caption, phone preview, destination intent and preferred time.
+- A post can be saved as Draft or Ready for approval. Customer/review material requires an explicit appropriateness confirmation, and the same review cannot enter the approval queue twice.
+- Meta is deliberately disconnected in this phase. There are no OAuth tokens, provider API calls, background publishing jobs or development/test posts. "Approve & schedule" remains disabled.
+- A later connection requires a Facebook Page administrator, a linked Instagram Professional account and Meta OAuth. Provider tokens must be encrypted at rest using the CRM encryption key and never returned to the browser or logs.

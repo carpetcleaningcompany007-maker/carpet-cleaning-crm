@@ -63,8 +63,8 @@ class SecurityHardeningTests(unittest.TestCase):
         response = self.client.get("/dashboard")
         self.assertEqual(response.status_code, 200)
         self.assertIn("no-store", response.headers["Cache-Control"])
-        self.assertEqual(response.headers["X-CRM-UI-Version"], "20260905.17")
-        self.assertIn(b'data-ui-build="20260905.17"', response.data)
+        self.assertEqual(response.headers["X-CRM-UI-Version"], "20260905.18")
+        self.assertIn(b'data-ui-build="20260905.18"', response.data)
         self.assertIn(b"app-shell-20260905-9", response.data)
         self.assertIn(b"app-theme.css", response.data)
         self.assertIn(b"Carpet Clean Pro", response.data)
@@ -327,6 +327,49 @@ class SecurityHardeningTests(unittest.TestCase):
         token = self.mod.signed_intake_update_token(42)
         self.assertEqual(self.mod.lead_id_from_update_token(token), 42)
         self.assertGreaterEqual(token.count("."), 2)
+
+    def test_social_studio_is_private_preview_only_and_saves_audited_drafts(self):
+        denied = self.client.get("/social-studio")
+        self.assertEqual(denied.status_code, 302)
+        self.login()
+        page = self.client.get("/social-studio")
+        self.assertEqual(page.status_code, 200)
+        self.assertIn(b"Safe setup mode", page.data)
+        self.assertIn(b"Publishing is disabled", page.data)
+        self.assertIn(b"Approve & schedule", page.data)
+        self.assertNotIn(b"access_token", page.data)
+        token = self.csrf()
+        saved = self.client.post("/social-studio/save", data={
+            "_csrf_token": token, "content_type": "tip", "title": "Fresh carpet tip",
+            "visual_headline": "Vacuum slowly", "visual_body": "Small passes lift more dust.",
+            "caption": "A simple professional tip.", "save_action": "draft",
+            "destination_facebook": "1", "scheduled_at": "2026-09-08T18:30",
+        })
+        self.assertEqual(saved.status_code, 302)
+        post = self.mod.q("SELECT * FROM social_posts", one=True)
+        self.assertEqual(post["status"], "Draft")
+        self.assertEqual(post["destination_facebook"], 1)
+        self.assertFalse(post["published_at"])
+        self.assertEqual(self.mod.q("SELECT COUNT(*) AS c FROM social_post_audit", one=True)["c"], 1)
+
+    def test_social_ready_state_requires_consent_and_prevents_review_reposts(self):
+        self.login()
+        review_id = self.mod.run("INSERT INTO customer_feedback(rating,feedback_text,source) VALUES(5,'Excellent clean','Google')")
+        base = {"content_type": "review", "title": "Five stars", "visual_headline": "Lovely feedback",
+                "visual_body": "Excellent clean", "caption": "Thank you.", "review_id": review_id,
+                "save_action": "ready"}
+        token = self.csrf()
+        rejected = self.client.post("/social-studio/save", data={**base, "_csrf_token": token})
+        self.assertEqual(rejected.status_code, 302)
+        self.assertEqual(self.mod.q("SELECT COUNT(*) AS c FROM social_posts", one=True)["c"], 0)
+        token = self.csrf()
+        accepted = self.client.post("/social-studio/save", data={**base, "_csrf_token": token, "consent_confirmed": "1"})
+        self.assertEqual(accepted.status_code, 302)
+        token = self.csrf()
+        duplicate = self.client.post("/social-studio/save", data={**base, "_csrf_token": token, "consent_confirmed": "1", "title": "Duplicate"})
+        self.assertEqual(duplicate.status_code, 302)
+        self.assertEqual(self.mod.q("SELECT COUNT(*) AS c FROM social_posts", one=True)["c"], 1)
+        self.assertEqual(self.mod.q("SELECT status FROM social_posts", one=True)["status"], "Ready for approval")
 
 
 if __name__ == "__main__":

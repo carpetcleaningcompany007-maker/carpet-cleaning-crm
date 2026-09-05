@@ -1,0 +1,47 @@
+{% extends "layout.html" %}
+{% block title %}Social Post Studio · Carpet Clean Pro{% endblock %}
+{% block page_title %}Social Post Studio{% endblock %}
+{% block body_content %}
+<div class="social-studio-page">
+  <section class="social-hero">
+    <div><span class="social-kicker">Marketing · approval first</span><h1>Turn your best work into posts worth stopping for.</h1><p>Create the visual, perfect the wording and see exactly how it will look—before anything can leave the CRM.</p></div>
+    <div class="social-connection-card"><span class="social-status-dot"></span><div><strong>Meta is not connected</strong><small>Safe setup mode. Publishing is disabled.</small></div><button class="btn secondary" disabled>Connect later</button></div>
+  </section>
+  <section class="social-metrics" aria-label="Post queue summary">
+    {% for label in ['Draft','Ready for approval','Scheduled','Published','Failed'] %}<div><span>{{ label }}</span><strong>{{ social_counts[label] }}</strong></div>{% endfor %}
+  </section>
+  <div class="social-workspace">
+    <section class="panel social-editor">
+      <div class="social-section-heading"><span>01</span><div><h2>Create your post</h2><p>Everything remains private until you deliberately approve it after connecting Meta.</p></div></div>
+      <form method="post" action="{{ url_for('social_studio_save') }}" id="socialPostForm" class="form">
+        <input type="hidden" name="post_id" value="{{ active_post.id if active_post else '' }}">
+        <label>What are you creating?</label>
+        <div class="social-type-grid">
+          {% for value,label,desc in [('review','Google review','Make customer praise shine'),('before_after','Before & after','Show a transformation'),('offer','Offer','Promote a clear reason to book'),('tip','Expert tip','Build trust with useful advice')] %}
+          <label class="social-type"><input type="radio" name="content_type" value="{{ value }}" {% if (active_post and active_post.content_type==value) or (not active_post and value=='review') %}checked{% endif %}><span><b>{{ label }}</b><small>{{ desc }}</small></span></label>
+          {% endfor %}
+        </div>
+        <label>Working title<input name="title" maxlength="120" value="{{ active_post.title if active_post else '' }}" placeholder="e.g. A lovely five-star review" required></label>
+        <label>Choose a saved review <span class="muted">optional — only use one you consider appropriate</span>
+          <select name="review_id" id="socialReviewSelect"><option value="">No review selected</option>{% for review in reviews %}<option value="{{ review.id }}" data-review="{{ review.feedback_text|e }}" {% if active_post and active_post.review_id==review.id %}selected{% endif %}>{{ review.rating or '—' }}★ · {{ review.feedback_text[:90] }}</option>{% endfor %}</select>
+        </label>
+        <div class="grid two"><label>Words on the image<input name="visual_headline" id="socialHeadline" maxlength="120" value="{{ active_post.visual_headline if active_post else 'Another carpet brought back to life.' }}" required></label><label>Supporting line<textarea name="visual_body" id="socialVisualBody" rows="3" maxlength="700">{{ active_post.visual_body if active_post else 'Professional carpet cleaning, thoughtfully done.' }}</textarea></label></div>
+        <label>Post caption<textarea name="caption" id="socialCaption" rows="6" maxlength="2200" required>{{ active_post.caption if active_post else 'A fresh, beautifully clean carpet makes such a difference. If yours could use the same care, send us a message.' }}</textarea></label>
+        <label class="social-consent"><input type="checkbox" name="consent_confirmed" {% if active_post and active_post.consent_confirmed %}checked{% endif %}><span><strong>I have checked this is appropriate to share</strong><small>No customer name, home, photograph or review will be treated as approved without this confirmation.</small></span></label>
+        <div class="grid two"><fieldset><legend>Future destinations</legend><label class="check"><input type="checkbox" name="destination_facebook" {% if active_post and active_post.destination_facebook %}checked{% endif %}> Facebook Page <em>Disconnected</em></label><label class="check"><input type="checkbox" name="destination_instagram" {% if active_post and active_post.destination_instagram %}checked{% endif %}> Instagram <em>Disconnected</em></label></fieldset><label>Preferred publishing time <span class="muted">saved as intent only</span><input type="datetime-local" name="scheduled_at" value="{{ active_post.scheduled_at if active_post else '' }}"></label></div>
+        <div class="social-editor-actions"><button class="btn secondary" name="save_action" value="draft">Save draft</button><button class="btn primary" name="save_action" value="ready">Mark ready for approval</button><button class="btn" type="button" disabled>Approve & schedule · connect Meta first</button></div>
+      </form>
+    </section>
+    <aside class="social-preview-wrap">
+      <div class="social-section-heading"><span>02</span><div><h2>Live preview</h2><p>Your approval image, shown at phone size.</p></div></div>
+      <div class="social-network-tabs"><button class="active" type="button">Instagram</button><button type="button">Facebook</button></div>
+      <article class="social-phone-preview"><header><img src="{{ url_for('static', filename='site/site-icon-512.png') }}" alt=""><div><strong>The Carpet Cleaning Company</strong><small>Shropshire</small></div><b>•••</b></header><div class="social-artwork"><span>THE CARPET CLEANING COMPANY</span><div class="social-art-stars">★★★★★</div><h3 id="previewHeadline">{{ active_post.visual_headline if active_post else 'Another carpet brought back to life.' }}</h3><p id="previewBody">{{ active_post.visual_body if active_post else 'Professional carpet cleaning, thoughtfully done.' }}</p><i>Clean carpets. Beautiful homes.</i></div><footer><div>♡　💬　⌁</div><strong id="previewCaption">{{ active_post.caption if active_post else 'A fresh, beautifully clean carpet makes such a difference. If yours could use the same care, send us a message.' }}</strong><small>Preview only · nothing has been published</small></footer></article>
+    </aside>
+  </div>
+  <section class="panel social-queue"><div class="social-section-heading"><span>03</span><div><h2>Drafts & approval queue</h2><p>Every post has a clear state and remains under your control.</p></div></div><div class="social-post-list">{% for post in posts %}<a href="{{ url_for('social_studio', edit=post.id) }}" class="social-post-row"><span class="social-post-thumb">{{ post.visual_headline[:1] or 'P' }}</span><span><strong>{{ post.title }}</strong><small>{{ post.content_type|replace('_',' ')|title }} · Updated {{ post.updated_at }}</small></span><em class="social-state social-state-{{ post.status|lower|replace(' ','-') }}">{{ post.status }}</em><b>Edit →</b></a>{% else %}<div class="empty-state"><strong>Your studio is ready.</strong><p>Create the first private draft above. Nothing can publish while Meta is disconnected.</p></div>{% endfor %}</div></section>
+  <section class="panel social-setup"><div class="social-section-heading"><span>04</span><div><h2>Connection setup — later, when you choose</h2><p>This studio is ready without touching Facebook or Instagram.</p></div></div><div class="social-setup-grid"><div><b>1</b><strong>Facebook Page access</strong><p>The connecting owner must be a Page administrator.</p></div><div><b>2</b><strong>Instagram Professional</strong><p>The Instagram account must be professional and linked to that Page.</p></div><div><b>3</b><strong>Secure Meta sign-in</strong><p>Tokens will be encrypted server-side and never placed in a page or log.</p></div><div><b>4</b><strong>Keep approval first</strong><p>Publishing remains off until a post is previewed and deliberately approved.</p></div></div></section>
+</div>
+<script>
+(function(){function sync(){document.getElementById('previewHeadline').textContent=document.getElementById('socialHeadline').value||'Your headline';document.getElementById('previewBody').textContent=document.getElementById('socialVisualBody').value||'';document.getElementById('previewCaption').textContent=document.getElementById('socialCaption').value||'Your caption';}['socialHeadline','socialVisualBody','socialCaption'].forEach(function(id){document.getElementById(id).addEventListener('input',sync)});document.getElementById('socialReviewSelect').addEventListener('change',function(){var o=this.options[this.selectedIndex];if(o&&o.dataset.review){document.getElementById('socialVisualBody').value='“'+o.dataset.review+'”';sync();}});})();
+</script>
+{% endblock %}
