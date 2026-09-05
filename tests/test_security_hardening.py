@@ -80,6 +80,17 @@ class SecurityHardeningTests(unittest.TestCase):
         state = self.mod.q("SELECT * FROM ui_notification_state WHERE notification_key=?", (f"enquiry:{lead_id}",), one=True)
         self.assertTrue(state["seen_at"])
 
+    def test_mobile_more_uses_all_sidebar_toggles(self):
+        source_path = os.path.join(os.path.dirname(self.mod.__file__), "static", "app.js")
+        with open(source_path, encoding="utf-8") as handle:
+            source = handle.read()
+        self.assertIn("querySelectorAll('[data-sidebar-toggle]')", source)
+        self.assertIn("event.preventDefault()", source)
+        self.login()
+        response = self.client.get("/dashboard")
+        self.assertIn(b"mobile-more-20260905-1", response.data)
+        self.assertGreaterEqual(response.data.count(b"data-sidebar-toggle"), 2)
+
     def test_login_rotates_session_and_requires_csrf(self):
         with self.client.session_transaction() as session:
             session["attacker_marker"] = "remove-me"

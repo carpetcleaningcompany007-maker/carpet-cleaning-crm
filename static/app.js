@@ -176,19 +176,20 @@ document.addEventListener('DOMContentLoaded', function(){
     });
   }
 
-  const toggle = document.querySelector('[data-sidebar-toggle]');
+  const toggles = document.querySelectorAll('[data-sidebar-toggle]');
   const close = document.querySelector('[data-sidebar-close]');
   const sidebar = document.getElementById('mainSidebar');
   function setSidebar(open){
     document.body.classList.toggle('sidebar-open', !!open);
-    if(toggle) toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    toggles.forEach(function(toggle){ toggle.setAttribute('aria-expanded', open ? 'true' : 'false'); });
     if(sidebar) sidebar.setAttribute('aria-hidden', open ? 'false' : 'true');
   }
-  if(toggle){
-    toggle.addEventListener('click', function(){
+  toggles.forEach(function(toggle){
+    toggle.addEventListener('click', function(event){
+      event.preventDefault();
       setSidebar(!document.body.classList.contains('sidebar-open'));
     });
-  }
+  });
   if(close){ close.addEventListener('click', function(){ setSidebar(false); }); }
   document.addEventListener('keydown', function(e){
     if(e.key === 'Escape') setSidebar(false);
