@@ -41,9 +41,17 @@
   body.app-page.page-dashboard .concept-metrics { gap:16px!important; margin-bottom:20px!important; }
   body.app-page.page-dashboard .concept-metrics>a { min-height:105px!important; padding:17px 20px!important; grid-template-columns:58px minmax(0,1fr)!important; gap:16px!important; border-color:#e3ded7!important; border-radius:7px!important; background:#fff!important; }
   body.app-page.page-dashboard .concept-metrics>a { position:relative;overflow:hidden; }
+  body.app-page.page-dashboard .concept-metrics>a:before { content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:#2d78b2; }
+  body.app-page.page-dashboard .concept-metrics>a.metric-quotes:before { background:#d5a315; }
+  body.app-page.page-dashboard .concept-metrics>a.metric-followups:before { background:#8a66ad; }
+  body.app-page.page-dashboard .concept-metrics>a.metric-revenue:before { background:#219474; }
+  body.app-page.page-dashboard .metric-quotes .metric-symbol { background:#fff0c9!important;color:#9a6900!important; }
+  body.app-page.page-dashboard .metric-followups .metric-symbol { background:#f2ebf8!important;color:#724f91!important; }
+  body.app-page.page-dashboard .metric-revenue .metric-symbol { background:#e7f5ef!important;color:#177758!important; }
   body.app-page.page-dashboard .concept-metrics>a.has-attention:after { content:'';position:absolute;right:12px;top:12px;width:7px;height:7px;border-radius:50%;background:#d49d00;box-shadow:0 0 0 5px rgba(212,157,0,.12); }
-  body.app-page.page-dashboard .metric-progress { position:absolute;left:20px;right:20px;bottom:11px;height:4px;border-radius:999px;background:#eee9df;overflow:hidden; }
-  body.app-page.page-dashboard .metric-progress i { display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#d6a315,#efc54b); }
+  body.app-page.page-dashboard .metric-progress { position:absolute;left:20px;right:20px;bottom:10px;height:6px;border-radius:999px;background:#e5ebe8;overflow:hidden; }
+  body.app-page.page-dashboard .metric-progress i { display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#168260,#35b58d); }
+  body.app-page.page-dashboard .metric-progress-label { position:absolute;right:20px;bottom:19px;color:#587064;font-size:9px;font-weight:700; }
   body.app-page.page-dashboard .metric-revenue em { display:block!important;position:absolute;right:20px;bottom:18px;color:#6f7c8a!important;font-size:9px!important;font-style:normal; }
   body.app-page.page-dashboard .metric-symbol { width:54px!important; height:54px!important; border-radius:50%!important; background:#fff5df!important; font-size:25px!important; }
   body.app-page.page-dashboard .concept-metrics div { display:block!important; }
@@ -56,6 +64,7 @@
   .concept-rail { gap:20px; }
   body.app-page.page-dashboard .concept-panel { border-color:#e2ddd6!important; border-radius:7px!important; background:#fff!important; box-shadow:0 5px 14px rgba(40,40,40,.06)!important; }
   body.app-page.page-dashboard .concept-panel>header { min-height:57px; padding:16px 20px!important; align-items:center!important; border-color:#ece7e0!important; }
+  body.app-page.page-dashboard .schedule-date-chip { padding:6px 9px;border-radius:999px;background:#f7f2e7;color:#715617;font-size:10px;font-weight:700; }
   body.app-page.page-dashboard .concept-panel h2 { color:#0a2140!important; font:500 22px/1.1 Georgia,serif!important; letter-spacing:-.01em!important; }
   body.app-page.page-dashboard .concept-schedule { height:280px!important; min-height:280px!important; overflow:hidden; }
   .schedule-list { height:176px!important; padding:0 22px!important; }
@@ -76,6 +85,7 @@
   .concept-panel>footer { min-height:47px; padding:0 20px; display:flex; align-items:center; border-top:1px solid #ece7e0; }
   .concept-panel>footer a { color:#a87400; font-size:13px; font-weight:600; text-decoration:none; }
   body.app-page.page-dashboard .concept-empty { min-height:176px!important; }
+  body.app-page.page-dashboard .concept-empty>span { width:58px!important;height:58px!important;border:1px solid #b9dfd0;box-shadow:0 0 0 9px #f3faf7;color:#16805f!important;font-size:25px!important; }
   body.app-page.page-dashboard .concept-recent { height:218px!important; min-height:218px; margin:0!important; overflow:hidden; }
   body.app-page.page-dashboard .recent-grid { display:block!important; padding:0 22px!important; }
   body.app-page.page-dashboard .recent-grid>a { min-height:49px!important; grid-template-columns:31px 1fr auto!important; }
