@@ -81,6 +81,14 @@
   <a class="btn {% if customer_due_next.has_action %}primary{% else %}secondary{% endif %}" href="{{ customer_due_next.href }}">{{ customer_due_next.button }}</a>
 </section>
 
+<nav class="customer-primary-tabs" aria-label="Customer record sections">
+  <a class="is-active" href="#customer-stage-overview">Next action</a>
+  <a href="#customer-details">Details</a>
+  <a href="#customer-sales">Quotes &amp; jobs</a>
+  <a href="#customer-comms">Messages</a>
+  <a href="#customer-finance">Finance</a>
+</nav>
+
 <style>
   .customer-due-next{display:grid;grid-template-columns:auto minmax(0,1fr) minmax(140px,auto) minmax(130px,auto) auto;align-items:center;gap:16px;max-width:1180px;margin:14px auto 18px;padding:16px 18px;border:1px solid #d8bd70;border-radius:17px;background:linear-gradient(135deg,#fffdf7,#f7eed7);box-shadow:0 13px 30px rgba(57,43,18,.10)}
   .due-next-marker{display:grid;justify-items:center;gap:4px;color:#6d520f;text-transform:uppercase;font-weight:900;letter-spacing:.05em}.due-next-marker span{width:18px;height:18px;display:grid;place-items:center;border-radius:50%;background:#dcae2f;color:#fff;box-shadow:0 0 0 5px rgba(220,174,47,.17);font-size:12px}.due-next-marker small{font-size:10px}
