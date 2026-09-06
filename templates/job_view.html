@@ -22,6 +22,7 @@
   <div class="job-travel-actions">
     {% if directions_url %}<a href="{{ directions_url }}" target="_blank" rel="noopener">Open directions <span>↗</span></a>{% endif %}
     {% if what3words_url %}<a href="{{ what3words_url }}" target="_blank" rel="noopener">What3words <span>↗</span></a>{% endif %}
+    {% if not is_dashboard_sample and job.status not in ['On My Way','Arrived','In Progress','Completed','Invoiced','Paid','Cancelled','Archived'] %}<form method="post" action="{{ url_for('today_run_job_action', job_id=job.id) }}"><input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="on_way"><input type="hidden" name="next_url" value="{{ url_for('job_view', job_id=job.id) }}"><button type="submit">I’m on my way</button></form>{% endif %}
   </div>
   {% endif %}
   {% if job.customer_id %}<a class="job-open-customer" href="{{ url_for('customer_view', customer_id=job.customer_id) }}">Open customer <span>›</span></a>{% elif is_dashboard_sample %}<a class="job-open-customer" href="#job-edit-details">Sample job — view or change details <span>›</span></a>{% else %}<a class="job-open-customer" href="#job-edit-details">Add customer details <span>›</span></a>{% endif %}

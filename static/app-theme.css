@@ -10,6 +10,27 @@ body.app-page .table-wrap,body.app-page .table-shell{border-radius:10px;overflow
 body.app-page .empty-state,body.app-page .empty-cell,body.app-page .enquiry-empty,body.app-page .cc-empty{border:1px dashed #cfd9e3!important;border-radius:10px!important;background:#f9fbfc!important;color:var(--pro-muted)!important}body.app-page details{border-color:var(--pro-line)!important;border-radius:10px!important;background:#fff!important}body.app-page summary{min-height:48px;color:var(--pro-ink)!important;font-weight:800!important}
 body.app-page .mobile-record-list>*,body.app-page .enquiry-card,body.app-page .customer-card,body.app-page .job-card{border:1px solid var(--pro-line)!important;border-radius:10px!important;background:#fff!important;box-shadow:0 2px 7px rgba(8,31,59,.05)!important}body.app-page .nav-more-menu{border-color:var(--pro-line)!important;background:#fff!important}body.app-page .nav-more-menu a{border-radius:8px!important;color:var(--pro-ink)!important}body.app-page .nav-more-menu a:hover{background:var(--pro-gold-soft)!important}
 .job-travel-actions{display:flex;gap:9px;margin:0 0 18px;flex-wrap:wrap}.job-travel-actions a{display:inline-flex;min-height:42px;padding:0 14px;align-items:center;gap:8px;border:1px solid #cfdbe5;border-radius:10px;background:#fff;color:#062747!important;font-size:13px;font-weight:850;text-decoration:none}.job-travel-actions a:first-child{border-color:#062747;background:#062747;color:#fff!important}.job-travel-actions a span{color:#e9b83f;font-size:16px}
+.job-travel-actions form{margin:0}.job-travel-actions button{min-height:42px!important;padding:0 14px!important;border:1px solid #b98218!important;border-radius:10px!important;background:#fff4d8!important;color:#704b08!important;font-size:13px!important;font-weight:900!important}
+@media(max-width:760px){
+  /* Accessible mobile type scale: small helper text must be readable without zooming. */
+  body.app-page .form-help,body.app-page .muted,body.app-page .notice,body.app-page .inline-note{font-size:15px!important;line-height:1.45!important}
+  body.app-page .section-kicker,body.app-page .status-pill,body.app-page .badge-row span{font-size:12px!important}
+  body.app-page .ready-card{padding:17px!important}
+  body.app-page .ready-card-head strong,body.app-page .confirm-prompt strong{font-size:20px!important;line-height:1.22!important}
+  body.app-page .ready-card-head p{font-size:17px!important;line-height:1.4!important}
+  body.app-page .ready-list{gap:10px!important}
+  body.app-page .ready-row-link{grid-template-columns:64px minmax(0,1fr)!important;gap:12px!important;padding:15px!important}
+  body.app-page .ready-row span{min-height:36px!important;padding:0 11px!important;font-size:15px!important}
+  body.app-page .ready-row strong{font-size:18px!important;line-height:1.28!important}
+  body.app-page .ready-row em{font-size:16px!important;line-height:1.4!important}
+  body.app-page .ready-row-link b,.job-stage-link b{min-height:38px!important;padding:0 13px!important;font-size:14px!important;display:inline-flex!important;align-items:center!important}
+  body.app-page .mobile-record-list small,body.app-page .customer-card small,body.app-page .job-card small,body.app-page .notification-copy small,body.app-page .page-intro p,body.app-page .panel-head p{font-size:15px!important;line-height:1.45!important}
+  body.app-page .table{font-size:14px!important}
+  body.app-page .table th{font-size:11px!important}
+  body.app-page .job-travel-actions{display:grid!important;grid-template-columns:1fr 1fr!important;gap:10px!important}
+  body.app-page .job-travel-actions a,body.app-page .job-travel-actions form,body.app-page .job-travel-actions button{width:100%!important}
+  body.app-page .job-travel-actions a,body.app-page .job-travel-actions button{min-height:50px!important;justify-content:center!important;font-size:15px!important}
+}
 body.app-page .brand-logo{width:64px!important;height:50px!important;border:0!important;border-radius:0!important;object-fit:contain!important;background:transparent!important}
 .mobile-alert-action{position:relative}.notification-badge{position:absolute!important;top:-2px!important;right:-4px!important;display:grid!important;min-width:18px!important;height:18px!important;padding:0 4px!important;place-items:center!important;border:2px solid var(--pro-navy)!important;border-radius:999px!important;background:#d52d2d!important;color:#fff!important;font:800 9px/1 system-ui!important}
 .notification-list{display:grid;gap:10px}.notification-item{display:grid;grid-template-columns:42px minmax(0,1fr) auto;gap:12px;align-items:center;padding:14px;border:1px solid var(--pro-line);border-radius:10px;background:#fff;text-decoration:none;color:var(--pro-ink)}.notification-icon{display:grid;width:42px;height:42px;place-items:center;border-radius:50%;background:var(--pro-gold-soft);color:#9b6900;font-weight:900}.notification-copy strong,.notification-copy small{display:block}.notification-copy small{margin-top:3px;color:var(--pro-muted)}.notification-priority{padding:4px 7px;border-radius:999px;background:#fff1d2;color:#805800;font-size:10px;font-weight:800}.notification-empty{padding:34px 18px;text-align:center;color:var(--pro-muted)}
