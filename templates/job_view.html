@@ -18,12 +18,11 @@
     <a class="job-date-link" href="{{ url_for('full_calendar', view='day', day=job.job_date) if job.job_date else '#job-edit-details' }}" aria-label="{{ 'Open calendar for ' ~ job_display_date ~ (', ' ~ job.job_time if job.job_time else '') if job.job_date else 'Add the job date and time' }}"><i aria-hidden="true">▣</i><span><small>Scheduled</small><b>{{ job_display_date }}</b>{% if job.job_time %}<em>{{ job.job_time }}</em>{% endif %}</span><strong aria-hidden="true">›</strong></a>
     <div class="job-price-fact"><i aria-hidden="true">£</i><span><small>Agreed price</small>{% if (job.amount or 0)|float > 0 %}<b>£{{ '%.2f'|format(job.amount) }}</b>{% else %}<b class="not-set">Price not set</b>{% endif %}</span></div>
   </div>
-  {% if job.customer_id and (job.address or job.postcode) %}<div class="job-summary-location"><span>Job address</span><strong>{{ [job.address, job.town, job.postcode]|select|join(', ') }}</strong>{% if what3words_url %}<a href="{{ what3words_url }}" target="_blank" rel="noopener">What3words ↗</a>{% endif %}</div>{% endif %}
+  {% if job.customer_id and (job.address or job.postcode) %}<div class="job-summary-location"><span>Job address</span><strong>{{ [job.address, job.town, job.postcode]|select|join(', ') }}</strong>{% if what3words_url %}<a href="{{ what3words_url }}" target="_blank" rel="noopener">What3words: ///{{ job.what3words }} ↗</a>{% endif %}</div>{% endif %}
   {% if job.phone or directions_url or what3words_url %}
   <div class="job-travel-actions">
-    {% if job.phone %}<a class="job-contact-action" href="tel:{{ job.phone }}">Call <span>☎</span></a><a class="job-contact-action" href="https://wa.me/{{ whatsapp_phone(job.phone) }}" target="_blank" rel="noopener">WhatsApp <span>↗</span></a>{% endif %}
+    {% if job.phone %}<a class="job-contact-action" href="tel:{{ job.phone }}">Telephone <span>☎</span></a><a class="job-contact-action" href="https://wa.me/{{ whatsapp_phone(job.phone) }}" target="_blank" rel="noopener">WhatsApp <span>↗</span></a>{% endif %}
     {% if directions_url %}<a class="is-directions" href="{{ directions_url }}" target="_blank" rel="noopener"><i class="maps-mark" aria-hidden="true">●</i> Google Maps <span>↗</span></a>{% endif %}
-    {% if what3words_url %}<a href="{{ what3words_url }}" target="_blank" rel="noopener">What3words <span>↗</span></a>{% endif %}
     {% if not is_dashboard_sample and job.status not in ['On My Way','Arrived','In Progress','Completed','Invoiced','Paid','Cancelled','Archived'] %}<form method="post" action="{{ url_for('today_run_job_action', job_id=job.id) }}"><input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="on_way"><input type="hidden" name="next_url" value="{{ url_for('job_view', job_id=job.id) }}"><button type="submit">I’m on my way</button></form>{% endif %}
   </div>
   {% endif %}
@@ -33,7 +32,7 @@
     <form method="post" action="{{ url_for('job_send_late_notice', job_id=job.id) }}" class="job-late-form">
       <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
       <label>How late are you running?
-        <select name="minutes" data-late-minutes><option value="10">10 minutes</option><option value="20">20 minutes</option><option value="30">30 minutes</option></select>
+        <select name="minutes" data-late-minutes><option value="10">10 minutes</option><option value="20">20 minutes</option><option value="30">30 minutes</option><option value="60">1 hour</option><option value="120">2 hours</option></select>
       </label>
       <label>Send by
         <select name="channel"><option value="both">Text and email</option><option value="sms">Text message only</option><option value="email">Email only</option></select>
@@ -342,7 +341,7 @@
 <script>
 (function(){
   const lateMinutes=document.querySelector('[data-late-minutes]'),latePreview=document.querySelector('[data-late-preview]');
-  if(lateMinutes&&latePreview){lateMinutes.addEventListener('change',function(){latePreview.textContent='Hi {{ job.first_name or "there" }}, I’m really sorry, I’m running about '+this.value+' minutes late. I’m just running a little behind schedule from the previous job. I’ll be with you as quickly as I can — I hope you don’t mind. Any problems, please give me a call. Paul.'})}
+  if(lateMinutes&&latePreview){lateMinutes.addEventListener('change',function(){latePreview.textContent='Hi '+{{ (job.first_name or "there")|tojson }}+', I’m really sorry, I’m running about '+this.selectedOptions[0].textContent+' late. I’m just running a little behind schedule from the previous job. I’ll be with you as quickly as I can — I hope you don’t mind. Any problems, please give me a call. Paul.'})}
   document.querySelectorAll('.job-next-card a,.job-progress-detail a').forEach(function(link){
     link.addEventListener('click',function(){
       const href=link.getAttribute('href')||'';
@@ -350,7 +349,7 @@
     });
   });
   const panel=document.querySelector('[data-calendar-preview]'); if(!panel)return;
-  const form=panel.previousElementSibling, message=panel.querySelector('[data-calendar-message]'), list=panel.querySelector('[data-calendar-events]'); let timer;
+  const form=document.querySelector('.job-edit-form'), message=panel.querySelector('[data-calendar-message]'), list=panel.querySelector('[data-calendar-events]'); let timer;
   function esc(v){const d=document.createElement('div');d.textContent=v||'';return d.innerHTML}
   async function refresh(){
     const date=form.job_date.value,start=form.job_time.value,end=form.job_end_time.value,duration=form.job_duration_minutes.value;

@@ -12762,16 +12762,17 @@ def job_send_late_notice(job_id):
         minutes = int(request.form.get("minutes") or 10)
     except (TypeError, ValueError):
         minutes = 10
-    if minutes not in {10, 20, 30}:
+    if minutes not in {10, 20, 30, 60, 120}:
         minutes = 10
     channel = clean_str(request.form.get("channel") or "both").lower()
     channels = ["sms", "email"] if channel == "both" else [channel]
     first_name = clean_str(row_value(job, "first_name")) or "there"
-    subject = f"Running about {minutes} minutes late"
-    body = (f"Hi {first_name},\n\nI’m really sorry, I’m running about {minutes} minutes late. "
+    delay = {60: "1 hour", 120: "2 hours"}.get(minutes, f"{minutes} minutes")
+    subject = f"Running about {delay} late"
+    body = (f"Hi {first_name},\n\nI’m really sorry, I’m running about {delay} late. "
             "I’m just running a little behind schedule from the previous job. I’ll be with you as quickly as I can — "
             "I hope you don’t mind. Any problems, please give me a call.\n\nPaul\n"
-            + (clean_str(settings().get("business_name")) or "The Carpet Cleaning Company"))
+            + (clean_str(row_value(settings(), "business_name")) or "The Carpet Cleaning Company"))
     results = []
     for item in channels:
         if item not in {"sms", "email"}:

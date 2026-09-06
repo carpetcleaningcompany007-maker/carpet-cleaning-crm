@@ -271,3 +271,20 @@ body.app-page.page-today-run .run-stats,body.app-page.page-today-run .run-list{w
 }
 
 /* MOBILE_DASHBOARD_ACTION_IN_FLOW_V35 */
+
+/* Job screen: stacked location and compact booking rows at every viewport. */
+body.app-page.page-job-view .job-summary-location{grid-template-columns:minmax(0,1fr)!important;gap:4px!important;margin-bottom:12px;padding:10px 12px}
+body.app-page.page-job-view .job-summary-location>*{grid-column:1!important;grid-row:auto!important;justify-self:start}
+body.app-page.page-job-view .job-summary-location a{padding:3px 0;background:transparent;white-space:normal}
+body.app-page.page-job-view .job-detail-groups{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:0!important}
+body.app-page.page-job-view .job-detail-section{border:0!important;border-bottom:1px solid #e1e7ed!important;border-radius:0!important;box-shadow:none!important}
+body.app-page.page-job-view .job-detail-section>summary{min-height:54px!important;padding:9px 4px!important}
+body.app-page.page-job-view .job-detail-section>summary>span{font-size:16px!important}
+body.app-page.page-job-view .job-detail-section>summary>small{font-size:13px!important}
+body.app-page.page-job-view .job-detail-section>.panel{margin:0!important;padding:12px 4px!important;border:0!important;border-radius:0!important;box-shadow:none!important}
+body.app-page.page-job-view #job-edit-details>.panel>.panel-head{display:none}
+body.app-page.page-job-view .job-edit-form .job-edit-group{margin:0!important;padding:0 0 12px!important;gap:8px!important;border:0!important;border-bottom:1px solid #e1e7ed!important;border-radius:0!important;background:transparent!important;box-shadow:none!important}
+body.app-page.page-job-view .job-edit-form .job-edit-group h4{margin:0!important;padding:0!important;border:0!important;font-size:15px!important}
+body.app-page.page-job-view .job-edit-form .job-edit-group label{min-width:0;font-size:14px!important}
+body.app-page.page-job-view .job-edit-form .job-edit-group input,body.app-page.page-job-view .job-edit-form .job-edit-group select{min-width:0;min-height:44px!important;padding:8px 10px!important;font-size:16px!important}
+body.app-page.page-job-view .job-travel-actions .job-contact-action,body.app-page.page-job-view .job-open-customer{color:#163d61!important;-webkit-text-fill-color:#163d61!important}
