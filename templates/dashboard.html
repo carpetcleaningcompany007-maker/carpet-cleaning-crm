@@ -1,24 +1,35 @@
 {% extends "layout.html" %}
 {% block page_title %}Dashboard{% endblock %}
 {% block body_content %}
-<div class="pro-dashboard mobile-historic-dashboard">
-  <h1 class="pro-dashboard-title">Dashboard</h1>
-  <section class="pro-metrics" aria-label="Business summary">
-    <a class="pro-metric" href="{{ url_for('today_run') }}"><span class="pro-metric-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18M8 14h2M14 14h2M8 18h2M14 18h2"/></svg></span><span class="pro-metric-label">Jobs Today</span><strong>{{ dashboard_metrics.jobs_today }}</strong><span class="pro-metric-link">View jobs <b aria-hidden="true">›</b></span></a>
-    <a class="pro-metric" href="{{ url_for('quotes') }}"><span class="pro-metric-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V2h6v2M8 9h8M8 13h8M8 17h5"/></svg></span><span class="pro-metric-label">Quotes</span><strong>{{ stats.quotes }}</strong><span class="pro-metric-link">View quotes <b aria-hidden="true">›</b></span></a>
-    <a class="pro-metric" href="{{ url_for('jobs') }}"><span class="pro-metric-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 19h11M9 18l3-10 3 1-1 10M12 8l1-4 3 1-1 4M17 15h3l1 4h-4"/></svg></span><span class="pro-metric-label">Jobs This Week</span><strong>{{ dashboard_metrics.jobs_week }}</strong><span class="pro-metric-link">View jobs <b aria-hidden="true">›</b></span></a>
-    <a class="pro-metric" href="{{ url_for('invoices') }}"><span class="pro-metric-icon pro-pound" aria-hidden="true">£</span><span class="pro-metric-label">Revenue This Week</span><strong>£{{ '%.0f'|format(dashboard_metrics.revenue_week or 0) }}</strong><span class="pro-metric-link">View money <b aria-hidden="true">›</b></span></a>
+<div class="mobile-route-dashboard">
+  <header class="mobile-route-welcome"><h1>{{ dashboard_greeting }}, Paul</h1><p>{{ dashboard_date }}</p></header>
+  <section class="mobile-route-card" aria-labelledby="mobile-route-title">
+    <a class="mobile-route-heading" href="{{ url_for('today_run') }}"><span aria-hidden="true">⌖</span><h2 id="mobile-route-title">Today’s route</h2><b aria-hidden="true">›</b></a>
+    <div class="mobile-route-list">
+      {% for job in dashboard_schedule %}
+      <a class="mobile-route-job" href="{{ url_for('job_view', job_id=job.id) }}">
+        <time>{{ job.job_time or 'TBC' }}</time><i aria-hidden="true"></i>
+        <span><strong>{{ job.customer_name or job.title or 'Customer job' }}</strong><small>⌖ {{ job.town or job.postcode or job.address_text or 'Address not saved' }}</small><small>▤ {{ job.title or job.service_type or 'Carpet cleaning' }}</small></span>
+        <em>{{ job.status or 'Booked' }}</em>
+      </a>
+      {% else %}
+      <div class="mobile-route-empty"><strong>No jobs booked today</strong><span>Your next confirmed appointment will appear here.</span><a href="{{ url_for('jobs_new') }}">Book a job</a></div>
+      {% endfor %}
+    </div>
   </section>
-  <section class="pro-activity"><h2>Recent Activity</h2><div class="pro-activity-list">
-    {% for row in recent_jobs[:1] %}<a href="{{ url_for('job_view', job_id=row.id) }}"><span class="pro-list-icon">▦</span><span><strong>Job scheduled</strong><small>{{ row.customer_name or row.title or 'Customer job' }}{% if row.job_date %} · {{ row.job_date }}{% endif %}</small></span><b>›</b></a>{% endfor %}
-    {% for row in recent_quotes[:1] %}<a href="{{ url_for('quote_view', quote_id=row.id) }}"><span class="pro-list-icon">▤</span><span><strong>Quote {{ row.status|lower if row.status else 'created' }}</strong><small>{{ row.customer_name or row.title or row.quote_number or 'Customer quote' }}</small></span><b>›</b></a>{% endfor %}
-    {% for row in recent_invoices[:1] %}<a href="{{ url_for('invoice_view', invoice_id=row.id) }}"><span class="pro-list-icon">£</span><span><strong>Invoice {{ row.status|lower if row.status else 'created' }}</strong><small>{{ row.customer_name or row.invoice_number or 'Customer invoice' }} · £{{ '%.2f'|format(row.total or 0) }}</small></span><b>›</b></a>{% endfor %}
-    {% for lead in recent_enquiries[:1] %}<a href="{{ url_for('intake_form_view', lead_id=lead.id) }}"><span class="pro-list-icon">●</span><span><strong>Customer enquiry</strong><small>{{ lead.name or 'New customer' }} · {{ lead.status or 'Waiting for review' }}</small></span><b>›</b></a>{% endfor %}
-    {% if not recent_jobs and not recent_quotes and not recent_invoices and not recent_enquiries %}<div class="pro-activity-empty">No recent activity yet. New jobs, quotes, invoices and enquiries will appear here.</div>{% endif %}
-  </div></section>
-  <section class="pro-actions"><h2>Quick Actions</h2><div class="pro-action-strip">
-    <a href="{{ url_for('jobs_new') }}"><span>▦</span><strong>New Job</strong></a><a href="{{ url_for('calculator') }}"><span>▤</span><strong>New Quote</strong></a><a href="{{ url_for('intake_forms') }}"><span>●</span><strong>Enquiries</strong></a><a href="{{ url_for('invoices') }}"><span>£</span><strong>Invoices</strong></a>
-  </div></section>
+  <section class="mobile-route-stats" aria-label="Business summary">
+    <a href="{{ url_for('today_run') }}"><span>☀</span><small>Today</small><strong>{{ dashboard_metrics.jobs_today }}</strong></a>
+    <a href="{{ url_for('quotes') }}"><span>▤</span><small>Quotes</small><strong>{{ dashboard_metrics.quotes_to_send }}</strong></a>
+    <a href="{{ url_for('jobs') }}"><span>▣</span><small>This week</small><strong>{{ dashboard_metrics.jobs_week }}</strong></a>
+    <a href="{{ url_for('invoices') }}"><span>⌁</span><small>Revenue</small><strong>£{{ '%.0f'|format(dashboard_metrics.revenue_week or 0) }}</strong></a>
+  </section>
+  <section class="mobile-pulse-card">
+    <a class="mobile-route-heading" href="{{ url_for('business_goals') }}"><span aria-hidden="true">⌁</span><h2>Business pulse</h2><b aria-hidden="true">›</b></a>
+    <div class="mobile-pulse-target"><span>This week</span><strong>£{{ '%.0f'|format(dashboard_metrics.revenue_week or 0) }} <small>of £{{ '%.0f'|format(dashboard_metrics.weekly_target or 0) }}</small></strong></div>
+    <div class="mobile-pulse-bar" role="progressbar" aria-valuenow="{{ dashboard_metrics.weekly_progress }}" aria-valuemin="0" aria-valuemax="100"><i style="width:{{ dashboard_metrics.weekly_progress }}%"></i></div>
+    <a class="mobile-next-action" href="{{ dashboard_next.url }}"><span><small>{{ dashboard_next.eyebrow }}</small><strong>{{ dashboard_next.title }}</strong><em>{{ dashboard_next.detail }}</em></span><b>›</b></a>
+  </section>
+  <a class="mobile-create-job" href="{{ url_for('jobs_new') }}">Create new job <span aria-hidden="true">→</span></a>
 </div>
 <main class="concept-dashboard desktop-current-dashboard">
   <header class="concept-welcome"><div><h1>Today’s work</h1><p>You have {{ dashboard_metrics.jobs_today }} job{% if dashboard_metrics.jobs_today != 1 %}s{% endif %} scheduled today and {{ dashboard_metrics.quotes_to_send }} quote{% if dashboard_metrics.quotes_to_send != 1 %}s{% endif %} to send.</p></div></header>
