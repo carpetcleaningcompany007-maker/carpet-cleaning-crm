@@ -18,12 +18,12 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='crm-redesign.css', v='app-shell-20260905-9') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='dashboard-reference.css', v='20260905-2') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='app-theme.css', v='20260906-28') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='dashboard-exact.css', v='20260906-1') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='dashboard-exact.css', v='20260906-2') }}">
   <style>:root{--accent: {{ biz.accent or '#56718f' }}; --sidebar-color: {{ biz.sidebar_color or '#1f2933' }};}</style>
 </head>
 {% if session.get('logged_in') and not public_mode %}
 {% set ep = request.endpoint or '' %}
-<body class="app-page page-{{ ep|replace('_','-') }}" data-ui-build="20260906.37">
+<body class="app-page page-{{ ep|replace('_','-') }}" data-ui-build="20260906.38">
 {% else %}
 <body class="public-page page-public">
 {% endif %}
@@ -82,8 +82,13 @@
     </nav>
 
     <div class="side-note side-note-tabler">
+      {% if ep=='dashboard' %}
+      <a class="concept-profile" href="{{ url_for('settings_page') }}"><i>P</i><span><strong>Paul</strong><small>View profile</small></span><b>›</b></a>
+      <a class="concept-support" href="{{ url_for('settings_page') }}"><i>?</i><span>Help &amp; support</span><b>›</b></a>
+      {% else %}
       <strong>Today’s work, clearly laid out</strong>
       <span>Enquiries, quotes, jobs, invoices and reviews in one clean place.</span>
+      {% endif %}
     </div>
   </aside>
 
