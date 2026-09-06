@@ -151,7 +151,7 @@ def add_website_form_cors_headers(response):
         response.headers["Cache-Control"] = "no-store, private, max-age=0, must-revalidate"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
-        response.headers["X-CRM-UI-Version"] = "20260906.57"
+        response.headers["X-CRM-UI-Version"] = "20260906.58"
     elif request.path == "/static/crm-redesign.css":
         response.headers["Cache-Control"] = "no-cache, max-age=0, must-revalidate"
     return response
@@ -12834,6 +12834,9 @@ def job_to_invoice(job_id):
     if (job["status"] or "") == "Archived":
         flash("Archived jobs cannot be invoiced until they are restored.")
         return redirect(url_for("job_view", job_id=job_id))
+    if not job["customer_id"]:
+        flash("Add the customer details before creating an invoice. This keeps the invoice, address and contact history together.")
+        return redirect(url_for("job_view", job_id=job_id) + "#job-edit-details")
     existing_invoice = q("SELECT id FROM invoices WHERE job_id=? AND IFNULL(status,'') <> 'Archived' ORDER BY id DESC LIMIT 1", (job_id,), one=True)
     if existing_invoice:
         flash("This job already has a live invoice, so a duplicate invoice was not created.")
