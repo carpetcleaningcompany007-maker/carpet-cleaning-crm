@@ -41,6 +41,8 @@
       <button class="btn secondary" type="submit">Send late update</button>
     </form>
   </details>
+  {% else %}
+  <div class="job-late-message job-late-unavailable"><strong>Running late?</strong><span>Add the customer's mobile number or email below first, then you can send a polite late update.</span><a href="#add-customer-location">Add customer details ›</a></div>
   {% endif %}
   {% if job.customer_id %}<a class="job-open-customer customer-link" href="{{ url_for('customer_view', customer_id=job.customer_id) }}"><i aria-hidden="true">◉</i> Customer details <small>Phone, address &amp; history</small><span>›</span></a>{% elif is_dashboard_sample %}<a class="job-open-customer is-sample" href="#job-edit-details"><i aria-hidden="true">✦</i> Sample job details <small>View or change this example</small><span>›</span></a>{% else %}<a class="job-open-customer" href="#job-edit-details"><i aria-hidden="true">＋</i> Add customer details <small>Link this job to a customer</small><span>›</span></a>{% endif %}
 </section>
@@ -80,6 +82,19 @@
     <summary><span>Job details</span><small>Date, time, price and calendar</small><i>›</i></summary>
   <section class="panel">
     <div class="panel-head"><h3>Edit Job</h3></div>
+    {% if not job.customer_id %}
+    <details class="job-add-customer" id="add-customer-location" open>
+      <summary><span>Add customer &amp; location</span><small>Needed for directions, confirmations and late updates</small><i>⌄</i></summary>
+      <form method="post" action="{{ url_for('job_add_customer', job_id=job.id) }}" class="job-add-customer-form">
+        <div class="job-add-two-up"><label>First name<input name="first_name" required placeholder="Customer's first name"></label><label>Last name<input name="last_name" placeholder="Last name"></label></div>
+        <div class="job-add-two-up"><label>Mobile number<input name="phone" inputmode="tel" placeholder="For texts and calls"></label><label>Email address<input name="email" type="email" placeholder="For confirmations"></label></div>
+        <label>Address<input name="address" placeholder="House number and street"></label>
+        <div class="job-add-two-up"><label>Town<input name="town" placeholder="Town"></label><label>Postcode<input name="postcode" placeholder="Postcode"></label></div>
+        <label>What3words <input name="what3words" placeholder="word.word.word (optional)"></label>
+        <button class="btn primary" type="submit">Save customer &amp; location</button>
+      </form>
+    </details>
+    {% endif %}
     <form method="post" action="{{ url_for('job_edit', job_id=job.id) }}" class="form job-edit-form">
       <section class="job-edit-group">
         <h4>What is the job?</h4>

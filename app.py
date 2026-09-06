@@ -12810,6 +12810,43 @@ def job_edit(job_id):
     return redirect(url_for("job_view", job_id=job_id))
 
 
+@app.route("/jobs/<int:job_id>/add-customer", methods=["POST"])
+@login_required
+def job_add_customer(job_id):
+    job = q("SELECT id, customer_id FROM jobs WHERE id=?", (job_id,), one=True)
+    if not job:
+        flash("Job not found.")
+        return redirect(url_for("jobs"))
+    if row_value(job, "customer_id"):
+        return redirect(url_for("job_view", job_id=job_id))
+    first_name = clean_str(request.form.get("first_name"))
+    last_name = clean_str(request.form.get("last_name"))
+    phone = clean_str(request.form.get("phone"))
+    email = clean_str(request.form.get("email"))
+    if not first_name:
+        flash("Please add the customer's first name.")
+        return redirect(url_for("job_view", job_id=job_id) + "#add-customer-location")
+    if email and not is_valid_email(email):
+        flash("Please enter a valid customer email address.")
+        return redirect(url_for("job_view", job_id=job_id) + "#add-customer-location")
+    postcode = clean_str(request.form.get("postcode"))
+    customer_id = find_existing_customer_id(first_name=first_name, last_name=last_name, email=email, phone=phone, postcode=postcode)
+    if not customer_id:
+        customer_id = run("""INSERT INTO customers(first_name,last_name,phone,email,address,town,postcode,source,tags,notes)
+                             VALUES (?,?,?,?,?,?,?,?,?,?)""", (
+            first_name, last_name, phone, email, clean_str(request.form.get("address")),
+            clean_str(request.form.get("town")), postcode, "Job screen", "", ""
+        ))
+    what3words = clean_str(request.form.get("what3words")).strip().lstrip("/")
+    if what3words:
+        run("INSERT INTO intake_submissions(customer_id, what3words, status) VALUES (?,?,?)",
+            (customer_id, what3words, "Job location"))
+    run("UPDATE jobs SET customer_id=? WHERE id=?", (customer_id, job_id))
+    set_customer_workflow(customer_id, "job_booked", "Customer and location added from job screen.", "Job booked")
+    flash("Customer and location saved. Directions and late updates are now ready to use.")
+    return redirect(url_for("job_view", job_id=job_id))
+
+
 @app.route("/jobs/<int:job_id>/delete", methods=["POST"])
 @login_required
 def job_delete(job_id):
