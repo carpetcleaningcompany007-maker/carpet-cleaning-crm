@@ -151,7 +151,7 @@ def add_website_form_cors_headers(response):
         response.headers["Cache-Control"] = "no-store, private, max-age=0, must-revalidate"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
-        response.headers["X-CRM-UI-Version"] = "20260906.34"
+        response.headers["X-CRM-UI-Version"] = "20260906.35"
     elif request.path == "/static/crm-redesign.css":
         response.headers["Cache-Control"] = "no-cache, max-age=0, must-revalidate"
     return response
@@ -3725,8 +3725,8 @@ def pwa_manifest():
 
 @app.route("/service-worker.js")
 def pwa_service_worker():
-    source = """const CACHE='carpet-clean-pro-v19';
-	const SHELL=['/offline','/static/app-theme.css?v=20260906-25','/static/app.js?v=mobile-more-20260905-1','/static/site/site-icon-512.png'];
+    source = """const CACHE='carpet-clean-pro-v20';
+	const SHELL=['/offline','/static/app-theme.css?v=20260906-26','/static/app.js?v=mobile-more-20260905-1','/static/site/site-icon-512.png'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim())));
 self.addEventListener('fetch',event=>{if(event.request.method!=='GET')return;const url=new URL(event.request.url);if(url.origin!==location.origin)return;if(event.request.mode==='navigate'){event.respondWith(fetch(event.request).catch(()=>caches.match('/offline')));return;}if(url.pathname.startsWith('/static/'))event.respondWith(caches.match(event.request).then(hit=>hit||fetch(event.request).then(response=>{const copy=response.clone();caches.open(CACHE).then(cache=>cache.put(event.request,copy));return response;})));});
@@ -7773,6 +7773,30 @@ def init_db():
         payload_json TEXT,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
+    CREATE TABLE IF NOT EXISTS job_status_events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        job_id INTEGER NOT NULL,
+        customer_id INTEGER,
+        event_type TEXT NOT NULL,
+        previous_status TEXT DEFAULT '',
+        new_status TEXT DEFAULT '',
+        note TEXT DEFAULT '',
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_job_status_events_job ON job_status_events(job_id, id DESC);
+    CREATE TABLE IF NOT EXISTS job_completions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        job_id INTEGER NOT NULL UNIQUE,
+        customer_id INTEGER,
+        work_carried_out TEXT NOT NULL,
+        outcome TEXT NOT NULL,
+        notes TEXT DEFAULT '',
+        next_action TEXT DEFAULT '',
+        before_photo TEXT DEFAULT '',
+        after_photo TEXT DEFAULT '',
+        completed_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
     CREATE TABLE IF NOT EXISTS business_goal_settings (
         id INTEGER PRIMARY KEY CHECK (id=1),
         daily_revenue_target REAL DEFAULT 300,
@@ -10243,7 +10267,8 @@ def today_run():
                       LEFT JOIN invoices ON invoices.job_id = jobs.id AND IFNULL(invoices.status,'') <> 'Archived'
                       WHERE IFNULL(jobs.status,'') <> 'Archived'
                         AND COALESCE(jobs.job_date,'') = ?
-                      ORDER BY jobs.id ASC""", (selected_date,))
+                      ORDER BY CASE WHEN COALESCE(jobs.job_time,'')='' THEN 1 ELSE 0 END,
+                               COALESCE(jobs.job_time,''), jobs.id ASC""", (selected_date,))
     cards = []
     for row in jobs_today:
         item = dict(row)
@@ -10255,7 +10280,12 @@ def today_run():
         item["finished_message"] = day_run_message("finished", row)
         item["review_message"] = day_run_message("review", row)
         item["is_done"] = clean_str(row["status"]).lower() in {"completed", "invoiced", "paid"}
+        item["status_events"] = q("SELECT * FROM job_status_events WHERE job_id=? ORDER BY id DESC LIMIT 8", (row["id"],))
+        item["completion"] = q("SELECT * FROM job_completions WHERE job_id=?", (row["id"],), one=True)
         cards.append(item)
+    for index, item in enumerate(cards):
+        item["previous_job_id"] = cards[index - 1]["id"] if index else None
+        item["next_job_id"] = cards[index + 1]["id"] if index + 1 < len(cards) else None
     stats = {
         "total": len(cards),
         "done": len([c for c in cards if c["is_done"]]),
@@ -10263,6 +10293,41 @@ def today_run():
         "paid": len([c for c in cards if clean_str(c.get("status")).lower() == "paid" or clean_str(c.get("invoice_status")).lower() == "paid"]),
     }
     return render_template("today_run.html", jobs=cards, selected_date=selected_date, stats=stats)
+
+
+def record_job_status_event(job, event_type, new_status, note=""):
+    """Change an operator-selected job state while retaining the prior state."""
+    previous = clean_str(row_value(job, "status")) or "Booked"
+    if previous.lower() == clean_str(new_status).lower():
+        return False
+    run("UPDATE jobs SET status=? WHERE id=?", (new_status, job["id"]))
+    run("""INSERT INTO job_status_events
+           (job_id, customer_id, event_type, previous_status, new_status, note)
+           VALUES (?,?,?,?,?,?)""",
+        (job["id"], job["customer_id"], event_type, previous, new_status, clean_str(note)))
+    if job["customer_id"]:
+        run("INSERT INTO customer_timeline(customer_id, note_text, photo_filename) VALUES (?,?,?)",
+            (job["customer_id"], f"Job status: {previous} → {new_status}." + (f" {clean_str(note)}" if clean_str(note) else ""), ""))
+    return True
+
+
+def save_job_completion_photo(field, job_id, label):
+    upload = request.files.get(field)
+    if not upload or not upload.filename:
+        return ""
+    extension = os.path.splitext(secure_filename(upload.filename))[1].lower()
+    if extension not in {".jpg", ".jpeg", ".png", ".webp"}:
+        raise ValueError(f"{label} photo must be JPG, PNG or WebP.")
+    data = upload.stream.read(8 * 1024 * 1024 + 1)
+    if len(data) > 8 * 1024 * 1024:
+        raise ValueError(f"{label} photo must be 8 MB or smaller.")
+    if not data:
+        raise ValueError(f"{label} photo is empty.")
+    os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
+    filename = f"job_{job_id}_{label.lower()}_{uuid.uuid4().hex}{extension}"
+    with open(os.path.join(app.config["UPLOAD_FOLDER"], filename), "wb") as target:
+        target.write(data)
+    return filename
 
 
 @app.route("/today-run/job/<int:job_id>/action", methods=["POST"])
@@ -10318,19 +10383,20 @@ def today_run_job_action(job_id):
         flash(msg)
         return redirect(next_url)
 
-    if action == "start":
-        run("UPDATE jobs SET status='In Progress' WHERE id=?", (job_id,))
-        if customer_id:
-            run("INSERT INTO customer_timeline(customer_id, note_text, photo_filename) VALUES (?,?,?)",
-                (customer_id, "Today Run: job started.", ""))
-        flash("Job marked as in progress.")
+    status_actions = {
+        "on_way": ("On My Way", "On-my-way status recorded."),
+        "arrive": ("Arrived", "Arrival recorded."),
+        "start": ("In Progress", "Job start recorded."),
+        "reopen": ("Booked", "Job reopened for review."),
+    }
+    if action in status_actions:
+        new_status, message = status_actions[action]
+        changed = record_job_status_event(job, action, new_status, clean_str(request.form.get("note")))
+        flash(message if changed else f"Job is already marked {new_status}.")
         return redirect(next_url)
 
     if action == "complete":
-        run("UPDATE jobs SET status='Completed' WHERE id=?", (job_id,))
-        if customer_id:
-            set_customer_workflow(customer_id, "job_completed", "Job completed from Today Run.", "Job completed")
-        flash("Job marked complete.")
+        flash("Use the completion card to record the work and outcome before marking this job complete.")
         return redirect(next_url)
 
     if action == "cash_paid":
@@ -10355,6 +10421,46 @@ def today_run_job_action(job_id):
         return redirect(url_for("invoice_view", invoice_id=invoice_id))
 
     flash("Unknown Today Run action.")
+    return redirect(next_url)
+
+
+@app.route("/today-run/job/<int:job_id>/complete", methods=["POST"])
+@login_required
+def today_run_job_complete(job_id):
+    job = q("SELECT * FROM jobs WHERE id=?", (job_id,), one=True)
+    if not job:
+        flash("Job not found.")
+        return redirect(url_for("today_run"))
+    next_url = request.form.get("next_url") or url_for("today_run", date=job["job_date"] or uk_today().isoformat())
+    work = clean_str(request.form.get("work_carried_out"))
+    outcome = clean_str(request.form.get("outcome"))
+    if not work or not outcome:
+        flash("Add the work carried out and choose an outcome before completing the job.")
+        return redirect(next_url)
+    existing = q("SELECT * FROM job_completions WHERE job_id=?", (job_id,), one=True)
+    try:
+        before_photo = save_job_completion_photo("before_photo", job_id, "Before") or clean_str(row_value(existing, "before_photo"))
+        after_photo = save_job_completion_photo("after_photo", job_id, "After") or clean_str(row_value(existing, "after_photo"))
+    except ValueError as exc:
+        flash(str(exc))
+        return redirect(next_url)
+    values = (job_id, job["customer_id"], work, outcome, clean_str(request.form.get("completion_notes")),
+              clean_str(request.form.get("next_action")), before_photo, after_photo)
+    run("""INSERT INTO job_completions
+           (job_id, customer_id, work_carried_out, outcome, notes, next_action, before_photo, after_photo)
+           VALUES (?,?,?,?,?,?,?,?)
+           ON CONFLICT(job_id) DO UPDATE SET work_carried_out=excluded.work_carried_out,
+             outcome=excluded.outcome, notes=excluded.notes, next_action=excluded.next_action,
+             before_photo=excluded.before_photo, after_photo=excluded.after_photo,
+             updated_at=datetime('now')""", values)
+    changed = record_job_status_event(job, "complete", "Completed", f"Outcome: {outcome}.")
+    if job["customer_id"]:
+        set_customer_workflow(job["customer_id"], "job_completed", "Job completion card saved from Today Run.", "Job completed")
+        for label, filename in (("Before", before_photo), ("After", after_photo)):
+            if filename and (not existing or filename != clean_str(row_value(existing, f"{label.lower()}_photo"))):
+                run("INSERT INTO customer_timeline(customer_id, note_text, photo_filename) VALUES (?,?,?)",
+                    (job["customer_id"], f"Job {label.lower()} photo.", filename))
+    flash("Completion card saved and job marked complete." if changed else "Completion card updated; completed status retained.")
     return redirect(next_url)
 
 

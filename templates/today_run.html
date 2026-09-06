@@ -14,14 +14,14 @@
   </form>
 </header>
 
-<section class="run-stats">
+<section class="run-stats" style="width:100%!important;max-width:100%!important">
   <div><span>Jobs today</span><strong>{{ stats.total }}</strong></div>
   <div><span>Done</span><strong>{{ stats.done }}</strong></div>
   <div><span>Left</span><strong>{{ stats.remaining }}</strong></div>
   <div><span>Paid</span><strong>{{ stats.paid }}</strong></div>
 </section>
 
-<section class="run-list">
+<section class="run-list" style="width:100%!important;max-width:100%!important">
   {% for job in jobs %}
   <article class="run-card {% if job.is_done %}is-done{% endif %}" id="job-{{ job.id }}">
     <div class="run-card-top">
@@ -34,6 +34,7 @@
     </div>
 
     <div class="run-info">
+      <div><span>Appointment</span><strong>{{ job.job_date }}{% if job.job_time %} · {{ job.job_time }}{% endif %}{% if job.job_end_time %}–{{ job.job_end_time }}{% endif %}</strong></div>
       <div><span>Address</span><strong>{{ job.address_text or 'No address saved' }}</strong></div>
       <div><span>Phone</span><strong>{{ job.phone or 'No phone saved' }}</strong></div>
       <div><span>Amount</span><strong>£{{ '%.2f'|format(job.amount or 0) }}</strong></div>
@@ -50,33 +51,66 @@
     <div class="run-primary-actions">
       {% if job.directions_url %}<a class="btn primary" href="{{ job.directions_url }}" target="_blank">Directions</a>{% endif %}
       {% if job.phone %}<a class="btn secondary" href="tel:{{ job.phone }}">Call</a>{% endif %}
+      {% if job.phone %}<a class="btn secondary" href="sms:{{ job.phone }}">Text</a>{% endif %}
       <a class="btn secondary" href="{{ url_for('customer_view', customer_id=job.customer_id) }}">Customer</a>
     </div>
 
-    <div class="run-flow">
+    <section class="run-status-panel">
+      <h3>Visit status</h3>
+      <p>Each button records the exact time and keeps the previous status in the audit trail.</p>
+      <div class="run-flow run-status-actions">
       <form method="post" action="{{ url_for('today_run_job_action', job_id=job.id) }}">
-        <input type="hidden" name="action" value="coming">
-        <input type="hidden" name="channel" value="sms">
+        <input type="hidden" name="action" value="on_way">
         <input type="hidden" name="next_url" value="{{ url_for('today_run', date=selected_date) }}#job-{{ job.id }}">
-        <button class="btn secondary">Text: We’re coming</button>
+        <button class="btn secondary">On my way</button>
       </form>
       <form method="post" action="{{ url_for('today_run_job_action', job_id=job.id) }}">
-        <input type="hidden" name="action" value="coming">
-        <input type="hidden" name="channel" value="email">
+        <input type="hidden" name="action" value="arrive">
         <input type="hidden" name="next_url" value="{{ url_for('today_run', date=selected_date) }}#job-{{ job.id }}">
-        <button class="btn secondary">Email: We’re coming</button>
+        <button class="btn secondary">Arrived</button>
       </form>
       <form method="post" action="{{ url_for('today_run_job_action', job_id=job.id) }}">
         <input type="hidden" name="action" value="start">
         <input type="hidden" name="next_url" value="{{ url_for('today_run', date=selected_date) }}#job-{{ job.id }}">
-        <button class="btn primary">Start Job</button>
+        <button class="btn primary">Start job</button>
+      </form>
+      {% if job.status in ['Completed','Invoiced','Paid'] %}
+      <form method="post" action="{{ url_for('today_run_job_action', job_id=job.id) }}">
+        <input type="hidden" name="action" value="reopen">
+        <input type="hidden" name="next_url" value="{{ url_for('today_run', date=selected_date) }}#job-{{ job.id }}">
+        <button class="btn secondary">Reopen for review</button>
+      </form>
+      {% endif %}
+      </div>
+    </section>
+
+    <div class="run-flow run-message-actions">
+      <form method="post" action="{{ url_for('today_run_job_action', job_id=job.id) }}">
+        <input type="hidden" name="action" value="coming"><input type="hidden" name="channel" value="sms">
+        <input type="hidden" name="next_url" value="{{ url_for('today_run', date=selected_date) }}#job-{{ job.id }}">
+        <button class="btn secondary">Send on-my-way text</button>
       </form>
       <form method="post" action="{{ url_for('today_run_job_action', job_id=job.id) }}">
-        <input type="hidden" name="action" value="complete">
+        <input type="hidden" name="action" value="coming"><input type="hidden" name="channel" value="email">
         <input type="hidden" name="next_url" value="{{ url_for('today_run', date=selected_date) }}#job-{{ job.id }}">
-        <button class="btn primary">Complete Job</button>
+        <button class="btn secondary">Send on-my-way email</button>
       </form>
     </div>
+
+    <details class="run-completion" {% if not job.completion and job.status in ['In Progress','Arrived'] %}open{% endif %}>
+      <summary>{% if job.completion %}Review completion card{% else %}Complete job with details{% endif %}</summary>
+      <form method="post" action="{{ url_for('today_run_job_complete', job_id=job.id) }}" enctype="multipart/form-data" class="form">
+        <input type="hidden" name="next_url" value="{{ url_for('today_run', date=selected_date) }}#job-{{ job.id }}">
+        <div><label>Work carried out</label><textarea name="work_carried_out" required placeholder="What was cleaned and what treatment was completed?">{{ job.completion.work_carried_out if job.completion else '' }}</textarea></div>
+        <div><label>Outcome</label><select name="outcome" required><option value="">Choose outcome</option>{% for value in ['Completed as planned','Completed with limitations explained','Follow-up visit required'] %}<option {% if job.completion and job.completion.outcome == value %}selected{% endif %}>{{ value }}</option>{% endfor %}</select></div>
+        <div><label>Completion notes</label><textarea name="completion_notes" placeholder="Condition, customer discussion, access or anything to retain">{{ job.completion.notes if job.completion else '' }}</textarea></div>
+        <div><label>Next action</label><input name="next_action" value="{{ job.completion.next_action if job.completion else '' }}" placeholder="Invoice, follow-up, reminder or none"></div>
+        <div class="run-photo-grid"><label>Before photo <input type="file" name="before_photo" accept="image/jpeg,image/png,image/webp"></label><label>After photo <input type="file" name="after_photo" accept="image/jpeg,image/png,image/webp"></label></div>
+        <small>Optional JPG, PNG or WebP photos, maximum 8 MB each. Existing photos are retained when updating.</small>
+        <button class="btn primary" type="submit">Save completion and mark complete</button>
+      </form>
+      {% if job.completion %}<div class="run-photo-preview">{% if job.completion.before_photo %}<figure><img src="{{ url_for('uploaded_file', filename=job.completion.before_photo) }}" alt="Before the work"><figcaption>Before</figcaption></figure>{% endif %}{% if job.completion.after_photo %}<figure><img src="{{ url_for('uploaded_file', filename=job.completion.after_photo) }}" alt="After the work"><figcaption>After</figcaption></figure>{% endif %}</div>{% endif %}
+    </details>
 
     <div class="run-payment">
       <h3>Payment and invoice</h3>
@@ -124,14 +158,14 @@
     </div>
 
     <details class="run-message-preview">
-      <summary>Message previews</summary>
+      <summary>Preview customer messages before sending</summary>
       <textarea readonly>{{ job.coming_message }}</textarea>
       <textarea readonly>{{ job.review_message }}</textarea>
     </details>
 
-    {% if not loop.last %}
-    <a class="next-job-link" href="#job-{{ loop.index + 1 }}">Next job</a>
-    {% endif %}
+    {% if job.status_events %}<details class="run-audit"><summary>Status history</summary><ol>{% for event in job.status_events %}<li><strong>{{ event.new_status }}</strong><span>{{ event.created_at }} · previously {{ event.previous_status }}</span>{% if event.note %}<p>{{ event.note }}</p>{% endif %}</li>{% endfor %}</ol></details>{% endif %}
+
+    <nav class="run-job-nav" aria-label="Move between today's jobs">{% if job.previous_job_id %}<a class="next-job-link" href="#job-{{ job.previous_job_id }}">← Previous job</a>{% endif %}{% if job.next_job_id %}<a class="next-job-link" href="#job-{{ job.next_job_id }}">Next job →</a>{% endif %}</nav>
   </article>
   {% else %}
   <section class="panel run-empty">
