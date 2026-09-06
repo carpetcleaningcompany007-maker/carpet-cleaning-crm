@@ -151,7 +151,7 @@ def add_website_form_cors_headers(response):
         response.headers["Cache-Control"] = "no-store, private, max-age=0, must-revalidate"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
-        response.headers["X-CRM-UI-Version"] = "20260906.35"
+        response.headers["X-CRM-UI-Version"] = "20260906.36"
     elif request.path == "/static/crm-redesign.css":
         response.headers["Cache-Control"] = "no-cache, max-age=0, must-revalidate"
     return response
@@ -3725,8 +3725,8 @@ def pwa_manifest():
 
 @app.route("/service-worker.js")
 def pwa_service_worker():
-    source = """const CACHE='carpet-clean-pro-v20';
-	const SHELL=['/offline','/static/app-theme.css?v=20260906-26','/static/app.js?v=mobile-more-20260905-1','/static/site/site-icon-512.png'];
+    source = """const CACHE='carpet-clean-pro-v21';
+	const SHELL=['/offline','/static/app-theme.css?v=20260906-27','/static/app.js?v=mobile-more-20260905-1','/static/site/site-icon-512.png'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim())));
 self.addEventListener('fetch',event=>{if(event.request.method!=='GET')return;const url=new URL(event.request.url);if(url.origin!==location.origin)return;if(event.request.mode==='navigate'){event.respondWith(fetch(event.request).catch(()=>caches.match('/offline')));return;}if(url.pathname.startsWith('/static/'))event.respondWith(caches.match(event.request).then(hit=>hit||fetch(event.request).then(response=>{const copy=response.clone();caches.open(CACHE).then(cache=>cache.put(event.request,copy));return response;})));});
@@ -10038,6 +10038,45 @@ def dashboard():
                               WHEN IFNULL(status,'') IN ('Contacted','Waiting for customer','Quoted') THEN 1
                               ELSE 2
                             END, id DESC LIMIT 8""")
+    schedule_rows = q("""SELECT jobs.*, customers.first_name, customers.last_name, customers.phone,
+                                 customers.address, customers.town, customers.postcode
+                          FROM jobs LEFT JOIN customers ON customers.id=jobs.customer_id
+                          WHERE jobs.job_date=? AND lower(IFNULL(jobs.status,'')) NOT IN ('archived','cancelled')
+                          ORDER BY CASE WHEN IFNULL(jobs.job_time,'')='' THEN 1 ELSE 0 END,
+                                   jobs.job_time, jobs.id""", (today.isoformat(),))
+    dashboard_schedule = []
+    for row in schedule_rows:
+        item = dict(row)
+        item["customer_name"] = customer_full_name(row)
+        item["address_text"] = customer_address_text(row)
+        dashboard_schedule.append(item)
+    next_enquiry = q("""SELECT * FROM intake_submissions
+                          WHERE IFNULL(is_test,0)=0 AND IFNULL(ignore_alerts,0)=0
+                            AND IFNULL(status,'New') NOT IN ('Booked','Closed','Closed - no reply')
+                          ORDER BY id DESC LIMIT 1""", one=True)
+    due_reminder = q("""SELECT future_reminders.*, customers.first_name || ' ' || customers.last_name AS customer_name
+                         FROM future_reminders LEFT JOIN customers ON customers.id=future_reminders.customer_id
+                         WHERE IFNULL(future_reminders.status,'Open')='Open'
+                           AND COALESCE(future_reminders.reminder_date,'9999-12-31')<=?
+                         ORDER BY future_reminders.reminder_date, future_reminders.id LIMIT 1""", (today.isoformat(),), one=True)
+    if next_enquiry:
+        dashboard_next = {"eyebrow": "Customer waiting", "title": clean_str(next_enquiry["name"]) or "New enquiry",
+                          "detail": "Review the enquiry and take the next customer action.",
+                          "label": "Open enquiry", "url": url_for("intake_form_view", lead_id=next_enquiry["id"])}
+    elif due_reminder:
+        dashboard_next = {"eyebrow": "Reminder due", "title": clean_str(due_reminder["customer_name"]) or "Customer reminder",
+                          "detail": clean_str(due_reminder["title"]) or "A customer reminder is ready to review.",
+                          "label": "Open reminders", "url": url_for("reminders_library")}
+    elif dashboard_schedule:
+        dashboard_next = {"eyebrow": "Next appointment", "title": dashboard_schedule[0]["customer_name"] or dashboard_schedule[0]["title"],
+                          "detail": "Open today’s run for directions, status and job notes.",
+                          "label": "Open today’s run", "url": url_for("today_run")}
+    else:
+        dashboard_next = {"eyebrow": "You’re up to date", "title": "No urgent task waiting",
+                          "detail": "New enquiries, due reminders and today’s jobs will appear here.",
+                          "label": "Open workflow", "url": url_for("workflow")}
+    current_hour = datetime.now().hour
+    dashboard_greeting = "Good morning" if current_hour < 12 else ("Good afternoon" if current_hour < 18 else "Good evening")
     return render_template("dashboard.html", stats=stats, dashboard_metrics=dashboard_metrics,
                            recent_quotes=quotes, recent_jobs=jobs, recent_invoices=recent_invoices,
                            archive_counts=archive_counts, report_summary=report_summary,
@@ -10047,7 +10086,9 @@ def dashboard():
                            intake_new=intake_new["c"] if intake_new else 0,
                            intake_needs_contact=intake_needs_contact["c"] if intake_needs_contact else 0,
                            intake_waiting=intake_waiting["c"] if intake_waiting else 0,
-                           recent_enquiries=recent_enquiries)
+                           recent_enquiries=recent_enquiries, dashboard_schedule=dashboard_schedule,
+                           dashboard_next=dashboard_next, dashboard_greeting=dashboard_greeting,
+                           dashboard_date=today.strftime("%A, %d %B %Y"))
 
 
 @app.route("/send-contact-form", methods=["GET", "POST"])

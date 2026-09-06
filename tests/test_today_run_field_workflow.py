@@ -112,6 +112,26 @@ class TodayRunFieldWorkflowTests(unittest.TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertIsNone(self.mod.q("SELECT * FROM job_completions WHERE job_id=?", (self.early_id,), one=True))
 
+    def test_dashboard_concept_uses_real_metrics_and_routes(self):
+        today = self.mod.uk_today().isoformat()
+        self.mod.run("UPDATE jobs SET job_date=?, job_time='08:30', amount=275 WHERE id=?", (today, self.early_id))
+        response = self.client.get("/dashboard")
+        body = response.get_data(as_text=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Today’s work", body)
+        self.assertIn("Today’s appointments", body)
+        self.assertIn("Field Customer", body)
+        self.assertIn(f'/jobs/{self.early_id}', body)
+        self.assertIn('/today-run', body)
+        self.assertNotIn("example customer", body.lower())
+
+    def test_dashboard_has_truthful_empty_schedule(self):
+        self.mod.run("UPDATE jobs SET job_date='2099-01-01'")
+        response = self.client.get("/dashboard")
+        body = response.get_data(as_text=True)
+        self.assertIn("No appointments booked today", body)
+        self.assertIn("No urgent task waiting", body)
+
 
 if __name__ == "__main__":
     unittest.main()

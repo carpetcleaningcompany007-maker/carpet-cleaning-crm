@@ -4,7 +4,7 @@ Every sign-off below is based on a rendered screenshot and manual visual review,
 
 | Route | 1920×1080 | 1440×1000 | 1280×900 | 1024×1000 | 768×1100 | 390×844 | Notes |
 |---|---|---|---|---|---|---|---|
-| `/dashboard` | Pass | Pass | Pass | Pass | Pass | Pass | Rebuilt as a wide application workspace: persistent navy navigation on desktop and 1024px tablet landscape, compact utility header, four-card summary, dominant work queue, live attention panel and compact quick actions. The 768px and phone layouts retain the focused compact navigation. Manual screenshot inspection confirmed readable hierarchy and no horizontal overflow at every viewport. |
+| `/dashboard` | Pass | Pass | Pass | Pass | Pass | Pass | Approved concept implemented: 315px navy desktop navigation, ivory canvas, compact toolbar and metrics, wide real-data appointment schedule, right-side next-task and alert rail, and recent activity. Tablet adapts to a stacked workspace; phone retains compact navigation and cards. Manual inspection confirmed the intended visual hierarchy and no horizontal overflow. |
 
 ## Remaining route groups
 
