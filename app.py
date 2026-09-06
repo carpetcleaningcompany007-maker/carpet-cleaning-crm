@@ -12542,6 +12542,9 @@ def job_view(job_id):
         job_display_date = clean_str(job["job_date"]) or "Date to confirm"
     directions_url = directions_url_for_customer(job)
     w3w_url = what3words_url(row_value(job, "what3words"))
+    if clean_str(row_value(job, "notes")) == "Dashboard walkthrough sample — safe to delete" and not directions_url:
+        sample_place = "Shrewsbury, Shropshire" if "Sarah" in clean_str(row_value(job, "title")) else "Ludlow, Shropshire"
+        directions_url = "https://www.google.com/maps/search/?api=1&query=" + quote(sample_place)
     return render_template(
         "job_view.html",
         job=job,
