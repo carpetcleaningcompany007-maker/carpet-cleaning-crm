@@ -151,7 +151,7 @@ def add_website_form_cors_headers(response):
         response.headers["Cache-Control"] = "no-store, private, max-age=0, must-revalidate"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
-        response.headers["X-CRM-UI-Version"] = "20260906.54"
+        response.headers["X-CRM-UI-Version"] = "20260906.55"
     elif request.path == "/static/crm-redesign.css":
         response.headers["Cache-Control"] = "no-cache, max-age=0, must-revalidate"
     return response
@@ -1713,12 +1713,12 @@ DEFAULT_MESSAGE_TEMPLATES = {
     "today_run_coming_email": {
         "name": "Today Run - we are on our way email",
         "subject": "We are on our way",
-        "body": "Hi {{name}},\n\nI am on my way to your carpet cleaning appointment now.\n\nAddress: {{address}}\n\nIf there is anything I need to know about parking, access, pets or entry to the property, please reply as soon as you can.\n\nThanks\nPaul\n{{business_name}}",
+        "body": "Hi {{name}},\n\nI am on my way to your carpet cleaning appointment now. I’ll be with you as quickly as I can.\n\nAddress: {{address}}\n\nIf there is anything I need to know about parking, access, pets or entry to the property, please reply as soon as you can.\n\nThanks\nPaul\n{{business_name}}",
     },
     "today_run_coming_sms": {
         "name": "Today Run - we are on our way SMS",
         "subject": "",
-        "body": "Hi {{name}}, I am on my way to your carpet cleaning appointment now. Please reply if there are any parking or access issues. Thanks, Paul - {{business_name}}",
+        "body": "Hi {{name}}, I am on my way to your carpet cleaning appointment now. I’ll be with you as quickly as I can. Please reply if there are any parking or access issues. Thanks, Paul - {{business_name}}",
     },
     "today_run_reminder_email": {
         "name": "Today Run - appointment reminder email",
@@ -3725,8 +3725,8 @@ def pwa_manifest():
 
 @app.route("/service-worker.js")
 def pwa_service_worker():
-    source = """const CACHE='carpet-clean-pro-v38';
-	const SHELL=['/offline','/static/app-theme.css?v=20260906-41','/static/dashboard-exact.css?v=20260906-6','/static/customer-record-premium.css?v=20260906-3','/static/app.js?v=mobile-more-20260905-1','/static/site/site-icon-512.png'];
+    source = """const CACHE='carpet-clean-pro-v39';
+	const SHELL=['/offline','/static/app-theme.css?v=20260906-42','/static/dashboard-exact.css?v=20260906-6','/static/customer-record-premium.css?v=20260906-3','/static/app.js?v=mobile-more-20260905-1','/static/site/site-icon-512.png'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim())));
 self.addEventListener('fetch',event=>{if(event.request.method!=='GET')return;const url=new URL(event.request.url);if(url.origin!==location.origin)return;if(event.request.mode==='navigate'){event.respondWith(fetch(event.request).catch(()=>caches.match('/offline')));return;}if(url.pathname.startsWith('/static/'))event.respondWith(caches.match(event.request).then(hit=>hit||fetch(event.request).then(response=>{const copy=response.clone();caches.open(CACHE).then(cache=>cache.put(event.request,copy));return response;})));});
@@ -8543,6 +8543,12 @@ def init_db():
             DEFAULT_MESSAGE_TEMPLATES["maintenance_reminder_email"]["body"],
         ),
     )
+    for on_way_key in ("today_run_coming_email", "today_run_coming_sms"):
+        conn.execute(
+            "UPDATE message_templates SET name=?, subject=?, body=?, updated_at=datetime('now') WHERE template_key=?",
+            (DEFAULT_MESSAGE_TEMPLATES[on_way_key]["name"], DEFAULT_MESSAGE_TEMPLATES[on_way_key]["subject"],
+             DEFAULT_MESSAGE_TEMPLATES[on_way_key]["body"], on_way_key),
+        )
     conn.execute(
         """UPDATE communication_automation_settings
               SET sms_template_key='review_request_sms', updated_at=datetime('now')
@@ -12715,6 +12721,48 @@ def job_send_message_template(job_id):
             (customer_id, f"{log_channel} sent from job #{job_id} to {recipient}: {subject}"))
     flash(("Sent: " if ok else "Failed: ") + msg)
     return redirect(url_for("job_view", job_id=job_id) + "#job-message-actions")
+
+
+@app.route("/jobs/<int:job_id>/send-late-notice", methods=["POST"])
+@login_required
+def job_send_late_notice(job_id):
+    job = q("""SELECT jobs.*, customers.id AS customer_id, customers.first_name, customers.last_name, customers.phone, customers.email,
+                      customers.address, customers.town, customers.postcode, customers.sms_opt_out
+               FROM jobs LEFT JOIN customers ON customers.id = jobs.customer_id
+               WHERE jobs.id=?""", (job_id,), one=True)
+    if not job or not row_value(job, "customer_id"):
+        flash("Link a customer before sending a late update.")
+        return redirect(url_for("job_view", job_id=job_id))
+    try:
+        minutes = int(request.form.get("minutes") or 10)
+    except (TypeError, ValueError):
+        minutes = 10
+    if minutes not in {10, 20, 30}:
+        minutes = 10
+    channel = clean_str(request.form.get("channel") or "both").lower()
+    channels = ["sms", "email"] if channel == "both" else [channel]
+    first_name = clean_str(row_value(job, "first_name")) or "there"
+    subject = f"Running about {minutes} minutes late"
+    body = (f"Hi {first_name},\n\nI’m really sorry, I’m running about {minutes} minutes late. "
+            "I’ll be with you as quickly as I can. Thank you for your patience.\n\nPaul\n"
+            + (clean_str(settings().get("business_name")) or "The Carpet Cleaning Company"))
+    results = []
+    for item in channels:
+        if item not in {"sms", "email"}:
+            continue
+        ok, message, recipient = send_rendered_customer_message(job, item, subject, body)
+        results.append((item, ok, message))
+        if ok:
+            log_customer_message(row_value(job, "customer_id"), "SMS" if item == "sms" else "Email", subject, body)
+            run("INSERT INTO customer_timeline(customer_id, note_text, created_at) VALUES (?,?,datetime('now'))",
+                (row_value(job, "customer_id"), f"Late update sent by {item} to {recipient}: {minutes} minutes."))
+    success = [item for item, ok, _message in results if ok]
+    failed = [f"{item}: {message}" for item, ok, message in results if not ok]
+    if success:
+        flash("Late update sent by " + ("text and email" if len(success) == 2 else success[0]) + (". " + " ".join(failed) if failed else ""))
+    else:
+        flash("Late update was not sent. " + " ".join(failed or ["Choose text, email, or both."]))
+    return redirect(url_for("job_view", job_id=job_id))
 
 
 @app.route("/jobs/<int:job_id>/edit", methods=["POST"])

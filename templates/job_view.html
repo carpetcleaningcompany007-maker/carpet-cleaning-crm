@@ -26,6 +26,22 @@
     {% if not is_dashboard_sample and job.status not in ['On My Way','Arrived','In Progress','Completed','Invoiced','Paid','Cancelled','Archived'] %}<form method="post" action="{{ url_for('today_run_job_action', job_id=job.id) }}"><input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="on_way"><input type="hidden" name="next_url" value="{{ url_for('job_view', job_id=job.id) }}"><button type="submit">I’m on my way</button></form>{% endif %}
   </div>
   {% endif %}
+  {% if job.customer_id %}
+  <details class="job-late-message">
+    <summary><span>Running late?</span><small>Send a quick, polite update</small><i>›</i></summary>
+    <form method="post" action="{{ url_for('job_send_late_notice', job_id=job.id) }}" class="job-late-form">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+      <label>How late are you running?
+        <select name="minutes" data-late-minutes><option value="10">10 minutes</option><option value="20">20 minutes</option><option value="30">30 minutes</option></select>
+      </label>
+      <label>Send by
+        <select name="channel"><option value="both">Text and email</option><option value="sms">Text message only</option><option value="email">Email only</option></select>
+      </label>
+      <p data-late-preview>Hi {{ job.first_name or 'there' }}, I’m really sorry, I’m running about 10 minutes late. I’ll be with you as quickly as I can. Thank you for your patience, Paul.</p>
+      <button class="btn secondary" type="submit">Send late update</button>
+    </form>
+  </details>
+  {% endif %}
   {% if job.customer_id %}<a class="job-open-customer" href="{{ url_for('customer_view', customer_id=job.customer_id) }}">Open customer <span>›</span></a>{% elif is_dashboard_sample %}<a class="job-open-customer is-sample" href="#job-edit-details">Sample job — view or change details <span>›</span></a>{% else %}<a class="job-open-customer" href="#job-edit-details">Add customer details <span>›</span></a>{% endif %}
 </section>
 
@@ -287,6 +303,8 @@
 </style>
 <script>
 (function(){
+  const lateMinutes=document.querySelector('[data-late-minutes]'),latePreview=document.querySelector('[data-late-preview]');
+  if(lateMinutes&&latePreview){lateMinutes.addEventListener('change',function(){latePreview.textContent='Hi {{ job.first_name or "there" }}, I’m really sorry, I’m running about '+this.value+' minutes late. I’ll be with you as quickly as I can. Thank you for your patience, Paul.'})}
   document.querySelectorAll('.job-next-card a,.job-progress-detail a').forEach(function(link){
     link.addEventListener('click',function(){
       const href=link.getAttribute('href')||'';
