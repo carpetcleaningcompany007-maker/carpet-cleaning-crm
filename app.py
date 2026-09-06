@@ -151,7 +151,7 @@ def add_website_form_cors_headers(response):
         response.headers["Cache-Control"] = "no-store, private, max-age=0, must-revalidate"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
-        response.headers["X-CRM-UI-Version"] = "20260906.39"
+        response.headers["X-CRM-UI-Version"] = "20260906.40"
     elif request.path == "/static/crm-redesign.css":
         response.headers["Cache-Control"] = "no-cache, max-age=0, must-revalidate"
     return response
@@ -3725,8 +3725,8 @@ def pwa_manifest():
 
 @app.route("/service-worker.js")
 def pwa_service_worker():
-    source = """const CACHE='carpet-clean-pro-v24';
-	const SHELL=['/offline','/static/app-theme.css?v=20260906-28','/static/dashboard-exact.css?v=20260906-2','/static/customer-record-premium.css?v=20260906-2','/static/app.js?v=mobile-more-20260905-1','/static/site/site-icon-512.png'];
+    source = """const CACHE='carpet-clean-pro-v25';
+	const SHELL=['/offline','/static/app-theme.css?v=20260906-28','/static/dashboard-exact.css?v=20260906-3','/static/customer-record-premium.css?v=20260906-2','/static/app.js?v=mobile-more-20260905-1','/static/site/site-icon-512.png'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim())));
 self.addEventListener('fetch',event=>{if(event.request.method!=='GET')return;const url=new URL(event.request.url);if(url.origin!==location.origin)return;if(event.request.mode==='navigate'){event.respondWith(fetch(event.request).catch(()=>caches.match('/offline')));return;}if(url.pathname.startsWith('/static/'))event.respondWith(caches.match(event.request).then(hit=>hit||fetch(event.request).then(response=>{const copy=response.clone();caches.open(CACHE).then(cache=>cache.put(event.request,copy));return response;})));});
@@ -10006,6 +10006,10 @@ def dashboard():
                            (week_start.isoformat(), week_end.isoformat()), one=True)["total"],
         "quotes_to_send": q("SELECT COUNT(*) AS c FROM quotes WHERE lower(IFNULL(status,'Draft'))='draft'", one=True)["c"],
     }
+    goal_row = q("SELECT daily_revenue_target, working_days_per_week FROM business_goal_settings WHERE id=1", one=True)
+    weekly_revenue_target = float((goal_row["daily_revenue_target"] if goal_row else 300) or 300) * int((goal_row["working_days_per_week"] if goal_row else 5) or 5)
+    dashboard_metrics["weekly_target"] = weekly_revenue_target
+    dashboard_metrics["weekly_progress"] = min(100, round((float(dashboard_metrics["revenue_week"] or 0) / weekly_revenue_target) * 100)) if weekly_revenue_target else 0
     recent_invoices = q("""SELECT invoices.*, customers.first_name || ' ' || customers.last_name AS customer_name
                              FROM invoices LEFT JOIN customers ON customers.id=invoices.customer_id
                              ORDER BY invoices.id DESC LIMIT 4""")
