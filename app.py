@@ -151,7 +151,7 @@ def add_website_form_cors_headers(response):
         response.headers["Cache-Control"] = "no-store, private, max-age=0, must-revalidate"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
-        response.headers["X-CRM-UI-Version"] = "20260906.51"
+        response.headers["X-CRM-UI-Version"] = "20260906.52"
     elif request.path == "/static/crm-redesign.css":
         response.headers["Cache-Control"] = "no-cache, max-age=0, must-revalidate"
     return response
@@ -3725,8 +3725,8 @@ def pwa_manifest():
 
 @app.route("/service-worker.js")
 def pwa_service_worker():
-    source = """const CACHE='carpet-clean-pro-v35';
-	const SHELL=['/offline','/static/app-theme.css?v=20260906-38','/static/dashboard-exact.css?v=20260906-6','/static/customer-record-premium.css?v=20260906-3','/static/app.js?v=mobile-more-20260905-1','/static/site/site-icon-512.png'];
+    source = """const CACHE='carpet-clean-pro-v36';
+	const SHELL=['/offline','/static/app-theme.css?v=20260906-39','/static/dashboard-exact.css?v=20260906-6','/static/customer-record-premium.css?v=20260906-3','/static/app.js?v=mobile-more-20260905-1','/static/site/site-icon-512.png'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim())));
 self.addEventListener('fetch',event=>{if(event.request.method!=='GET')return;const url=new URL(event.request.url);if(url.origin!==location.origin)return;if(event.request.mode==='navigate'){event.respondWith(fetch(event.request).catch(()=>caches.match('/offline')));return;}if(url.pathname.startsWith('/static/'))event.respondWith(caches.match(event.request).then(hit=>hit||fetch(event.request).then(response=>{const copy=response.clone();caches.open(CACHE).then(cache=>cache.put(event.request,copy));return response;})));});
@@ -4347,6 +4347,13 @@ def directions_url_for_customer(row):
     if not address:
         return ""
     return "https://www.google.com/maps/search/?api=1&query=" + quote(address)
+
+
+def what3words_url(value):
+    words = clean_str(value).strip().lstrip("/")
+    if not words:
+        return ""
+    return "https://what3words.com/" + quote(words, safe=".")
 
 
 def template_context_for_job(job):
@@ -12512,7 +12519,9 @@ def jobs_new():
 @app.route("/jobs/<int:job_id>")
 @login_required
 def job_view(job_id):
-    job = q("""SELECT jobs.*, customers.* FROM jobs
+    job = q("""SELECT jobs.*, customers.*,
+                      (SELECT what3words FROM intake_submissions i WHERE i.customer_id=jobs.customer_id ORDER BY i.id DESC LIMIT 1) AS what3words
+               FROM jobs
                LEFT JOIN customers ON customers.id = jobs.customer_id
                WHERE jobs.id=?""", (job_id,), one=True)
     existing_invoice = q("SELECT * FROM invoices WHERE job_id=? AND IFNULL(status,'') <> 'Archived' ORDER BY id DESC LIMIT 1", (job_id,), one=True)
@@ -12531,6 +12540,8 @@ def job_view(job_id):
         job_display_date = datetime.strptime(clean_str(job["job_date"]), "%Y-%m-%d").strftime("%d %b %Y")
     except (TypeError, ValueError):
         job_display_date = clean_str(job["job_date"]) or "Date to confirm"
+    directions_url = directions_url_for_customer(job)
+    w3w_url = what3words_url(row_value(job, "what3words"))
     return render_template(
         "job_view.html",
         job=job,
@@ -12545,6 +12556,8 @@ def job_view(job_id):
         job_action_templates=job_action_templates,
         saved_message_templates=saved_message_templates,
         job_display_date=job_display_date,
+        directions_url=directions_url,
+        what3words_url=w3w_url,
     )
 
 
