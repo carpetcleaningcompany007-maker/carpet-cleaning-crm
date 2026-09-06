@@ -29,7 +29,7 @@
 </style>
 <div class="goals-shell">
   <header class="goals-heading">
-    <div><div class="goals-kicker">Business goals</div><h1>Build towards your daily target.</h1><p>See what has been booked, invoiced and paid, then choose the next practical action that moves the business forward.</p></div>
+    <div><div class="goals-kicker">Business goals</div><h1>Your income goals</h1><p>See today’s money, this month’s progress, and the next practical thing to do.</p></div>
     <div class="target-ring"><span>Daily income goal</span><strong>£{{ '%.0f'|format(data.daily_target) }}</strong><small>{{ data.working_days }} working days each week</small></div>
   </header>
 
@@ -41,7 +41,7 @@
   </div>
 
   <section class="goal-panel">
-    <div class="goal-panel-head"><div><h3>What the business is producing</h3><p>Booked work is your pipeline. Invoiced is billed. Paid is money recorded as received.</p></div></div>
+    <div class="goal-panel-head"><div><h3>This month at a glance</h3><p>Booked is work in the diary. Invoiced is billed. Paid is money received.</p></div></div>
     <div class="income-grid">
       <div class="income-metric"><span>Booked this month</span><strong>£{{ '%.2f'|format(data.booked_month) }}</strong></div>
       <div class="income-metric"><span>Still to complete</span><strong>£{{ '%.2f'|format(data.future_booked) }}</strong></div>
@@ -56,7 +56,7 @@
       <div class="month-chart">{% for month in data.months %}<div class="month-row"><div class="month-label">{{ month.label }}</div><div class="month-bars"><i class="month-target" style="width:{{ month.target_width }}%"></i><i class="month-paid" style="width:{{ month.paid_width }}%"></i></div><div class="month-value">£{{ '%.0f'|format(month.paid) }}<small>of £{{ '%.0f'|format(month.target) }}</small></div></div>{% endfor %}</div>
     </section>
     <aside class="goal-panel">
-      <div class="goal-panel-head"><div><h3>Set your target</h3><p>Start at £300 and change it whenever the business is ready.</p></div></div>
+      <div class="goal-panel-head"><div><h3>Change your target</h3><p>Choose your daily amount and working days.</p></div></div>
       <form method="post" action="{{ url_for('business_goals_settings') }}" class="target-form">
         <label>Daily income target<input type="number" name="daily_revenue_target" min="1" step="10" value="{{ '%.0f'|format(data.daily_target) }}" required></label>
         <label>Working days<select name="working_days_per_week">{% for day in range(1,8) %}<option value="{{ day }}" {% if day == data.working_days %}selected{% endif %}>{{ day }} day{{ '' if day == 1 else 's' }}</option>{% endfor %}</select></label>
@@ -67,7 +67,7 @@
   </div>
 
   <section class="goal-panel" id="action-plan">
-    <div class="goal-panel-head"><div><h3>Your plan of action</h3><p>Turn the goal into specific actions and record what has actually been implemented.</p></div></div>
+    <div class="goal-panel-head"><div><h3>Next actions</h3><p>Add one clear job that will help you reach your target.</p></div></div>
     <form method="post" action="{{ url_for('business_goal_action_add') }}" class="action-form">
       <label>Action<input name="title" maxlength="180" placeholder="For example: Contact every outstanding quote" required></label>
       <label>Target date<input type="date" name="due_date"></label>

@@ -17,14 +17,14 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='beautiful.css') }}?v=proper-redesign-20260606-1">
   <link rel="stylesheet" href="{{ url_for('static', filename='crm-redesign.css', v='app-shell-20260905-9') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='dashboard-reference.css', v='20260905-2') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='app-theme.css', v='20260906-36') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='app-theme.css', v='20260906-37') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='dashboard-exact.css', v='20260906-6') }}">
   <link rel="stylesheet" media="(min-width: 1024px)" href="{{ url_for('static', filename='customer-record-premium.css', v='20260906-3') }}">
   <style>:root{--accent: {{ biz.accent or '#56718f' }}; --sidebar-color: {{ biz.sidebar_color or '#1f2933' }};}</style>
 </head>
 {% if session.get('logged_in') and not public_mode %}
 {% set ep = request.endpoint or '' %}
-<body class="app-page page-{{ ep|replace('_','-') }}" data-ui-build="20260906.49">
+<body class="app-page page-{{ ep|replace('_','-') }}" data-ui-build="20260906.50">
 {% else %}
 <body class="public-page page-public">
 {% endif %}
@@ -57,7 +57,8 @@
       <a class="nav-link {% if ep in ['jobs','job_view','jobs_new'] %}active{% endif %}" href="{{ url_for('jobs') }}"><span class="nav-icon" data-icon="briefcase"></span><span>Jobs</span></a>
       <a class="nav-link {% if ep=='full_calendar' or ep=='scheduler' %}active{% endif %}" href="{{ url_for('full_calendar') }}"><span class="nav-icon" data-icon="calendar"></span><span>Calendar</span></a>
       <a class="nav-link {% if ep in ['invoices','invoice_view','quotes','quote_view','calculator'] %}active{% endif %}" href="{{ url_for('invoices') }}"><span class="nav-icon" data-icon="invoice"></span><span>{% if ep=='dashboard' %}Quotes &amp; invoices{% else %}Money{% endif %}</span></a>
-      {% if ep=='dashboard' %}<a class="nav-link concept-nav-extra" href="{{ url_for('social_studio') }}"><span class="nav-icon" data-icon="star"></span><span>Marketing</span></a><a class="nav-link concept-nav-extra" href="{{ url_for('settings_page') }}"><span class="nav-icon" data-icon="target"></span><span>Settings</span></a>{% endif %}
+      <a class="nav-link concept-nav-extra {% if ep=='social_studio' %}active{% endif %}" href="{{ url_for('social_studio') }}"><span class="nav-icon" data-icon="star"></span><span>Marketing</span></a>
+      <a class="nav-link concept-nav-extra {% if ep=='settings_page' %}active{% endif %}" href="{{ url_for('settings_page') }}"><span class="nav-icon" data-icon="target"></span><span>Settings</span></a>
       <a class="nav-link nav-goals {% if ep.startswith('business_goal') %}active{% endif %}" href="{{ url_for('business_goals') }}"><span class="nav-icon" data-icon="target"></span><span>Goals</span></a>
       <a class="nav-link nav-review {% if ep=='send_contact_form' and request.args.get('action_type')=='review' %}active{% endif %}" href="{{ url_for('send_contact_form', action_type='review') }}"><span class="nav-icon" data-icon="star"></span><span>Send review</span></a>
       <details class="nav-more">
