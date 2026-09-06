@@ -10057,6 +10057,10 @@ def dashboard():
         if item["customer_name"] == "Customer":
             item["customer_name"] = clean_str(row["title"]) or "Customer job"
         item["address_text"] = customer_address_text(row)
+        if clean_str(row["notes"]) == "Dashboard walkthrough sample — safe to delete":
+            item["customer_name"] = clean_str(row["title"]).replace("Sample: ", "") or "Sample customer"
+            item["town"] = "Shrewsbury" if "Sarah" in item["customer_name"] else "Ludlow"
+            item["address_text"] = item["town"]
         dashboard_schedule.append(item)
     next_enquiry = q("""SELECT * FROM intake_submissions
                           WHERE IFNULL(is_test,0)=0 AND IFNULL(ignore_alerts,0)=0
