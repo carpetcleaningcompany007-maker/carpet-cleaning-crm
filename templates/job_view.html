@@ -75,8 +75,10 @@
   <summary><span>{{ 'Job details' if is_dashboard_sample else 'More job actions' }}</span><small>{{ 'Edit this dashboard example' if is_dashboard_sample else 'Edit, calendar, invoice and messages' }}</small><i>＋</i></summary>
   <div class="more-job-actions-body">
 
-<div class="grid-2">
-  <section class="panel" id="job-edit-details">
+<div class="grid-2 job-detail-groups">
+  <details class="job-detail-section" id="job-edit-details">
+    <summary><span>Job details</span><small>Date, time, price and calendar</small><i>›</i></summary>
+  <section class="panel">
     <div class="panel-head"><h3>Edit Job</h3></div>
     <form method="post" action="{{ url_for('job_edit', job_id=job.id) }}" class="form">
       <label>Job title<input name="title" value="{{ job.title }}"></label>
@@ -126,8 +128,11 @@
     <form method="post" action="{{ url_for('job_delete', job_id=job.id) }}" onsubmit="return confirm('Archive this job?')"><button class="btn danger">Archive Job</button></form>
     {% endif %}
   </section>
+  </details>
 
-  <section class="panel" id="job-invoice-actions">
+  <details class="job-detail-section" id="job-invoice-actions">
+    <summary><span>Confirm, complete &amp; invoice</span><small>Checklist, booking confirmation and invoice</small><i>›</i></summary>
+  <section class="panel">
     <div class="panel-head"><h3>Complete and invoice</h3></div>
     <div class="notice" style="margin-bottom:14px;">
       <strong>Booking confirmation</strong>
@@ -194,9 +199,12 @@
       <span>Booked</span><span>Reminder</span><span>Completed</span><span>Invoice</span><span>Feedback</span>
     </div>
   </section>
+  </details>
 </div>
 
-<section class="panel" id="job-message-actions">
+<details class="job-detail-section" id="job-message-actions">
+  <summary><span>Customer messages</span><small>Booking, reminder, on-my-way and review messages</small><i>›</i></summary>
+<section class="panel">
   <div class="panel-head">
     <div>
       <h3>Job emails and texts</h3>
@@ -266,7 +274,10 @@
   </details>
   {% endif %}
 </section>
+</details>
 
+<details class="job-detail-section">
+  <summary><span>Contact history</span><small>Messages and previous contact with this customer</small><i>›</i></summary>
 <section class="panel">
   <div class="panel-head"><h3>Contact Timeline</h3></div>
   <div class="stats-grid" style="margin-bottom:12px;">
@@ -291,6 +302,7 @@
     {% endfor %}
   </div>
 </section>
+</details>
   </div>
 </details>
 </div>
@@ -308,7 +320,7 @@
   document.querySelectorAll('.job-next-card a,.job-progress-detail a').forEach(function(link){
     link.addEventListener('click',function(){
       const href=link.getAttribute('href')||'';
-      if(href.charAt(0)==='#' && document.querySelector(href)){document.getElementById('more-job-actions').open=true}
+      if(href.charAt(0)==='#' && document.querySelector(href)){const target=document.querySelector(href);document.getElementById('more-job-actions').open=true;if(target.tagName==='DETAILS')target.open=true;else {const group=target.closest('details');if(group)group.open=true}}
     });
   });
   const panel=document.querySelector('[data-calendar-preview]'); if(!panel)return;
