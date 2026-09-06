@@ -168,3 +168,16 @@ body.app-page.page-today-run .run-stats,body.app-page.page-today-run .run-list{w
   body.app-page.page-dashboard .mobile-next-action em{display:none!important}
   body.app-page.page-dashboard .mobile-create-job{position:fixed!important;z-index:30!important;right:12px!important;bottom:calc(78px + env(safe-area-inset-bottom))!important;left:12px!important;min-height:52px!important;border-radius:12px!important;font-size:17px!important}
 }
+
+/* Mobile containment: pages must never make the phone canvas slide sideways. */
+@media(max-width:1023px){
+  html,body.app-page{width:100%;max-width:100%;overflow-x:clip!important}
+  body.app-page .main,body.app-page .page-shell,body.app-page .workspace,body.app-page .card,body.app-page .panel,body.app-page .form-grid,body.app-page .detail-grid,body.app-page .grid,body.app-page .cols{min-width:0;max-width:100%;box-sizing:border-box}
+  body.app-page input,body.app-page select,body.app-page textarea,body.app-page button{max-width:100%;box-sizing:border-box}
+  body.app-page .table-wrap,body.app-page .table-responsive{max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+}
+@media(max-width:600px){
+  /* The action belongs to this page, not as a bar floating over the navigation. */
+  body.app-page.page-dashboard .mobile-route-dashboard{padding-bottom:calc(104px + env(safe-area-inset-bottom))!important}
+  body.app-page.page-dashboard .mobile-create-job{position:sticky!important;right:auto!important;bottom:calc(72px + env(safe-area-inset-bottom))!important;left:auto!important;width:100%!important;margin-top:2px!important;box-shadow:0 7px 16px rgba(148,101,16,.16)!important}
+}
