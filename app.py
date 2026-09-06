@@ -12530,6 +12530,28 @@ def job_view(job_id):
                FROM jobs
                LEFT JOIN customers ON customers.id = jobs.customer_id
                WHERE jobs.id=?""", (job_id,), one=True)
+    # Dashboard walkthrough jobs must behave like complete bookings, otherwise the
+    # screen demonstrates missing-data warnings instead of the real day-of-job flow.
+    if job and clean_str(row_value(job, "notes")) == "Dashboard walkthrough sample — safe to delete" and not row_value(job, "customer_id"):
+        sample_name = "James Morris" if "James" in clean_str(row_value(job, "title")) else "Sarah Howard"
+        sample = {
+            "Sarah Howard": ("Sarah", "Howard", "07700 900123", "sarah.howard@example.com", "14 Longden Road", "Shrewsbury", "SY3 9EA", "stays.chats.minds"),
+            "James Morris": ("James", "Morris", "07700 900124", "james.morris@example.com", "8 Corve Street", "Ludlow", "SY8 1DA", "flame.gates.rather"),
+        }[sample_name]
+        customer_id = find_existing_customer_id(first_name=sample[0], last_name=sample[1], email=sample[3], phone=sample[2], postcode=sample[6])
+        if not customer_id:
+            customer_id = run("""INSERT INTO customers(first_name,last_name,phone,email,address,town,postcode,source,tags,notes)
+                                 VALUES (?,?,?,?,?,?,?,?,?,?)""", (
+                sample[0], sample[1], sample[2], sample[3], sample[4], sample[5], sample[6],
+                "Dashboard example", "Sample", "Dashboard walkthrough customer — safe to delete."
+            ))
+        if not q("SELECT id FROM intake_submissions WHERE customer_id=? AND what3words=? LIMIT 1", (customer_id, sample[7]), one=True):
+            run("INSERT INTO intake_submissions(customer_id, what3words, status, is_test) VALUES (?,?,?,1)",
+                (customer_id, sample[7], "Dashboard example"))
+        run("UPDATE jobs SET customer_id=? WHERE id=?", (customer_id, job_id))
+        job = q("""SELECT jobs.*, customers.*,
+                          (SELECT what3words FROM intake_submissions i WHERE i.customer_id=jobs.customer_id ORDER BY i.id DESC LIMIT 1) AS what3words
+                   FROM jobs LEFT JOIN customers ON customers.id = jobs.customer_id WHERE jobs.id=?""", (job_id,), one=True)
     existing_invoice = q("SELECT * FROM invoices WHERE job_id=? AND IFNULL(status,'') <> 'Archived' ORDER BY id DESC LIMIT 1", (job_id,), one=True)
     recent_contacts = recent_customer_contacts(job["customer_id"] if job else None, 6)
     contact_summary = customer_contact_summary(job["customer_id"] if job else None, 30)
@@ -12732,6 +12754,9 @@ def job_send_late_notice(job_id):
                WHERE jobs.id=?""", (job_id,), one=True)
     if not job or not row_value(job, "customer_id"):
         flash("Link a customer before sending a late update.")
+        return redirect(url_for("job_view", job_id=job_id))
+    if clean_str(row_value(job, "notes")) == "Dashboard walkthrough sample — safe to delete":
+        flash("Dashboard example: the late-message preview is ready, but no real text or email was sent.")
         return redirect(url_for("job_view", job_id=job_id))
     try:
         minutes = int(request.form.get("minutes") or 10)
