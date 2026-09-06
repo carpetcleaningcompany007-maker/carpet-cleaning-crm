@@ -151,7 +151,7 @@ def add_website_form_cors_headers(response):
         response.headers["Cache-Control"] = "no-store, private, max-age=0, must-revalidate"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
-        response.headers["X-CRM-UI-Version"] = "20260906.55"
+        response.headers["X-CRM-UI-Version"] = "20260906.56"
     elif request.path == "/static/crm-redesign.css":
         response.headers["Cache-Control"] = "no-cache, max-age=0, must-revalidate"
     return response
@@ -3725,8 +3725,8 @@ def pwa_manifest():
 
 @app.route("/service-worker.js")
 def pwa_service_worker():
-    source = """const CACHE='carpet-clean-pro-v39';
-	const SHELL=['/offline','/static/app-theme.css?v=20260906-42','/static/dashboard-exact.css?v=20260906-6','/static/customer-record-premium.css?v=20260906-3','/static/app.js?v=mobile-more-20260905-1','/static/site/site-icon-512.png'];
+    source = """const CACHE='carpet-clean-pro-v40';
+	const SHELL=['/offline','/static/app-theme.css?v=20260906-43','/static/dashboard-exact.css?v=20260906-6','/static/customer-record-premium.css?v=20260906-3','/static/app.js?v=mobile-more-20260905-1','/static/site/site-icon-512.png'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim())));
 self.addEventListener('fetch',event=>{if(event.request.method!=='GET')return;const url=new URL(event.request.url);if(url.origin!==location.origin)return;if(event.request.mode==='navigate'){event.respondWith(fetch(event.request).catch(()=>caches.match('/offline')));return;}if(url.pathname.startsWith('/static/'))event.respondWith(caches.match(event.request).then(hit=>hit||fetch(event.request).then(response=>{const copy=response.clone();caches.open(CACHE).then(cache=>cache.put(event.request,copy));return response;})));});
@@ -12744,7 +12744,8 @@ def job_send_late_notice(job_id):
     first_name = clean_str(row_value(job, "first_name")) or "there"
     subject = f"Running about {minutes} minutes late"
     body = (f"Hi {first_name},\n\nI’m really sorry, I’m running about {minutes} minutes late. "
-            "I’ll be with you as quickly as I can. Thank you for your patience.\n\nPaul\n"
+            "I’m just running a little behind schedule from the previous job. I’ll be with you as quickly as I can — "
+            "I hope you don’t mind. Any problems, please give me a call.\n\nPaul\n"
             + (clean_str(settings().get("business_name")) or "The Carpet Cleaning Company"))
     results = []
     for item in channels:

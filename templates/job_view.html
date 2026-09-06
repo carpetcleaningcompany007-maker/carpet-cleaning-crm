@@ -21,14 +21,14 @@
   {% if job.phone or directions_url or what3words_url %}
   <div class="job-travel-actions">
     {% if job.phone %}<a class="job-contact-action" href="tel:{{ job.phone }}">Call <span>☎</span></a><a class="job-contact-action" href="https://wa.me/{{ whatsapp_phone(job.phone) }}" target="_blank" rel="noopener">WhatsApp <span>↗</span></a>{% endif %}
-    {% if directions_url %}<a class="is-directions" href="{{ directions_url }}" target="_blank" rel="noopener">Directions <span>↗</span></a>{% endif %}
+    {% if directions_url %}<a class="is-directions" href="{{ directions_url }}" target="_blank" rel="noopener"><i class="maps-mark" aria-hidden="true">●</i> Google Maps <span>↗</span></a>{% endif %}
     {% if what3words_url %}<a href="{{ what3words_url }}" target="_blank" rel="noopener">What3words <span>↗</span></a>{% endif %}
     {% if not is_dashboard_sample and job.status not in ['On My Way','Arrived','In Progress','Completed','Invoiced','Paid','Cancelled','Archived'] %}<form method="post" action="{{ url_for('today_run_job_action', job_id=job.id) }}"><input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="on_way"><input type="hidden" name="next_url" value="{{ url_for('job_view', job_id=job.id) }}"><button type="submit">I’m on my way</button></form>{% endif %}
   </div>
   {% endif %}
   {% if job.customer_id %}
   <details class="job-late-message">
-    <summary><span>Running late?</span><small>Send a quick, polite update</small><i>›</i></summary>
+    <summary><span>Running late?</span><small>Send a quick customer update</small><i>›</i></summary>
     <form method="post" action="{{ url_for('job_send_late_notice', job_id=job.id) }}" class="job-late-form">
       <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
       <label>How late are you running?
@@ -37,12 +37,12 @@
       <label>Send by
         <select name="channel"><option value="both">Text and email</option><option value="sms">Text message only</option><option value="email">Email only</option></select>
       </label>
-      <p data-late-preview>Hi {{ job.first_name or 'there' }}, I’m really sorry, I’m running about 10 minutes late. I’ll be with you as quickly as I can. Thank you for your patience, Paul.</p>
+      <p data-late-preview>Hi {{ job.first_name or 'there' }}, I’m really sorry, I’m running about 10 minutes late. I’m just running a little behind schedule from the previous job. I’ll be with you as quickly as I can — I hope you don’t mind. Any problems, please give me a call. Paul.</p>
       <button class="btn secondary" type="submit">Send late update</button>
     </form>
   </details>
   {% endif %}
-  {% if job.customer_id %}<a class="job-open-customer" href="{{ url_for('customer_view', customer_id=job.customer_id) }}">Open customer <span>›</span></a>{% elif is_dashboard_sample %}<a class="job-open-customer is-sample" href="#job-edit-details">Sample job — view or change details <span>›</span></a>{% else %}<a class="job-open-customer" href="#job-edit-details">Add customer details <span>›</span></a>{% endif %}
+  {% if job.customer_id %}<a class="job-open-customer customer-link" href="{{ url_for('customer_view', customer_id=job.customer_id) }}"><i aria-hidden="true">◉</i> Customer details <small>Phone, address &amp; history</small><span>›</span></a>{% elif is_dashboard_sample %}<a class="job-open-customer is-sample" href="#job-edit-details"><i aria-hidden="true">✦</i> Sample job details <small>View or change this example</small><span>›</span></a>{% else %}<a class="job-open-customer" href="#job-edit-details"><i aria-hidden="true">＋</i> Add customer details <small>Link this job to a customer</small><span>›</span></a>{% endif %}
 </section>
 
 {% if not is_dashboard_sample %}
@@ -304,7 +304,7 @@
 <script>
 (function(){
   const lateMinutes=document.querySelector('[data-late-minutes]'),latePreview=document.querySelector('[data-late-preview]');
-  if(lateMinutes&&latePreview){lateMinutes.addEventListener('change',function(){latePreview.textContent='Hi {{ job.first_name or "there" }}, I’m really sorry, I’m running about '+this.value+' minutes late. I’ll be with you as quickly as I can. Thank you for your patience, Paul.'})}
+  if(lateMinutes&&latePreview){lateMinutes.addEventListener('change',function(){latePreview.textContent='Hi {{ job.first_name or "there" }}, I’m really sorry, I’m running about '+this.value+' minutes late. I’m just running a little behind schedule from the previous job. I’ll be with you as quickly as I can — I hope you don’t mind. Any problems, please give me a call. Paul.'})}
   document.querySelectorAll('.job-next-card a,.job-progress-detail a').forEach(function(link){
     link.addEventListener('click',function(){
       const href=link.getAttribute('href')||'';
