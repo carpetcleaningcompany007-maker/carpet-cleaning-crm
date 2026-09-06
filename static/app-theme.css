@@ -169,6 +169,11 @@ body.app-page.page-today-run .run-stats,body.app-page.page-today-run .run-list{w
   body.app-page.page-dashboard .mobile-create-job{position:fixed!important;z-index:30!important;right:12px!important;bottom:calc(78px + env(safe-area-inset-bottom))!important;left:12px!important;min-height:52px!important;border-radius:12px!important;font-size:17px!important}
 }
 
+@media(max-width:1023px){
+  .mobile-route-empty form{margin:11px 0 0}
+  .mobile-route-preview{display:inline-flex!important;min-height:38px!important;padding:0 13px!important;align-items:center!important;justify-content:center!important;border:1px solid #ba851c!important;border-radius:999px!important;background:#fff7e4!important;color:#865b10!important;font:800 12px/1 system-ui!important}
+}
+
 /* Mobile containment: pages must never make the phone canvas slide sideways. */
 @media(max-width:1023px){
   html,body.app-page{width:100%;max-width:100%;overflow-x:clip!important}

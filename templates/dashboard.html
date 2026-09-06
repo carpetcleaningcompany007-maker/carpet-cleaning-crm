@@ -13,7 +13,7 @@
         <em>{{ job.status or 'Booked' }}</em>
       </a>
       {% else %}
-      <div class="mobile-route-empty"><strong>No jobs booked today</strong><span>Your next confirmed appointment will appear here.</span><a href="{{ url_for('jobs_new') }}">Book a job</a></div>
+      <div class="mobile-route-empty"><strong>No jobs booked today</strong><span>Your next confirmed appointment will appear here.</span><form method="post" action="{{ url_for('dashboard_add_sample_route') }}"><input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><button type="submit" class="mobile-route-preview">Add two sample jobs</button></form><a href="{{ url_for('jobs_new') }}">Book a job</a></div>
       {% endfor %}
     </div>
   </section>

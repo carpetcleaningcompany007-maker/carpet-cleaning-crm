@@ -151,7 +151,7 @@ def add_website_form_cors_headers(response):
         response.headers["Cache-Control"] = "no-store, private, max-age=0, must-revalidate"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
-        response.headers["X-CRM-UI-Version"] = "20260906.50"
+        response.headers["X-CRM-UI-Version"] = "20260906.51"
     elif request.path == "/static/crm-redesign.css":
         response.headers["Cache-Control"] = "no-cache, max-age=0, must-revalidate"
     return response
@@ -3725,8 +3725,8 @@ def pwa_manifest():
 
 @app.route("/service-worker.js")
 def pwa_service_worker():
-    source = """const CACHE='carpet-clean-pro-v34';
-	const SHELL=['/offline','/static/app-theme.css?v=20260906-37','/static/dashboard-exact.css?v=20260906-6','/static/customer-record-premium.css?v=20260906-3','/static/app.js?v=mobile-more-20260905-1','/static/site/site-icon-512.png'];
+    source = """const CACHE='carpet-clean-pro-v35';
+	const SHELL=['/offline','/static/app-theme.css?v=20260906-38','/static/dashboard-exact.css?v=20260906-6','/static/customer-record-premium.css?v=20260906-3','/static/app.js?v=mobile-more-20260905-1','/static/site/site-icon-512.png'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim())));
 self.addEventListener('fetch',event=>{if(event.request.method!=='GET')return;const url=new URL(event.request.url);if(url.origin!==location.origin)return;if(event.request.mode==='navigate'){event.respondWith(fetch(event.request).catch(()=>caches.match('/offline')));return;}if(url.pathname.startsWith('/static/'))event.respondWith(caches.match(event.request).then(hit=>hit||fetch(event.request).then(response=>{const copy=response.clone();caches.open(CACHE).then(cache=>cache.put(event.request,copy));return response;})));});
@@ -10054,6 +10054,8 @@ def dashboard():
     for row in schedule_rows:
         item = dict(row)
         item["customer_name"] = customer_full_name(row)
+        if item["customer_name"] == "Customer":
+            item["customer_name"] = clean_str(row["title"]) or "Customer job"
         item["address_text"] = customer_address_text(row)
         dashboard_schedule.append(item)
     next_enquiry = q("""SELECT * FROM intake_submissions
@@ -10095,6 +10097,26 @@ def dashboard():
                            recent_enquiries=recent_enquiries, dashboard_schedule=dashboard_schedule,
                            dashboard_next=dashboard_next, dashboard_greeting=dashboard_greeting,
                            dashboard_date=f"{today.strftime('%A')}, {today.day} {today.strftime('%B')}")
+
+
+@app.route("/dashboard/add-sample-route", methods=["POST"])
+@login_required
+def dashboard_add_sample_route():
+    """Add a clearly labelled pair of sample jobs for a dashboard walkthrough."""
+    today = uk_today().isoformat()
+    marker = "Dashboard walkthrough sample — safe to delete"
+    existing = q("SELECT COUNT(*) AS c FROM jobs WHERE job_date=? AND notes=?", (today, marker), one=True)
+    if not existing or not existing["c"]:
+        for title, service_type, job_time, amount in [
+            ("Sample: Sarah Howard", "Lounge & stairs carpet clean", "09:00", 230),
+            ("Sample: James Morris", "Three-bedroom carpet clean", "13:30", 180),
+        ]:
+            run("""INSERT INTO jobs(customer_id, title, service_type, job_date, job_time, status, amount, assigned_to, notes)
+                   VALUES (NULL,?,?,?,?,?,?,?,?)""", (title, service_type, today, job_time, "Booked", amount, "", marker))
+        flash("Two sample jobs have been added for today’s dashboard walkthrough.")
+    else:
+        flash("Today’s sample jobs are already on the dashboard.")
+    return redirect(url_for("dashboard"))
 
 
 @app.route("/send-contact-form", methods=["GET", "POST"])
