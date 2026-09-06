@@ -11,6 +11,8 @@ body.app-page .empty-state,body.app-page .empty-cell,body.app-page .enquiry-empt
 body.app-page .mobile-record-list>*,body.app-page .enquiry-card,body.app-page .customer-card,body.app-page .job-card{border:1px solid var(--pro-line)!important;border-radius:10px!important;background:#fff!important;box-shadow:0 2px 7px rgba(8,31,59,.05)!important}body.app-page .nav-more-menu{border-color:var(--pro-line)!important;background:#fff!important}body.app-page .nav-more-menu a{border-radius:8px!important;color:var(--pro-ink)!important}body.app-page .nav-more-menu a:hover{background:var(--pro-gold-soft)!important}
 .job-travel-actions{display:flex;gap:9px;margin:0 0 18px;flex-wrap:wrap}.job-travel-actions a{display:inline-flex;min-height:42px;padding:0 14px;align-items:center;gap:8px;border:1px solid #cfdbe5;border-radius:10px;background:#fff;color:#062747!important;font-size:13px;font-weight:850;text-decoration:none}.job-travel-actions a:first-child{border-color:#062747;background:#062747;color:#fff!important}.job-travel-actions a span{color:#e9b83f;font-size:16px}
 .job-travel-actions form{margin:0}.job-travel-actions button{min-height:42px!important;padding:0 14px!important;border:1px solid #b98218!important;border-radius:10px!important;background:#fff4d8!important;color:#704b08!important;font-size:13px!important;font-weight:900!important}
+/* Softer job actions: useful controls should not dominate the job summary. */
+.job-open-customer{min-height:52px!important;margin:0 -27px!important;padding:0 27px!important;justify-content:flex-start!important;border-top:1px solid #dce5ec!important;background:#f5f8fb!important;color:#163d61!important;font-size:15px!important}.job-open-customer:hover{background:#eef5fa!important}.job-open-customer span{margin-left:auto!important;color:#b98218!important}.job-open-customer.is-sample{background:#fffaf0!important;color:#6c5216!important}.job-travel-actions a.is-directions{border-color:#d6a63a!important;background:#fffaf0!important;color:#694c0d!important;box-shadow:none!important}.job-travel-actions a.is-directions span{display:none!important}.job-travel-actions .job-contact-action{border-color:#dce5ec!important;background:#f7fafc!important;color:#163d61!important}.job-travel-actions .job-contact-action span{color:#2f7c5b!important}
 @media(max-width:760px){
   /* Accessible mobile type scale: small helper text must be readable without zooming. */
   body.app-page .form-help,body.app-page .muted,body.app-page .notice,body.app-page .inline-note{font-size:15px!important;line-height:1.45!important}
@@ -27,9 +29,10 @@ body.app-page .mobile-record-list>*,body.app-page .enquiry-card,body.app-page .c
   body.app-page .mobile-record-list small,body.app-page .customer-card small,body.app-page .job-card small,body.app-page .notification-copy small,body.app-page .page-intro p,body.app-page .panel-head p{font-size:15px!important;line-height:1.45!important}
   body.app-page .table{font-size:14px!important}
   body.app-page .table th{font-size:11px!important}
-  body.app-page .job-travel-actions{display:grid!important;grid-template-columns:1fr 1fr!important;gap:10px!important}
-  body.app-page .job-travel-actions a,body.app-page .job-travel-actions form,body.app-page .job-travel-actions button{width:100%!important}
-  body.app-page .job-travel-actions a,body.app-page .job-travel-actions button{min-height:50px!important;justify-content:center!important;font-size:15px!important}
+  body.app-page .job-travel-actions{display:flex!important;gap:9px!important}
+  body.app-page .job-travel-actions a,body.app-page .job-travel-actions form,body.app-page .job-travel-actions button{width:auto!important}
+  body.app-page .job-travel-actions a,body.app-page .job-travel-actions button{min-height:46px!important;justify-content:center!important;font-size:15px!important}
+  body.app-page .job-open-customer{min-height:54px!important;margin:0 -18px!important;padding:0 18px!important;font-size:15px!important}
 }
 body.app-page .brand-logo{width:64px!important;height:50px!important;border:0!important;border-radius:0!important;object-fit:contain!important;background:transparent!important}
 .mobile-alert-action{position:relative}.notification-badge{position:absolute!important;top:-2px!important;right:-4px!important;display:grid!important;min-width:18px!important;height:18px!important;padding:0 4px!important;place-items:center!important;border:2px solid var(--pro-navy)!important;border-radius:999px!important;background:#d52d2d!important;color:#fff!important;font:800 9px/1 system-ui!important}
