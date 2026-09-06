@@ -86,6 +86,12 @@
         <label>Job title<input name="title" value="{{ job.title }}"></label>
         <label>Service type<input name="service_type" value="{{ job.service_type or '' }}" placeholder="For example: Lounge &amp; stairs carpet clean"></label>
       </section>
+      {% if job.customer_id %}
+      <section class="job-location-card">
+        <div><span>Where is the job?</span><strong>{{ job.address or 'Address still needed' }}</strong>{% if job.town or job.postcode %}<small>{{ [job.town, job.postcode]|select|join(', ') }}</small>{% endif %}</div>
+        <div class="job-location-links">{% if directions_url %}<a href="{{ directions_url }}" target="_blank" rel="noopener">Google Maps ↗</a>{% endif %}{% if what3words_url %}<a href="{{ what3words_url }}" target="_blank" rel="noopener">What3words ↗</a>{% endif %}<a href="{{ url_for('customer_view', customer_id=job.customer_id) }}">Edit address ›</a></div>
+      </section>
+      {% endif %}
       <section class="job-edit-group">
         <h4>When is it booked?</h4>
         <div class="job-edit-two-up">
