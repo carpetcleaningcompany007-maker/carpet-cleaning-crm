@@ -80,14 +80,18 @@
     <summary><span>Job details</span><small>Date, time, price and calendar</small><i>›</i></summary>
   <section class="panel">
     <div class="panel-head"><h3>Edit Job</h3></div>
-    <form method="post" action="{{ url_for('job_edit', job_id=job.id) }}" class="form">
-      <label>Job title<input name="title" value="{{ job.title }}"></label>
-      <div class="cols">
-        <label>Service type<input name="service_type" value="{{ job.service_type or '' }}" placeholder="Service type"></label>
-        <label>Job date<input type="date" name="job_date" value="{{ job.job_date or '' }}"></label>
-      </div>
-      <div class="cols">
-        <label>Booking time
+    <form method="post" action="{{ url_for('job_edit', job_id=job.id) }}" class="form job-edit-form">
+      <div class="job-edit-intro"><span>Quick job edit</span><p>Change the key details below, then save.</p></div>
+      <section class="job-edit-group">
+        <h4>What is the job?</h4>
+        <label>Job title<input name="title" value="{{ job.title }}"></label>
+        <label>Service type<input name="service_type" value="{{ job.service_type or '' }}" placeholder="For example: Lounge &amp; stairs carpet clean"></label>
+      </section>
+      <section class="job-edit-group">
+        <h4>When is it booked?</h4>
+        <div class="job-edit-two-up">
+          <label>Job date<input type="date" name="job_date" value="{{ job.job_date or '' }}"></label>
+          <label>Booking time
           {% set selected_job_time = job.job_time or '' %}
           <select name="job_time">
             <option value="" {% if not selected_job_time %}selected{% endif %}>Choose booking time</option>
@@ -98,17 +102,24 @@
               <option value="{{ booking_time }}" {% if booking_time == selected_job_time %}selected{% endif %}>{{ booking_time }}</option>
             {% endfor %}
           </select>
-        </label>
-        <label>Price / agreed quote<input name="amount" type="number" min="0" step="0.01" value="{{ job.amount or 0 }}" placeholder="0.00"></label>
-      </div>
-      <div class="cols">
-        <label>Private finish time<input type="time" name="job_end_time" value="{{ job.job_end_time or '' }}"><span class="form-help">Not shown to the customer.</span></label>
-        <label>Or duration (minutes)<input type="number" name="job_duration_minutes" min="15" max="1440" step="15" value="{{ job.job_duration_minutes or 120 }}"></label>
-      </div>
-      <label class="calendar-check"><input type="checkbox" name="add_to_google_calendar" value="1" {% if job.add_to_google_calendar %}checked{% endif %}> Add to Google Calendar</label>
-      <label>Assigned to<input name="assigned_to" value="{{ job.assigned_to or '' }}" placeholder="Assigned to"></label>
-      <select name="status">{% for s in ['Lead','Quoted','Booked','Reminder Sent','In Progress','Completed','Invoiced','Paid','Cancelled'] %}<option {% if job.status==s %}selected{% endif %}>{{ s }}</option>{% endfor %}</select>
-      <textarea name="notes" placeholder="Arrival notes, access, stains, rooms, parking">{{ job.notes or '' }}</textarea>
+          </label>
+        </div>
+        <label>How long will it take?<input type="number" name="job_duration_minutes" min="15" max="1440" step="15" value="{{ job.job_duration_minutes or 120 }}"><span class="form-help">Minutes — this helps plan your day.</span></label>
+      </section>
+      <section class="job-edit-group job-edit-price">
+        <h4>Price</h4>
+        <label>Agreed quote (£)<input name="amount" type="number" min="0" step="0.01" value="{{ job.amount or 0 }}" placeholder="0.00"></label>
+      </section>
+      <details class="job-edit-extra">
+        <summary>More job settings <small>Calendar, notes and status</small><i>⌄</i></summary>
+        <div class="job-edit-extra-body">
+          <label>Private finish time<input type="time" name="job_end_time" value="{{ job.job_end_time or '' }}"><span class="form-help">For your diary only — the customer will not see it.</span></label>
+          <label class="calendar-check"><input type="checkbox" name="add_to_google_calendar" value="1" {% if job.add_to_google_calendar %}checked{% endif %}> Add this job to Google Calendar</label>
+          <label>Assigned to<input name="assigned_to" value="{{ job.assigned_to or '' }}" placeholder="Who is doing the job?"></label>
+          <label>Job status<select name="status">{% for s in ['Lead','Quoted','Booked','Reminder Sent','In Progress','Completed','Invoiced','Paid','Cancelled'] %}<option {% if job.status==s %}selected{% endif %}>{{ s }}</option>{% endfor %}</select></label>
+          <label>Notes<textarea name="notes" placeholder="Arrival notes, access, stains, rooms, parking">{{ job.notes or '' }}</textarea></label>
+        </div>
+      </details>
       <button class="btn primary">Save Job</button>
     </form>
     <div class="booking-calendar-preview" data-calendar-preview data-event-id="{{ job.google_calendar_event_id or '' }}">
