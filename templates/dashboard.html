@@ -3,7 +3,7 @@
 {% block body_content %}
 <div class="pro-dashboard">
   <header class="pro-dashboard-head">
-    <div><span class="section-kicker">Business command centre</span><h1 class="pro-dashboard-title">Dashboard</h1><p>Your work, customer activity and weekly position at a glance.</p></div>
+    <div><span class="section-kicker">Business command centre</span><h1 class="pro-dashboard-title">Business overview</h1><p>Your live work queue, customer activity and weekly position.</p></div>
     <a class="btn primary" href="{{ url_for('today_run') }}">Open today’s run</a>
   </header>
   <section class="pro-metrics" aria-label="Business summary">
@@ -14,7 +14,7 @@
   </section>
   <div class="pro-dashboard-workspace">
   <section class="pro-activity">
-    <h2>Recent Activity</h2>
+    <div class="pro-section-heading"><div><span>Live workspace</span><h2>Work queue &amp; recent activity</h2></div><a href="{{ url_for('workflow') }}">Open workflow</a></div>
     <div class="pro-activity-list">
       {% for row in recent_jobs[:1] %}<a href="{{ url_for('job_view', job_id=row.id) }}"><span class="pro-list-icon">▦</span><span><strong>Job scheduled</strong><small>{{ row.customer_name or row.title or 'Customer job' }}{% if row.job_date %} · {{ row.job_date }}{% endif %}</small></span><b>›</b></a>{% endfor %}
       {% for row in recent_quotes[:1] %}<a href="{{ url_for('quote_view', quote_id=row.id) }}"><span class="pro-list-icon">▤</span><span><strong>Quote {{ row.status|lower if row.status else 'created' }}</strong><small>{{ row.customer_name or row.title or row.quote_number or 'Customer quote' }}</small></span><b>›</b></a>{% endfor %}
@@ -23,15 +23,24 @@
       {% if not recent_jobs and not recent_quotes and not recent_invoices and not recent_enquiries %}<div class="pro-activity-empty">No recent activity yet. New jobs, quotes, invoices and enquiries will appear here.</div>{% endif %}
     </div>
   </section>
-  <section class="pro-actions">
-    <h2>Quick Actions</h2>
-    <div class="pro-action-strip">
-      <a href="{{ url_for('jobs_new') }}"><span>▦</span><strong>New Job</strong></a>
-      <a href="{{ url_for('calculator') }}"><span>▤</span><strong>New Quote</strong></a>
-      <a href="{{ url_for('intake_forms') }}"><span>●</span><strong>Enquiries</strong></a>
-      <a href="{{ url_for('invoices') }}"><span>£</span><strong>Invoices</strong></a>
-    </div>
-  </section>
+  <aside class="pro-dashboard-side">
+    <section class="pro-focus-panel">
+      <div class="pro-section-heading"><div><span>Today</span><h2>Needs your attention</h2></div></div>
+      <a href="{{ url_for('intake_forms') }}"><span>New enquiries</span><strong>{{ intake_new }}</strong></a>
+      <a href="{{ url_for('intake_forms') }}"><span>Need a reply</span><strong>{{ intake_needs_contact }}</strong></a>
+      <a href="{{ url_for('intake_forms') }}"><span>Waiting on customer</span><strong>{{ intake_waiting }}</strong></a>
+      <a href="{{ url_for('reminders_library') }}"><span>Open reminders</span><strong>{{ reminders_due|length }}</strong></a>
+    </section>
+    <section class="pro-actions">
+      <div class="pro-section-heading"><div><span>Shortcuts</span><h2>Quick actions</h2></div></div>
+      <div class="pro-action-strip">
+        <a href="{{ url_for('jobs_new') }}"><span>▦</span><strong>New job</strong></a>
+        <a href="{{ url_for('calculator') }}"><span>▤</span><strong>New quote</strong></a>
+        <a href="{{ url_for('intake_forms') }}"><span>●</span><strong>Enquiries</strong></a>
+        <a href="{{ url_for('invoices') }}"><span>£</span><strong>Invoices</strong></a>
+      </div>
+    </section>
+  </aside>
   </div>
 </div>
 {% endblock %}
