@@ -213,6 +213,22 @@ body.app-page.page-today-run .run-stats,body.app-page.page-today-run .run-list{w
   body.app-page input,body.app-page select,body.app-page textarea,body.app-page button{max-width:100%;box-sizing:border-box}
   body.app-page .table-wrap,body.app-page .table-responsive{max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
 }
+
+/* Cleaner job edit page: keep the essential booking details compact and put secondary tools away. */
+.job-edit-form{gap:12px!important}.job-edit-group{border:0!important;border-radius:0!important;border-bottom:1px solid #e1e7ed!important;padding:0 0 17px!important;background:transparent!important}.job-edit-group h4{margin-bottom:2px!important;color:#102f50!important}.job-edit-two-up{gap:10px!important}.job-edit-date{grid-column:1/-1}.job-edit-price{background:transparent!important;border-color:#e1e7ed!important}.job-edit-form>.btn.primary{min-height:54px!important;border:0!important;border-radius:12px!important;background:linear-gradient(100deg,#b18119,#d7ae48)!important;box-shadow:0 8px 18px rgba(166,119,22,.18)!important;color:#fff!important;font-size:17px!important}.job-edit-extra{border-color:#e1e7ed!important;box-shadow:none!important}.job-edit-extra>summary{min-height:52px!important;padding:9px 0!important}.job-edit-extra[open]>summary{padding-inline:12px!important}.job-calendar-tools,.job-admin-tools{margin-top:12px!important;overflow:hidden;border:1px solid #e1e7ed!important;border-radius:11px!important;background:#fff!important}.job-calendar-tools>summary,.job-admin-tools>summary{display:grid;grid-template-columns:1fr auto;align-items:center;min-height:54px;padding:9px 14px;cursor:pointer;list-style:none;color:#163d61;font-size:15px;font-weight:900}.job-calendar-tools>summary::-webkit-details-marker,.job-admin-tools>summary::-webkit-details-marker{display:none}.job-calendar-tools>summary small{grid-column:1;color:#718493;font-size:12px;font-weight:650}.job-calendar-tools>summary i,.job-admin-tools>summary i{grid-column:2;grid-row:1/3;color:#b98218;font-size:20px;font-style:normal}.job-calendar-tools[open]>summary,.job-admin-tools[open]>summary{border-bottom:1px solid #e1e7ed;background:#f8fbfd}.job-calendar-tools[open]>summary i,.job-admin-tools[open]>summary i{transform:rotate(180deg)}.job-calendar-tools-body{padding:14px}.job-admin-tools>div{padding:12px}.job-admin-tools .btn{width:100%}
+@media(max-width:760px){
+  body.app-page .job-detail-section>.panel{padding:15px!important}
+  body.app-page .job-edit-group{gap:9px!important;padding-bottom:15px!important}
+  body.app-page .job-edit-group h4{font-size:18px!important}
+  body.app-page .job-edit-group label{font-size:15px!important}
+  body.app-page .job-edit-two-up{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important}
+  body.app-page .job-edit-date{grid-column:1/-1!important}
+  body.app-page .job-edit-group input,body.app-page .job-edit-group select{min-height:48px!important;font-size:16px!important}
+  body.app-page .job-edit-extra>summary{min-height:54px!important;padding:10px 0!important;font-size:16px!important}
+  body.app-page .job-edit-extra[open]>summary{padding-inline:12px!important}
+  body.app-page .job-calendar-tools>summary,body.app-page .job-admin-tools>summary{min-height:56px!important;font-size:16px!important}
+  body.app-page .job-calendar-tools-body{padding:12px!important}
+}
 @media(max-width:600px){
   /* The action belongs to this page, not as a bar floating over the navigation. */
   body.app-page.page-dashboard .mobile-route-dashboard{padding-bottom:calc(96px + env(safe-area-inset-bottom))!important}

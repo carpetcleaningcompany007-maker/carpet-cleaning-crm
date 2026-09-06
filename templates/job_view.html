@@ -81,7 +81,6 @@
   <section class="panel">
     <div class="panel-head"><h3>Edit Job</h3></div>
     <form method="post" action="{{ url_for('job_edit', job_id=job.id) }}" class="form job-edit-form">
-      <div class="job-edit-intro"><span>Quick job edit</span><p>Change the key details below, then save.</p></div>
       <section class="job-edit-group">
         <h4>What is the job?</h4>
         <label>Job title<input name="title" value="{{ job.title }}"></label>
@@ -90,7 +89,7 @@
       <section class="job-edit-group">
         <h4>When is it booked?</h4>
         <div class="job-edit-two-up">
-          <label>Job date<input type="date" name="job_date" value="{{ job.job_date or '' }}"></label>
+          <label class="job-edit-date">Job date<input type="date" name="job_date" value="{{ job.job_date or '' }}"></label>
           <label>Booking time
           {% set selected_job_time = job.job_time or '' %}
           <select name="job_time">
@@ -103,8 +102,8 @@
             {% endfor %}
           </select>
           </label>
+          <label class="job-edit-duration">Duration (minutes)<input type="number" name="job_duration_minutes" min="15" max="1440" step="15" value="{{ job.job_duration_minutes or 120 }}"></label>
         </div>
-        <label>How long will it take?<input type="number" name="job_duration_minutes" min="15" max="1440" step="15" value="{{ job.job_duration_minutes or 120 }}"><span class="form-help">Minutes — this helps plan your day.</span></label>
       </section>
       <section class="job-edit-group job-edit-price">
         <h4>Price</h4>
@@ -122,22 +121,25 @@
       </details>
       <button class="btn primary">Save Job</button>
     </form>
-    <div class="booking-calendar-preview" data-calendar-preview data-event-id="{{ job.google_calendar_event_id or '' }}">
-      <div class="calendar-preview-head"><div><strong>Google Calendar day view</strong><span>Live appointments plus the proposed booking</span></div><a href="{{ url_for('google_calendar_dashboard') }}">{{ 'Connected' if google_calendar_connected else 'Connect calendar' }}</a></div>
-      <div class="calendar-preview-message" data-calendar-message>Select a date and time.</div>
-      <div class="calendar-preview-list" data-calendar-events></div>
-    </div>
-    <div class="row-actions" style="margin-top:12px">
-      <form method="post" action="{{ url_for('job_google_calendar_sync', job_id=job.id) }}"><button class="btn primary">Add booking to Google Calendar</button></form>
-      {% if job.google_calendar_event_id %}<form method="post" action="{{ url_for('job_google_calendar_remove', job_id=job.id) }}" onsubmit="return confirm('Remove the linked Google Calendar event?')"><button class="btn danger">Remove calendar event</button></form>{% endif %}
-    </div>
-    {% if job.google_calendar_sync_error %}<div class="notice danger-notice">{{ job.google_calendar_sync_error }}</div>{% endif %}
-    <p class="muted inline-note">Use the archive button below rather than setting archive as a normal status.</p>
-    {% if is_archived %}
-    <form method="post" action="{{ url_for('job_restore', job_id=job.id) }}"><button class="btn secondary">Restore Job</button></form>
-    {% else %}
-    <form method="post" action="{{ url_for('job_delete', job_id=job.id) }}" onsubmit="return confirm('Archive this job?')"><button class="btn danger">Archive Job</button></form>
-    {% endif %}
+    <details class="job-calendar-tools">
+      <summary>Calendar <small>Check availability or add the booking</small><i>⌄</i></summary>
+      <div class="job-calendar-tools-body">
+        <div class="booking-calendar-preview" data-calendar-preview data-event-id="{{ job.google_calendar_event_id or '' }}">
+          <div class="calendar-preview-head"><div><strong>Google Calendar day view</strong><span>Live appointments plus the proposed booking</span></div><a href="{{ url_for('google_calendar_dashboard') }}">{{ 'Connected' if google_calendar_connected else 'Connect calendar' }}</a></div>
+          <div class="calendar-preview-message" data-calendar-message>Select a date and time.</div>
+          <div class="calendar-preview-list" data-calendar-events></div>
+        </div>
+        <div class="row-actions">
+          <form method="post" action="{{ url_for('job_google_calendar_sync', job_id=job.id) }}"><button class="btn primary">Add booking to Google Calendar</button></form>
+          {% if job.google_calendar_event_id %}<form method="post" action="{{ url_for('job_google_calendar_remove', job_id=job.id) }}" onsubmit="return confirm('Remove the linked Google Calendar event?')"><button class="btn danger">Remove calendar event</button></form>{% endif %}
+        </div>
+        {% if job.google_calendar_sync_error %}<div class="notice danger-notice">{{ job.google_calendar_sync_error }}</div>{% endif %}
+      </div>
+    </details>
+    <details class="job-admin-tools">
+      <summary>Archive options <i>⌄</i></summary>
+      <div>{% if is_archived %}<form method="post" action="{{ url_for('job_restore', job_id=job.id) }}"><button class="btn secondary">Restore Job</button></form>{% else %}<form method="post" action="{{ url_for('job_delete', job_id=job.id) }}" onsubmit="return confirm('Archive this job?')"><button class="btn danger">Archive Job</button></form>{% endif %}</div>
+    </details>
   </section>
   </details>
 
