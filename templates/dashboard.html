@@ -2,13 +2,17 @@
 {% block page_title %}Dashboard{% endblock %}
 {% block body_content %}
 <div class="pro-dashboard">
-  <h1 class="pro-dashboard-title">Dashboard</h1>
+  <header class="pro-dashboard-head">
+    <div><span class="section-kicker">Business command centre</span><h1 class="pro-dashboard-title">Dashboard</h1><p>Your work, customer activity and weekly position at a glance.</p></div>
+    <a class="btn primary" href="{{ url_for('today_run') }}">Open today’s run</a>
+  </header>
   <section class="pro-metrics" aria-label="Business summary">
     <a class="pro-metric" href="{{ url_for('today_run') }}"><span class="pro-metric-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18M8 14h2M14 14h2M8 18h2M14 18h2"/></svg></span><span class="pro-metric-label">Jobs Today</span><strong>{{ dashboard_metrics.jobs_today }}</strong><span class="pro-metric-link">View jobs <b aria-hidden="true">›</b></span></a>
     <a class="pro-metric" href="{{ url_for('quotes') }}"><span class="pro-metric-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V2h6v2M8 9h8M8 13h8M8 17h5"/></svg></span><span class="pro-metric-label">Quotes</span><strong>{{ stats.quotes }}</strong><span class="pro-metric-link">View quotes <b aria-hidden="true">›</b></span></a>
     <a class="pro-metric" href="{{ url_for('jobs') }}"><span class="pro-metric-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 19h11M9 18l3-10 3 1-1 10M12 8l1-4 3 1-1 4M17 15h3l1 4h-4"/></svg></span><span class="pro-metric-label">Jobs This Week</span><strong>{{ dashboard_metrics.jobs_week }}</strong><span class="pro-metric-link">View jobs <b aria-hidden="true">›</b></span></a>
     <a class="pro-metric" href="{{ url_for('invoices') }}"><span class="pro-metric-icon pro-pound" aria-hidden="true">£</span><span class="pro-metric-label">Revenue This Week</span><strong>£{{ '%.0f'|format(dashboard_metrics.revenue_week or 0) }}</strong><span class="pro-metric-link">View money <b aria-hidden="true">›</b></span></a>
   </section>
+  <div class="pro-dashboard-workspace">
   <section class="pro-activity">
     <h2>Recent Activity</h2>
     <div class="pro-activity-list">
@@ -28,5 +32,6 @@
       <a href="{{ url_for('invoices') }}"><span>£</span><strong>Invoices</strong></a>
     </div>
   </section>
+  </div>
 </div>
 {% endblock %}
