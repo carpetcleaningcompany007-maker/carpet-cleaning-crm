@@ -9,17 +9,25 @@
 {% endif %}
 
 <div class="premium-job-page">
+{% set is_dashboard_sample = job.notes == 'Dashboard walkthrough sample — safe to delete' %}
 <section class="job-summary-card">
   <div class="job-summary-eyebrow">Job</div>
   <h2>{{ job.title }}</h2>
-  <p class="job-summary-customer">{{ (job.first_name or '') ~ ' ' ~ (job.last_name or '') }}</p>
+  <p class="job-summary-customer">{% if job.customer_id %}{{ (job.first_name or '') ~ ' ' ~ (job.last_name or '') }}{% elif is_dashboard_sample %}Dashboard example — no customer record needed{% else %}Customer details still to be added{% endif %}</p>
   <div class="job-summary-facts">
     <a class="job-date-link" href="{{ url_for('full_calendar', view='day', day=job.job_date) if job.job_date else '#job-edit-details' }}" aria-label="{{ 'Open calendar for ' ~ job_display_date ~ (', ' ~ job.job_time if job.job_time else '') if job.job_date else 'Add the job date and time' }}"><i aria-hidden="true">▣</i><span><small>Scheduled</small><b>{{ job_display_date }}</b>{% if job.job_time %}<em>{{ job.job_time }}</em>{% endif %}</span><strong aria-hidden="true">›</strong></a>
     <div class="job-price-fact"><i aria-hidden="true">£</i><span><small>Agreed price</small>{% if (job.amount or 0)|float > 0 %}<b>£{{ '%.2f'|format(job.amount) }}</b>{% else %}<b class="not-set">Price not set</b>{% endif %}</span></div>
   </div>
-  {% if job.customer_id %}<a class="job-open-customer" href="{{ url_for('customer_view', customer_id=job.customer_id) }}">Open customer <span>›</span></a>{% else %}<a class="job-open-customer" href="#job-edit-details">Link a customer <span>›</span></a>{% endif %}
+  {% if job.customer_id %}<a class="job-open-customer" href="{{ url_for('customer_view', customer_id=job.customer_id) }}">Open customer <span>›</span></a>{% elif is_dashboard_sample %}<a class="job-open-customer" href="#job-edit-details">Sample job — view or change details <span>›</span></a>{% else %}<a class="job-open-customer" href="#job-edit-details">Add customer details <span>›</span></a>{% endif %}
 </section>
 
+{% if is_dashboard_sample %}
+<section class="job-next-card sample-job-note">
+  <div class="job-next-icon" aria-hidden="true">✓</div>
+  <div><span>Dashboard example</span><h3>Nothing needs doing on this job</h3><p>It is here only so you can see how a booked day looks. Change the date, time or service below if you want to experiment.</p></div>
+  <a href="#job-edit-details">View details <span>›</span></a>
+</section>
+{% else %}
 {% set job_next = namespace(href='#job-edit-details', label='Review job', help=job_next_action) %}
 {% for section in job_stage_sections %}{% for item in section.steps %}{% if item.current %}{% set job_next.href = item.href or '#job-edit-details' %}{% set job_next.label = item.label %}{% set job_next.help = item.next %}{% endif %}{% endfor %}{% endfor %}
 <section class="job-next-card">
@@ -43,9 +51,10 @@
     {% endfor %}
   </div>
 </section>
+{% endif %}
 
 <details class="more-job-actions" id="more-job-actions">
-  <summary><span>More job actions</span><small>Edit, calendar, invoice and messages</small><i>＋</i></summary>
+  <summary><span>{{ 'Job details' if is_dashboard_sample else 'More job actions' }}</span><small>{{ 'Edit this dashboard example' if is_dashboard_sample else 'Edit, calendar, invoice and messages' }}</small><i>＋</i></summary>
   <div class="more-job-actions-body">
 
 <div class="grid-2">
