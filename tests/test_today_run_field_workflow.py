@@ -119,7 +119,7 @@ class TodayRunFieldWorkflowTests(unittest.TestCase):
         body = response.get_data(as_text=True)
         self.assertEqual(response.status_code, 200)
         self.assertIn("Today’s work", body)
-        self.assertIn("Today’s appointments", body)
+        self.assertIn("Today’s schedule", body)
         self.assertIn("Field Customer", body)
         self.assertIn(f'/jobs/{self.early_id}', body)
         self.assertIn('/today-run', body)

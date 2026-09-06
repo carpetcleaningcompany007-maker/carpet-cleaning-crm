@@ -151,7 +151,7 @@ def add_website_form_cors_headers(response):
         response.headers["Cache-Control"] = "no-store, private, max-age=0, must-revalidate"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
-        response.headers["X-CRM-UI-Version"] = "20260906.36"
+        response.headers["X-CRM-UI-Version"] = "20260906.37"
     elif request.path == "/static/crm-redesign.css":
         response.headers["Cache-Control"] = "no-cache, max-age=0, must-revalidate"
     return response
@@ -3725,8 +3725,8 @@ def pwa_manifest():
 
 @app.route("/service-worker.js")
 def pwa_service_worker():
-    source = """const CACHE='carpet-clean-pro-v21';
-	const SHELL=['/offline','/static/app-theme.css?v=20260906-27','/static/app.js?v=mobile-more-20260905-1','/static/site/site-icon-512.png'];
+    source = """const CACHE='carpet-clean-pro-v22';
+	const SHELL=['/offline','/static/app-theme.css?v=20260906-28','/static/dashboard-exact.css?v=20260906-1','/static/app.js?v=mobile-more-20260905-1','/static/site/site-icon-512.png'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim())));
 self.addEventListener('fetch',event=>{if(event.request.method!=='GET')return;const url=new URL(event.request.url);if(url.origin!==location.origin)return;if(event.request.mode==='navigate'){event.respondWith(fetch(event.request).catch(()=>caches.match('/offline')));return;}if(url.pathname.startsWith('/static/'))event.respondWith(caches.match(event.request).then(hit=>hit||fetch(event.request).then(response=>{const copy=response.clone();caches.open(CACHE).then(cache=>cache.put(event.request,copy));return response;})));});
@@ -10004,6 +10004,7 @@ def dashboard():
                               WHERE invoice_date BETWEEN ? AND ?
                                 AND lower(IFNULL(status,'')) NOT IN ('cancelled','voided','archived')""",
                            (week_start.isoformat(), week_end.isoformat()), one=True)["total"],
+        "quotes_to_send": q("SELECT COUNT(*) AS c FROM quotes WHERE lower(IFNULL(status,'Draft'))='draft'", one=True)["c"],
     }
     recent_invoices = q("""SELECT invoices.*, customers.first_name || ' ' || customers.last_name AS customer_name
                              FROM invoices LEFT JOIN customers ON customers.id=invoices.customer_id
@@ -10031,6 +10032,7 @@ def dashboard():
                                    AND IFNULL(follow_up_status,'Follow up required') IN ('','Pending','Follow up required')""", one=True)
     intake_waiting = q("""SELECT COUNT(*) AS c FROM intake_submissions
                           WHERE IFNULL(status,'') IN ('Contacted','Waiting for customer','Quoted')""", one=True)
+    dashboard_metrics["followups"] = (intake_needs_contact["c"] if intake_needs_contact else 0) + len(reminders_due)
     recent_enquiries = q("""SELECT * FROM intake_submissions
                             ORDER BY CASE
                               WHEN IFNULL(is_test,0)=1 OR IFNULL(ignore_alerts,0)=1 THEN 3
@@ -10088,7 +10090,7 @@ def dashboard():
                            intake_waiting=intake_waiting["c"] if intake_waiting else 0,
                            recent_enquiries=recent_enquiries, dashboard_schedule=dashboard_schedule,
                            dashboard_next=dashboard_next, dashboard_greeting=dashboard_greeting,
-                           dashboard_date=today.strftime("%A, %d %B %Y"))
+                           dashboard_date=f"{today.strftime('%A')}, {today.day} {today.strftime('%B')}")
 
 
 @app.route("/send-contact-form", methods=["GET", "POST"])

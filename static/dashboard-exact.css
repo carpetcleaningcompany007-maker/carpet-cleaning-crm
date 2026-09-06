@@ -1,0 +1,90 @@
+@media (min-width:1200px) {
+  body.app-page.page-dashboard { background:#fbfaf7!important; }
+  body.app-page.page-dashboard .shell.shell-tabler { grid-template-columns:315px minmax(0,1fr)!important; }
+  body.app-page.page-dashboard .sidebar { width:315px!important; padding:25px 21px 24px!important; gap:0!important; background:linear-gradient(180deg,#061c3b,#063065)!important; }
+  body.app-page.page-dashboard .brand { display:flex!important; min-height:180px!important; padding:0 14px 25px!important; flex-direction:column!important; align-items:flex-start!important; gap:18px!important; border-bottom:0!important; }
+  body.app-page.page-dashboard .brand-logo { width:112px!important; height:70px!important; object-fit:contain!important; object-position:left center!important; }
+  body.app-page.page-dashboard .brand h1 { max-width:none!important; color:#fff!important; font:500 26px/1.1 Georgia,serif!important; }
+  body.app-page.page-dashboard .brand p { margin-top:7px!important; color:#e1b51c!important; font:700 17px/1 system-ui!important; letter-spacing:.02em!important; }
+  body.app-page.page-dashboard .nav { gap:3px!important; }
+  body.app-page.page-dashboard .nav .nav-link { min-height:55px!important; padding:0 17px!important; gap:15px!important; border-radius:6px!important; font-size:15px!important; font-weight:500!important; }
+  body.app-page.page-dashboard .nav .nav-icon { width:25px!important; height:25px!important; }
+  body.app-page.page-dashboard .nav .nav-link.active { border-left:3px solid #e1af00!important; background:rgba(80,129,184,.3)!important; color:#fff!important; }
+  body.app-page.page-dashboard .side-note { margin:0!important; margin-top:auto!important; padding:22px 14px 0!important; border:0!important; border-top:1px solid rgba(255,255,255,.3)!important; border-radius:0!important; background:transparent!important; }
+  body.app-page.page-dashboard .side-note strong { color:#fff!important; font-size:15px!important; }
+  body.app-page.page-dashboard .side-note span { color:#d6e0ea!important; font-size:12px!important; }
+  body.app-page.page-dashboard .main { padding:0 38px 48px!important; background:#fbfaf7!important; }
+  body.app-page.page-dashboard .topbar { width:calc(100% + 76px)!important; height:108px!important; max-height:108px!important; margin:0 -38px!important; padding:0 36px 0 39px!important; border-bottom:1px solid #e6e2dc!important; background:#fff!important; }
+  .concept-toolbar-greeting { display:grid; gap:5px; }
+  .concept-toolbar-greeting strong { color:#071d36; font-size:21px; line-height:1.1; }
+  .concept-toolbar-greeting span { color:#6f7b8b; font-size:15px; }
+  .concept-toolbar-actions { display:flex; align-items:center; gap:24px; }
+  .concept-toolbar-actions>a { position:relative; display:grid; width:37px; height:44px; place-items:center; color:#37404a; text-decoration:none; }
+  .concept-toolbar-actions svg { width:27px; height:27px; fill:none; stroke:currentColor; stroke-width:1.7; }
+  .concept-toolbar-actions>a>b { position:absolute; top:1px; right:-1px; display:grid; width:18px; height:18px; place-items:center; border-radius:50%; background:#bd8b00; color:#fff; font-size:10px; }
+  .concept-toolbar-actions .concept-toolbar-new { display:flex; width:auto; min-width:155px; height:58px; padding:0 25px; gap:12px; border-radius:6px; background:linear-gradient(135deg,#c98f00,#edae00); color:#fff; font-size:15px; font-weight:700; box-shadow:0 8px 18px rgba(170,119,0,.16); }
+  .concept-toolbar-new span { font-size:28px; font-weight:300; }
+  body.app-page.page-dashboard .concept-dashboard { max-width:none!important; padding:27px 0 0!important; }
+  body.app-page.page-dashboard .concept-welcome { display:block!important; margin:0 0 20px!important; }
+  body.app-page.page-dashboard .concept-welcome h1 { margin:0 0 7px!important; color:#071d36!important; font:500 43px/1.05 Georgia,serif!important; letter-spacing:-.025em!important; }
+  body.app-page.page-dashboard .concept-welcome p { color:#728092!important; font-size:16px!important; }
+  body.app-page.page-dashboard .concept-metrics { gap:17px!important; margin-bottom:21px!important; }
+  body.app-page.page-dashboard .concept-metrics>a { min-height:116px!important; padding:19px 22px!important; grid-template-columns:64px minmax(0,1fr)!important; gap:18px!important; border-color:#e3ded7!important; border-radius:7px!important; background:#fff!important; }
+  body.app-page.page-dashboard .metric-symbol { width:59px!important; height:59px!important; border-radius:50%!important; background:#fff5df!important; font-size:27px!important; }
+  body.app-page.page-dashboard .concept-metrics div { display:block!important; }
+  body.app-page.page-dashboard .concept-metrics small { display:block; color:#243750!important; font-size:14px!important; font-weight:500!important; text-transform:none!important; letter-spacing:0!important; }
+  body.app-page.page-dashboard .concept-metrics strong { display:block; margin-top:7px; color:#071d36!important; font-size:31px!important; font-weight:600!important; }
+  body.app-page.page-dashboard .concept-metrics em { display:none!important; }
+  body.app-page.page-dashboard .concept-grid { grid-template-columns:minmax(0,1.72fr) minmax(350px,.95fr)!important; gap:22px!important; }
+  .concept-left-column,.concept-rail { display:grid; gap:20px; align-content:start; }
+  body.app-page.page-dashboard .concept-panel { border-color:#e2ddd6!important; border-radius:7px!important; background:#fff!important; box-shadow:0 5px 14px rgba(40,40,40,.06)!important; }
+  body.app-page.page-dashboard .concept-panel>header { min-height:63px; padding:18px 22px!important; align-items:center!important; border-color:#ece7e0!important; }
+  body.app-page.page-dashboard .concept-panel h2 { color:#0a2140!important; font:500 24px/1.1 Georgia,serif!important; letter-spacing:-.01em!important; }
+  body.app-page.page-dashboard .concept-schedule { min-height:308px!important; }
+  .schedule-list { padding:0 22px!important; }
+  .schedule-row { min-height:67px!important; grid-template-columns:60px 12px minmax(0,1fr) 90px 92px!important; gap:12px!important; }
+  .schedule-row time { font-size:16px!important; }
+  .schedule-row>i { width:9px!important; height:9px!important; border:0!important; background:#c99700!important; }
+  .schedule-row>div strong { font-size:15px!important; }
+  .schedule-row>div span { display:none!important; }
+  .schedule-row>div small { font-size:12px!important; }
+  .schedule-row>b { justify-self:start; padding:7px 11px!important; border-radius:5px!important; background:#edf2f7!important; font-size:11px!important; }
+  .schedule-row>em { display:grid; width:91px; height:39px; place-items:center; border:1px solid #d9d2c9; border-radius:5px; color:#071d36!important; font-size:0!important; }
+  .schedule-row>em:before { content:'View job'; font:600 11px system-ui; }
+  .schedule-row>em:after { content:'›'; margin-left:10px; font:700 20px system-ui; }
+  .concept-panel>footer { min-height:52px; padding:0 22px; display:flex; align-items:center; border-top:1px solid #ece7e0; }
+  .concept-panel>footer a { color:#a87400; font-size:13px; font-weight:600; text-decoration:none; }
+  body.app-page.page-dashboard .concept-empty { min-height:178px!important; }
+  body.app-page.page-dashboard .concept-recent { margin:0!important; min-height:238px; }
+  body.app-page.page-dashboard .recent-grid { display:block!important; padding:0 22px!important; }
+  body.app-page.page-dashboard .recent-grid>a { min-height:49px!important; grid-template-columns:31px 1fr auto!important; }
+  body.app-page.page-dashboard .recent-grid>a>i { width:29px!important; height:29px!important; border-radius:50%!important; background:#f5f3ef!important; color:#596573!important; font-size:12px!important; }
+  body.app-page.page-dashboard .recent-grid>a strong { font-size:12px!important; font-weight:500!important; }
+  body.app-page.page-dashboard .recent-grid>a span { text-align:right; font-size:11px!important; }
+  body.app-page.page-dashboard .concept-next { min-height:278px; padding:0!important; color:#071d36!important; background:#fff!important; }
+  body.app-page.page-dashboard .concept-next>h2 { padding:20px 22px 8px; color:#071d36!important; -webkit-text-fill-color:#071d36!important; }
+  body.app-page.page-dashboard .concept-next>div { margin:7px 20px 0; padding:17px 15px 15px; border:1px solid #eadbb9; border-radius:7px; background:#fffaf0; }
+  body.app-page.page-dashboard .concept-next>div>span { color:#765600!important; font-size:11px!important; }
+  body.app-page.page-dashboard .concept-next h3 { margin:3px 0 6px; color:#071d36; font-size:17px; }
+  body.app-page.page-dashboard .concept-next p { margin:0 0 14px!important; color:#26384e!important; font-size:13px!important; }
+  body.app-page.page-dashboard .concept-next>div>a { display:flex; min-height:43px; padding:0 13px; align-items:center; justify-content:center; border-radius:4px; background:#dba300; color:#fff; text-decoration:none; font-size:13px; font-weight:700; }
+  body.app-page.page-dashboard .concept-next footer { margin-top:12px; }
+  body.app-page.page-dashboard .concept-glance { min-height:268px; padding-bottom:0!important; }
+  body.app-page.page-dashboard .concept-glance>a { min-height:68px!important; margin:0 20px!important; grid-template-columns:42px 1fr 18px!important; }
+  body.app-page.page-dashboard .concept-glance>a i { width:39px!important; height:39px!important; border-radius:50%!important; }
+  body.app-page.page-dashboard .concept-glance>a span { font-size:12px!important; }
+  body.app-page.page-dashboard .concept-glance>a strong { min-width:0!important; padding:0!important; background:transparent!important; font-size:14px!important; }
+}
+
+@media (max-width:1199px) {
+  body.app-page.page-dashboard .concept-metrics { grid-template-columns:repeat(2,minmax(0,1fr))!important; }
+  body.app-page.page-dashboard .concept-do-next { background:#fff!important; color:#071d36!important; }
+  body.app-page.page-dashboard .concept-do-next h2,
+  body.app-page.page-dashboard .concept-do-next strong,
+  body.app-page.page-dashboard .concept-do-next p { color:#071d36!important; }
+  body.app-page.page-dashboard .concept-do-next > div { border:1px solid #ead7a6!important; background:#fffbf2!important; }
+}
+
+@media (max-width:760px) {
+  .concept-toolbar-greeting,.concept-toolbar-actions { display:none!important; }
+}

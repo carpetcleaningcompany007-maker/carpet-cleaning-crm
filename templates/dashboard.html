@@ -2,29 +2,28 @@
 {% block page_title %}Dashboard{% endblock %}
 {% block body_content %}
 <main class="concept-dashboard">
-  <header class="concept-welcome"><div><span>{{ dashboard_greeting }}</span><h1>Today’s work</h1><p>{{ dashboard_date }} · Everything that needs your attention, in one place.</p></div><a class="concept-new-job" href="{{ url_for('jobs_new') }}"><b>＋</b> New job</a></header>
+  <header class="concept-welcome"><div><h1>Today’s work</h1><p>You have {{ dashboard_metrics.jobs_today }} job{% if dashboard_metrics.jobs_today != 1 %}s{% endif %} scheduled today and {{ dashboard_metrics.quotes_to_send }} quote{% if dashboard_metrics.quotes_to_send != 1 %}s{% endif %} to send.</p></div></header>
   <section class="concept-metrics" aria-label="Today at a glance">
     <a href="{{ url_for('today_run') }}"><span class="metric-symbol">▦</span><div><small>Jobs today</small><strong>{{ dashboard_metrics.jobs_today }}</strong><em>Open today’s run</em></div></a>
-    <a href="{{ url_for('intake_forms') }}"><span class="metric-symbol">●</span><div><small>New enquiries</small><strong>{{ intake_new }}</strong><em>{{ intake_needs_contact }} need a reply</em></div></a>
-    <a href="{{ url_for('jobs') }}"><span class="metric-symbol">✓</span><div><small>Jobs this week</small><strong>{{ dashboard_metrics.jobs_week }}</strong><em>View schedule</em></div></a>
-    <a href="{{ url_for('invoices') }}"><span class="metric-symbol">£</span><div><small>Revenue this week</small><strong>£{{ '%.0f'|format(dashboard_metrics.revenue_week or 0) }}</strong><em>View invoices</em></div></a>
+    <a href="{{ url_for('quotes') }}"><span class="metric-symbol">▤</span><div><small>To quote</small><strong>{{ dashboard_metrics.quotes_to_send }}</strong><em>Open quotes</em></div></a>
+    <a href="{{ url_for('intake_forms') }}"><span class="metric-symbol">♙</span><div><small>Follow-ups</small><strong>{{ dashboard_metrics.followups }}</strong><em>View customers</em></div></a>
+    <a href="{{ url_for('invoices') }}"><span class="metric-symbol">£</span><div><small>This week</small><strong>£{{ '%.0f'|format(dashboard_metrics.revenue_week or 0) }}</strong><em>View invoices</em></div></a>
   </section>
   <div class="concept-grid">
-    <section class="concept-panel concept-schedule"><header><div><span>Schedule</span><h2>Today’s appointments</h2></div><a href="{{ url_for('today_run') }}">View full run →</a></header><div class="schedule-list">
+    <div class="concept-left-column"><section class="concept-panel concept-schedule"><header><div><h2>Today’s schedule</h2></div></header><div class="schedule-list">
       {% for job in dashboard_schedule %}<a href="{{ url_for('job_view', job_id=job.id) }}" class="schedule-row"><time>{{ job.job_time or 'Time TBC' }}</time><i></i><div><strong>{{ job.customer_name or job.title or 'Customer job' }}</strong><span>{{ job.title or job.service_type or 'Carpet cleaning' }}</span><small>{{ job.address_text or 'Address not saved' }}</small></div><b>{{ job.status or 'Booked' }}</b><em>›</em></a>
       {% else %}<div class="concept-empty"><span>✓</span><strong>No appointments booked today</strong><p>New jobs will appear here in appointment-time order.</p><a href="{{ url_for('jobs_new') }}">Book a job</a></div>{% endfor %}
-    </div></section>
+    </div><footer><a href="{{ url_for('full_calendar') }}">View full calendar　›</a></footer></section>
+    <section class="concept-panel concept-recent"><header><div><h2>Recent activity</h2></div></header><div class="recent-grid">
+      {% for lead in recent_enquiries[:1] %}<a href="{{ url_for('intake_form_view', lead_id=lead.id) }}"><i>●</i><div><strong>Enquiry · {{ lead.name or 'New customer' }}</strong><span>{{ lead.status or 'Waiting for review' }}</span></div><b>›</b></a>{% endfor %}
+      {% for job in recent_jobs[:1] %}<a href="{{ url_for('job_view', job_id=job.id) }}"><i>▦</i><div><strong>Job · {{ job.customer_name or job.title or 'Customer' }}</strong><span>{{ job.job_date or 'Date not set' }} · {{ job.status or 'Booked' }}</span></div><b>›</b></a>{% endfor %}
+      {% for quote in recent_quotes[:1] %}<a href="{{ url_for('quote_view', quote_id=quote.id) }}"><i>▤</i><div><strong>Quote · {{ quote.customer_name or quote.quote_number or 'Customer' }}</strong><span>{{ quote.status or 'Draft' }}</span></div><b>›</b></a>{% endfor %}
+      {% if not recent_enquiries and not recent_jobs and not recent_quotes %}<div class="concept-empty"><strong>No activity yet</strong></div>{% endif %}
+    </div><footer><a href="{{ url_for('workflow') }}">View all activity　›</a></footer></section></div>
     <aside class="concept-rail">
-      <section class="concept-panel concept-next"><span>{{ dashboard_next.eyebrow }}</span><h2>{{ dashboard_next.title }}</h2><p>{{ dashboard_next.detail }}</p><a href="{{ dashboard_next.url }}">{{ dashboard_next.label }} <b>→</b></a></section>
+      <section class="concept-panel concept-next"><h2>Do next</h2><div><span>{{ dashboard_next.eyebrow }}</span><h3>{{ dashboard_next.title }}</h3><p>{{ dashboard_next.detail }}</p><a href="{{ dashboard_next.url }}">{{ dashboard_next.label }} <b>→</b></a></div><footer><a href="{{ url_for('workflow') }}">View all tasks　›</a></footer></section>
       <section class="concept-panel concept-glance"><header><div><span>Live alerts</span><h2>At a glance</h2></div></header><a href="{{ url_for('intake_forms') }}"><i class="dot-blue"></i><span>Need a reply</span><strong>{{ intake_needs_contact }}</strong></a><a href="{{ url_for('intake_forms') }}"><i class="dot-gold"></i><span>Waiting on customer</span><strong>{{ intake_waiting }}</strong></a><a href="{{ url_for('reminders_library') }}"><i class="dot-red"></i><span>Open reminders</span><strong>{{ reminders_due|length }}</strong></a><a href="{{ url_for('invoices') }}"><i class="dot-navy"></i><span>Invoice alerts</span><strong>{{ invoice_alerts|length }}</strong></a></section>
     </aside>
   </div>
-  <section class="concept-panel concept-recent"><header><div><span>Latest updates</span><h2>Recent activity</h2></div><a href="{{ url_for('workflow') }}">Open workflow →</a></header><div class="recent-grid">
-    {% for lead in recent_enquiries[:1] %}<a href="{{ url_for('intake_form_view', lead_id=lead.id) }}"><i>●</i><div><strong>Enquiry · {{ lead.name or 'New customer' }}</strong><span>{{ lead.status or 'Waiting for review' }}</span></div><b>›</b></a>{% endfor %}
-    {% for job in recent_jobs[:1] %}<a href="{{ url_for('job_view', job_id=job.id) }}"><i>▦</i><div><strong>Job · {{ job.customer_name or job.title or 'Customer' }}</strong><span>{{ job.job_date or 'Date not set' }} · {{ job.status or 'Booked' }}</span></div><b>›</b></a>{% endfor %}
-    {% for quote in recent_quotes[:1] %}<a href="{{ url_for('quote_view', quote_id=quote.id) }}"><i>▤</i><div><strong>Quote · {{ quote.customer_name or quote.quote_number or 'Customer' }}</strong><span>{{ quote.status or 'Draft' }}</span></div><b>›</b></a>{% endfor %}
-    {% for invoice in recent_invoices[:1] %}<a href="{{ url_for('invoice_view', invoice_id=invoice.id) }}"><i>£</i><div><strong>Invoice · {{ invoice.customer_name or invoice.invoice_number or 'Customer' }}</strong><span>£{{ '%.2f'|format(invoice.total or 0) }} · {{ invoice.status or 'Draft' }}</span></div><b>›</b></a>{% endfor %}
-    {% if not recent_enquiries and not recent_jobs and not recent_quotes and not recent_invoices %}<div class="concept-empty"><strong>No activity yet</strong><p>Customer and job updates will appear here.</p></div>{% endif %}
-  </div></section>
 </main>
 {% endblock %}
