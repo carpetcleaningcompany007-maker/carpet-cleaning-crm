@@ -322,3 +322,15 @@ body.app-page .dashboard-job>summary time{background:transparent!important;color
 body.app-page .dashboard-job>summary small{background:transparent!important;padding:0!important}
 body.app-page .dashboard-job>summary:after{content:'›';color:#647a8b;font-size:20px;line-height:1}
 body.app-page .dashboard-job[open]>summary:after{transform:rotate(90deg)}
+
+/* Readability refinements without changing the compact job layout. */
+body.app-page .dashboard-job>summary strong{font-size:17px!important;line-height:1.4!important}
+body.app-page .dashboard-job>summary time{font-size:16px!important}
+body.app-page .dashboard-job>summary small{font-size:12px!important;color:#304d61!important}
+body.app-page .dashboard-job .dashboard-job-body>a{font-size:16px!important;line-height:1.5!important}
+body.app-page .dashboard-job .dashboard-job-body>p{font-size:15px!important;line-height:1.55!important;color:#344b5b!important}
+body.app-page .dashboard-job .dashboard-job-buttons a{font-size:14px!important;color:#163d54!important;min-height:44px!important;display:flex!important;align-items:center!important;justify-content:center!important;box-sizing:border-box!important}
+body.app-page .dashboard-job .dashboard-job-body summary{font-size:16px!important;color:#16334c!important}
+body.app-page .dashboard-job .dashboard-job-body label{font-size:15px!important;color:#344b5b!important}
+body.app-page .dashboard-job .dashboard-job-body textarea,body.app-page .dashboard-job .dashboard-job-body select{font:400 16px/1.5 system-ui!important;color:#18333d!important;padding:10px!important}
+body.app-page .mobile-route-dashboard .mobile-route-welcome p{font-size:15px!important;color:#435767!important}

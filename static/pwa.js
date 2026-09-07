@@ -1,3 +1,21 @@
+// Installed-app reopening should start at Today, while preserving unfinished forms.
+(function(){
+  'use strict';
+  var installed=window.matchMedia('(display-mode: standalone)').matches || navigator.standalone===true;
+  if(!installed || !document.body.classList.contains('app-page')) return;
+  var dirty=false, hiddenAt=null;
+  document.addEventListener('input',function(event){if(event.target.closest('form')) dirty=true;});
+  function home(){if(!dirty && location.pathname!='/dashboard') location.replace('/dashboard');}
+  var navigation=performance.getEntriesByType('navigation')[0];
+  var internal=false;
+  try{internal=new URL(document.referrer).origin===location.origin;}catch(e){}
+  if(!internal && (!navigation || navigation.type==='navigate')) home();
+  document.addEventListener('visibilitychange',function(){
+    if(document.hidden){hiddenAt=Date.now();}
+    else if(hiddenAt!==null){var elapsed=Date.now()-hiddenAt;hiddenAt=null;if(elapsed>=60000) home();}
+  });
+})();
+
 (function(){
   'use strict';
   if(!('serviceWorker' in navigator) || !(location.protocol==='https:' || location.hostname==='localhost' || location.hostname==='127.0.0.1')) return;
