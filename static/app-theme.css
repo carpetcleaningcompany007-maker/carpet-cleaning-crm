@@ -341,3 +341,5 @@ body.app-page .dashboard-job .dashboard-job-buttons a{font-size:15px!important;f
 body.app-page .dashboard-job .dashboard-job-buttons a:hover,body.app-page .dashboard-job .dashboard-job-buttons a:focus-visible{border-color:#3d7195!important;background:#e6f0f7!important;outline:2px solid #a9c7db;outline-offset:2px}
 
 body.app-page .brand-logo,body.app-page .mobile-appbar-mark{border-radius:7px!important;object-fit:cover!important;border:1px solid #ffffff38!important}
+
+body.app-page .brand-logo,body.app-page .mobile-appbar-mark{object-fit:contain!important;border:0!important;border-radius:0!important}
