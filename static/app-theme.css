@@ -343,3 +343,21 @@ body.app-page .dashboard-job .dashboard-job-buttons a:hover,body.app-page .dashb
 body.app-page .brand-logo,body.app-page .mobile-appbar-mark{border-radius:7px!important;object-fit:cover!important;border:1px solid #ffffff38!important}
 
 body.app-page .brand-logo,body.app-page .mobile-appbar-mark{object-fit:contain!important;border:0!important;border-radius:0!important}
+
+/* Clear product wordmark and larger, uncropped emblem. */
+body.app-page .mobile-appbar .mobile-appbar-title{gap:12px!important;align-items:center!important}
+body.app-page .mobile-appbar .mobile-appbar-mark{width:78px!important;height:88px!important;flex:0 0 78px!important;max-width:none!important;object-fit:contain!important}
+body.app-page .mobile-appbar .mobile-appbar-title strong{font:650 18px/1.25 system-ui!important;letter-spacing:-.35px!important;color:#fff!important}
+body.app-page .mobile-appbar .mobile-appbar-title small{display:block!important;font:650 12px/1.5 system-ui!important;letter-spacing:3px!important;color:#e5bf65!important;margin-top:5px!important}
+body.app-page .mobile-appbar{min-height:112px!important;height:auto!important;padding-top:10px!important;padding-bottom:10px!important;box-sizing:border-box!important}
+body.app-page .mobile-appbar .mobile-alert-action{flex:0 0 32px!important;width:32px!important;margin-left:6px!important}
+body.app-page .mobile-appbar .notification-badge{font-size:11px!important;min-width:18px!important;height:18px!important;line-height:18px!important;top:-5px!important;right:-3px!important;background:#e6bf63!important;color:#062747!important;border-radius:10px!important}
+body.app-page .sidebar .brand-logo{width:84px!important;height:100px!important;flex:0 0 84px!important}
+body.app-page .sidebar .brand h1{font:650 19px/1.25 system-ui!important;letter-spacing:-.4px!important}
+.manager-wordmark-sub{display:block;font:650 12px/1.5 system-ui;letter-spacing:3px;color:#e5bf65;margin-top:7px}
+body.app-page .dashboard-job .dashboard-job-buttons a{background:linear-gradient(#fff,#edf5fb)!important;border:1px solid #9dbbd0!important;box-shadow:0 0 0 2px #dceaf466,0 2px 5px #153b5410!important;color:#123650!important;font-weight:650!important;min-height:48px!important}
+body.app-page .dashboard-job .dashboard-job-body .dashboard-late{border:0!important;padding:3px 0 13px!important}
+body.app-page .dashboard-job .dashboard-job-body .dashboard-late>summary{display:block!important;text-align:center!important;padding:12px!important;border:1px solid #c6a35a!important;border-radius:8px!important;background:linear-gradient(#fffaf0,#f8efd9)!important;color:#64480e!important;box-shadow:0 0 0 2px #ecddb633,0 2px 5px #6d511210!important;font:650 15px/1.4 system-ui!important;list-style:none!important}
+body.app-page .dashboard-late>summary::-webkit-details-marker{display:none}
+@media(max-width:370px){body.app-page .mobile-appbar .mobile-appbar-mark{width:64px!important;flex-basis:64px!important}body.app-page .mobile-appbar .mobile-appbar-title strong{font-size:16px!important}}
+body.app-page .brand-logo,body.app-page .mobile-appbar-mark{mix-blend-mode:screen}

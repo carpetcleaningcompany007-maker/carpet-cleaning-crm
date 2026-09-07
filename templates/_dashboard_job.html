@@ -9,14 +9,15 @@
 {% if job.phone %}<a href="tel:{{ job.phone }}">Call customer</a>{% endif %}
 {% if job.customer_id %}<a href="{{ url_for('customer_conversation',customer_id=job.customer_id) }}">Messages &amp; history</a>{% endif %}
 </div>
+<details class="dashboard-late"><summary>I’m running late</summary>{% if job.customer_id %}<form method="get" action="{{ url_for('customer_conversation',customer_id=job.customer_id) }}">
+<input type="hidden" name="job" value="{{ job.id }}"><input type="hidden" name="action" value="late">
+<label>Running late <select name="minutes"><option value="10">10 minutes</option><option value="20" selected>20 minutes</option><option value="30">30 minutes</option><option value="60">1 hour</option><option value="120">2 hours</option></select></label><button type="submit">Preview message</button></form>{% endif %}</details>
 <details><summary>Job actions</summary><div class="dashboard-job-buttons">
 {% if job.customer_id %}
 <a href="{{ url_for('customer_conversation',customer_id=job.customer_id,job=job.id,action='coming') }}">On my way</a>
 <a href="{{ url_for('customer_conversation',customer_id=job.customer_id,job=job.id,action='review') }}">Request a review</a>
 {% endif %}</div>
-{% if job.customer_id %}<form method="get" action="{{ url_for('customer_conversation',customer_id=job.customer_id) }}">
-<input type="hidden" name="job" value="{{ job.id }}"><input type="hidden" name="action" value="late">
-<label>Running late <select name="minutes"><option value="10">10 minutes</option><option value="20" selected>20 minutes</option><option value="30">30 minutes</option><option value="60">1 hour</option><option value="120">2 hours</option></select></label><button type="submit">Preview message</button></form>{% endif %}
+
 <details><summary>Add a job note</summary><form method="post" action="{{ url_for('dashboard_job_note',job_id=job.id) }}"><input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><textarea name="note" rows="2" required placeholder="Notes about this job"></textarea><button>Save note</button></form></details>
 {% for note in job.saved_notes %}<p class="dashboard-saved-note">{{ note.note }}</p>{% endfor %}
 </details>
