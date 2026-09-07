@@ -1,0 +1,54 @@
+{% extends "layout.html" %}
+{% block page_title %}AI Assistant{% endblock %}
+{% block body_content %}
+<main class="ai-workspace">
+  <header class="ai-workspace-head">
+    <div><span class="section-kicker">Private business assistant</span><h2>What would you like AI to do?</h2><p>Choose one job. It reads the relevant CRM information and prepares an answer for you to check.</p><strong class="ai-no-send">Nothing is ever sent to a customer without you checking it and pressing Send yourself.</strong></div>
+    <a class="btn secondary" href="{{ url_for('ai_settings_page') }}">AI settings</a>
+  </header>
+
+  <nav class="ai-tool-grid" aria-label="AI tools">
+    {% for key,item in tools.items() %}<a href="{{ url_for('ai_assistant',tool=key) }}" class="ai-tool-card {% if key==selected_tool %}active{% endif %}"><span>{{ loop.index }}</span><strong>{{ item[0] }}</strong><small>{{ item[1] }}</small></a>{% endfor %}
+  </nav>
+
+  <section class="panel ai-run-panel">
+    <div class="panel-head"><div><span class="section-kicker">Selected tool</span><h3>{{ tools[selected_tool][0] }}</h3><p>{{ tools[selected_tool][1] }}</p></div></div>
+    {% if not api_key_configured %}<div class="receipt-read-result receipt-read-error"><strong>AI connection needed</strong><p>Add the OpenAI API key in the server settings before running this.</p></div>{% endif %}
+    <form method="post" class="form ai-run-form" data-ai-form>
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="tool_key" value="{{ selected_tool }}">
+      <label data-for="customer">Customer (optional)<select name="customer_id"><option value="">Choose customer</option>{% for row in customers %}<option value="{{ row.id }}" {% if request.values.get('customer_id')|int==row.id %}selected{% endif %}>{{ row.first_name }} {{ row.last_name }}{% if row.company %} · {{ row.company }}{% endif %}</option>{% endfor %}</select></label>
+      <label data-for="job">Job (optional)<select name="job_id"><option value="">Choose job</option>{% for row in jobs %}<option value="{{ row.id }}" {% if request.values.get('job_id')|int==row.id %}selected{% endif %}>{{ row.job_date or 'No date' }} · {{ row.customer_name or row.title or 'Job' }} · {{ row.status }}</option>{% endfor %}</select></label>
+      <label data-for="intake">Enquiry (optional)<select name="intake_id"><option value="">Choose enquiry</option>{% for row in intakes %}<option value="{{ row.id }}" {% if request.values.get('intake_id')|int==row.id %}selected{% endif %}>{{ row.name or 'Enquiry' }} · {{ row.postcode or 'No postcode' }} · {{ row.status }}</option>{% endfor %}</select></label>
+      <label>Your instructions or extra information<textarea name="notes" rows="6" data-ai-notes placeholder="{% if selected_tool=='voice' %}Tap Start speaking, or use your iPhone keyboard microphone, then describe the job…{% elif selected_tool=='quote' %}For example: three bedrooms, stairs and landing, dog odour…{% else %}Add anything you want the assistant to take into account…{% endif %}">{{ request.form.get('notes','') }}</textarea></label>
+      {% if selected_tool=='voice' %}<div class="ai-voice-tools"><button type="button" class="btn secondary" data-start-voice>🎙 Start speaking</button><span data-voice-status>Or use the microphone on your iPhone keyboard.</span></div>{% endif %}
+      <button class="btn primary ai-run-button" type="submit" {% if not api_key_configured %}disabled{% endif %}><span>Run {{ tools[selected_tool][0] }}</span><em hidden data-ai-running>Working…</em></button>
+      <div class="receipt-loading" hidden data-ai-loading><span class="receipt-spinner" aria-hidden="true"></span><strong>AI is checking your CRM…</strong><small>This may take a few seconds. Nothing will be sent or changed automatically.</small></div>
+    </form>
+  </section>
+
+  {% if result %}<section class="panel ai-result-panel" id="ai-result">
+    <div class="ai-result-head"><div><span class="section-kicker">Ready to check</span><h3>{{ result.title }}</h3></div><span>Draft only</span></div>
+    <p class="ai-result-summary">{{ result.summary }}</p>
+    <div class="ai-result-sections">{% for section in result.sections %}<article><h4>{{ section.heading }}</h4><div>{{ section.body }}</div></article>{% endfor %}</div>
+    {% if result.warning %}<div class="receipt-read-result receipt-read-error"><strong>Check this</strong><p>{{ result.warning }}</p></div>{% endif %}
+    <div class="receipt-tools"><button type="button" class="btn secondary" data-copy-ai>Copy result</button>{% if selected_tool=='quote' %}<a class="btn primary" href="{{ url_for('calculator') }}">Open quote builder</a>{% elif selected_tool=='reply' and run_row.customer_id %}<a class="btn primary" href="{{ url_for('customer_conversation',customer_id=run_row.customer_id) }}">Open customer conversation</a>{% elif selected_tool in ['job_plan','voice'] and run_row.job_id %}<a class="btn primary" href="{{ url_for('job_view',job_id=run_row.job_id) }}">Open job</a>{% elif selected_tool in ['bookkeeping','performance'] %}<a class="btn primary" href="{{ url_for('reports') }}">Open reports</a>{% elif selected_tool=='followup' %}<a class="btn primary" href="{{ url_for('invoice_reminders') }}">Open follow-ups</a>{% elif selected_tool=='diary' %}<a class="btn primary" href="{{ url_for('full_calendar') }}">Open calendar</a>{% elif selected_tool=='leads' %}<a class="btn primary" href="{{ url_for('new_leads') }}">Open commercial leads</a>{% endif %}</div>
+    {% if selected_tool=='voice' and run_row and run_row.job_id and result.job_note %}<form method="post" action="{{ url_for('ai_assistant_save_job_note',run_id=run_row.id) }}" class="ai-save-note"><input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><label><input type="checkbox" name="apply_suggestions" value="1"> Also apply the suggested job status and price</label><button class="btn primary" type="submit" onclick="return confirm('Save this voice update to the selected job?')">Save to job</button></form>{% endif %}
+  </section>{% endif %}
+
+  {% if history %}<details class="panel ai-history"><summary>Recent AI work</summary><div>{% for row in history %}<a href="{{ url_for('ai_assistant',tool=row.tool_key) }}"><strong>{{ tools.get(row.tool_key,('AI result',''))[0] }}</strong><span>{{ row.result.title or 'Saved result' }} · {{ row.created_at }}</span></a>{% endfor %}</div></details>{% endif %}
+</main>
+<script>
+(function(){
+ const form=document.querySelector('[data-ai-form]');if(!form)return;
+ const tool={{ selected_tool|tojson }},show={quote:['customer','intake'],reply:['customer'],job_plan:['job'],voice:['job'],bookkeeping:[],followup:[],diary:[],performance:[],leads:[]}[tool]||[];
+ form.querySelectorAll('[data-for]').forEach(el=>el.hidden=!show.includes(el.dataset.for));
+ form.addEventListener('submit',()=>{form.querySelector('[data-ai-loading]').hidden=false;form.querySelector('[data-ai-running]').hidden=false;form.querySelector('.ai-run-button span').hidden=true;form.querySelector('.ai-run-button').disabled=true;});
+ const copy=document.querySelector('[data-copy-ai]');if(copy)copy.addEventListener('click',async()=>{const text=document.querySelector('.ai-result-panel').innerText;try{await navigator.clipboard.writeText(text);copy.textContent='Copied';}catch(e){copy.textContent='Press and hold the result to copy';}});
+ const voice=document.querySelector('[data-start-voice]');if(!voice)return;
+ const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition,status=document.querySelector('[data-voice-status]'),notes=document.querySelector('[data-ai-notes]');
+ if(!SpeechRecognition){voice.disabled=true;status.textContent='Use the microphone on your iPhone keyboard to dictate the update.';return;}
+ voice.addEventListener('click',()=>{const recognition=new SpeechRecognition();recognition.lang='en-GB';recognition.interimResults=false;recognition.continuous=false;status.textContent='Listening…';voice.disabled=true;recognition.onresult=e=>{notes.value+=(notes.value?' ':'')+e.results[0][0].transcript;status.textContent='Voice added. Check it, then run the assistant.';};recognition.onerror=()=>{status.textContent='I could not hear that. Try again or use keyboard dictation.';};recognition.onend=()=>{voice.disabled=false;};recognition.start();});
+})();
+</script>
+{% endblock %}

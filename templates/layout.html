@@ -52,6 +52,7 @@
 
     <nav class="nav nav-tabler redesigned-nav simple-main-nav expanded-nav" aria-label="Main navigation">
       <a class="nav-link {% if ep=='dashboard' %}active{% endif %}" href="{{ url_for('dashboard') }}"><span>Today</span></a>
+      <a class="nav-link ai-nav-link {% if ep=='ai_assistant' %}active{% endif %}" href="{{ url_for('ai_assistant') }}"><span>✨ AI Assistant</span></a>
       <a class="nav-link {% if ep=='customers' %}active{% endif %}" href="{{ url_for('customers') }}"><span>Customers</span></a>
       <a class="nav-link {% if ep=='jobs' %}active{% endif %}" href="{{ url_for('jobs') }}"><span>Jobs</span></a>
       <a class="nav-link {% if ep=='full_calendar' %}active{% endif %}" href="{{ url_for('full_calendar') }}"><span>Calendar</span></a>
