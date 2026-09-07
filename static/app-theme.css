@@ -361,3 +361,6 @@ body.app-page .dashboard-job .dashboard-job-body .dashboard-late>summary{display
 body.app-page .dashboard-late>summary::-webkit-details-marker{display:none}
 @media(max-width:370px){body.app-page .mobile-appbar .mobile-appbar-mark{width:64px!important;flex-basis:64px!important}body.app-page .mobile-appbar .mobile-appbar-title strong{font-size:16px!important}}
 body.app-page .brand-logo,body.app-page .mobile-appbar-mark{mix-blend-mode:screen}
+/* A restrained blue halo makes each job action easier to pick out. */
+body.app-page .dashboard-job .dashboard-job-buttons a{border-color:#91b6d0!important;box-shadow:0 0 0 1px #d7e8f4,0 0 9px #77add047,0 2px 4px #163b5210!important}
+body.app-page .dashboard-job .dashboard-job-buttons a:hover,body.app-page .dashboard-job .dashboard-job-buttons a:focus-visible{box-shadow:0 0 0 2px #c2ddf0,0 0 12px #77add066!important}
