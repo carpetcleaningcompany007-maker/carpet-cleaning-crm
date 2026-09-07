@@ -2,13 +2,8 @@
 {% block page_title %}Conversation{% endblock %}
 {% block body_content %}
 <section class="panel conversation-page">
-  <header><h2>{{ customer.first_name }} {{ customer.last_name }}</h2><p>Email and text history · UK times</p><a href="{{ url_for('customer_view',customer_id=customer.id) }}">Customer details</a></header>
-  <details class="conversation-sync"><summary>ClickSend history sync</summary>
-  {% if history_connected %}<p>Messages sent directly through ClickSend are checked every five minutes and matched by phone number or email address.</p>
-  {% for sync in history_sync %}<p>{{ 'Text' if sync.channel=='sms' else 'Email' }}: {{ sync.status }}{% if sync.last_success %} · Last completed: {{ sync.last_success }} UTC{% endif %}</p>{% else %}<p>Waiting for the first import.</p>{% endfor %}
-  {% if history_unmatched %}<p>{{ history_unmatched }} messages could not be matched uniquely to a customer and have been kept unassigned.</p>{% endif %}
-  {% else %}<p>ClickSend account details are needed in the CRM connection settings before history can be imported.</p>{% endif %}
-  </details>
+  <header class="conversation-heading"><span class="conversation-eyebrow">Customer conversation</span><h2>{{ customer.first_name }} {{ customer.last_name }}</h2><p>Email and text history · UK times</p><a href="{{ url_for('customer_view',customer_id=customer.id) }}">Customer details</a></header>
+
   <form method="get" class="conversation-search"><input name="search" value="{{ search }}" placeholder="Find something said…" aria-label="Search conversation"><button class="btn secondary">Search</button></form>
   <details class="conversation-compose" {% if error or draft.body %}open{% endif %}><summary>Write a message</summary>
   {% if error %}<p role="alert">{{ error }}</p>{% endif %}
@@ -29,9 +24,30 @@
     {% if message.email_id %}<a href="{{ url_for('inbound_email_view',email_id=message.email_id) }}">Open email and attachments</a>{% endif %}
   </article>{% else %}<p>No messages found for this customer.</p>{% endfor %}
   </div>
+  <details class="conversation-sync"><summary>ClickSend history sync</summary>
+  {% if history_connected %}<p>Messages sent directly through ClickSend are checked every five minutes and matched by phone number or email address.</p>
+  {% for sync in history_sync %}<p>{{ 'Text' if sync.channel=='sms' else 'Email' }}: {{ sync.status }}{% if sync.last_success %} · Last completed: {{ sync.last_success }} UTC{% endif %}</p>{% else %}<p>Waiting for the first import.</p>{% endfor %}
+  {% if history_unmatched %}<p>{{ history_unmatched }} messages could not be matched uniquely to a customer and have been kept unassigned.</p>{% endif %}
+  {% else %}<p>ClickSend account details are needed in the CRM connection settings before history can be imported.</p>{% endif %}
+  </details>
   <nav>{% if page>1 %}<a href="{{ url_for('customer_conversation',customer_id=customer.id,page=page-1,search=search) }}">Newer messages</a>{% endif %} {% if has_more %}<a href="{{ url_for('customer_conversation',customer_id=customer.id,page=page+1,search=search) }}">Older messages</a>{% endif %}</nav>
 </section>
 <style>
+body.app-page .panel.conversation-page{padding:20px!important;border:1px solid #dce5ec!important;border-radius:18px!important;background:#fff!important}
+body.app-page .conversation-page .conversation-heading{display:block!important;padding:0 0 16px!important;border-bottom:1px solid #e1e8ed!important;margin:0!important}
+body.app-page .conversation-page .conversation-heading h2{font:700 24px/1.2 system-ui!important;letter-spacing:-.4px!important;margin:6px 0 8px!important;overflow-wrap:anywhere}
+.conversation-eyebrow{font:700 11px system-ui;color:#52718a;text-transform:uppercase;letter-spacing:1px}
+body.app-page .conversation-page p{margin:8px 0!important;font-size:13px!important;line-height:1.5!important;overflow-wrap:anywhere}
+body.app-page .conversation-page .conversation-search{display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;gap:8px!important;margin:16px 0!important;width:100%!important}
+body.app-page .conversation-page .conversation-search input{width:100%!important;min-width:0!important;margin:0!important}
+body.app-page .conversation-page .conversation-search button{width:auto!important;min-width:0!important;margin:0!important;padding:10px 14px!important}
+body.app-page .conversation-page .conversation-compose{margin:0 0 16px!important;padding:14px!important;border:1px solid #d5e3ed!important;background:#f5f9fc!important;border-radius:12px!important;box-shadow:none!important}
+body.app-page .conversation-page summary{font:650 15px/1.4 system-ui!important;cursor:pointer;padding:0!important}
+body.app-page .conversation-page .conversation-compose .form{gap:12px!important;margin:14px 0 0!important;padding:0!important}
+body.app-page .conversation-page label{font:600 13px/1.4 system-ui!important;gap:5px!important;margin:0!important}
+body.app-page .conversation-page input,body.app-page .conversation-page select,body.app-page .conversation-page textarea{box-sizing:border-box!important;padding:10px 12px!important;font:400 16px/1.4 system-ui!important;border:1px solid #cbd9e3!important;border-radius:8px!important;min-height:44px!important;background:#fff!important}
+body.app-page .conversation-page .conversation-sync{margin:18px 0 0!important;padding:12px 0!important;border-top:1px solid #e1e8ed!important;box-shadow:none!important;background:transparent!important}
+
 body.app-page .panel.conversation-page{width:100%!important;max-width:950px!important;min-width:0!important;box-sizing:border-box;margin-inline:auto!important}.conversation-search{display:flex;gap:8px;margin:16px 0}.conversation-search input{min-width:0;flex:1}.conversation-sync,.conversation-compose{padding:12px;margin-bottom:18px}.conversation-compose summary{cursor:pointer}.conversation-compose .form{display:grid;gap:10px}.conversation-compose [hidden]{display:none!important}.conversation-compose label{display:grid;gap:5px}.conversation-compose textarea{width:100%;min-height:120px}.conversation-history{display:grid;gap:12px}.conversation-message{padding:14px;border:1px solid #dce5ed;border-radius:10px;background:#f4f8fc}.conversation-message.received{background:#fff;border-left:3px solid #207a60}.conversation-message header{display:flex;flex-wrap:wrap;gap:6px 18px;justify-content:space-between;font-size:13px}.conversation-message h3{font-size:16px;margin:9px 0}.conversation-body{white-space:pre-wrap;overflow-wrap:anywhere;margin:8px 0;line-height:1.5}.conversation-page nav{display:flex;justify-content:space-between;margin-top:16px}
 </style>
 <script>

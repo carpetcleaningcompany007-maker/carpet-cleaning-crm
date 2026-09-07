@@ -1,4 +1,4 @@
-<details class="dashboard-job" name="{{ job_group }}" {% if is_next_job %}open{% endif %}>
+<details class="dashboard-job{% if is_next_job %} dashboard-job-next{% endif %}" name="{{ job_group }}">
 <summary><time>{{ job.job_time or 'TBC' }}</time><strong>{{ job.customer_name }}</strong><small>{{ 'Your next job' if is_next_job else job.status }}</small></summary>
 <div class="dashboard-job-body">
 <a href="{{ url_for('job_view',job_id=job.id) }}">{{ job.service_type or job.title or 'Job details' }}</a>
