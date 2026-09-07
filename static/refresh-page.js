@@ -1,0 +1,1 @@
+(function(){let edited=false;document.addEventListener('input',e=>{if(e.target.closest('form'))edited=true;});document.querySelector('.crm-refresh')?.addEventListener('click',()=>{if(!edited||confirm('Refresh this page? Unsaved changes will be lost.'))location.reload();});})();

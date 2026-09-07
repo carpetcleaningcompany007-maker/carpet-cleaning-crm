@@ -1,7 +1,9 @@
 {% extends 'layout.html' %}
-{% block page_title %}Review receipt{% endblock %}
+{% block page_title %}Review receipt
+{% endblock %}
 {% block body_content %}
 <section class="panel receipt-page"><a href="{{ url_for('receipts') }}">← All receipts</a>
+<div data-reading-status role="status" hidden>Receipt uploaded and saved. AI is reading it…</div>
 <h2>{{ 'Saved receipt' if receipt.expense_id else 'Check your receipt' }}</h2>
 <p><a class="btn secondary" href="{{ url_for('receipt_file',receipt_id=receipt.id) }}">Open / download original</a></p>
 {% if receipt.ai_error %}<p role="alert">{{ receipt.ai_error }}</p>{% endif %}
@@ -20,4 +22,18 @@
 </form>
 {% if not receipt.expense_id %}<form method="post"><input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><button class="btn secondary" name="action" value="read">Try AI reading again</button></form>{% else %}<p><a href="{{ url_for('expenses',edit=receipt.expense_id) }}">View or edit saved expense</a></p>{% endif %}
 </section>
+<script>
+(function(){
+ const shouldRead={{ (request.args.get('read')=='1')|tojson }};
+ if(!shouldRead)return;
+ const status=document.querySelector('[data-reading-status]');status.hidden=false;
+ const forms=document.querySelectorAll('.receipt-page form');forms.forEach(f=>f.querySelectorAll('button,input,textarea').forEach(e=>e.disabled=true));
+ const endpoint={{ url_for('receipt_reading',receipt_id=receipt.id)|tojson }};
+ const token=document.querySelector('meta[name=csrf-token]').content;
+ let polls=0;
+ function failed(){status.textContent='Your file is saved, but reading could not finish. Refresh this page to try again or enter the details.';forms.forEach(f=>f.querySelectorAll('button,input,textarea').forEach(e=>e.disabled=false));}
+ async function poll(){try{const r=await fetch(endpoint);if(!r.ok)throw Error();const data=await r.json();if(!data.reading){location.replace({{ url_for('receipt_review',receipt_id=receipt.id)|tojson }});return;}if(++polls>45){failed();return;}setTimeout(poll,2000);}catch(e){failed();}}
+ fetch(endpoint,{method:'POST',headers:{'X-CSRF-Token':token}}).then(r=>{if(!r.ok)throw Error();setTimeout(poll,1500);}).catch(failed);
+})();
+</script>
 {% endblock %}

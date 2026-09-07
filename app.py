@@ -151,7 +151,7 @@ def add_website_form_cors_headers(response):
         response.headers["Cache-Control"] = "no-store, private, max-age=0, must-revalidate"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
-        response.headers["X-CRM-UI-Version"] = "20260907.21"
+        response.headers["X-CRM-UI-Version"] = "20260907.22"
     elif request.path == "/static/crm-redesign.css":
         response.headers["Cache-Control"] = "no-cache, max-age=0, must-revalidate"
     return response
@@ -14427,10 +14427,18 @@ def receipt_ai_extract(receipt):
         raise RuntimeError('AI reading is not connected yet. You can enter the details below and keep the receipt attached.')
     with open(os.path.join(app.config['UPLOAD_FOLDER'],'receipts',receipt['filename']),'rb') as source:
         data=base64.b64encode(source.read()).decode('ascii')
-    if receipt['mime_type']=='application/pdf':
+    mime=receipt['mime_type']
+    if mime=='image/heic':
+        from PIL import Image
+        from pillow_heif import register_heif_opener
+        register_heif_opener()
+        with Image.open(io.BytesIO(base64.b64decode(data))) as picture:
+            converted=io.BytesIO();picture.convert('RGB').save(converted,format='JPEG',quality=90)
+            data=base64.b64encode(converted.getvalue()).decode('ascii');mime='image/jpeg'
+    if mime=='application/pdf':
         part={'type':'input_file','filename':'receipt.pdf','file_data':'data:application/pdf;base64,'+data}
     else:
-        part={'type':'input_image','image_url':'data:'+receipt['mime_type']+';base64,'+data}
+        part={'type':'input_image','image_url':'data:'+mime+';base64,'+data}
     fields=('supplier','receipt_date','items','total','vat','currency','notes')
     schema={'type':'object','properties':{f:{'type':'string'} for f in fields},'required':list(fields),'additionalProperties':False}
     payload={'model':clean_str(os.environ.get('OPENAI_MODEL')) or clean_str(row_get(ai_settings_row(),'model')) or 'gpt-5.4-mini',
@@ -14443,7 +14451,7 @@ def receipt_ai_extract(receipt):
             result=json.loads(ai_response_text(json.loads(response.read().decode())))
         if not isinstance(result,dict) or any(not isinstance(result.get(f),str) for f in fields):
             raise ValueError('Incomplete extraction')
-        run('UPDATE purchase_receipts SET supplier=?,receipt_date=?,items=?,total=?,vat=?,currency=?,notes=?,ai_error=? WHERE id=?',tuple(result[f] for f in fields)+('',receipt['id']))
+        run('UPDATE purchase_receipts SET supplier=?,receipt_date=?,items=?,total=?,vat=?,currency=?,notes=?,ai_error=? WHERE id=? AND expense_id IS NULL',tuple(result[f] for f in fields)+('',receipt['id']))
     except (urllib.error.URLError,TimeoutError,ValueError,KeyError):
         raise RuntimeError('The receipt could not be read clearly. Your file is saved. Try reading it again or enter the details below.')
 
@@ -14463,15 +14471,17 @@ def receipts():
                 extension,mime='.pdf','application/pdf'
             else:
                 from PIL import Image
+                from pillow_heif import register_heif_opener
+                register_heif_opener()
                 try:
                     with Image.open(io.BytesIO(data)) as picture:
-                        formats={'JPEG':('.jpg','image/jpeg'),'PNG':('.png','image/png'),'WEBP':('.webp','image/webp')}
+                        formats={'JPEG':('.jpg','image/jpeg'),'PNG':('.png','image/png'),'WEBP':('.webp','image/webp'),'HEIF':('.heic','image/heic')}
                         if picture.format not in formats or max(picture.size)>12000:
                             raise ValueError()
                         extension,mime=formats[picture.format]
                         picture.verify()
                 except Exception:
-                    raise ValueError('Use a JPG, PNG, WebP photo or PDF. If your phone uses HEIC, choose a JPG copy.')
+                    raise ValueError('Use a JPG, PNG, WebP, HEIC photo or PDF.')
             digest=hashlib.sha256(data).hexdigest()
             existing=q('SELECT id FROM purchase_receipts WHERE file_hash=?',(digest,),one=True)
             if existing:
@@ -14482,9 +14492,7 @@ def receipts():
             with open(os.path.join(directory,filename),'wb') as target:target.write(data)
             rid=run('INSERT INTO purchase_receipts(filename,original_name,file_hash,mime_type) VALUES (?,?,?,?)',(filename,secure_filename(upload.filename) or 'Receipt'+extension,digest,mime))
             receipt=q('SELECT * FROM purchase_receipts WHERE id=?',(rid,),one=True)
-            try:receipt_ai_extract(receipt)
-            except RuntimeError as exc:run('UPDATE purchase_receipts SET ai_error=? WHERE id=?',(str(exc),rid))
-            return redirect(url_for('receipt_review',receipt_id=rid))
+            return redirect(url_for('receipt_review',receipt_id=rid,read='1'))
         except ValueError as exc:flash(str(exc))
     return render_template('receipts.html',receipts=q('SELECT * FROM purchase_receipts ORDER BY id DESC LIMIT 100'))
 
@@ -14497,9 +14505,7 @@ def receipt_review(receipt_id):
     error=''
     if request.method=='POST' and not receipt['expense_id']:
         if request.form.get('action')=='read':
-            try:receipt_ai_extract(receipt)
-            except RuntimeError as exc:run('UPDATE purchase_receipts SET ai_error=? WHERE id=?',(str(exc),receipt_id))
-            return redirect(url_for('receipt_review',receipt_id=receipt_id))
+            return redirect(url_for('receipt_review',receipt_id=receipt_id,read='1'))
         fields=('supplier','receipt_date','items','total','vat','currency','notes')
         values={f:clean_str(request.form.get(f)) for f in fields}
         run('UPDATE purchase_receipts SET supplier=?,receipt_date=?,items=?,total=?,vat=?,currency=?,notes=? WHERE id=?',tuple(values[f] for f in fields)+(receipt_id,))
@@ -14520,6 +14526,51 @@ def receipt_review(receipt_id):
             return redirect(url_for('receipt_review',receipt_id=receipt_id))
     receipt=q('SELECT * FROM purchase_receipts WHERE id=?',(receipt_id,),one=True)
     return render_template('receipt_review.html',receipt=receipt,error=error)
+
+
+receipt_read_threads = {}
+receipt_read_lock = threading.Lock()
+
+
+def read_receipt_background(receipt_id):
+    with app.app_context():
+        try:
+            receipt=q('SELECT * FROM purchase_receipts WHERE id=?',(receipt_id,),one=True)
+            if receipt and not receipt['expense_id']:
+                receipt_ai_extract(receipt)
+        except Exception as exc:
+            message=str(exc) if isinstance(exc,RuntimeError) else 'Reading failed. Your receipt is saved; please try again.'
+            run('UPDATE purchase_receipts SET ai_error=? WHERE id=?',(message,receipt_id))
+        finally:
+            run("UPDATE purchase_receipts SET status='Needs review' WHERE id=? AND expense_id IS NULL",(receipt_id,))
+
+
+@app.route('/receipts/<int:receipt_id>/reading',methods=['GET','POST'])
+@login_required
+def receipt_reading(receipt_id):
+    receipt=q('SELECT * FROM purchase_receipts WHERE id=?',(receipt_id,),one=True)
+    if not receipt:abort(404)
+    with receipt_read_lock:
+        worker=receipt_read_threads.get(receipt_id)
+        running=bool(worker and worker.is_alive())
+        if request.method=='POST' and not running and not receipt['expense_id']:
+            run("UPDATE purchase_receipts SET status='Reading',ai_error='' WHERE id=?",(receipt_id,))
+            worker=threading.Thread(target=read_receipt_background,args=(receipt_id,),daemon=True)
+            receipt_read_threads[receipt_id]=worker;worker.start();running=True
+    return jsonify({'reading':running,'saved':True})
+
+
+@app.route('/receipts/export.csv')
+@login_required
+def receipts_export():
+    output=io.StringIO();writer=csv.writer(output)
+    writer.writerow(['Supplier','Date','Items','Total','VAT','Currency','Status','Notes','Original file','Receipt record'])
+    def cell(value):
+        text=str(value or '')
+        return "'"+text if text.lstrip().startswith(('=','+','-','@')) else text
+    for r in q('SELECT * FROM purchase_receipts ORDER BY id DESC'):
+        writer.writerow([cell(r[k]) for k in ('supplier','receipt_date','items','total','vat','currency','status','notes','original_name')]+[url_for('receipt_review',receipt_id=r['id'],_external=True)])
+    return Response('\ufeff'+output.getvalue(),mimetype='text/csv',headers={'Content-Disposition':'attachment; filename="receipts.csv"','Cache-Control':'no-store'})
 
 
 @app.route('/receipts/<int:receipt_id>/file')

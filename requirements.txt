@@ -4,3 +4,5 @@ gunicorn==23.0.0
 cryptography==46.0.3
 qrcode[pil]==8.2
 pywebpush==2.0.3
+
+pillow-heif==1.7.0
