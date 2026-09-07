@@ -17,14 +17,14 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='beautiful.css') }}?v=proper-redesign-20260606-1">
   <link rel="stylesheet" href="{{ url_for('static', filename='crm-redesign.css', v='app-shell-20260905-9') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='dashboard-reference.css', v='20260905-2') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='app-theme.css', v='20260907-20') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='app-theme.css', v='20260907-21') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='dashboard-exact.css', v='20260906-6') }}">
   <link rel="stylesheet" media="(min-width: 1024px)" href="{{ url_for('static', filename='customer-record-premium.css', v='20260906-3') }}">
   <style>:root{--accent: {{ biz.accent or '#56718f' }}; --sidebar-color: {{ biz.sidebar_color or '#1f2933' }};}</style>
 </head>
 {% if session.get('logged_in') and not public_mode %}
 {% set ep = request.endpoint or '' %}
-<body class="app-page page-{{ ep|replace('_','-') }}" data-ui-build="20260907.20">
+<body class="app-page page-{{ ep|replace('_','-') }}" data-ui-build="20260907.21">
 {% else %}
 <body class="public-page page-public">
 {% endif %}
@@ -77,6 +77,7 @@
           <a href="{{ url_for('business_goals') }}">Business Goals</a>
           <a href="{{ url_for('message_settings') }}">Messages</a>
           <a href="{{ url_for('communication_automation_settings') }}">Automation</a>
+          <a href="{{ url_for('receipts') }}">Receipts &amp; purchases</a>
           <a href="{{ url_for('ai_settings_page') }}">AI Replies</a>
           <a href="{{ url_for('settings_page') }}">Settings</a>
         </div>

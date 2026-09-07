@@ -1,0 +1,16 @@
+{% extends 'layout.html' %}
+{% block page_title %}Receipts{% endblock %}
+{% block body_content %}
+<section class="panel receipt-page">
+<h2>Receipts &amp; purchases</h2><p>Upload a receipt or supplier invoice. AI suggests the details; you check them before saving an expense.</p>
+<form method="post" enctype="multipart/form-data" class="receipt-form" data-receipt-upload>
+<input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+<label>Receipt photo or PDF<input type="file" name="receipt" accept="image/jpeg,image/png,image/webp,application/pdf" required></label>
+<small>JPG, PNG, WebP or PDF · Up to 10 MB. The original is kept with your purchase. The file is sent to the connected AI service for reading.</small>
+<button type="submit" class="btn primary">Upload &amp; read receipt</button><p role="status" data-receipt-progress hidden>Reading your receipt… this can take up to a minute.</p>
+</form>
+<p><a href="{{ url_for('expenses') }}">View expenses</a></p>
+<div class="receipt-list">{% for receipt in receipts %}<a href="{{ url_for('receipt_review',receipt_id=receipt.id) }}"><strong>{{ receipt.supplier or receipt.original_name }}</strong><span>{{ receipt.receipt_date or 'Date to check' }} · {{ receipt.status }}{% if receipt.total %} · {{ receipt.currency }} {{ receipt.total }}{% endif %}</span></a>{% else %}<p>No receipts yet. Add your first receipt above.</p>{% endfor %}</div>
+</section>
+<script>document.querySelector('[data-receipt-upload]').addEventListener('submit',function(){this.querySelector('button').disabled=true;this.querySelector('[data-receipt-progress]').hidden=false;});</script>
+{% endblock %}
