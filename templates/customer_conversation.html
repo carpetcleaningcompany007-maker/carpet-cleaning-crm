@@ -4,10 +4,22 @@
 <section class="panel conversation-page">
   <header class="conversation-heading"><span class="conversation-eyebrow">Customer conversation</span><h2>{{ customer.first_name }} {{ customer.last_name }}</h2><p>Email and text history · UK times</p><a href="{{ url_for('customer_view',customer_id=customer.id) }}">Customer details</a> · <a href="{{ url_for('customer_conversation_download',customer_id=customer.id) }}">Download conversation</a></header>
 
+  <section class="conversation-suggestions">
+    <strong>Suggested reply</strong><p>Uses this customer’s history and your previous replies. Always review before sending.</p>
+    {% if suggestion %}<p>Your saved suggestion is ready in the editor below.</p>{% if suggestion.needs_manual_response %}<p role="alert">Please check: {{ suggestion.manual_reason }}</p>{% endif %}{% endif %}
+    <form method="post" action="{{ url_for('conversation_draft_action',customer_id=customer.id) }}">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+      <label>Prepare for<select name="channel"><option>Email</option><option>Text</option></select></label>
+      <button type="submit">{{ 'Prepare another reply' if suggestion else 'Prepare suggested reply' }}</button>
+      {% if suggestion %}<button type="submit" name="action" value="dismiss">Dismiss suggestion</button>{% endif %}
+      <a href="{{ url_for('ai_settings_page') }}">AI Settings</a>
+    </form>
+  </section>
   <form method="get" class="conversation-search"><input name="search" value="{{ search }}" placeholder="Find something said…" aria-label="Search conversation"><button class="btn secondary">Search</button></form>
   <details class="conversation-compose" {% if error or draft.body %}open{% endif %}><summary>Write a message</summary>
   {% if error %}<p role="alert">{{ error }}</p>{% endif %}
   <form method="post" class="form">
+    {% if suggestion %}<input type="hidden" name="ai_draft_id" value="{{ suggestion.id }}">{% endif %}
     <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
     <label>Send by<select name="channel"><option {% if draft.channel=='Email' %}selected{% endif %}>Email</option><option {% if draft.channel=='Text' %}selected{% endif %}>Text</option></select></label>
     <p class="muted">Email: {{ customer.email or 'Not saved' }} · Text: {{ customer.phone or 'Not saved' }}{% if customer.sms_opt_out %} (SMS switched off){% endif %}</p>
