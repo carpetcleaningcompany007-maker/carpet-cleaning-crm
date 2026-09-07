@@ -1,0 +1,13 @@
+{% extends "layout.html" %}
+{% block page_title %}Message customer{% endblock %}
+{% block body_content %}
+<section class="panel message-directory">
+<h2>Message customer</h2><p>Choose a customer to see their contact history and send a text or email.</p>
+<form method="get" class="message-search"><input type="search" name="search" value="{{ search }}" placeholder="Customer name, email or phone" aria-label="Find a customer"><button class="btn primary">Search</button></form>
+<div>{% for customer in customers %}<a class="message-customer-row" href="{{ url_for('customer_conversation',customer_id=customer.id) }}"><span><strong>{{ customer.first_name }} {{ customer.last_name }}</strong><small>{{ customer.phone or customer.email or 'Contact details not saved' }}</small></span><b>History &amp; message ›</b></a>{% else %}<p>No customers found. Try another name or number.</p>{% endfor %}</div>
+<nav>{% if page>1 %}<a href="{{ url_for('customer_messages',page=page-1,search=search) }}">Previous</a>{% endif %}{% if has_more %}<a href="{{ url_for('customer_messages',page=page+1,search=search) }}">More customers</a>{% endif %}</nav>
+</section>
+<style>
+body.app-page .panel.message-directory{width:100%!important;max-width:950px!important;min-width:0!important;box-sizing:border-box;margin-inline:auto!important}.message-search{display:flex;gap:8px;margin:16px 0}.message-search input{min-width:0;flex:1}.message-customer-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:15px 0;border-top:1px solid #e1e7ed;color:#163d61;text-decoration:none}.message-customer-row span{min-width:0}.message-customer-row strong,.message-customer-row small{display:block;overflow-wrap:anywhere}.message-customer-row small{margin-top:3px;color:#607084}.message-customer-row b{font-size:12px;flex-shrink:0}.message-directory nav{display:flex;justify-content:space-between;margin-top:15px}@media(max-width:600px){.message-customer-row b{max-width:85px}}
+</style>
+{% endblock %}

@@ -63,6 +63,7 @@ class CustomerConversationTests(unittest.TestCase):
             send.assert_not_called()
 
     def test_dashboard_contains_today_messages_and_search_filters_history(self):
+        self.mod.run('UPDATE jobs SET job_date=? WHERE id=?',(self.mod.uk_today().isoformat(),self.job))
         self.mod.log_sms_event(self.customer,None,'Test','inbound','','','Searchable reply',direction='inbound')
         response=self.client.get('/dashboard')
         self.assertEqual(response.status_code,200)

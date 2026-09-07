@@ -128,3 +128,6 @@
 @media (max-width:760px) {
   .concept-toolbar-greeting,.concept-toolbar-actions { display:none!important; }
 }
+/* Today's job controls expand naturally without overlapping the calendar footer. */
+body.app-page.page-dashboard main.concept-dashboard .concept-schedule{height:auto!important;min-height:0!important;overflow:visible!important}
+body.app-page.page-dashboard main.concept-dashboard .schedule-list{height:auto!important;min-height:0!important}

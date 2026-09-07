@@ -6,12 +6,8 @@
   <section class="mobile-route-card" aria-labelledby="mobile-route-title">
     <a class="mobile-route-heading" href="{{ url_for('today_run') }}"><span aria-hidden="true">⌖</span><h2 id="mobile-route-title">Today’s route</h2><b aria-hidden="true">›</b></a>
     <div class="mobile-route-list">
-      {% for job in dashboard_schedule %}
-      <a class="mobile-route-job" href="{{ url_for('job_view', job_id=job.id) }}">
-        <time>{{ job.job_time or 'TBC' }}</time><i aria-hidden="true"></i>
-        <span><strong>{{ job.customer_name or job.title or 'Customer job' }}</strong><small>⌖ {{ job.town or job.postcode or job.address_text or 'Address not saved' }}</small><small>▤ {{ job.service_type or job.title or 'Carpet cleaning' }}</small></span>
-        <em>{{ job.status or 'Booked' }}</em>
-      </a>
+      {% set job_group = 'mobile-jobs' %}{% for job in dashboard_schedule %}
+      {% set is_next_job = loop.first %}{% include '_dashboard_job.html' %}
       {% else %}
       <div class="mobile-route-empty"><strong>No jobs booked today</strong><span>Your next confirmed appointment will appear here.</span><form method="post" action="{{ url_for('dashboard_add_sample_route') }}"><input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><button type="submit" class="mobile-route-preview">Add two sample jobs</button></form><a href="{{ url_for('jobs_new') }}">Book a job</a></div>
       {% endfor %}
@@ -30,7 +26,8 @@
     <a class="mobile-next-action" href="{{ dashboard_next.url }}"><span><small>{{ dashboard_next.eyebrow }}</small><strong>{{ dashboard_next.title }}</strong><em>{{ dashboard_next.detail }}</em></span><b>›</b></a>
   </section>
   <a class="mobile-create-job" href="{{ url_for('jobs_new') }}">Create new job <span aria-hidden="true">→</span></a>
-  {% include '_today_messages.html' %}
+  {% include '_dashboard_finished.html' %}
+{% include '_today_messages.html' %}
 </div>
 <main class="concept-dashboard desktop-current-dashboard">
   <header class="concept-welcome"><div><h1>Today’s work</h1><p>You have {{ dashboard_metrics.jobs_today }} job{% if dashboard_metrics.jobs_today != 1 %}s{% endif %} scheduled today and {{ dashboard_metrics.quotes_to_send }} quote{% if dashboard_metrics.quotes_to_send != 1 %}s{% endif %} to send.</p></div></header>
@@ -43,10 +40,11 @@
   </section>
   <div class="concept-grid">
     <div class="concept-left-column"><section class="concept-panel concept-schedule"><header><div><h2>Today’s schedule</h2></div><span class="schedule-date-chip">{{ dashboard_date }}</span></header><div class="schedule-list">
-      {% for job in dashboard_schedule %}<a href="{{ url_for('job_view', job_id=job.id) }}" class="schedule-row status-{{ (job.status or 'booked')|lower|replace(' ','-') }}"><time>{{ job.job_time or 'Time TBC' }}</time><i></i><div><strong>{{ job.customer_name or job.title or 'Customer job' }}</strong><span>{{ job.service_type or job.title or 'Carpet cleaning' }}</span><small>{{ job.address_text or 'Address not saved' }}</small></div><b>{{ job.status or 'Booked' }}</b><em>›</em></a>
+      {% set job_group = 'desktop-jobs' %}{% for job in dashboard_schedule %}{% set is_next_job = loop.first %}{% include '_dashboard_job.html' %}
       {% else %}<div class="concept-empty"><span>✓</span><strong>No appointments booked today</strong><p>New jobs will appear here in appointment-time order.</p><form method="post" action="{{ url_for('dashboard_add_sample_route') }}"><input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><button type="submit" class="btn secondary">Add two sample jobs</button></form><a href="{{ url_for('jobs_new') }}">Book a job</a></div>{% endfor %}
     </div><footer><a href="{{ url_for('full_calendar') }}">View full calendar　›</a></footer></section>
-    {% include '_today_messages.html' %}
+    {% include '_dashboard_finished.html' %}
+{% include '_today_messages.html' %}
     <section class="concept-panel concept-recent"><header><div><h2>Recent activity</h2></div></header><div class="recent-grid">
       {% for lead in recent_enquiries[:1] %}<a href="{{ url_for('intake_form_view', lead_id=lead.id) }}"><i>●</i><div><strong>Enquiry · {{ lead.name or 'New customer' }}</strong><span>{{ lead.status or 'Waiting for review' }}</span></div><b>›</b></a>{% endfor %}
       {% for job in recent_jobs[:1] %}<a href="{{ url_for('job_view', job_id=job.id) }}"><i>▦</i><div><strong>Job · {{ job.customer_name or job.title or 'Customer' }}</strong><span>{{ job.job_date or 'Date not set' }} · {{ job.status or 'Booked' }}</span></div><b>›</b></a>{% endfor %}

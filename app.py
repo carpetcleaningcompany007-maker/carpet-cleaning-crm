@@ -151,7 +151,7 @@ def add_website_form_cors_headers(response):
         response.headers["Cache-Control"] = "no-store, private, max-age=0, must-revalidate"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
-        response.headers["X-CRM-UI-Version"] = "20260907.4"
+        response.headers["X-CRM-UI-Version"] = "20260907.5"
     elif request.path == "/static/crm-redesign.css":
         response.headers["Cache-Control"] = "no-cache, max-age=0, must-revalidate"
     return response
@@ -524,7 +524,8 @@ def build_email_html(body, footer=""):
 
 
 def crm_email_logo_url():
-    return os.environ.get("CRM_EMAIL_LOGO_URL", "").strip() or public_static_url("site/email-logo.png")
+    base = os.environ.get('CRM_PUBLIC_BASE_URL', 'https://carpet-cleaning-crm.onrender.com').rstrip('/')
+    return base + company_logo_path()
 
 
 def email_action_button(label, url, background="#1457a8", color="#ffffff"):
@@ -2327,7 +2328,7 @@ def update_intake_delivery_status(lead_id, **fields):
 def enquiry_customer_email_html(data):
     replacements = template_context_for_enquiry(data)
     customer_name = html_lib.escape(replacements.get("{{name}}") or "there")
-    logo_url = public_static_or_live_url("site/email-logo-round.png")
+    logo_url = crm_email_logo_url()
     hero_url = public_static_or_live_url("site/hero-carpet-cleaning.webp")
     website_url = enquiry_public_site_url()
     facebook_url = "https://www.facebook.com/profile.php?id=61559013150413"
@@ -3776,6 +3777,7 @@ def inject_layout_globals():
             notification_count = 0
     return {
         'biz': biz,
+        'company_logo_path': company_logo_path,
         'app_settings': biz,
         'xero_contact_web_url': xero_contact_web_url,
         'whatsapp_phone': whatsapp_phone,
@@ -4846,7 +4848,7 @@ def customer_email_job_context(customer, job=None):
 def carpet_options_guide_email_html(customer, plain_body):
     name = clean_str(row_value(customer, "first_name")) or clean_str(row_value(customer, "name")) or "there"
     business = settings()["business_name"] or "The Carpet Cleaning Company"
-    logo_url = public_static_or_live_url("site/email-logo-white.png")
+    logo_url = crm_email_logo_url()
     hero_url = public_static_or_live_url("site/hero-carpet-cleaning.webp")
     guide_url = carpet_cleaning_options_url()
     website_url = enquiry_public_site_url()
@@ -4949,7 +4951,7 @@ def carpet_refresh_email_html(customer, plain_body, interval=6):
     business = clean_str(row_value(business_settings, "business_name")) or "The Carpet Cleaning Company"
     phone = clean_str(row_value(business_settings, "phone"))
     website_url = clean_str(row_value(business_settings, "website")) or enquiry_public_site_url()
-    logo_url = public_static_or_live_url("site/email-logo.png")
+    logo_url = crm_email_logo_url()
     hero_url = public_static_or_live_url("site/hero-carpet-cleaning.webp")
     logo_html = f'<img src="{html_lib.escape(logo_url)}" alt="{html_lib.escape(business)}" width="108" style="display:block;width:108px;height:auto;border:0;margin:0 auto">' if logo_url else ""
     hero_html = f'<img src="{html_lib.escape(hero_url)}" alt="Professional carpet cleaning in progress" width="580" style="display:block;width:100%;max-width:580px;height:auto;border:0;border-radius:18px">' if hero_url else ""
@@ -5323,7 +5325,7 @@ def day_run_message(kind, job):
 def day_run_email_html(kind, job, plain_body):
     name = customer_first_name(row_value(job, "first_name"))
     business = settings()["business_name"] or "The Carpet Cleaning Company"
-    logo_url = public_static_or_live_url("site/email-logo.png")
+    logo_url = crm_email_logo_url()
     hero_url = public_static_or_live_url("site/hero-carpet-cleaning.webp")
     website_url = enquiry_public_site_url()
     facebook_url = "https://www.facebook.com/profile.php?id=61559013150413"
@@ -5501,7 +5503,7 @@ def booking_confirmation_email_html(job):
     name = customer_full_name(job)
     first_name = clean_str(row_value(job, "first_name")) or name
     business = settings()["business_name"] or "The Carpet Cleaning Company"
-    logo_url = public_static_or_live_url("site/email-logo-white.png")
+    logo_url = crm_email_logo_url()
     hero_url = public_static_or_live_url("site/hero-carpet-cleaning.webp")
     technician_url = public_static_or_live_url("site/paul-technician-portrait.jpg")
     facebook_url = "https://www.facebook.com/profile.php?id=61559013150413"
@@ -5657,7 +5659,7 @@ def booking_confirmation_email_html(job):
 
 def built_in_visual_email_templates():
     business = "The Carpet Cleaning Company"
-    logo_url = public_static_or_live_url("site/email-logo-white.png")
+    logo_url = crm_email_logo_url()
     hero_url = public_static_or_live_url("site/hero-carpet-cleaning.webp")
     website_url = enquiry_public_site_url()
     facebook_url = "https://www.facebook.com/profile.php?id=61559013150413"
@@ -10086,12 +10088,14 @@ def dashboard():
                               ELSE 2
                             END, id DESC LIMIT 8""")
     schedule_rows = q("""SELECT jobs.*, customers.first_name, customers.last_name, customers.phone,
-                                 customers.address, customers.town, customers.postcode
+                                 customers.address, customers.town, customers.postcode,
+                                 (SELECT what3words FROM intake_submissions i WHERE i.customer_id=jobs.customer_id ORDER BY i.id DESC LIMIT 1) AS what3words
                           FROM jobs LEFT JOIN customers ON customers.id=jobs.customer_id
                           WHERE jobs.job_date=? AND lower(IFNULL(jobs.status,'')) NOT IN ('archived','cancelled')
                           ORDER BY CASE WHEN IFNULL(jobs.job_time,'')='' THEN 1 ELSE 0 END,
                                    jobs.job_time, jobs.id""", (today.isoformat(),))
     dashboard_schedule = []
+    dashboard_finished = []
     for row in schedule_rows:
         item = dict(row)
         item["customer_name"] = customer_full_name(row)
@@ -10101,8 +10105,14 @@ def dashboard():
         if clean_str(row["notes"]) == "Dashboard walkthrough sample — safe to delete":
             item["customer_name"] = clean_str(row["title"]).replace("Sample: ", "") or "Sample customer"
             item["town"] = "Shrewsbury" if "Sarah" in item["customer_name"] else "Ludlow"
-            item["address_text"] = item["town"]
-        dashboard_schedule.append(item)
+            item["address_text"] = customer_address_text(row) or item["town"]
+        item["directions_url"] = directions_url_for_customer(row)
+        item["w3w_url"] = what3words_url(row_value(row, "what3words"))
+        item["saved_notes"] = q("SELECT note FROM job_status_events WHERE job_id=? AND event_type='note' ORDER BY id DESC LIMIT 5", (row["id"],))
+        if clean_str(row["status"]).lower() in {"completed", "invoiced", "paid"}:
+            dashboard_finished.append(item)
+        else:
+            dashboard_schedule.append(item)
     next_enquiry = q("""SELECT * FROM intake_submissions
                           WHERE IFNULL(is_test,0)=0 AND IFNULL(ignore_alerts,0)=0
                             AND IFNULL(status,'New') NOT IN ('Booked','Closed','Closed - no reply')
@@ -10130,7 +10140,7 @@ def dashboard():
                           "label": "Open workflow", "url": url_for("workflow")}
     current_hour = datetime.now().hour
     dashboard_greeting = "Good morning" if current_hour < 12 else ("Good afternoon" if current_hour < 18 else "Good evening")
-    return render_template("dashboard.html", today_messages=customer_conversation_rows(today_only=True, limit=12), stats=stats, dashboard_metrics=dashboard_metrics,
+    return render_template("dashboard.html", today_messages=customer_conversation_rows(today_only=True, limit=12, scheduled_today=True), dashboard_finished=dashboard_finished, stats=stats, dashboard_metrics=dashboard_metrics,
                            recent_quotes=quotes, recent_jobs=jobs, recent_invoices=recent_invoices,
                            archive_counts=archive_counts, report_summary=report_summary,
                            invoice_alerts=invoice_alerts, app_settings=settings(),
@@ -10536,6 +10546,23 @@ def today_run_job_action(job_id):
 
     flash("Unknown Today Run action.")
     return redirect(next_url)
+
+
+@app.route('/dashboard/job/<int:job_id>/note', methods=['POST'])
+@login_required
+def dashboard_job_note(job_id):
+    job=q('SELECT * FROM jobs WHERE id=?',(job_id,),one=True)
+    if not job:
+        abort(404)
+    note=clean_str(request.form.get('note'))
+    if note:
+        if clean_str(job['notes']) != 'Dashboard walkthrough sample — safe to delete':
+            run('UPDATE jobs SET notes=? WHERE id=?',(append_note(job['notes'] or '',note),job_id))
+        run("INSERT INTO job_status_events(job_id,customer_id,event_type,previous_status,new_status,note) VALUES (?,?,?,?,?,?)",(job_id,job['customer_id'],'note',job['status'],job['status'],note))
+        if job['customer_id']:
+            run("INSERT INTO customer_timeline(customer_id,note_text,photo_filename) VALUES (?,?,?)",(job['customer_id'],f"Job {job_id}: {note}",''))
+        flash('Job note saved.')
+    return redirect(url_for('dashboard'))
 
 
 @app.route("/today-run/job/<int:job_id>/complete", methods=["POST"])
@@ -11003,6 +11030,68 @@ def customer_save_booking_details(customer_id):
     return redirect(url_for("customer_view", customer_id=customer_id, **redirect_values) + "#customer-stage-overview")
 
 
+def company_logo_path():
+    try:
+        filename = clean_str(row_value(settings(), 'logo_filename'))
+    except (RuntimeError, sqlite3.OperationalError):
+        filename = ''
+    if re.fullmatch(r'branding/brand-[a-f0-9]{32}\.png', filename):
+        return '/branding/logo/' + filename.split('/')[-1]
+    return '/static/site/company-logo.jpg'
+
+
+@app.route('/branding/logo/<filename>')
+def company_logo_file(filename):
+    if not re.fullmatch(r'brand-[a-f0-9]{32}\.png', filename):
+        abort(404)
+    return send_from_directory(os.path.join(app.config['UPLOAD_FOLDER'],'branding'),filename,mimetype='image/png',max_age=86400)
+
+
+@app.route('/branding',methods=['GET','POST'])
+@login_required
+def company_branding():
+    error = ''
+    if request.method=='POST':
+        upload=request.files.get('logo_file')
+        if not upload or not upload.filename:
+            error='Choose your logo image first.'
+        else:
+            from PIL import Image, UnidentifiedImageError
+            try:
+                raw=upload.read(5*1024*1024+1)
+                if len(raw)>5*1024*1024:
+                    raise ValueError('Choose an image smaller than 5 MB.')
+                with Image.open(io.BytesIO(raw)) as picture:
+                    if picture.format not in ('JPEG','PNG','WEBP') or max(picture.size)>4096:
+                        raise ValueError('Use a PNG, JPG or WebP image up to 4096 pixels wide or tall.')
+                    picture.load()
+                    directory=os.path.join(app.config['UPLOAD_FOLDER'],'branding')
+                    os.makedirs(directory,exist_ok=True)
+                    filename='brand-'+uuid.uuid4().hex+'.png'
+                    picture.convert('RGBA').save(os.path.join(directory,filename),'PNG')
+                name=clean_str(request.form.get('business_name')) or settings()['business_name']
+                run('UPDATE settings SET logo_filename=?,business_name=? WHERE id=1',('branding/'+filename,name))
+                flash('Company logo saved. It now appears in the CRM and email headers.')
+                return redirect(url_for('company_branding'))
+            except (ValueError,UnidentifiedImageError,OSError,Image.DecompressionBombError):
+                error='Please choose a valid PNG, JPG or WebP image under 5 MB and 4096 pixels.'
+    return render_template('company_branding.html',error=error)
+
+
+@app.route('/customer-messages')
+@login_required
+def customer_messages():
+    search=clean_str(request.args.get('search'))
+    try: page=max(1,int(request.args.get('page','1')))
+    except ValueError: page=1
+    pattern='%'+search+'%'
+    rows=q("""SELECT id,first_name,last_name,email,phone FROM customers WHERE archived_at IS NULL
+             AND (?='' OR first_name||' '||last_name LIKE ? OR email LIKE ? OR phone LIKE ?)
+             ORDER BY first_name COLLATE NOCASE,last_name COLLATE NOCASE,id LIMIT 51 OFFSET ?""",
+           (search,pattern,pattern,pattern,(page-1)*50))
+    return render_template('customer_messages.html',customers=rows[:50],has_more=len(rows)>50,page=page,search=search)
+
+
 def customer_form_preview_html(message, footer=""):
     """Render the temporary email text identically for preview and delivery."""
     def linked_text(text):
@@ -11014,7 +11103,7 @@ def customer_form_preview_html(message, footer=""):
     paragraphs = "".join("<p style='margin:0 0 18px;white-space:pre-wrap;overflow-wrap:anywhere'>" + linked_text(part) + "</p>" for part in message.split("\n\n"))
     return ("<!doctype html><html><body style='margin:0;padding:20px;background:#eef6ff;font:16px/1.6 Arial;color:#102033'>"
             "<div style='max-width:620px;margin:auto;background:white;border-radius:14px;overflow:hidden'>"
-            "<header style='padding:22px;background:#0f5fbd;color:white;font-weight:bold'>The Carpet Cleaning Company</header>"
+            f"<header style='padding:16px;background:#fff;text-align:center;border-bottom:1px solid #d8e7f5'><img src='{html_lib.escape(crm_email_logo_url(), quote=True)}' alt='{html_lib.escape(clean_str(row_value(settings(), 'business_name')), quote=True)}' width='130' style='display:block;width:130px;max-width:100%;height:auto;margin:auto'><div style='margin-top:8px;font-weight:bold;color:#102033'>{html_lib.escape(clean_str(row_value(settings(), 'business_name')))}</div></header>"
             "<main style='padding:24px'>" + paragraphs + footer + "</main></div></body></html>")
 
 
@@ -11174,7 +11263,7 @@ def clicksend_history_loop():
         time.sleep(300)
 
 
-def customer_conversation_rows(customer_id=None, today_only=False, search='', limit=100, offset=0):
+def customer_conversation_rows(customer_id=None, today_only=False, search='', limit=100, offset=0, scheduled_today=False):
     # Keep provider events authoritative; old manual logs remain labelled Recorded.
     sql = """WITH messages AS (
       SELECT 'sms-'||e.id AS key,e.customer_id,'Text' AS channel,
@@ -11203,6 +11292,9 @@ def customer_conversation_rows(customer_id=None, today_only=False, search='', li
       WHERE (? IS NULL OR m.customer_id=?) AND (?='' OR m.body LIKE ? OR m.subject LIKE ?)
     """
     params=[customer_id,customer_id,search,'%'+search+'%','%'+search+'%']
+    if scheduled_today:
+        sql+=" AND m.customer_id IN (SELECT customer_id FROM jobs WHERE job_date=? AND lower(IFNULL(status,'')) NOT IN ('archived','cancelled'))"
+        params.append(uk_today().isoformat())
     if today_only:
         start=datetime.combine(uk_today(),datetime.min.time(),tzinfo=ZoneInfo('Europe/London'))
         end=start+timedelta(days=1)
@@ -11231,9 +11323,24 @@ def customer_conversation(customer_id):
         abort(404)
     draft={'channel':'Email','subject':'','body':''}
     error=''
+    if request.method=='GET' and request.args.get('job'):
+        job=q('SELECT j.*,c.first_name,c.last_name,c.phone,c.email,c.address,c.town,c.postcode FROM jobs j JOIN customers c ON c.id=j.customer_id WHERE j.id=? AND j.customer_id=?',(request.args.get('job'),customer_id),one=True)
+        action=request.args.get('action')
+        if job and action in {'coming','review','late'}:
+            draft['channel']='Text' if customer['phone'] and not customer['sms_opt_out'] else 'Email'
+            if action=='late':
+                minutes=request.args.get('minutes','20')
+                delay={'10':'10 minutes','20':'20 minutes','30':'30 minutes','60':'1 hour','120':'2 hours'}.get(minutes,'20 minutes')
+                draft['subject']='Running a little late'
+                draft['body']=f"Hi {customer['first_name'] or 'there'}, I’m sorry, I’m running about {delay} late. I’ll be with you as quickly as I can. Any problems, please give me a call."
+            else:
+                draft['subject'],draft['body']=day_run_rendered_message(action,job,'sms' if draft['channel']=='Text' else 'email')
+                draft['subject']=draft['subject'] or ('We are on our way' if action=='coming' else 'Review request')
     if request.method=='POST':
         draft={key:request.form.get(key,'') for key in draft}
-        if customer['archived_at']:
+        if 'Dashboard walkthrough customer' in (customer['notes'] or ''):
+            error='This is a sample customer. No message has been sent.'
+        elif customer['archived_at']:
             error='Restore this customer before sending a message.'
         elif draft['channel'] not in ('Email','Text') or not draft['body'].strip():
             error='Choose email or text and enter your message.'
