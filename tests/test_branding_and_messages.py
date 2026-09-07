@@ -59,8 +59,8 @@ class BrandingAndMessagesTests(unittest.TestCase):
         response=self.client.get('/customer-messages?search=Test')
         self.assertEqual(response.status_code,200)
         self.assertIn(f'/customers/{self.customer}/conversation'.encode(),response.data)
-        self.assertIn(b'/static/site/carpet-pro-technician-logo.png',response.data)
-        self.assertIn(b'Carpet Pro Cleaning',response.data)
+        self.assertIn(b'/static/site/carpet-cleaning-manager-logo.png',response.data)
+        self.assertIn(b'Carpet Cleaning Manager',response.data)
         self.assertNotIn(b'History &amp; message',self.client.get('/customer-messages?search=absent').data)
         dashboard=self.client.get('/dashboard').data
         self.assertNotIn(b'class="message-customer-action"',dashboard)
