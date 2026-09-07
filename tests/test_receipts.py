@@ -61,6 +61,19 @@ class ReceiptTests(unittest.TestCase):
         self.assertEqual(result.status_code,302)
         self.assertEqual(self.mod.q('SELECT mime_type FROM purchase_receipts',one=True)['mime_type'],'image/heic')
 
+    def test_iphone_screenshot_with_misleading_filename_is_accepted(self):
+        result=self.client.post('/receipts',data={'receipt':(self.picture(),'Screenshot 2026-09-07.HEIC')},content_type='multipart/form-data')
+        self.assertEqual(result.status_code,302)
+        self.assertEqual(self.mod.q('SELECT mime_type FROM purchase_receipts',one=True)['mime_type'],'image/png')
+
+    def test_browser_converted_screenshot_is_normalised_to_png(self):
+        data=io.BytesIO();Image.new('RGB',(64,64),'white').save(data,format='TIFF');data.seek(0)
+        result=self.client.post('/receipts',data={'receipt':(data,'Screenshot.tiff')},content_type='multipart/form-data')
+        self.assertEqual(result.status_code,302)
+        receipt=self.mod.q('SELECT * FROM purchase_receipts',one=True)
+        self.assertEqual(receipt['mime_type'],'image/png')
+        self.assertTrue(receipt['filename'].endswith('.png'))
+
     def test_background_failure_keeps_original_and_shows_retry(self):
         self.upload();receipt=self.mod.q('SELECT * FROM purchase_receipts',one=True)
         self.mod.run("UPDATE purchase_receipts SET status='Reading' WHERE id=?",(receipt['id'],))

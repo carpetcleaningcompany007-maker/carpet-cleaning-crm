@@ -5,8 +5,8 @@
 <h2>Receipts &amp; purchases</h2><p>Upload a receipt or supplier invoice. AI suggests the details; you check them before saving an expense.</p>
 <form method="post" enctype="multipart/form-data" class="receipt-form" data-receipt-upload>
 <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-<label>Receipt photo or PDF<input type="file" name="receipt" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf" required></label>
-<small>JPG, PNG, WebP, iPhone HEIC or PDF · Up to 10 MB. The original is kept with your purchase. The file is sent to the connected AI service for reading.</small>
+<label>Receipt photo or PDF<input type="file" name="receipt" accept="image/*,.jpg,.jpeg,.png,.webp,.heic,.heif,.avif,.tif,.tiff,.bmp,application/pdf" required></label>
+<small>iPhone screenshots and photos, JPG, PNG, WebP, HEIC or PDF · Up to 10 MB. The receipt is kept with your purchase and sent to the connected AI service for reading.</small>
 <button type="submit" class="btn primary">Upload &amp; read receipt</button><p role="status" data-receipt-progress hidden>Uploading your receipt…</p>
 </form>
 <p><a class="btn secondary" href="{{ url_for('receipts_export') }}">Export receipts to spreadsheet</a> <a href="{{ url_for('expenses') }}">View expenses</a></p>

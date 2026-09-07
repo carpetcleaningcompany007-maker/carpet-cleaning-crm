@@ -14487,12 +14487,30 @@ def receipts():
                 try:
                     with Image.open(io.BytesIO(data)) as picture:
                         formats={'JPEG':('.jpg','image/jpeg'),'PNG':('.png','image/png'),'WEBP':('.webp','image/webp'),'HEIF':('.heic','image/heic')}
-                        if picture.format not in formats or max(picture.size)>12000:
+                        detected_format=(picture.format or '').upper()
+                        if max(picture.size)>12000:
                             raise ValueError()
-                        extension,mime=formats[picture.format]
-                        picture.verify()
-                except Exception:
-                    raise ValueError('Use a JPG, PNG, WebP, HEIC photo or PDF.')
+                        if detected_format in formats:
+                            extension,mime=formats[detected_format]
+                            picture.verify()
+                        elif detected_format in {'AVIF','TIFF','BMP','MPO'}:
+                            # Browsers and iPhones sometimes silently hand screenshots
+                            # over in another valid image format. Convert those to PNG so
+                            # the receipt can be stored and sent to the AI consistently.
+                            picture.seek(0)
+                            picture.load()
+                            converted=io.BytesIO()
+                            if picture.mode not in {'RGB','RGBA'}:
+                                picture=picture.convert('RGB')
+                            picture.save(converted,format='PNG',optimize=True)
+                            data=converted.getvalue()
+                            extension,mime='.png','image/png'
+                        else:
+                            raise ValueError()
+                except Exception as exc:
+                    app.logger.warning('Receipt upload could not be decoded: name=%r content_type=%r error=%s',upload.filename,upload.mimetype,exc)
+                    received=clean_str(upload.mimetype) or 'unknown file type'
+                    raise ValueError(f'This upload arrived as {received} but could not be opened as a photo. Try sharing the screenshot from Photos, or save it to Files and upload it again.')
             digest=hashlib.sha256(data).hexdigest()
             existing=q('SELECT * FROM purchase_receipts WHERE file_hash=?',(digest,),one=True)
             if existing:
