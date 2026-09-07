@@ -1,0 +1,9 @@
+<section class="today-message-panel">
+  <h2>Today’s messages</h2>
+  {% for message in today_messages %}<a class="today-message-row" href="{{ url_for('customer_conversation',customer_id=message.customer_id) }}#{{ message.key }}"><span aria-hidden="true">{{ '↓' if message.direction=='Received' else '↑' }}</span><div><strong>{{ message.first_name }} {{ message.last_name }}</strong><small>{{ message.channel }} · {{ message.status }} · {{ message.display_time }}</small></div><b>›</b></a>
+  {% else %}<p>No customer messages recorded today.</p>{% endfor %}
+  <p class="today-message-note">Latest 12 entries · UK times. Tap a customer for their full history. Older logs marked “Recorded” do not confirm delivery.</p>
+</section>
+<style>
+.today-message-panel{margin:16px 0;padding:16px;border:1px solid #dce5ed;border-radius:12px;background:#fff}.today-message-panel h2{margin:0 0 8px;font:800 20px/1.2 system-ui!important;color:#082744}.today-message-row{display:flex;gap:10px;align-items:center;padding:12px 0;border-top:1px solid #e5eaf0;color:#123554;text-decoration:none}.today-message-row div{flex:1;min-width:0}.today-message-row strong,.today-message-row small{display:block}.today-message-row small{margin-top:4px;font-size:12px;color:#566a7c}.today-message-note{font-size:12px;color:#657587;margin:10px 0 0}
+</style>

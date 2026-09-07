@@ -151,7 +151,7 @@ def add_website_form_cors_headers(response):
         response.headers["Cache-Control"] = "no-store, private, max-age=0, must-revalidate"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
-        response.headers["X-CRM-UI-Version"] = "20260907.2"
+        response.headers["X-CRM-UI-Version"] = "20260907.3"
     elif request.path == "/static/crm-redesign.css":
         response.headers["Cache-Control"] = "no-cache, max-age=0, must-revalidate"
     return response
@@ -2483,7 +2483,15 @@ def enquiry_customer_email_text(data):
     return render_simple_template(message_template("customer_enquiry_email")["body"], template_context_for_enquiry(data))
 
 
-def send_env_email(to_email, subject, text_body, html_body="", customer=None, append_footer=True):
+def send_env_email(to_email, subject, text_body, html_body="", customer=None, append_footer=True, record_customer_event=True):
+    ok, message = _send_env_email(to_email, subject, text_body, html_body, customer, append_footer)
+    if record_customer_event and row_value(customer, "id"):
+        run("INSERT INTO customer_email_events(customer_id,recipient,subject,body,status) VALUES (?,?,?,?,?)",
+            (row_value(customer, "id"), str(to_email or ""), subject, text_body, "Sent" if ok else "Failed"))
+    return ok, message
+
+
+def _send_env_email(to_email, subject, text_body, html_body="", customer=None, append_footer=True):
     clicksend_ok, clicksend_msg = send_clicksend_email(to_email, subject, text_body, html_body)
     if clicksend_ok or clicksend_msg:
         return clicksend_ok, clicksend_msg
@@ -2840,7 +2848,7 @@ def send_owner_customer_email_copy(original_to, subject, text_body, html_body=""
         "</div>"
         + copy_html
     )
-    return send_env_email(owner_email, copy_subject, copy_text, copy_html, customer=customer)
+    return send_env_email(owner_email, copy_subject, copy_text, copy_html, customer=customer, record_customer_event=False)
 
 
 def send_owner_customer_sms_copy(original_to, body, customer=None, context="Customer SMS"):
@@ -5009,7 +5017,7 @@ def send_rendered_customer_message(customer, channel, subject, body, test_mode=F
             return False, "No email address is available for this send.", ""
         email_html = html_body or ("<div style='font-family:Arial,sans-serif;line-height:1.55;color:#102033;white-space:pre-wrap'>" + html_lib.escape(body or "") + "</div>")
         text_body = strip_html_for_sms(body) if is_html_email_body(body) else body
-        ok, msg = send_env_email(recipient, ("TEST - " if test_mode else "") + (subject or "Customer message"), text_body, email_html, customer=customer)
+        ok, msg = send_env_email(recipient, ("TEST - " if test_mode else "") + (subject or "Customer message"), text_body, email_html, customer=customer, record_customer_event=not test_mode)
         if ok and not test_mode and owner_copy:
             send_owner_customer_message_copy("email", recipient, subject or "Customer message", text_body, html_body=email_html, customer=customer, context="Customer email")
         return ok, msg, recipient
@@ -8696,6 +8704,12 @@ def init_db():
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(subscription_id, notification_key)
     )""")
+    conn.execute("""CREATE TABLE IF NOT EXISTS customer_email_events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, customer_id INTEGER NOT NULL,
+        recipient TEXT, subject TEXT, body TEXT, status TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )""")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_customer_email_events_customer ON customer_email_events(customer_id,created_at)")
     conn.execute("""CREATE TABLE IF NOT EXISTS inbound_customer_emails (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         message_id TEXT NOT NULL UNIQUE,
@@ -10102,7 +10116,7 @@ def dashboard():
                           "label": "Open workflow", "url": url_for("workflow")}
     current_hour = datetime.now().hour
     dashboard_greeting = "Good morning" if current_hour < 12 else ("Good afternoon" if current_hour < 18 else "Good evening")
-    return render_template("dashboard.html", stats=stats, dashboard_metrics=dashboard_metrics,
+    return render_template("dashboard.html", today_messages=customer_conversation_rows(today_only=True, limit=12), stats=stats, dashboard_metrics=dashboard_metrics,
                            recent_quotes=quotes, recent_jobs=jobs, recent_invoices=recent_invoices,
                            archive_counts=archive_counts, report_summary=report_summary,
                            invoice_alerts=invoice_alerts, app_settings=settings(),
@@ -10988,6 +11002,95 @@ def customer_form_preview_html(message, footer=""):
             "<div style='max-width:620px;margin:auto;background:white;border-radius:14px;overflow:hidden'>"
             "<header style='padding:22px;background:#0f5fbd;color:white;font-weight:bold'>The Carpet Cleaning Company</header>"
             "<main style='padding:24px'>" + paragraphs + footer + "</main></div></body></html>")
+
+
+def customer_conversation_rows(customer_id=None, today_only=False, search='', limit=100, offset=0):
+    # Keep provider events authoritative; old manual logs remain labelled Recorded.
+    sql = """WITH messages AS (
+      SELECT 'sms-'||e.id AS key,e.customer_id,'Text' AS channel,
+             CASE WHEN lower(e.direction)='inbound' THEN 'Received' ELSE 'Sent' END AS direction,
+             CASE WHEN lower(e.direction)='inbound' THEN 'Received' ELSE COALESCE(NULLIF(e.status,''),'Recorded') END AS status,
+             '' AS subject,e.body,e.created_at,0 AS email_id
+      FROM sms_events e WHERE NOT EXISTS (
+        SELECT 1 FROM sms_events newer WHERE e.external_id<>'' AND newer.external_id=e.external_id
+        AND newer.customer_id=e.customer_id AND newer.id>e.id)
+      UNION ALL
+      SELECT 'in-email-'||id,customer_id,'Email','Received','Received',subject,body_text,
+             COALESCE(NULLIF(received_at,''),created_at),id FROM inbound_customer_emails
+      UNION ALL
+      SELECT 'out-email-'||id,customer_id,'Email','Sent',status,subject,body,created_at,0 FROM customer_email_events
+      UNION ALL
+      SELECT 'record-'||c.id,c.customer_id,CASE WHEN lower(c.channel)='sms' THEN 'Text' ELSE 'Email' END,
+             CASE WHEN lower(c.subject)='inbound sms' THEN 'Received' ELSE 'Sent' END,
+             'Recorded',c.subject,c.body,c.created_at,0
+      FROM communications c WHERE lower(c.channel) IN ('email','sms')
+        AND NOT EXISTS (SELECT 1 FROM customer_email_events e WHERE lower(c.channel)='email'
+          AND e.customer_id=c.customer_id AND e.subject=c.subject
+          AND abs(julianday(e.created_at)-julianday(c.created_at))*86400<120)
+        AND NOT EXISTS (SELECT 1 FROM sms_events e WHERE lower(c.channel)='sms' AND e.customer_id=c.customer_id
+          AND (e.communication_id=c.id OR (e.body=c.body AND abs(julianday(e.created_at)-julianday(c.created_at))*86400<120)))
+    ) SELECT m.*,c.first_name,c.last_name FROM messages m JOIN customers c ON c.id=m.customer_id
+      WHERE (? IS NULL OR m.customer_id=?) AND (?='' OR m.body LIKE ? OR m.subject LIKE ?)
+    """
+    params=[customer_id,customer_id,search,'%'+search+'%','%'+search+'%']
+    if today_only:
+        start=datetime.combine(uk_today(),datetime.min.time(),tzinfo=ZoneInfo('Europe/London'))
+        end=start+timedelta(days=1)
+        sql+=' AND m.created_at>=? AND m.created_at<?'
+        params.extend([start.astimezone(timezone.utc).strftime('%Y-%m-%d %H:%M:%S'),end.astimezone(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')])
+    sql+=' ORDER BY m.created_at DESC,m.key DESC LIMIT ? OFFSET ?'
+    params.extend([limit,offset])
+    result=[]
+    for row in q(sql,tuple(params)):
+        item=dict(row)
+        try:
+            stamp=datetime.fromisoformat(item['created_at']).replace(tzinfo=timezone.utc).astimezone(ZoneInfo('Europe/London'))
+            item['display_time']=stamp.strftime('%d %b %Y · %I:%M %p').replace('AM','am').replace('PM','pm')
+        except (ValueError,TypeError):
+            item['display_time']=item['created_at'] or 'Time unavailable'
+        item['body']=strip_html_for_sms(item['body']) if '<html' in (item['body'] or '').lower() else item['body']
+        result.append(item)
+    return result
+
+
+@app.route('/customers/<int:customer_id>/conversation', methods=['GET','POST'])
+@login_required
+def customer_conversation(customer_id):
+    customer=q('SELECT * FROM customers WHERE id=?',(customer_id,),one=True)
+    if not customer:
+        abort(404)
+    draft={'channel':'Email','subject':'','body':''}
+    error=''
+    if request.method=='POST':
+        draft={key:request.form.get(key,'') for key in draft}
+        if customer['archived_at']:
+            error='Restore this customer before sending a message.'
+        elif draft['channel'] not in ('Email','Text') or not draft['body'].strip():
+            error='Choose email or text and enter your message.'
+        elif draft['channel']=='Email' and (not customer['email'] or not draft['subject'].strip()):
+            error='An email address and subject are needed.'
+        elif draft['channel']=='Text' and (not customer['phone'] or customer['sms_opt_out']):
+            error='Text messaging is unavailable: check the phone number and SMS preference.'
+        else:
+            if draft['channel']=='Email':
+                footer=merge_message_text(row_value(settings(),'email_footer_html') or '',customer)
+                body=draft['body']
+                if footer.strip():
+                    body=re.sub(r'(?is)\s*(?:thanks|kind regards|regards|best regards),?\s*paul(?: nicholas)?\s*(?:the carpet cleaning company)?\s*$','',body).rstrip()
+                text=body+('\n\n'+strip_html_for_sms(footer) if footer.strip() else '')
+                ok,message=send_env_email(customer['email'],draft['subject'],text,customer_form_preview_html(body,footer),customer=customer,append_footer=False)
+            else:
+                ok,message=send_clicksend_env_sms(customer['phone'],draft['body'],customer=customer,category='Customer Reply')
+            if ok:
+                flash('Message sent. It is saved in this conversation.')
+                return redirect(url_for('customer_conversation',customer_id=customer_id))
+            error='Message was not sent. '+message
+    search=clean_str(request.args.get('search'))
+    try: page=max(1,int(request.args.get('page','1')))
+    except ValueError: page=1
+    messages=customer_conversation_rows(customer_id,search=search,limit=51,offset=(page-1)*50)
+    return render_template('customer_conversation.html',customer=customer,messages=messages[:50],has_more=len(messages)>50,
+                           page=page,search=search,draft=draft,error=error)
 
 
 @app.route("/customers/<int:customer_id>/send-contact-form", methods=["POST"])

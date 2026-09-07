@@ -65,7 +65,7 @@
     <a class="btn primary" href="#send-customer-form">Send Contact Form</a>
     <a class="btn secondary" href="#customer-details">Details</a>
     <a class="btn secondary" href="#customer-sales">Sales and Work</a>
-    <a class="btn secondary" href="#customer-comms">Messages</a>
+    <a class="btn secondary" href="{{ url_for('customer_conversation', customer_id=customer.id) }}">Conversation history</a>
     <a class="btn secondary" href="#customer-finance">Finance</a>
   </div>
 </section>
@@ -839,7 +839,7 @@ openCustomerToolsForHash();
     <div><strong>{% if customer.xero_contact_id %}✓ Synced with Xero{% elif xero_decision_needed %}Xero needs your confirmation{% else %}Next: check Xero{% endif %}</strong><span>{% if customer.xero_contact_id %}{% if customer.xero_contact_synced_at %}Last synced {{ friendly_local_datetime(customer.xero_contact_synced_at) }}{% else %}Xero contact connected{% endif %}{% elif xero_decision_needed %}Missing {{ xero_missing_summary }}{% else %}Create or safely match the Xero contact after saving.{% endif %}</span></div>
     <a class="btn secondary" href="#customer-stage-2">Xero status</a>
     <a class="btn secondary" href="#customer-sales">Jobs and sales</a>
-    <a class="btn secondary" href="#customer-comms">Messages</a>
+    <a class="btn secondary" href="{{ url_for('customer_conversation', customer_id=customer.id) }}">Conversation history</a>
     {% if is_archived %}
     <form method="post" action="{{ url_for('customer_restore', customer_id=customer.id) }}"><button type="submit" class="btn secondary">Restore customer</button></form>
     {% else %}
