@@ -36,7 +36,7 @@ from email.parser import BytesParser
 from email.header import decode_header, make_header
 from difflib import SequenceMatcher
 
-from flask import Flask, render_template, request, redirect, url_for, flash, session, g, Response, send_file, send_from_directory, has_request_context, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, session, g, Response, send_file, send_from_directory, has_request_context, jsonify, abort
 from itsdangerous import BadSignature, SignatureExpired, URLSafeSerializer, URLSafeTimedSerializer
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -151,7 +151,7 @@ def add_website_form_cors_headers(response):
         response.headers["Cache-Control"] = "no-store, private, max-age=0, must-revalidate"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
-        response.headers["X-CRM-UI-Version"] = "20260907.3"
+        response.headers["X-CRM-UI-Version"] = "20260907.4"
     elif request.path == "/static/crm-redesign.css":
         response.headers["Cache-Control"] = "no-cache, max-age=0, must-revalidate"
     return response
@@ -2486,8 +2486,9 @@ def enquiry_customer_email_text(data):
 def send_env_email(to_email, subject, text_body, html_body="", customer=None, append_footer=True, record_customer_event=True):
     ok, message = _send_env_email(to_email, subject, text_body, html_body, customer, append_footer)
     if record_customer_event and row_value(customer, "id"):
-        run("INSERT INTO customer_email_events(customer_id,recipient,subject,body,status) VALUES (?,?,?,?,?)",
-            (row_value(customer, "id"), str(to_email or ""), subject, text_body, "Sent" if ok else "Failed"))
+        external = re.search(r"Message ID: ([A-Za-z0-9-]+)", message or "")
+        run("INSERT INTO customer_email_events(customer_id,recipient,subject,body,status,external_id) VALUES (?,?,?,?,?,?)",
+            (row_value(customer, "id"), str(to_email or ""), subject, text_body, "Sent" if ok else "Failed", external.group(1) if external else ""))
     return ok, message
 
 
@@ -2569,7 +2570,7 @@ def send_clicksend_email(to_email, subject, text_body, html_body=""):
         response_code = str(data.get("response_code") or "").upper()
         response_msg = clean_str(data.get("response_msg") or "")
         if response_code == "SUCCESS":
-            return True, f"ClickSend email accepted for {', '.join(recipients)}."
+            return True, f"ClickSend email accepted for {', '.join(recipients)}. Message ID: {(data.get('data') or {}).get('message_id', '')}"
         return False, f"ClickSend email failed: {response_msg or response[:260]}"
     except urllib.error.HTTPError as exc:
         error_body = exc.read().decode("utf-8", errors="replace")
@@ -8704,11 +8705,24 @@ def init_db():
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(subscription_id, notification_key)
     )""")
+    conn.execute("""CREATE TABLE IF NOT EXISTS clicksend_history_items (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, channel TEXT NOT NULL, external_id TEXT NOT NULL,
+        recipient TEXT NOT NULL, direction TEXT NOT NULL, subject TEXT DEFAULT '',body TEXT DEFAULT '',
+        status TEXT DEFAULT '',created_at TEXT NOT NULL,customer_id INTEGER,event_id INTEGER,
+        UNIQUE(channel,external_id,recipient)
+    )""")
+    conn.execute("""CREATE TABLE IF NOT EXISTS clicksend_history_sync (
+        channel TEXT PRIMARY KEY,window_from INTEGER DEFAULT 0,window_to INTEGER DEFAULT 0,
+        next_page INTEGER DEFAULT 1,last_attempt INTEGER DEFAULT 0,last_success TEXT DEFAULT '',
+        status TEXT DEFAULT 'Waiting for first import'
+    )""")
     conn.execute("""CREATE TABLE IF NOT EXISTS customer_email_events (
         id INTEGER PRIMARY KEY AUTOINCREMENT, customer_id INTEGER NOT NULL,
         recipient TEXT, subject TEXT, body TEXT, status TEXT,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
     )""")
+    if 'external_id' not in {row[1] for row in conn.execute('PRAGMA table_info(customer_email_events)')}:
+        conn.execute("ALTER TABLE customer_email_events ADD COLUMN external_id TEXT DEFAULT ''")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_customer_email_events_customer ON customer_email_events(customer_id,created_at)")
     conn.execute("""CREATE TABLE IF NOT EXISTS inbound_customer_emails (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -11004,6 +11018,162 @@ def customer_form_preview_html(message, footer=""):
             "<main style='padding:24px'>" + paragraphs + footer + "</main></div></body></html>")
 
 
+def clicksend_history_credentials():
+    username = clean_str(os.environ.get('CLICKSEND_USERNAME'))
+    key = clean_str(os.environ.get('CLICKSEND_API_KEY'))
+    if username and key:
+        return username, key
+    config = settings()
+    if 'clicksend' in clean_str(row_value(config, 'sms_gateway_name')).lower():
+        return clean_str(row_value(config, 'sms_account_id')), clean_str(row_value(config, 'sms_api_key'))
+    return '', ''
+
+
+def clicksend_history_page(channel, start, end, page):
+    username, key = clicksend_history_credentials()
+    query = urllib.parse.urlencode({'date_from': start, 'date_to': end, 'page': page, 'limit': 100})
+    req = urllib.request.Request('https://rest.clicksend.com/v3/' + channel + '/history?' + query)
+    req.add_header('Authorization', 'Basic ' + base64.b64encode((username + ':' + key).encode()).decode())
+    with urllib.request.urlopen(req, timeout=12) as response:
+        result = json.load(response)
+    if result.get('response_code') != 'SUCCESS':
+        raise ValueError('ClickSend could not return this history.')
+    data = result.get('data')
+    if isinstance(data, list):
+        if len(data) == 1 and isinstance(data[0], dict) and isinstance(data[0].get('data'), list):
+            data = data[0]
+        else:
+            return data, page + 1 if len(data) == 100 else page
+    if not isinstance(data, dict) or not isinstance(data.get('data'), list):
+        raise ValueError('ClickSend returned an unexpected history format.')
+    return data['data'], int(data.get('last_page') or (page + 1 if len(data['data']) == 100 else page))
+
+
+def store_clicksend_history_item(channel, item):
+    if not isinstance(item, dict):
+        return 0
+    external_id = clean_str(item.get('message_id'))
+    if not external_id:
+        return 0
+    try:
+        stamp = datetime.fromtimestamp(float(item.get('date') or item.get('date_added') or item.get('timestamp_send')), timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
+    except (ValueError, TypeError, OverflowError, OSError):
+        return 0
+    direction = 'inbound' if str(item.get('direction', 'out')).lower() in ('in', 'inbound') else 'outbound'
+    address = item.get('from') if direction == 'inbound' else item.get('to')
+    if channel == 'email':
+        direction = 'outbound'
+        addresses = address if isinstance(address, list) else [address]
+        recipients = [clean_str(a.get('email') if isinstance(a, dict) else a).lower() for a in addresses]
+    else:
+        recipients = [re.sub(r'\D', '', normalize_phone(address))]
+    body = str(item.get('body_plain_text') or item.get('body') or '')
+    if channel == 'email' and not item.get('body_plain_text'):
+        body = strip_html_for_sms(body)
+    count = 0
+    for recipient in set(recipients):
+        if not recipient:
+            continue
+        run("""INSERT INTO clicksend_history_items(channel,external_id,recipient,direction,subject,body,status,created_at)
+               VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(channel,external_id,recipient) DO UPDATE SET
+               status=excluded.status,body=excluded.body,subject=excluded.subject""",
+            (channel,external_id,recipient,direction,clean_str(item.get('subject')),body,
+             'Received' if direction == 'inbound' else clean_str(item.get('status') or item.get('status_text')) or 'Recorded',stamp))
+        count += 1
+    return count
+
+
+def attach_clicksend_history_items():
+    # Match uniquely. Shared addresses/numbers stay unassigned for review.
+    email_map, phone_map = {}, {}
+    for customer in q('SELECT id,email,phone FROM customers WHERE archived_at IS NULL'):
+        for mapping, address in ((email_map, clean_str(customer['email']).lower()),
+                                 (phone_map, re.sub(r'\D', '', normalize_phone(customer['phone'])))):
+            if address:
+                mapping.setdefault(address, []).append(customer['id'])
+    for row in q('''SELECT h.* FROM clicksend_history_items h
+                    LEFT JOIN sms_events s ON h.channel='sms' AND s.id=h.event_id
+                    LEFT JOIN customer_email_events e ON h.channel='email' AND e.id=h.event_id
+                    WHERE h.event_id IS NULL OR h.customer_id IS NULL
+                       OR h.status<>COALESCE(s.status,e.status,'') ORDER BY h.id'''):
+        matches = (email_map if row['channel'] == 'email' else phone_map).get(row['recipient'], [])
+        if len(matches) != 1:
+            continue
+        cid = matches[0]
+        if row['customer_id'] and row['customer_id'] != cid:
+            continue
+        table = 'customer_email_events' if row['channel'] == 'email' else 'sms_events'
+        event = q(f'SELECT * FROM {table} WHERE id=? AND customer_id=?', (row['event_id'],cid), one=True) if row['event_id'] else None
+        if not event:
+            event = q(f'SELECT * FROM {table} WHERE external_id=? AND customer_id=? ORDER BY id DESC LIMIT 1', (row['external_id'],cid), one=True)
+        if not event and row['channel'] == 'email':
+            candidates = q("""SELECT * FROM customer_email_events e WHERE customer_id=? AND lower(recipient)=?
+                              AND subject=? AND IFNULL(external_id,'')='' AND abs(julianday(created_at)-julianday(?))*86400<120
+                              AND NOT EXISTS (SELECT 1 FROM clicksend_history_items h WHERE h.channel='email' AND h.event_id=e.id)""",
+                           (cid,row['recipient'],row['subject'],row['created_at']))
+            body = ' '.join((row['body'] or '').split())
+            candidates = [c for c in candidates if ' '.join((c['body'] or '').split()) == body]
+            if len(candidates) == 1:
+                event = candidates[0]
+        if event:
+            event_id = event['id']
+            run(f'UPDATE {table} SET status=?,external_id=? WHERE id=?', (row['status'],row['external_id'],event_id))
+        elif row['channel'] == 'email':
+            event_id = run('INSERT INTO customer_email_events(customer_id,recipient,subject,body,status,created_at,external_id) VALUES (?,?,?,?,?,?,?)',
+                           (cid,row['recipient'],row['subject'],row['body'],row['status'],row['created_at'],row['external_id']))
+        else:
+            event_id = log_sms_event(cid,None,'ClickSend','history_import',
+                                     row['recipient'] if row['direction']=='outbound' else '',
+                                     row['recipient'] if row['direction']=='inbound' else '',row['body'],row['external_id'],row['status'],row['direction'])
+            run('UPDATE sms_events SET created_at=? WHERE id=?',(row['created_at'],event_id))
+        run('UPDATE clicksend_history_items SET customer_id=?,event_id=? WHERE id=?',(cid,event_id,row['id']))
+
+
+def poll_clicksend_history():
+    username, key = clicksend_history_credentials()
+    if not username or not key:
+        return
+    now = int(time.time())
+    for channel in ('sms','email'):
+        run('INSERT OR IGNORE INTO clicksend_history_sync(channel) VALUES (?)',(channel,))
+        # A shared lease prevents simultaneous workers importing the same page.
+        cursor = db().execute('UPDATE clicksend_history_sync SET last_attempt=? WHERE channel=? AND last_attempt<?',(now,channel,now-300))
+        db().commit()
+        if cursor.rowcount != 1:
+            continue
+        state = q('SELECT * FROM clicksend_history_sync WHERE channel=?',(channel,),one=True)
+        end = state['window_to'] or now
+        run('UPDATE clicksend_history_sync SET window_to=? WHERE channel=?',(end,channel))
+        page = state['next_page']
+        try:
+            for _ in range(2):
+                items, last_page = clicksend_history_page(channel,state['window_from'],end,page)
+                for item in items:
+                    store_clicksend_history_item(channel,item)
+                attach_clicksend_history_items()
+                if page >= last_page:
+                    run("""UPDATE clicksend_history_sync SET window_from=?,window_to=0,next_page=1,
+                           last_success=datetime('now'),status='Up to date' WHERE channel=?""",(max(0,end-7*86400),channel))
+                    break
+                page += 1
+                run("UPDATE clicksend_history_sync SET next_page=?,status='Importing older messages' WHERE channel=?",(page,channel))
+        except urllib.error.HTTPError as exc:
+            run('UPDATE clicksend_history_sync SET status=? WHERE channel=?',(f'Connection needs attention (HTTP {exc.code})',channel))
+        except Exception:
+            logger.warning('ClickSend %s history import could not complete; it will retry.',channel)
+            run("UPDATE clicksend_history_sync SET status='Import could not finish; will retry' WHERE channel=?",(channel,))
+
+
+def clicksend_history_loop():
+    while True:
+        try:
+            with app.app_context():
+                poll_clicksend_history()
+        except Exception:
+            logger.warning('ClickSend history import will retry later.')
+        time.sleep(300)
+
+
 def customer_conversation_rows(customer_id=None, today_only=False, search='', limit=100, offset=0):
     # Keep provider events authoritative; old manual logs remain labelled Recorded.
     sql = """WITH messages AS (
@@ -11090,7 +11260,10 @@ def customer_conversation(customer_id):
     except ValueError: page=1
     messages=customer_conversation_rows(customer_id,search=search,limit=51,offset=(page-1)*50)
     return render_template('customer_conversation.html',customer=customer,messages=messages[:50],has_more=len(messages)>50,
-                           page=page,search=search,draft=draft,error=error)
+                           page=page,search=search,draft=draft,error=error,
+                           history_sync=q('SELECT * FROM clicksend_history_sync ORDER BY channel'),
+                           history_connected=all(clicksend_history_credentials()),
+                           history_unmatched=q('SELECT COUNT(*) AS count FROM clicksend_history_items WHERE customer_id IS NULL',one=True)['count'])
 
 
 @app.route("/customers/<int:customer_id>/send-contact-form", methods=["POST"])
@@ -18497,6 +18670,7 @@ def start_background_automation_runner():
     if debug and os.environ.get("WERKZEUG_RUN_MAIN") != "true":
         return
     _automation_thread_started = True
+    threading.Thread(target=clicksend_history_loop, name='clicksend-history', daemon=True).start()
     thread = threading.Thread(target=automation_background_loop, name="crm-automation-runner", daemon=True)
     thread.start()
 

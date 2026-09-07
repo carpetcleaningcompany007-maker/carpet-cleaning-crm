@@ -3,6 +3,12 @@
 {% block body_content %}
 <section class="panel conversation-page">
   <header><h2>{{ customer.first_name }} {{ customer.last_name }}</h2><p>Email and text history · UK times</p><a href="{{ url_for('customer_view',customer_id=customer.id) }}">Customer details</a></header>
+  <details class="conversation-sync"><summary>ClickSend history sync</summary>
+  {% if history_connected %}<p>Messages sent directly through ClickSend are checked every five minutes and matched by phone number or email address.</p>
+  {% for sync in history_sync %}<p>{{ 'Text' if sync.channel=='sms' else 'Email' }}: {{ sync.status }}{% if sync.last_success %} · Last completed: {{ sync.last_success }} UTC{% endif %}</p>{% else %}<p>Waiting for the first import.</p>{% endfor %}
+  {% if history_unmatched %}<p>{{ history_unmatched }} messages could not be matched uniquely to a customer and have been kept unassigned.</p>{% endif %}
+  {% else %}<p>ClickSend account details are needed in the CRM connection settings before history can be imported.</p>{% endif %}
+  </details>
   <form method="get" class="conversation-search"><input name="search" value="{{ search }}" placeholder="Find something said…" aria-label="Search conversation"><button class="btn secondary">Search</button></form>
   <details class="conversation-compose" {% if error %}open{% endif %}><summary>Write a message</summary>
   {% if error %}<p role="alert">{{ error }}</p>{% endif %}
@@ -26,7 +32,7 @@
   <nav>{% if page>1 %}<a href="{{ url_for('customer_conversation',customer_id=customer.id,page=page-1,search=search) }}">Newer messages</a>{% endif %} {% if has_more %}<a href="{{ url_for('customer_conversation',customer_id=customer.id,page=page+1,search=search) }}">Older messages</a>{% endif %}</nav>
 </section>
 <style>
-body.app-page .panel.conversation-page{width:100%!important;max-width:950px!important;min-width:0!important;box-sizing:border-box;margin-inline:auto!important}.conversation-search{display:flex;gap:8px;margin:16px 0}.conversation-search input{min-width:0;flex:1}.conversation-compose{padding:12px;margin-bottom:18px}.conversation-compose summary{cursor:pointer}.conversation-compose .form{display:grid;gap:10px}.conversation-compose [hidden]{display:none!important}.conversation-compose label{display:grid;gap:5px}.conversation-compose textarea{width:100%;min-height:120px}.conversation-history{display:grid;gap:12px}.conversation-message{padding:14px;border:1px solid #dce5ed;border-radius:10px;background:#f4f8fc}.conversation-message.received{background:#fff;border-left:3px solid #207a60}.conversation-message header{display:flex;flex-wrap:wrap;gap:6px 18px;justify-content:space-between;font-size:13px}.conversation-message h3{font-size:16px;margin:9px 0}.conversation-body{white-space:pre-wrap;overflow-wrap:anywhere;margin:8px 0;line-height:1.5}.conversation-page nav{display:flex;justify-content:space-between;margin-top:16px}
+body.app-page .panel.conversation-page{width:100%!important;max-width:950px!important;min-width:0!important;box-sizing:border-box;margin-inline:auto!important}.conversation-search{display:flex;gap:8px;margin:16px 0}.conversation-search input{min-width:0;flex:1}.conversation-sync,.conversation-compose{padding:12px;margin-bottom:18px}.conversation-compose summary{cursor:pointer}.conversation-compose .form{display:grid;gap:10px}.conversation-compose [hidden]{display:none!important}.conversation-compose label{display:grid;gap:5px}.conversation-compose textarea{width:100%;min-height:120px}.conversation-history{display:grid;gap:12px}.conversation-message{padding:14px;border:1px solid #dce5ed;border-radius:10px;background:#f4f8fc}.conversation-message.received{background:#fff;border-left:3px solid #207a60}.conversation-message header{display:flex;flex-wrap:wrap;gap:6px 18px;justify-content:space-between;font-size:13px}.conversation-message h3{font-size:16px;margin:9px 0}.conversation-body{white-space:pre-wrap;overflow-wrap:anywhere;margin:8px 0;line-height:1.5}.conversation-page nav{display:flex;justify-content:space-between;margin-top:16px}
 </style>
 <script>
 (function(){
