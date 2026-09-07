@@ -701,6 +701,26 @@
             <input type="number" name="agreed_quote_price" min="0" step="0.01" placeholder="Example: 120.00" value="{{ send_form_values.agreed_quote_price or '' }}">
           </label>
         </div>
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <div class="row-actions">
+          <button class="btn secondary" type="button" data-form-preview="email">Preview &amp; edit email</button>
+          <button class="btn secondary" type="button" data-form-preview="sms">Preview &amp; edit text</button>
+        </div>
+        <p data-form-preview-status role="status">Preview either message before sending. Edits apply to this send only.</p>
+        <section data-form-editor="email" hidden>
+          <p><strong>Email to:</strong> <span data-preview-email-to></span></p>
+          <label>Subject<input data-preview-subject aria-label="Email subject"></label>
+          <p data-preview-footer-note class="muted"></p>
+          <label>Email message<textarea data-preview-email-body rows="4" style="min-height:110px" aria-label="Email message"></textarea></label>
+          <p class="muted">Keep the form link in your message so the customer can complete their details.</p>
+          <button type="button" class="btn secondary" data-form-preview="email">Update email preview</button>
+          <iframe title="Customer form email preview" sandbox="allow-same-origin" data-preview-email-frame style="width:100%;height:180px;border:1px solid #d8e7f5;border-radius:10px"></iframe>
+        </section>
+        <section data-form-editor="sms" hidden>
+          <p><strong>Text to:</strong> <span data-preview-sms-to></span></p>
+          <label>Text message<textarea data-preview-sms-body rows="4" style="min-height:110px" aria-label="Text message"></textarea></label>
+          <p class="muted">This is the exact text that will be sent. Keep the form link in your message.</p>
+        </section>
         <div class="customer-form-send-options">
           <label><input type="checkbox" name="send_email" value="1" {% if customer.email %}checked{% endif %}> Send email</label>
           <label><input type="checkbox" name="send_sms" value="1" {% if customer.phone and not customer.sms_opt_out %}checked{% endif %} {% if customer.sms_opt_out %}disabled{% endif %}> Send text</label>
@@ -1264,6 +1284,50 @@ openCustomerToolsForHash();
     }catch(e){message.textContent='Calendar preview could not be loaded. Please try again.'}
   }
   form.addEventListener('input',()=>{clearTimeout(timer);timer=setTimeout(refresh,250)});refresh();
+})();
+</script>
+
+<style>
+.customer-form-send-panel [data-form-editor] label{display:grid;gap:6px;margin:12px 0}
+.customer-form-send-panel [data-form-editor] input,.customer-form-send-panel [data-form-editor] textarea{width:100%;box-sizing:border-box}
+.customer-form-send-panel [data-form-editor]{min-width:0}
+.customer-form-send-panel [data-form-editor][hidden]{display:none!important}
+@media(max-width:760px){
+ body.app-page .customer-form-send-panel{padding:10px!important}
+ body.app-page .customer-form-send-panel .row-actions{display:grid!important;grid-template-columns:1fr!important;gap:8px!important}
+ body.app-page .customer-form-send-panel .btn{width:100%!important;padding:10px!important;font-size:15px!important;word-break:normal!important}
+}
+</style>
+<script>
+(function(){
+  const form=document.querySelector('.customer-form-send-panel'); if(!form)return;
+  const status=form.querySelector('[data-form-preview-status]');
+  const subject=form.querySelector('[data-preview-subject]'), email=form.querySelector('[data-preview-email-body]'), sms=form.querySelector('[data-preview-sms-body]');
+  const frame=form.querySelector('[data-preview-email-frame]');
+  function fitEditor(field){field.style.height='auto';field.style.height=Math.min(320,Math.max(110,field.scrollHeight+2))+'px';}
+  frame.addEventListener('load',()=>{if(frame.contentDocument?.body)frame.style.height=Math.min(680,Math.max(140,frame.contentDocument.body.scrollHeight+40))+'px';});
+  [email,sms].forEach(field=>field.addEventListener('input',()=>fitEditor(field)));
+  let revision=0;
+  [[subject,'email_subject'],[email,'email_body'],[sms,'sms_body']].forEach(([field,name])=>field.addEventListener('input',()=>{field.name=name;}));
+  form.addEventListener('input',()=>{revision++;status.textContent='Details changed. Click preview again to check the latest message. Temporary edits will be used when you send.';});
+  form.querySelectorAll('[data-form-preview]').forEach(button=>button.addEventListener('click',async()=>{
+    const current=++revision, channel=button.dataset.formPreview;
+    const data=new FormData(form);data.set('preview','1');
+    status.textContent='Loading preview…';
+    try{
+      const response=await fetch(form.action,{method:'POST',body:data});
+      if(!response.ok || !response.headers.get('content-type')?.includes('application/json'))throw new Error();
+      const result=await response.json();if(current!==revision)return;
+      subject.value=result.subject;email.value=result.email_body;sms.value=result.sms_body;
+      form.querySelector('[data-preview-footer-note]').textContent=result.has_footer?'Your saved email footer appears once in the preview below and will be added once when sent. You do not need another sign-off.':'';
+      form.querySelector('[data-preview-email-to]').textContent=result.email_to||'No email address entered';
+      form.querySelector('[data-preview-sms-to]').textContent=result.sms_to||'No mobile number entered';
+      form.querySelector('[data-preview-email-frame]').srcdoc=result.email_html;
+      form.querySelectorAll('[data-form-editor]').forEach(editor=>{editor.hidden=editor.dataset.formEditor!==channel;});
+      [email,sms].forEach(field=>{if(field.offsetParent)fitEditor(field)});
+      status.textContent='Preview ready. You can edit the messages below. Nothing has been sent; edits apply to this send only.';
+    }catch(error){if(current===revision)status.textContent='Preview could not load. Please try again, or refresh and sign in again.';}
+  }));
 })();
 </script>
 {% endblock %}

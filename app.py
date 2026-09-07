@@ -151,7 +151,7 @@ def add_website_form_cors_headers(response):
         response.headers["Cache-Control"] = "no-store, private, max-age=0, must-revalidate"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
-        response.headers["X-CRM-UI-Version"] = "20260906.58"
+        response.headers["X-CRM-UI-Version"] = "20260907.2"
     elif request.path == "/static/crm-redesign.css":
         response.headers["Cache-Control"] = "no-cache, max-age=0, must-revalidate"
     return response
@@ -2483,7 +2483,7 @@ def enquiry_customer_email_text(data):
     return render_simple_template(message_template("customer_enquiry_email")["body"], template_context_for_enquiry(data))
 
 
-def send_env_email(to_email, subject, text_body, html_body="", customer=None):
+def send_env_email(to_email, subject, text_body, html_body="", customer=None, append_footer=True):
     clicksend_ok, clicksend_msg = send_clicksend_email(to_email, subject, text_body, html_body)
     if clicksend_ok or clicksend_msg:
         return clicksend_ok, clicksend_msg
@@ -2495,7 +2495,7 @@ def send_env_email(to_email, subject, text_body, html_body="", customer=None):
     sender = os.environ.get("SMTP_FROM", "").strip() or user
     from_name = os.environ.get("SMTP_FROM_NAME", "The Carpet Cleaning Company").strip()
     if not user and not password:
-        return send_email_smtp(to_email, subject, html_body or text_body, customer=customer)
+        return send_email_smtp(to_email, subject, html_body or text_body, customer=customer, append_footer=append_footer)
     if not user or not password:
         missing = "SMTP_USER" if not user else "SMTP_PASSWORD"
         return False, f"Gmail SMTP is missing {missing} in Render environment variables."
@@ -2524,7 +2524,7 @@ def send_env_email(to_email, subject, text_body, html_body="", customer=None):
                 server.sendmail(sender, recipients, msg.as_string())
         return True, f"Email sent to {', '.join(recipients)}."
     except Exception as exc:
-        fallback_ok, fallback_msg = send_email_smtp(to_email, subject, html_body or text_body, customer=customer)
+        fallback_ok, fallback_msg = send_email_smtp(to_email, subject, html_body or text_body, customer=customer, append_footer=append_footer)
         if fallback_ok:
             return True, fallback_msg
         smtp_user_hint = user if "@" in user else ("set" if user else "missing")
@@ -5979,7 +5979,7 @@ def sms_thread_rows(customer_id=None, phone=None, limit=200):
     return list(reversed(rows))
 
 
-def send_email_smtp(to_email, subject, body, customer=None):
+def send_email_smtp(to_email, subject, body, customer=None, append_footer=True):
     s = settings()
     sender = clean_str(s['gmail_address'] if 'gmail_address' in s.keys() else '')
     password = clean_str(s['gmail_app_password'] if 'gmail_app_password' in s.keys() else '')
@@ -5996,7 +5996,7 @@ def send_email_smtp(to_email, subject, body, customer=None):
     msg['From'] = sender
     msg['To'] = ', '.join(recipients)
     rendered_body = merge_message_text(body or '', customer)
-    footer = merge_message_text(s['email_footer_html'] if 'email_footer_html' in s.keys() else '', customer)
+    footer = merge_message_text(s['email_footer_html'] if 'email_footer_html' in s.keys() else '', customer) if append_footer else ''
     html = build_email_html(rendered_body, footer)
     text_body = strip_html_for_sms(rendered_body + ('\n\n' + strip_html_for_sms(footer) if footer else ''))
     msg.attach(MIMEText(text_body or ' ', 'plain', 'utf-8'))
@@ -10975,6 +10975,21 @@ def customer_save_booking_details(customer_id):
     return redirect(url_for("customer_view", customer_id=customer_id, **redirect_values) + "#customer-stage-overview")
 
 
+def customer_form_preview_html(message, footer=""):
+    """Render the temporary email text identically for preview and delivery."""
+    def linked_text(text):
+        return "".join(
+            '<a href="' + html_lib.escape(piece, quote=True) + '">' + html_lib.escape(piece) + '</a>'
+            if piece.startswith(('https://', 'http://')) else html_lib.escape(piece)
+            for piece in re.split(r'(https?://[^\s<>]+)', text)
+        )
+    paragraphs = "".join("<p style='margin:0 0 18px;white-space:pre-wrap;overflow-wrap:anywhere'>" + linked_text(part) + "</p>" for part in message.split("\n\n"))
+    return ("<!doctype html><html><body style='margin:0;padding:20px;background:#eef6ff;font:16px/1.6 Arial;color:#102033'>"
+            "<div style='max-width:620px;margin:auto;background:white;border-radius:14px;overflow:hidden'>"
+            "<header style='padding:22px;background:#0f5fbd;color:white;font-weight:bold'>The Carpet Cleaning Company</header>"
+            "<main style='padding:24px'>" + paragraphs + footer + "</main></div></body></html>")
+
+
 @app.route("/customers/<int:customer_id>/send-contact-form", methods=["POST"])
 @login_required
 def customer_send_contact_form(customer_id):
@@ -10982,7 +10997,7 @@ def customer_send_contact_form(customer_id):
     if not customer:
         flash("Customer not found.")
         return redirect(url_for("customers"))
-    if CUSTOMER_FORM_SENDING_PAUSED:
+    if CUSTOMER_FORM_SENDING_PAUSED and request.form.get("preview") != "1":
         flash("Customer form sending is paused. No form link was sent.")
         return redirect(url_for("customer_view", customer_id=customer_id) + "#customer-stage-overview")
 
@@ -11012,27 +11027,41 @@ def customer_send_contact_form(customer_id):
     }
     form_link = booking_form_url(customer, prefill=prefill)
     message = booking_form_message(customer, form_link=form_link, recipient_name=recipient_name)
+    subject = request.form.get("email_subject", "Customer details form - The Carpet Cleaning Company")
+    email_message = request.form.get("email_body", message)
+    sms_message = request.form.get("sms_body", message)
+    footer = merge_message_text(row_value(settings(), "email_footer_html") or "", customer)
+    if footer.strip():
+        email_message = re.sub(r"(?is)\s*(?:thanks|kind regards|regards|best regards),?\s*paul(?: nicholas)?\s*(?:the carpet cleaning company)?\s*$", "", email_message).rstrip()
+    email_text = email_message + ("\n\n" + strip_html_for_sms(footer) if footer.strip() else "")
+    email_html = customer_form_preview_html(email_message, footer)
+    if request.form.get("preview") == "1":
+        response = jsonify(email_to=email_to, sms_to=sms_to, subject=subject,
+                           email_body=email_message, sms_body=sms_message, email_html=email_html, email_text=email_text, has_footer=bool(footer.strip()))
+        response.headers["Cache-Control"] = "no-store"
+        return response
+    if (send_email and (not subject.strip() or not email_message.strip())) or (send_sms and not sms_message.strip()):
+        flash("The selected message cannot be empty. Please check the preview before sending.")
+        return redirect(url_for("customer_view", customer_id=customer_id) + "#send-customer-form")
     results = []
     sent_any = False
 
     if send_email:
-        subject = "Customer details form - The Carpet Cleaning Company"
-        email_html = booking_form_email_html(customer, form_link, recipient_name=recipient_name)
-        ok, msg = send_env_email(email_to, subject, message, email_html, customer=customer)
+        ok, msg = send_env_email(email_to, subject, email_text, email_html, customer=customer, append_footer=False)
         if ok:
-            send_owner_customer_message_copy("email", email_to, subject, message, html_body=email_html, customer=customer, context="Customer form link email")
+            send_owner_customer_message_copy("email", email_to, subject, email_message, html_body=email_html, customer=customer, context="Customer form link email")
         results.append(("Email", ok, msg))
         run("INSERT INTO communications (customer_id, channel, subject, body, created_at) VALUES (?,?,?,?,datetime('now'))",
-            (customer_id, "Email", subject, message))
+            (customer_id, "Email", subject, email_message))
         sent_any = sent_any or ok
 
     if send_sms:
-        ok, msg = send_clicksend_env_sms(sms_to, message, customer=customer, category="Customer Form")
+        ok, msg = send_clicksend_env_sms(sms_to, sms_message, customer=customer, category="Customer Form")
         if ok:
-            send_owner_customer_message_copy("sms", sms_to, "Customer details form", message, customer=customer, context="Customer form link SMS")
+            send_owner_customer_message_copy("sms", sms_to, "Customer details form", sms_message, customer=customer, context="Customer form link SMS")
         results.append(("SMS", ok, msg))
         run("INSERT INTO communications (customer_id, channel, subject, body, created_at) VALUES (?,?,?,?,datetime('now'))",
-            (customer_id, "SMS", "Customer details form", message))
+            (customer_id, "SMS", "Customer details form", sms_message))
         sent_any = sent_any or ok
 
     if not results:
