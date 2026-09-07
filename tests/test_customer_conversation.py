@@ -70,3 +70,14 @@ class CustomerConversationTests(unittest.TestCase):
         self.assertIn(b'Today',response.data)
         self.assertIn(f'/customers/{self.customer}/conversation'.encode(),response.data)
         self.assertEqual(self.mod.customer_conversation_rows(self.customer,search='absent'),[])
+
+    def test_delivery_results_hide_provider_code_and_preserve_failure(self):
+        ok,text=self.mod.friendly_delivery_result(True,'ClickSend Message ID: secret-id Status: SUCCESS','text message')
+        self.assertTrue(ok)
+        self.assertEqual(text,'Thank you, your text message has been sent.')
+        ok,text=self.mod.friendly_delivery_result(False,'{"status":"ERROR","response_code":500}','email')
+        self.assertFalse(ok)
+        self.assertNotIn('response_code',text)
+        self.assertIn('couldn’t confirm',text)
+        ok,text=self.mod.friendly_delivery_result(True,'Demo SMS marked as sent','text message')
+        self.assertIn('no real message',text)

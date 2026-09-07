@@ -151,7 +151,7 @@ def add_website_form_cors_headers(response):
         response.headers["Cache-Control"] = "no-store, private, max-age=0, must-revalidate"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
-        response.headers["X-CRM-UI-Version"] = "20260907.14"
+        response.headers["X-CRM-UI-Version"] = "20260907.15"
     elif request.path == "/static/crm-redesign.css":
         response.headers["Cache-Control"] = "no-cache, max-age=0, must-revalidate"
     return response
@@ -2484,13 +2484,34 @@ def enquiry_customer_email_text(data):
     return render_simple_template(message_template("customer_enquiry_email")["body"], template_context_for_enquiry(data))
 
 
+def friendly_delivery_result(ok, detail, channel):
+    text = str(detail or '')
+    if 'demo' in text.lower():
+        return ok, 'Demo only — no real message was sent.'
+    if ok:
+        return True, f'Thank you, your {channel} has been sent.'
+    app.logger.warning('Message delivery failed: %s', text)
+    lower = text.lower()
+    if 'credit' in lower:
+        reason = 'Please check your messaging account balance.'
+    elif 'opt' in lower and 'out' in lower:
+        reason = 'This customer has opted out of text messages.'
+    elif any(word in lower for word in ('missing', 'settings', 'credential', 'password', 'authentication')):
+        reason = 'Please check the email or text connection in Settings.'
+    elif any(word in lower for word in ('invalid', 'recipient', 'phone number', 'email address')):
+        reason = 'Please check the customer’s contact details.'
+    else:
+        reason = 'Please check the message history before trying again.'
+    return False, f'We couldn’t confirm your {channel} was sent. {reason}'
+
+
 def send_env_email(to_email, subject, text_body, html_body="", customer=None, append_footer=True, record_customer_event=True):
     ok, message = _send_env_email(to_email, subject, text_body, html_body, customer, append_footer)
     if record_customer_event and row_value(customer, "id"):
         external = re.search(r"Message ID: ([A-Za-z0-9-]+)", message or "")
         run("INSERT INTO customer_email_events(customer_id,recipient,subject,body,status,external_id) VALUES (?,?,?,?,?,?)",
             (row_value(customer, "id"), str(to_email or ""), subject, text_body, "Sent" if ok else "Failed", external.group(1) if external else ""))
-    return ok, message
+    return friendly_delivery_result(ok, message, 'email')
 
 
 def _send_env_email(to_email, subject, text_body, html_body="", customer=None, append_footer=True):
@@ -2580,7 +2601,12 @@ def send_clicksend_email(to_email, subject, text_body, html_body=""):
         return False, f"ClickSend email failed: {exc}"
 
 
-def send_clicksend_env_sms(to_phone, body, customer=None, category="Website Enquiry"):
+def send_clicksend_env_sms(*args, **kwargs):
+    ok, detail = _raw_send_clicksend_env_sms(*args, **kwargs)
+    return friendly_delivery_result(ok, detail, 'text message')
+
+
+def _raw_send_clicksend_env_sms(to_phone, body, customer=None, category="Website Enquiry"):
     username = os.environ.get("CLICKSEND_USERNAME", "").strip()
     api_key = os.environ.get("CLICKSEND_API_KEY", "").strip()
     from_name = os.environ.get("CLICKSEND_FROM_NAME", "").strip()
@@ -3417,7 +3443,12 @@ def run_website_enquiry_automation(lead_id, customer_id, data):
     return results
 
 
-def send_sms_gateway(to_phone, body, customer=None, communication_id=None, message_category=''):
+def send_sms_gateway(*args, **kwargs):
+    ok, detail = _raw_send_sms_gateway(*args, **kwargs)
+    return friendly_delivery_result(ok, detail, 'text message')
+
+
+def _raw_send_sms_gateway(to_phone, body, customer=None, communication_id=None, message_category=''):
     phone = normalize_phone(to_phone)
     if not phone:
         return False, 'No recipient phone number was provided.'
@@ -5990,7 +6021,12 @@ def sms_thread_rows(customer_id=None, phone=None, limit=200):
     return list(reversed(rows))
 
 
-def send_email_smtp(to_email, subject, body, customer=None, append_footer=True):
+def send_email_smtp(*args, **kwargs):
+    ok, detail = _raw_send_email_smtp(*args, **kwargs)
+    return friendly_delivery_result(ok, detail, 'email')
+
+
+def _raw_send_email_smtp(to_email, subject, body, customer=None, append_footer=True):
     s = settings()
     sender = clean_str(s['gmail_address'] if 'gmail_address' in s.keys() else '')
     password = clean_str(s['gmail_app_password'] if 'gmail_app_password' in s.keys() else '')
@@ -11359,7 +11395,7 @@ def customer_conversation(customer_id):
             else:
                 ok,message=send_clicksend_env_sms(customer['phone'],draft['body'],customer=customer,category='Customer Reply')
             if ok:
-                flash('Message sent. It is saved in this conversation.')
+                flash('Thank you, your message has been sent.')
                 return redirect(url_for('customer_conversation',customer_id=customer_id))
             error='Message was not sent. '+message
     search=clean_str(request.args.get('search'))
