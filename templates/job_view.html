@@ -18,10 +18,16 @@
     <a class="job-date-link" href="{{ url_for('full_calendar', view='day', day=job.job_date) if job.job_date else '#job-edit-details' }}" aria-label="{{ 'Open calendar for ' ~ job_display_date ~ (', ' ~ job.job_time if job.job_time else '') if job.job_date else 'Add the job date and time' }}"><i aria-hidden="true">▣</i><span><small>Scheduled</small><b>{{ job_display_date }}</b>{% if job.job_time %}<em>{{ job.job_time }}</em>{% endif %}</span><strong aria-hidden="true">›</strong></a>
     <div class="job-price-fact"><i aria-hidden="true">£</i><span><small>Agreed price</small>{% if (job.amount or 0)|float > 0 %}<b>£{{ '%.2f'|format(job.amount) }}</b>{% else %}<b class="not-set">Price not set</b>{% endif %}</span></div>
   </div>
-  {% if job.customer_id and (job.address or job.postcode) %}<div class="job-summary-location"><span>Job address</span><strong>{{ [job.address, job.town, job.postcode]|select|join(', ') }}</strong>{% if what3words_url %}<a href="{{ what3words_url }}" target="_blank" rel="noopener">What3words: ///{{ job.what3words }} ↗</a>{% endif %}</div>{% endif %}
+  {% if job.customer_id and (job.address or job.postcode) %}
+  <div class="job-summary-location">
+    <span>Job address</span>
+    <strong>{{ [job.address, job.town, job.postcode]|select|join(', ') }}</strong>
+    {% if job.what3words %}<a class="job-w3w-line" href="{{ what3words_url }}" target="_blank" rel="noopener"><small>what3words</small> ///{{ job.what3words }} <b>↗</b></a>{% endif %}
+  </div>
+  {% endif %}
   {% if job.phone or directions_url or what3words_url %}
   <div class="job-travel-actions">
-    {% if job.phone %}<a class="job-contact-action" href="tel:{{ job.phone }}">Telephone <span>☎</span></a><a class="job-contact-action" href="https://wa.me/{{ whatsapp_phone(job.phone) }}" target="_blank" rel="noopener">WhatsApp <span>↗</span></a>{% endif %}
+    {% if job.phone %}<a class="job-contact-action" href="tel:{{ job.phone }}">Telephone <small>{{ job.phone }}</small><span>☎</span></a><a class="job-contact-action" href="https://wa.me/{{ whatsapp_phone(job.phone) }}" target="_blank" rel="noopener">WhatsApp <span>↗</span></a>{% endif %}
     {% if directions_url %}<a class="is-directions" href="{{ directions_url }}" target="_blank" rel="noopener"><i class="maps-mark" aria-hidden="true">●</i> Google Maps <span>↗</span></a>{% endif %}
     {% if not is_dashboard_sample and job.status not in ['On My Way','Arrived','In Progress','Completed','Invoiced','Paid','Cancelled','Archived'] %}<form method="post" action="{{ url_for('today_run_job_action', job_id=job.id) }}"><input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="on_way"><input type="hidden" name="next_url" value="{{ url_for('job_view', job_id=job.id) }}"><button type="submit">I’m on my way</button></form>{% endif %}
   </div>
@@ -32,7 +38,7 @@
     <form method="post" action="{{ url_for('job_send_late_notice', job_id=job.id) }}" class="job-late-form">
       <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
       <label>How late are you running?
-        <select name="minutes" data-late-minutes><option value="10">10 minutes</option><option value="20">20 minutes</option><option value="30">30 minutes</option><option value="60">1 hour</option><option value="120">2 hours</option></select>
+        <select name="minutes" data-late-minutes><option value="10">10 minutes</option><option value="20">20 minutes</option><option value="30">30 minutes</option><option value="45">45 minutes</option><option value="60">1 hour</option><option value="90">1½ hours</option><option value="120">2 hours</option></select>
       </label>
       <label>Send by
         <select name="channel"><option value="both">Text and email</option><option value="sms">Text message only</option><option value="email">Email only</option></select>
@@ -140,10 +146,11 @@
           <label>Notes<textarea name="notes" placeholder="Arrival notes, access, stains, rooms, parking">{{ job.notes or '' }}</textarea></label>
         </div>
       </details>
-      <button class="btn primary">Save Job</button>
+      <button class="btn primary">Save job</button>
     </form>
+    <div class="job-management-tools">
     <details class="job-calendar-tools">
-      <summary>Calendar <small>Check availability or add the booking</small><i>⌄</i></summary>
+      <summary><span>Calendar</span><small>Check availability or add the booking</small><i>⌄</i></summary>
       <div class="job-calendar-tools-body">
         <div class="booking-calendar-preview" data-calendar-preview data-event-id="{{ job.google_calendar_event_id or '' }}">
           <div class="calendar-preview-head"><div><strong>Google Calendar day view</strong><span>Live appointments plus the proposed booking</span></div><a href="{{ url_for('google_calendar_dashboard') }}">{{ 'Connected' if google_calendar_connected else 'Connect calendar' }}</a></div>
@@ -158,9 +165,10 @@
       </div>
     </details>
     <details class="job-admin-tools">
-      <summary>Archive options <i>⌄</i></summary>
+      <summary><span>Archive</span><small>Move this job out of the live list</small><i>⌄</i></summary>
       <div>{% if is_archived %}<form method="post" action="{{ url_for('job_restore', job_id=job.id) }}"><button class="btn secondary">Restore Job</button></form>{% else %}<form method="post" action="{{ url_for('job_delete', job_id=job.id) }}" onsubmit="return confirm('Archive this job?')"><button class="btn danger">Archive Job</button></form>{% endif %}</div>
     </details>
+    </div>
   </section>
   </details>
 
@@ -196,15 +204,16 @@
       {% if completed_checks %}<details class="ready-completed"><summary>{{ completed_checks|length }} completed check{{ '' if completed_checks|length == 1 else 's' }} <i>⌄</i></summary><div>{% for item in completed_checks %}<span>✓ {{ item.label }}</span>{% endfor %}</div></details>{% endif %}
       {% if ready_check.ready %}
       <div class="confirm-prompt">
-        <strong>Would you like to send the booking confirmation now?</strong>
+        <strong>Next: send the booking confirmation to {{ job.first_name or 'the customer' }}.</strong>
+        <span>{% if job.email %}Email: {{ job.email }}{% endif %}{% if job.email and job.phone %} &nbsp;·&nbsp; {% endif %}{% if job.phone %}Text: {{ job.phone }}{% endif %}</span>
       </div>
       {% endif %}
     </div>
-    <section class="job-simple-step {{ 'is-blocked' if not ready_check.ready else '' }}">
-      <div><span>Step 2</span><strong>Send booking confirmation</strong><small>{% if ready_check.ready %}Send the confirmed job details to the customer.{% else %}Finish Step 1 first.{% endif %}</small></div>
+    <section class="job-simple-step {{ 'is-blocked' if not ready_check.ready else '' }}" id="job-booking-actions">
+      <div><span>Step 2</span><strong>Send booking confirmation</strong><small>{% if ready_check.ready %}This button emails {{ job.first_name or 'the customer' }} at {{ job.email or 'the address on the customer record' }}.{% else %}Finish Step 1 first.{% endif %}</small></div>
       <form method="post" action="{{ url_for('job_send_booking_confirmation', job_id=job.id) }}">
         <input type="hidden" name="channel" value="email">
-        <button class="btn primary" {% if not ready_check.ready %}disabled title="Complete Step 1 first"{% endif %}>Send confirmation</button>
+        <button class="btn primary" {% if not ready_check.ready or not job.email %}disabled title="A complete booking and customer email are required"{% endif %}>Send email</button>
       </form>
       <details class="job-step-options"><summary>Other sending options</summary><div><a href="{{ url_for('job_booking_email_preview', job_id=job.id) }}" target="_blank">Preview email</a><form method="post" action="{{ url_for('job_send_booking_confirmation', job_id=job.id) }}"><input type="hidden" name="channel" value="test_email"><button type="submit">Send a test to me</button></form><form method="post" action="{{ url_for('job_send_booking_confirmation', job_id=job.id) }}"><input type="hidden" name="channel" value="sms"><button type="submit" {% if not ready_check.ready %}disabled{% endif %}>Send text message</button></form></div></details>
     </section>
@@ -236,13 +245,26 @@
       <p>Preview the pictured emails, check the SMS wording, or send the customer messages for this job.</p>
     </div>
   </div>
-  <div class="message-action-grid">
+  {% set sent_state = namespace(booking=false, reminder=false, on_way=false, thank_you=false, review=false) %}
+  {% for section in job_stage_sections %}{% for step in section.steps %}
+    {% if step.label == 'Booking confirmation sent' %}{% set sent_state.booking = step.done %}{% endif %}
+    {% if step.label == 'Reminder sent' %}{% set sent_state.reminder = step.done %}{% endif %}
+    {% if step.label == 'On-my-way message sent' %}{% set sent_state.on_way = step.done %}{% endif %}
+    {% if step.label == 'Thank-you message sent' %}{% set sent_state.thank_you = step.done %}{% endif %}
+    {% if step.label == 'Review request sent' %}{% set sent_state.review = step.done %}{% endif %}
+  {% endfor %}{% endfor %}
+  {% set message_order = namespace(next_assigned=false) %}
+  <div class="job-message-status-key"><span class="is-next">Next</span><span class="is-sent">✓ Sent</span><span>Not sent</span></div>
+  <div class="message-action-grid job-message-accordion">
     {% for item in job_action_templates %}
-    <div class="message-action-card">
-      <strong>{{ item.label }}</strong>
-      <p>{{ item.note }}</p>
+    {% set item_sent = (item.key == 'booking_confirmation_email' and sent_state.booking) or (item.key == 'today_run_reminder_email' and sent_state.reminder) or (item.key == 'today_run_coming_email' and sent_state.on_way) or (item.key == 'thank_you_message' and sent_state.thank_you) or (item.key == 'review_request_message' and sent_state.review) %}
+    {% set item_next = not item_sent and not message_order.next_assigned %}
+    {% if item_next %}{% set message_order.next_assigned = true %}{% endif %}
+    <details class="message-action-card {{ 'is-sent' if item_sent else ('is-next' if item_next else '') }}">
+      <summary><span><strong>{{ item.label }}</strong><small>{{ item.note }}</small></span><b>{{ '✓ Sent' if item_sent else ('Next' if item_next else 'Not sent') }}</b><i>⌄</i></summary>
+      <div class="message-action-body">
       <div class="message-button-row">
-        <a class="btn secondary btn-small" href="{{ url_for('job_email_template_preview', job_id=job.id, template_key=item.key) }}" target="_blank">Preview Pictured Email</a>
+        <a class="btn secondary btn-small" href="{{ url_for('job_email_template_preview', job_id=job.id, template_key=item.key) }}" target="_blank">Preview email</a>
       </div>
       <details class="template-preview">
         <summary>View plain text/SMS wording</summary>
@@ -277,7 +299,8 @@
           <button class="btn primary btn-small" type="submit" {% if not job.phone or job.sms_opt_out %}disabled{% endif %}>Send SMS</button>
         </form>
       </div>
-    </div>
+      </div>
+    </details>
     {% endfor %}
   </div>
   {% if saved_message_templates %}
@@ -341,7 +364,7 @@
 <script>
 (function(){
   const lateMinutes=document.querySelector('[data-late-minutes]'),latePreview=document.querySelector('[data-late-preview]');
-  if(lateMinutes&&latePreview){lateMinutes.addEventListener('change',function(){latePreview.textContent='Hi '+{{ (job.first_name or "there")|tojson }}+', I’m really sorry, I’m running about '+this.selectedOptions[0].textContent+' late. I’m just running a little behind schedule from the previous job. I’ll be with you as quickly as I can — I hope you don’t mind. Any problems, please give me a call. Paul.'})}
+  if(lateMinutes&&latePreview){lateMinutes.addEventListener('change',function(){const delay=this.selectedOptions[0].textContent.toLowerCase();latePreview.textContent='Hi '+{{ (job.first_name or "there")|tojson }}+', I’m really sorry, I’m running about '+delay+' late. I’m just running a little behind schedule from the previous job. I’ll be with you as quickly as I can — I hope you don’t mind. Any problems, please give me a call. Paul.'})}
   document.querySelectorAll('.job-next-card a,.job-progress-detail a').forEach(function(link){
     link.addEventListener('click',function(){
       const href=link.getAttribute('href')||'';
