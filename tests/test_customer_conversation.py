@@ -93,3 +93,36 @@ class CustomerConversationTests(unittest.TestCase):
         self.assertNotIn(b'Private other reply',response.data)
         self.assertEqual(self.mod.app.test_client().get(f'/customers/{self.customer}/conversation/download').status_code,302)
         self.assertIn(b'Open messages &amp; history',self.client.get(f'/customers/{self.customer}').data)
+
+    def test_sms_length_counts_encoding_and_blocks_before_provider(self):
+        self.assertFalse(self.mod.sms_length_info('a'*1224)['too_long'])
+        self.assertTrue(self.mod.sms_length_info('a'*1225)['too_long'])
+        self.assertFalse(self.mod.sms_length_info('’'*536)['too_long'])
+        self.assertTrue(self.mod.sms_length_info('’'*537)['too_long'])
+        self.assertEqual(self.mod.sms_length_info('^'*81)['parts'],2)
+        self.assertEqual(self.mod.sms_length_info('😀'*36)['parts'],2)
+        customer=self.mod.q('SELECT * FROM customers WHERE id=?',(self.customer,),one=True)
+        with patch.dict(os.environ,{'CLICKSEND_USERNAME':'test','CLICKSEND_API_KEY':'test'}),patch.object(self.mod,'http_post_basic_json') as provider:
+            ok,message=self.mod.send_clicksend_env_sms(customer['phone'],'’'*537,customer=customer)
+            provider.assert_not_called()
+            self.assertFalse(ok)
+            self.assertIn('Nothing was sent',message)
+        self.mod.run("UPDATE settings SET sms_footer_text=?,sms_gateway_name='ClickSend' WHERE id=1",('x'*30,))
+        with patch.object(self.mod,'http_post_basic_json') as provider:
+            ok,message=self.mod.send_sms_gateway(customer['phone'],'a'*1210,customer=customer)
+            provider.assert_not_called()
+            self.assertFalse(ok)
+            self.assertIn('too long',message)
+
+    def test_oversize_text_preserves_draft_and_email_can_send_full_text(self):
+        body='Full quote ’ '+('Details '*180)+'END OF QUOTE'
+        with patch.dict(os.environ,{'CLICKSEND_USERNAME':'test','CLICKSEND_API_KEY':'test'}),patch.object(self.mod,'http_post_basic_json') as provider:
+            response=self.client.post(f'/customers/{self.customer}/conversation',data={'channel':'Text','body':body})
+            provider.assert_not_called()
+        self.assertIn(b'END OF QUOTE',response.data)
+        self.assertIn(b'Use email instead',response.data)
+        self.assertIn(b'too long',response.data)
+        with patch.object(self.mod,'_send_env_email',return_value=(True,'Sent')) as email:
+            response=self.client.post(f'/customers/{self.customer}/conversation',data={'channel':'Email','subject':'Full quote','body':body})
+            self.assertEqual(response.status_code,302)
+            self.assertIn('END OF QUOTE',email.call_args.args[2])

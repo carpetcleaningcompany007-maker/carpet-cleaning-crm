@@ -151,7 +151,7 @@ def add_website_form_cors_headers(response):
         response.headers["Cache-Control"] = "no-store, private, max-age=0, must-revalidate"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
-        response.headers["X-CRM-UI-Version"] = "20260907.17"
+        response.headers["X-CRM-UI-Version"] = "20260907.18"
     elif request.path == "/static/crm-redesign.css":
         response.headers["Cache-Control"] = "no-cache, max-age=0, must-revalidate"
     return response
@@ -1549,6 +1549,26 @@ def strip_html_for_sms(text):
     return text.strip()
 
 
+SMS_GSM_BASIC = set("@£$¥èéùìòÇ\nØø\rÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ !\"#¤%&'()*+,-./0123456789:;<=>?¡ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÑÜ§¿abcdefghijklmnopqrstuvwxyzäöñüà")
+SMS_GSM_EXTENDED = set('^{}\\[~]|€\f')
+
+
+def sms_length_info(text):
+    text = str(text or '')
+    gsm = all(c in SMS_GSM_BASIC or c in SMS_GSM_EXTENDED for c in text)
+    units = sum(2 if c in SMS_GSM_EXTENDED else 1 for c in text) if gsm else len(text.encode('utf-16-le')) // 2
+    single, multipart = (160, 153) if gsm else (70, 67)
+    parts = 0 if not units else (1 if units <= single else (units + multipart - 1) // multipart)
+    return {'units': units, 'parts': parts, 'limit': multipart * 8, 'too_long': parts > 8}
+
+
+def sms_length_error(text):
+    info = sms_length_info(text)
+    if info['too_long']:
+        return 'This text is too long to send safely. Nothing was sent. Send the full message by email instead, or shorten the text.'
+    return ''
+
+
 def build_sms_text(body, customer=None):
     main_text = strip_html_for_sms(merge_message_text(body or "", customer))
     footer_text = strip_html_for_sms(merge_message_text(settings()["sms_footer_text"] or "", customer))
@@ -2486,6 +2506,8 @@ def enquiry_customer_email_text(data):
 
 def friendly_delivery_result(ok, detail, channel):
     text = str(detail or '')
+    if text.startswith('This text is too long'):
+        return False, text
     if 'demo' in text.lower():
         return ok, 'Demo only — no real message was sent.'
     if ok:
@@ -2615,6 +2637,9 @@ def _raw_send_clicksend_env_sms(to_phone, body, customer=None, category="Website
         return False, "No recipient mobile number was supplied."
     if not username or not api_key:
         return send_sms_gateway(phone, body, customer=customer, message_category=category)
+    length_error = sms_length_error(body)
+    if length_error:
+        return False, length_error
     try:
         message = {"source": "python", "to": phone, "body": body}
         if from_name:
@@ -3458,6 +3483,9 @@ def _raw_send_sms_gateway(to_phone, body, customer=None, communication_id=None, 
         return False, 'This customer has opted out of SMS. Reply START from their phone to opt back in, or remove the opt out on their customer profile.'
     body = add_sms_compliance_text(body, message_category=message_category)
     sms_text = build_sms_text(body, customer)
+    length_error = sms_length_error(sms_text)
+    if length_error:
+        return False, length_error
     if not sms_text:
         return False, 'SMS body is empty.'
     s = settings()
@@ -11428,6 +11456,7 @@ def customer_conversation(customer_id):
     return render_template('customer_conversation.html',customer=customer,messages=messages[:50],has_more=len(messages)>50,
                            page=page,search=search,draft=draft,error=error,
                            history_sync=q('SELECT * FROM clicksend_history_sync ORDER BY channel'),
+                           sms_footer_preview='' if os.environ.get('CLICKSEND_USERNAME','').strip() and os.environ.get('CLICKSEND_API_KEY','').strip() else build_sms_text('',customer),
                            history_connected=all(clicksend_history_credentials()),
                            history_unmatched=q('SELECT COUNT(*) AS count FROM clicksend_history_items WHERE customer_id IS NULL',one=True)['count'])
 

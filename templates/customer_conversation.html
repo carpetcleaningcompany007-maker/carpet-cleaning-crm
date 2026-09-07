@@ -13,6 +13,11 @@
     <p class="muted">Email: {{ customer.email or 'Not saved' }} · Text: {{ customer.phone or 'Not saved' }}{% if customer.sms_opt_out %} (SMS switched off){% endif %}</p>
     <label data-email-only>Email subject<input name="subject" value="{{ draft.subject }}"></label>
     <label>Message<textarea name="body" rows="5" required>{{ draft.body }}</textarea></label>
+    <div class="sms-length-panel" hidden data-sms-length>
+      <p data-sms-count></p><p data-sms-warning hidden>This text is too long to send safely. Your message will stay intact. Send it by email instead, or shorten it.</p>
+      <button type="button" data-switch-email {% if not customer.email %}disabled{% endif %}>Use email instead</button>
+      {% if not customer.email %}<p>Add the customer’s email address in Customer details to use email.</p>{% endif %}
+    </div>
     <p class="muted" data-email-only>For email, your saved footer is added once. Check your message before sending.</p>
     <div><button type="submit" class="btn primary">Send message</button> <a class="btn secondary" href="{{ url_for('dashboard') }}">Cancel</a></div>
   </form></details>
@@ -55,7 +60,26 @@ body.app-page .panel.conversation-page{width:100%!important;max-width:950px!impo
  const form=document.querySelector('.conversation-compose form'),channel=form?.querySelector('[name=channel]');
  if(!channel)return;
  function update(){form.querySelectorAll('[data-email-only]').forEach(el=>{el.hidden=channel.value!=='Email';});}
- channel.addEventListener('change',update);update();
+ const body=form.querySelector('[name=body]'),subject=form.querySelector('[name=subject]'),panel=form.querySelector('[data-sms-length]');
+ const footer={{ sms_footer_preview|tojson }};
+ // GSM basic characters; extended characters consume two units.
+ const gsm=new Set("@£$¥èéùìòÇ\nØø\rÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ !\"#¤%&'()*+,-./0123456789:;<=>?¡ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÑÜ§¿abcdefghijklmnopqrstuvwxyzäöñüà");
+ const extended=new Set('^{}\\[~]|€\f');
+ function lengthCheck(){
+  const isText=channel.value==='Text';panel.hidden=!isText;
+  let text=body.value+(footer?'\n\n'+footer:'');
+  const chars=Array.from(text),isGsm=chars.every(c=>gsm.has(c)||extended.has(c));
+  const units=isGsm?chars.reduce((n,c)=>n+(extended.has(c)?2:1),0):text.length;
+  const parts=units===0?0:units<=(isGsm?160:70)?1:Math.ceil(units/(isGsm?153:67));
+  const tooLong=parts>8;
+  panel.querySelector('[data-sms-count]').textContent=parts+' text part'+(parts===1?'':'s')+' · Maximum 8 parts';
+  panel.querySelector('[data-sms-warning]').hidden=!tooLong;
+  form.querySelector('button[type=submit]').disabled=isText&&tooLong;
+ }
+ panel.querySelector('[data-switch-email]').addEventListener('click',()=>{channel.value='Email';if(!subject.value.trim())subject.value='Your carpet cleaning enquiry';update();lengthCheck();subject.focus();});
+ body.addEventListener('input',lengthCheck);
+ channel.addEventListener('change',()=>{update();lengthCheck();});update();lengthCheck();
+
 })();
 </script>
 {% endblock %}
