@@ -24,6 +24,9 @@ class ReceiptTests(unittest.TestCase):
         values={'supplier':'Cleaning supplier','receipt_date':'2026-09-07','items':'Detergent','total':'24.00','vat':'4.00','currency':'GBP','notes':'Checked'}
         self.client.post(first.location,data=values);self.client.post(first.location,data=values)
         self.assertEqual(self.mod.q('SELECT count(*) n FROM expenses',one=True)['n'],1)
+        expense=self.mod.q('SELECT * FROM expenses',one=True)
+        self.assertEqual(expense['amount'],20)
+        self.assertEqual(expense['vat_amount'],4)
     def test_uncertain_amount_is_not_saved_and_invalid_file_rejected(self):
         url=self.upload().location
         response=self.client.post(url,data={'supplier':'Shop','receipt_date':'2026-09-07','total':'NaN','vat':'','currency':'GBP'})
@@ -52,6 +55,29 @@ class ReceiptTests(unittest.TestCase):
         self.assertEqual(result.status_code,200)
         self.assertIn(b"'=FORMULA",result.data)
         self.assertIn(b'Original file',result.data)
+
+    def test_excel_export_has_clickable_receipt_and_summary(self):
+        self.upload();receipt=self.mod.q('SELECT * FROM purchase_receipts',one=True)
+        self.mod.run("UPDATE purchase_receipts SET supplier='Supplier',category='Materials & chemicals',total='24.00',vat='4.00' WHERE id=?",(receipt['id'],))
+        result=self.client.get('/receipts/export.xlsx')
+        self.assertEqual(result.status_code,200)
+        self.assertIn('spreadsheetml',result.mimetype)
+        from openpyxl import load_workbook
+        book=load_workbook(io.BytesIO(result.data))
+        self.assertEqual(book.sheetnames,['Receipts','Summary'])
+        self.assertEqual(book['Receipts']['I2'].value,'Open receipt')
+        self.assertIn(f'/receipts/{receipt["id"]}/file',book['Receipts']['I2'].hyperlink.target)
+
+    def test_manual_cash_expense_without_receipt(self):
+        result=self.client.post('/expenses',data={'expense_date':'2026-09-07','category':'Fuel & travel','supplier':'Petrol station','description':'Diesel','amount':'50','vat_amount':'','payment_method':'Cash'})
+        self.assertEqual(result.status_code,302)
+        expense=self.mod.q('SELECT * FROM expenses',one=True)
+        self.assertEqual(expense['payment_method'],'Cash')
+        self.assertEqual(expense['category'],'Fuel & travel')
+        page=self.client.get('/expenses')
+        self.assertEqual(page.status_code,200)
+        self.assertIn(b'Estimated profit',page.data)
+        self.assertIn(b'Paid by cash',page.data)
 
     def test_iphone_receipt_upload_is_accepted(self):
         from pillow_heif import register_heif_opener

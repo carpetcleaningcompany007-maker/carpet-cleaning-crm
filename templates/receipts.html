@@ -2,15 +2,18 @@
 {% block page_title %}Receipts{% endblock %}
 {% block body_content %}
 <section class="panel receipt-page">
-<h2>Receipts &amp; purchases</h2><p>Upload a receipt or supplier invoice. AI suggests the details; you check them before saving an expense.</p>
+<div class="receipt-page-head"><div><span class="section-kicker">Expenses</span><h2>Receipts &amp; purchases</h2><p>Photograph a receipt and the details will be read for you, or add an expense manually.</p></div><a class="btn secondary" href="{{ url_for('expenses') }}#add-expense">Add expense manually</a></div>
+<div class="receipt-money-grid" aria-label="This year summary"><div><span>Money earned in {{ finance_summary.year }}</span><strong>£{{ '%.2f'|format(finance_summary.income) }}</strong></div><div><span>Money spent</span><strong>£{{ '%.2f'|format(finance_summary.spend) }}</strong></div><div class="receipt-profit"><span>Estimated profit</span><strong>£{{ '%.2f'|format(finance_summary.profit) }}</strong></div></div>
 <form method="post" enctype="multipart/form-data" class="receipt-form" data-receipt-upload>
 <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
 <label>Receipt photo or PDF<input type="file" name="receipt" accept="image/*,.jpg,.jpeg,.png,.webp,.heic,.heif,.avif,.tif,.tiff,.bmp,application/pdf" required></label>
 <small>iPhone screenshots and photos, JPG, PNG, WebP, HEIC or PDF · Up to 10 MB. The receipt is kept with your purchase and sent to the connected AI service for reading.</small>
-<button type="submit" class="btn primary">Upload &amp; read receipt</button><p role="status" data-receipt-progress hidden>Uploading your receipt…</p>
+<button type="submit" class="btn primary">Upload &amp; read receipt</button>
+<div class="receipt-loading" role="status" data-receipt-progress hidden><span class="receipt-spinner" aria-hidden="true"></span><strong>Uploading and saving your receipt…</strong><small>Please keep this page open. It will move on automatically.</small></div>
 </form>
-<p><a class="btn secondary" href="{{ url_for('receipts_export') }}">Export receipts to spreadsheet</a> <a href="{{ url_for('expenses') }}">View expenses</a></p>
-<div class="receipt-list">{% for receipt in receipts %}<a href="{{ url_for('receipt_review',receipt_id=receipt.id) }}"><strong>{{ receipt.supplier or receipt.original_name }}</strong><span>{{ receipt.receipt_date or 'Date to check' }} · {{ receipt.status }}{% if receipt.total %} · {{ receipt.currency }} {{ receipt.total }}{% endif %}</span></a>{% else %}<p>No receipts yet. Add your first receipt above.</p>{% endfor %}</div>
+<div class="receipt-tools"><a class="btn secondary" href="{{ url_for('receipts_export_xlsx') }}">Download Excel spreadsheet</a><a class="btn secondary" href="{{ url_for('expenses') }}">View all expenses</a></div>
+<h3>Saved receipts</h3>
+<div class="receipt-list">{% for receipt in receipts %}<div class="receipt-list-row"><a href="{{ url_for('receipt_review',receipt_id=receipt.id) }}"><strong>{{ receipt.supplier or receipt.original_name }}</strong><span>{{ receipt.receipt_date or 'Date to check' }} · {{ receipt.category or 'Category to choose' }} · {{ receipt.status }}{% if receipt.total %} · £{{ receipt.total }}{% endif %}</span></a><a class="btn secondary receipt-open" href="{{ url_for('receipt_file',receipt_id=receipt.id) }}">Open receipt</a></div>{% else %}<p>No receipts yet. Add your first receipt above.</p>{% endfor %}</div>
 </section>
 <script>document.querySelector('[data-receipt-upload]').addEventListener('submit',function(){this.querySelector('button').disabled=true;this.querySelector('[data-receipt-progress]').hidden=false;});</script>
 {% endblock %}

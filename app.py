@@ -200,9 +200,12 @@ AREA_OPTIONS = [
 ]
 
 EXPENSE_CATEGORY_OPTIONS = [
-    "Chemicals", "Fuel", "Wages", "Equipment", "Repairs", "Marketing", "Insurance",
-    "Supplies", "Office", "Laundry", "Training", "Subcontractor", "Vehicle", "Other"
+    "Materials & chemicals", "Fuel & travel", "Equipment & repairs", "Vehicle costs",
+    "Marketing", "Insurance", "Wages", "Subcontractors", "Office & admin", "Laundry",
+    "Training", "Other"
 ]
+
+EXPENSE_PAYMENT_OPTIONS = ["Not recorded", "Cash", "Business card", "Personal card", "Bank transfer", "Direct debit", "Other"]
 
 
 RECURRING_COLLECTION_OPTIONS = [
@@ -7911,7 +7914,7 @@ def init_db():
         id INTEGER PRIMARY KEY AUTOINCREMENT, filename TEXT NOT NULL, original_name TEXT NOT NULL,
         file_hash TEXT NOT NULL UNIQUE, mime_type TEXT NOT NULL, status TEXT DEFAULT 'Needs review',
         supplier TEXT DEFAULT '', receipt_date TEXT DEFAULT '', items TEXT DEFAULT '',
-        total TEXT DEFAULT '', vat TEXT DEFAULT '', currency TEXT DEFAULT '', notes TEXT DEFAULT '',
+        total TEXT DEFAULT '', vat TEXT DEFAULT '', currency TEXT DEFAULT '', category TEXT DEFAULT '', payment_method TEXT DEFAULT '', notes TEXT DEFAULT '',
         ai_error TEXT DEFAULT '', expense_id INTEGER, created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
     CREATE TABLE IF NOT EXISTS expenses (
@@ -7922,6 +7925,7 @@ def init_db():
         description TEXT,
         amount REAL DEFAULT 0,
         vat_amount REAL DEFAULT 0,
+        payment_method TEXT DEFAULT '',
         notes TEXT,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         archived_at TEXT
@@ -8496,6 +8500,9 @@ def init_db():
         ("invoices", "xero_error", "TEXT DEFAULT ''"),
         ("invoices", "xero_last_payload", "TEXT DEFAULT ''"),
         ("expenses", "archived_at", "TEXT"),
+        ("expenses", "payment_method", "TEXT DEFAULT ''"),
+        ("purchase_receipts", "category", "TEXT DEFAULT ''"),
+        ("purchase_receipts", "payment_method", "TEXT DEFAULT ''"),
         ("recurring_income", "auto_payment_rule", "TEXT DEFAULT 'Default by Method'"),
         ("sms_templates", "usage_type", "TEXT DEFAULT 'General'"),
         ("sms_templates", "auto_append_opt_out", "INTEGER DEFAULT 0"),
@@ -8591,6 +8598,26 @@ def init_db():
             cur.execute(f"ALTER TABLE {table} ADD COLUMN {col} {decl}")
         except sqlite3.OperationalError:
             pass
+    # Older receipt saves treated the displayed total as net and then added VAT
+    # again. Correct only rows that still exactly match that old save pattern.
+    conn.execute("""UPDATE expenses
+                       SET amount=ROUND(amount-vat_amount,2)
+                     WHERE id IN (SELECT expense_id FROM purchase_receipts WHERE expense_id IS NOT NULL)
+                       AND vat_amount>0
+                       AND EXISTS (
+                           SELECT 1 FROM purchase_receipts receipt
+                            WHERE receipt.expense_id=expenses.id
+                              AND ABS(CAST(receipt.total AS REAL)-expenses.amount)<0.005
+                              AND ABS(CAST(receipt.vat AS REAL)-expenses.vat_amount)<0.005
+                       )""")
+    category_changes={
+        'Chemicals':'Materials & chemicals','Supplies':'Materials & chemicals','Fuel':'Fuel & travel',
+        'Equipment':'Equipment & repairs','Repairs':'Equipment & repairs','Vehicle':'Vehicle costs',
+        'Office':'Office & admin','Subcontractor':'Subcontractors'
+    }
+    for old_category,new_category in category_changes.items():
+        conn.execute('UPDATE expenses SET category=? WHERE category=?',(new_category,old_category))
+        conn.execute('UPDATE recurring_expenses SET category=? WHERE category=?',(new_category,old_category))
     conn.execute("INSERT OR IGNORE INTO settings (id) VALUES (1)")
     conn.execute("INSERT OR IGNORE INTO business_goal_settings (id) VALUES (1)")
     conn.execute("INSERT OR IGNORE INTO pricing_config (id, data_json) VALUES (1, ?)", (json.dumps(PRICING_DEFAULTS),))
@@ -13668,8 +13695,8 @@ def export_invoices_csv():
 @login_required
 def export_expenses_csv():
     rows = q("SELECT * FROM expenses ORDER BY COALESCE(expense_date, created_at) DESC, id DESC")
-    data = [[r["id"], r["expense_date"], r["category"], r["supplier"], r["description"], r["amount"], r["vat_amount"], (float(r["amount"] or 0) + float(r["vat_amount"] or 0)), r["notes"], r["created_at"], r["archived_at"]] for r in rows]
-    return export_rows_to_csv("expenses_export", ["ID", "Expense Date", "Category", "Supplier", "Description", "Net Amount", "VAT Amount", "Gross Amount", "Notes", "Created At", "Archived At"], data)
+    data = [[r["id"], r["expense_date"], r["category"], r["payment_method"], r["supplier"], r["description"], r["amount"], r["vat_amount"], (float(r["amount"] or 0) + float(r["vat_amount"] or 0)), r["notes"], r["created_at"], r["archived_at"]] for r in rows]
+    return export_rows_to_csv("expenses_export", ["ID", "Expense Date", "Category", "Payment Method", "Supplier", "Description", "Net Amount", "VAT Amount", "Gross Amount", "Notes", "Created At", "Archived At"], data)
 
 
 @app.route("/backup/download")
@@ -14523,7 +14550,10 @@ def receipts():
             receipt=q('SELECT * FROM purchase_receipts WHERE id=?',(rid,),one=True)
             return redirect(url_for('receipt_review',receipt_id=rid,read='1'))
         except ValueError as exc:flash(str(exc))
-    return render_template('receipts.html',receipts=q('SELECT * FROM purchase_receipts ORDER BY id DESC LIMIT 100'))
+    year_start=date.today().replace(month=1,day=1).isoformat()
+    income=float(q("SELECT COALESCE(SUM(total),0) total FROM invoices WHERE lower(IFNULL(status,''))='paid' AND date(COALESCE(invoice_date,created_at))>=date(?)",(year_start,),one=True)['total'] or 0)
+    spend=float(q("SELECT COALESCE(SUM(amount+vat_amount),0) total FROM expenses WHERE archived_at IS NULL AND date(COALESCE(expense_date,created_at))>=date(?)",(year_start,),one=True)['total'] or 0)
+    return render_template('receipts.html',receipts=q('SELECT * FROM purchase_receipts ORDER BY id DESC LIMIT 100'),finance_summary={'income':income,'spend':spend,'profit':income-spend,'year':date.today().year})
 
 
 @app.route('/receipts/<int:receipt_id>',methods=['GET','POST'])
@@ -14535,26 +14565,30 @@ def receipt_review(receipt_id):
     if request.method=='POST' and not receipt['expense_id']:
         if request.form.get('action')=='read':
             return redirect(url_for('receipt_review',receipt_id=receipt_id,read='1'))
-        fields=('supplier','receipt_date','items','total','vat','currency','notes')
+        fields=('supplier','receipt_date','items','total','vat','currency','category','payment_method','notes')
         values={f:clean_str(request.form.get(f)) for f in fields}
-        run('UPDATE purchase_receipts SET supplier=?,receipt_date=?,items=?,total=?,vat=?,currency=?,notes=? WHERE id=?',tuple(values[f] for f in fields)+(receipt_id,))
-        total=parse_money(values['total']);vat=parse_money(values['vat'])
+        values['currency']='GBP'
+        values['category']=values['category'] if values['category'] in EXPENSE_CATEGORY_OPTIONS else 'Other'
+        values['payment_method']=values['payment_method'] if values['payment_method'] in EXPENSE_PAYMENT_OPTIONS else 'Not recorded'
+        run('UPDATE purchase_receipts SET supplier=?,receipt_date=?,items=?,total=?,vat=?,currency=?,category=?,payment_method=?,notes=? WHERE id=?',tuple(values[f] for f in fields)+(receipt_id,))
+        total=parse_money(values['total']);vat=parse_money(values['vat']) if values['vat'] else 0.0
         valid_date=parse_iso_date(values['receipt_date'])
-        if not values['supplier'] or not valid_date or total is None or vat is None or not (0<=vat<=total<100000000) or values['currency'].upper()!='GBP':
-            error='Check supplier, date, total and VAT (enter 0 only if confirmed). Expenses currently use GBP; please confirm the currency is GBP.'
+        if not values['supplier'] or not valid_date or total is None or vat is None or not (0<=vat<=total<100000000):
+            error='Check the supplier, date and total paid. VAT can be left blank.'
         else:
             conn=db();conn.execute('BEGIN IMMEDIATE')
             try:
                 current=conn.execute('SELECT expense_id FROM purchase_receipts WHERE id=?',(receipt_id,)).fetchone()
                 if not current['expense_id']:
-                    cur=conn.execute('INSERT INTO expenses(expense_date,category,supplier,description,amount,vat_amount,notes) VALUES (?,?,?,?,?,?,?)',(values['receipt_date'],'Other',values['supplier'],values['items'],total,vat,values['notes']+'\nReceipt: /receipts/'+str(receipt_id)))
+                    net=round(total-vat,2)
+                    cur=conn.execute('INSERT INTO expenses(expense_date,category,supplier,description,amount,vat_amount,payment_method,notes) VALUES (?,?,?,?,?,?,?,?)',(values['receipt_date'],values['category'],values['supplier'],values['items'],net,vat,values['payment_method'],values['notes']+'\nReceipt: /receipts/'+str(receipt_id)))
                     conn.execute("UPDATE purchase_receipts SET expense_id=?,status='Saved',ai_error='' WHERE id=?",(cur.lastrowid,receipt_id))
                 conn.commit()
             except Exception:conn.rollback();raise
-            flash('Receipt and reviewed expense saved.')
-            return redirect(url_for('receipt_review',receipt_id=receipt_id))
+            flash('Saved successfully — the receipt is now in your expenses and spreadsheet.')
+            return redirect(url_for('receipt_review',receipt_id=receipt_id,saved='1'))
     receipt=q('SELECT * FROM purchase_receipts WHERE id=?',(receipt_id,),one=True)
-    return render_template('receipt_review.html',receipt=receipt,error=error)
+    return render_template('receipt_review.html',receipt=receipt,error=error,expense_categories=EXPENSE_CATEGORY_OPTIONS,payment_options=EXPENSE_PAYMENT_OPTIONS)
 
 
 receipt_read_threads = {}
@@ -14602,12 +14636,47 @@ def receipts_export():
     return Response('\ufeff'+output.getvalue(),mimetype='text/csv',headers={'Content-Disposition':'attachment; filename="receipts.csv"','Cache-Control':'no-store'})
 
 
+@app.route('/receipts/export.xlsx')
+@login_required
+def receipts_export_xlsx():
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Font, PatternFill
+    from openpyxl.worksheet.table import Table, TableStyleInfo
+    rows=q('SELECT * FROM purchase_receipts ORDER BY receipt_date DESC,id DESC')
+    workbook=Workbook();sheet=workbook.active;sheet.title='Receipts'
+    sheet.append(['Date','Category','Paid by','Supplier','Items','Total paid','VAT','Status','Receipt'])
+    def safe_cell(value):
+        text=str(value or '')
+        return "'"+text if text.lstrip().startswith(('=','+','-','@')) else text
+    for receipt in rows:
+        sheet.append([safe_cell(receipt['receipt_date']),safe_cell(receipt['category'] or 'Other'),safe_cell(receipt['payment_method']),safe_cell(receipt['supplier']),safe_cell(receipt['items']),parse_money(receipt['total']) or 0,parse_money(receipt['vat']) or 0,safe_cell(receipt['status']),'Open receipt'])
+        cell=sheet.cell(sheet.max_row,9);cell.hyperlink=url_for('receipt_file',receipt_id=receipt['id'],_external=True);cell.style='Hyperlink'
+    navy='173C56'
+    for cell in sheet[1]:cell.font=Font(bold=True,color='FFFFFF');cell.fill=PatternFill('solid',fgColor=navy)
+    sheet.freeze_panes='A2';sheet.auto_filter.ref=sheet.dimensions
+    for index,width in enumerate((13,24,18,25,42,14,12,16,18),1):sheet.column_dimensions[chr(64+index)].width=width
+    for row in sheet.iter_rows(min_row=2):
+        row[4].alignment=Alignment(wrap_text=True,vertical='top');row[5].number_format='£#,##0.00';row[6].number_format='£#,##0.00'
+    if rows:
+        table=Table(displayName='ReceiptTable',ref=f'A1:I{sheet.max_row}');table.tableStyleInfo=TableStyleInfo(name='TableStyleMedium2',showRowStripes=True,showColumnStripes=False);sheet.add_table(table)
+    summary=workbook.create_sheet('Summary');summary.append(['Category','Total spent'])
+    totals={}
+    for receipt in rows:
+        category=receipt['category'] or 'Other';totals[category]=totals.get(category,0)+(parse_money(receipt['total']) or 0)
+    for category,total in sorted(totals.items(),key=lambda item:item[1],reverse=True):summary.append([category,total])
+    for cell in summary[1]:cell.font=Font(bold=True,color='FFFFFF');cell.fill=PatternFill('solid',fgColor=navy)
+    summary.column_dimensions['A'].width=28;summary.column_dimensions['B'].width=16
+    for cell in summary['B'][1:]:cell.number_format='£#,##0.00'
+    output=io.BytesIO();workbook.save(output);output.seek(0)
+    return send_file(output,mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',as_attachment=True,download_name='receipts.xlsx')
+
+
 @app.route('/receipts/<int:receipt_id>/file')
 @login_required
 def receipt_file(receipt_id):
     receipt=q('SELECT * FROM purchase_receipts WHERE id=?',(receipt_id,),one=True)
     if not receipt:abort(404)
-    return send_from_directory(os.path.join(app.config['UPLOAD_FOLDER'],'receipts'),receipt['filename'],mimetype=receipt['mime_type'],as_attachment=True,download_name=receipt['original_name'])
+    return send_from_directory(os.path.join(app.config['UPLOAD_FOLDER'],'receipts'),receipt['filename'],mimetype=receipt['mime_type'],as_attachment=False,download_name=receipt['original_name'])
 
 
 @app.route("/expenses", methods=["GET", "POST"])
@@ -14617,43 +14686,57 @@ def expenses():
     edit_id = int(request.args.get('edit') or 0)
     if request.method == 'POST':
         expense_date = clean_str(request.form.get('expense_date')) or date.today().isoformat()
-        category = clean_str(request.form.get('category')) or 'Other'
+        category = clean_str(request.form.get('category'))
         supplier = clean_str(request.form.get('supplier'))
         description = clean_str(request.form.get('description'))
         notes = clean_str(request.form.get('notes'))
-        amount = parse_money(request.form.get('amount'))
+        payment_method = clean_str(request.form.get('payment_method'))
+        if category not in EXPENSE_CATEGORY_OPTIONS:
+            flash('Please choose an expense category.')
+            return redirect(url_for('expenses', view=view))
+        if payment_method not in EXPENSE_PAYMENT_OPTIONS:
+            payment_method='Not recorded'
+        total_paid = parse_money(request.form.get('amount'))
         vat_amount = parse_money(request.form.get('vat_amount'))
-        if amount is None or amount < 0:
+        if total_paid is None or total_paid < 0:
             flash('Please enter a valid expense amount.')
             return redirect(url_for('expenses', view=view))
         if vat_amount is None or vat_amount < 0:
             vat_amount = 0.0
-        run("INSERT INTO expenses (expense_date, category, supplier, description, amount, vat_amount, notes) VALUES (?,?,?,?,?,?,?)",
-            (expense_date, category, supplier, description, amount, vat_amount, notes))
-        flash('Expense added.')
+        if vat_amount > total_paid:
+            flash('VAT cannot be more than the total paid.')
+            return redirect(url_for('expenses', view=view))
+        amount=round(total_paid-vat_amount,2)
+        run("INSERT INTO expenses (expense_date, category, supplier, description, amount, vat_amount, payment_method, notes) VALUES (?,?,?,?,?,?,?,?)",
+            (expense_date, category, supplier, description, amount, vat_amount, payment_method, notes))
+        flash('Cash expense saved.' if payment_method=='Cash' else 'Expense saved.')
         return redirect(url_for('expenses', view=view))
     where_clause = list_scope_clause('expenses', view, archived_column='archived_at')
-    rows = q(f"SELECT * FROM expenses WHERE {where_clause} ORDER BY COALESCE(expense_date, created_at) DESC, id DESC")
+    rows = q(f"SELECT expenses.*, purchase_receipts.id AS receipt_id FROM expenses LEFT JOIN purchase_receipts ON purchase_receipts.expense_id=expenses.id WHERE {where_clause} ORDER BY COALESCE(expenses.expense_date, expenses.created_at) DESC, expenses.id DESC")
     totals = {
         'amount': round(sum(float(r['amount'] or 0) for r in rows), 2),
         'vat': round(sum(float(r['vat_amount'] or 0) for r in rows), 2),
     }
     totals['gross'] = round(totals['amount'] + totals['vat'], 2)
+    year_start=date.today().replace(month=1,day=1).isoformat()
+    year_income=float(q("SELECT COALESCE(SUM(total),0) total FROM invoices WHERE lower(IFNULL(status,''))='paid' AND date(COALESCE(invoice_date,created_at))>=date(?)",(year_start,),one=True)['total'] or 0)
+    year_spend=float(q("SELECT COALESCE(SUM(amount+vat_amount),0) total FROM expenses WHERE archived_at IS NULL AND date(COALESCE(expense_date,created_at))>=date(?)",(year_start,),one=True)['total'] or 0)
+    finance_summary={'income':year_income,'spend':year_spend,'profit':year_income-year_spend,'year':date.today().year}
     supplier_summary = q("""SELECT COALESCE(NULLIF(TRIM(supplier),''), 'Unassigned') AS name,
-                             ROUND(SUM(amount),2) AS total, COUNT(*) AS item_count
+                             ROUND(SUM(amount+vat_amount),2) AS total, COUNT(*) AS item_count
                           FROM expenses WHERE archived_at IS NULL
                           GROUP BY COALESCE(NULLIF(TRIM(supplier),''), 'Unassigned')
                           ORDER BY total DESC, item_count DESC LIMIT 8""")
     category_summary = q("""SELECT COALESCE(NULLIF(TRIM(category),''), 'Other') AS name,
-                             ROUND(SUM(amount),2) AS total, COUNT(*) AS item_count
+                             ROUND(SUM(amount+vat_amount),2) AS total, COUNT(*) AS item_count
                           FROM expenses WHERE archived_at IS NULL
                           GROUP BY COALESCE(NULLIF(TRIM(category),''), 'Other')
                           ORDER BY total DESC, item_count DESC LIMIT 8""")
     recurring_rows = q("SELECT * FROM recurring_expenses ORDER BY archived_at IS NOT NULL, date(IFNULL(next_due_date,start_date)) ASC, id DESC")
     edit_expense = q("SELECT * FROM expenses WHERE id=?", (edit_id,), one=True) if edit_id else None
-    return render_template('expenses.html', expenses=rows, expense_view=view, expense_categories=EXPENSE_CATEGORY_OPTIONS,
+    return render_template('expenses.html', expenses=rows, expense_view=view, expense_categories=EXPENSE_CATEGORY_OPTIONS,payment_options=EXPENSE_PAYMENT_OPTIONS,
                            recurring_options=recurring_frequency_options(), totals=totals, supplier_summary=supplier_summary,
-                           category_summary=category_summary, recurring_rows=recurring_rows, edit_expense=edit_expense)
+                           category_summary=category_summary, recurring_rows=recurring_rows, edit_expense=edit_expense,finance_summary=finance_summary)
 
 
 @app.route('/expenses/<int:expense_id>/edit', methods=['POST'])
@@ -14668,15 +14751,25 @@ def expense_edit(expense_id):
     supplier = clean_str(request.form.get('supplier'))
     description = clean_str(request.form.get('description'))
     notes = clean_str(request.form.get('notes'))
-    amount = parse_money(request.form.get('amount'))
+    payment_method = clean_str(request.form.get('payment_method'))
+    if category not in EXPENSE_CATEGORY_OPTIONS:
+        flash('Please choose an expense category.')
+        return redirect(url_for('expenses', edit=expense_id))
+    if payment_method not in EXPENSE_PAYMENT_OPTIONS:
+        payment_method='Not recorded'
+    total_paid = parse_money(request.form.get('amount'))
     vat_amount = parse_money(request.form.get('vat_amount'))
-    if amount is None or amount < 0:
+    if total_paid is None or total_paid < 0:
         flash('Please enter a valid expense amount.')
         return redirect(url_for('expenses', edit=expense_id))
     if vat_amount is None or vat_amount < 0:
         vat_amount = 0.0
-    run("UPDATE expenses SET expense_date=?, category=?, supplier=?, description=?, amount=?, vat_amount=?, notes=? WHERE id=?",
-        (expense_date, category, supplier, description, amount, vat_amount, notes, expense_id))
+    if vat_amount > total_paid:
+        flash('VAT cannot be more than the total paid.')
+        return redirect(url_for('expenses', edit=expense_id))
+    amount=round(total_paid-vat_amount,2)
+    run("UPDATE expenses SET expense_date=?, category=?, supplier=?, description=?, amount=?, vat_amount=?, payment_method=?, notes=? WHERE id=?",
+        (expense_date, category, supplier, description, amount, vat_amount, payment_method, notes, expense_id))
     flash('Expense updated.')
     return redirect(url_for('expenses'))
 

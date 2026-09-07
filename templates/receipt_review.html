@@ -2,38 +2,40 @@
 {% block page_title %}Review receipt
 {% endblock %}
 {% block body_content %}
-<section class="panel receipt-page"><a href="{{ url_for('receipts') }}">← All receipts</a>
-<div data-reading-status role="status" hidden>Receipt uploaded and saved. AI is reading it…</div>
+<section class="panel receipt-page"><div class="receipt-tools"><a class="btn secondary" href="{{ url_for('receipts') }}">← Back to receipts</a><a class="btn secondary" href="{{ url_for('expenses') }}">All expenses</a></div>
+<div data-reading-status class="receipt-loading" role="status" hidden><span class="receipt-spinner" aria-hidden="true"></span><strong>Receipt saved. Reading the details…</strong><small>Please keep this page open. The form will appear automatically.</small></div>
 <h2>{{ 'Saved receipt' if receipt.expense_id else 'Check your receipt' }}</h2>
-<p><a class="btn secondary" href="{{ url_for('receipt_file',receipt_id=receipt.id) }}">Open / download original</a></p>
+<p><a class="btn secondary" href="{{ url_for('receipt_file',receipt_id=receipt.id) }}">Open receipt</a></p>
 {% if receipt.ai_error %}<div class="receipt-read-result receipt-read-error" role="alert"><strong>Receipt reading failed</strong><p>{{ receipt.ai_error }}</p></div>
 {% elif receipt.supplier or receipt.receipt_date or receipt.items or receipt.total %}<div class="receipt-read-result" role="status"><strong>Saved receipt details</strong><p>The details below are stored with your original receipt. Check them before confirming the expense.</p></div>
 {% else %}<div class="receipt-read-result receipt-read-error"><strong>No receipt details extracted yet</strong><p>Your original file is saved, but the fields below have not been filled in. Use “Read receipt with AI” to start reading the picture.</p></div>{% endif %}
 {% if error %}<p role="alert">{{ error }}</p>{% endif %}
-{% if not receipt.expense_id %}<p>These are suggestions. Compare with the original and correct anything unclear before saving.</p>{% endif %}
+{% if request.args.get('saved')=='1' or receipt.expense_id %}<div class="receipt-save-success" role="status"><strong>✓ Saved successfully</strong><p>This purchase is in your expenses and will be included in the Excel spreadsheet.</p></div>{% endif %}
+{% if not receipt.expense_id %}<p>Check the main details, choose a category and press save. VAT is optional.</p>{% endif %}
 <form method="post" class="receipt-form">
 <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
 <fieldset {% if receipt.expense_id %}disabled{% endif %}>
 <label>Supplier<input name="supplier" value="{{ receipt.supplier }}" required></label>
 <label>Date<input name="receipt_date" type="date" value="{{ receipt.receipt_date }}" required></label>
+<div class="receipt-amounts"><label>Total paid<input name="total" type="number" step="0.01" min="0" inputmode="decimal" value="{{ receipt.total }}" required></label><label>Category<select name="category" required>{% for item in expense_categories %}<option value="{{ item }}" {% if (receipt.category or 'Other')==item %}selected{% endif %}>{{ item }}</option>{% endfor %}</select></label><label>Paid by<select name="payment_method">{% for item in payment_options %}<option value="{{ item }}" {% if receipt.payment_method==item %}selected{% endif %}>{{ item }}</option>{% endfor %}</select></label></div>
 <label>Items purchased<textarea name="items" rows="4">{{ receipt.items }}</textarea></label>
-<div class="receipt-amounts"><label>Total paid<input name="total" inputmode="decimal" value="{{ receipt.total }}" required></label><label>VAT shown<input name="vat" inputmode="decimal" value="{{ receipt.vat }}" required></label><label>Currency<input name="currency" value="{{ receipt.currency }}" placeholder="GBP" required></label></div>
-<label>Notes / things to check<textarea name="notes" rows="3">{{ receipt.notes }}</textarea></label>
+<input type="hidden" name="currency" value="GBP">
+<details class="receipt-more"><summary>More details (optional)</summary><label>VAT shown on receipt<input name="vat" type="number" step="0.01" min="0" inputmode="decimal" value="{{ receipt.vat }}" placeholder="Leave blank if not shown"></label><label>Notes<textarea name="notes" rows="3">{{ receipt.notes }}</textarea></label></details>
 </fieldset>
-{% if not receipt.expense_id %}<button class="btn primary" type="submit">Confirm &amp; save expense</button>{% endif %}
+{% if not receipt.expense_id %}<button class="btn primary" type="submit">Save expense</button>{% endif %}
 </form>
-{% if not receipt.expense_id %}<form method="post"><input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><button class="btn secondary" name="action" value="read">Read receipt with AI</button></form>{% else %}<p><a href="{{ url_for('expenses',edit=receipt.expense_id) }}">View or edit saved expense</a></p>{% endif %}
+{% if not receipt.expense_id %}<form method="post"><input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><button class="btn secondary" name="action" value="read">Read receipt again</button></form>{% else %}<div class="receipt-tools"><a class="btn primary" href="{{ url_for('receipts') }}">Upload another receipt</a><a class="btn secondary" href="{{ url_for('expenses',edit=receipt.expense_id) }}">View or edit expense</a></div>{% endif %}
 </section>
 <script>
 (function(){
  const shouldRead={{ (request.args.get('read')=='1')|tojson }};
  if(!shouldRead)return;
  const status=document.querySelector('[data-reading-status]');status.hidden=false;
- const forms=document.querySelectorAll('.receipt-page form');forms.forEach(f=>f.querySelectorAll('button,input,textarea').forEach(e=>e.disabled=true));
+ const forms=document.querySelectorAll('.receipt-page form');forms.forEach(f=>f.querySelectorAll('button,input,textarea,select').forEach(e=>e.disabled=true));
  const endpoint={{ url_for('receipt_reading',receipt_id=receipt.id)|tojson }};
  const token=document.querySelector('meta[name=csrf-token]').content;
  let polls=0;
- function failed(){status.textContent='Your file is saved, but reading could not finish. Refresh this page to try again or enter the details.';forms.forEach(f=>f.querySelectorAll('button,input,textarea').forEach(e=>e.disabled=false));}
+ function failed(){status.innerHTML='<strong>Your receipt is saved, but reading could not finish.</strong><small>Use “Read receipt again” or enter the details manually.</small>';forms.forEach(f=>f.querySelectorAll('button,input,textarea,select').forEach(e=>e.disabled=false));}
  async function poll(){try{const r=await fetch(endpoint);if(!r.ok)throw Error();const data=await r.json();if(!data.reading){location.replace({{ url_for('receipt_review',receipt_id=receipt.id)|tojson }});return;}if(++polls>45){failed();return;}setTimeout(poll,2000);}catch(e){failed();}}
  fetch(endpoint,{method:'POST',headers:{'X-CSRF-Token':token}}).then(r=>{if(!r.ok)throw Error();setTimeout(poll,1500);}).catch(failed);
 })();
