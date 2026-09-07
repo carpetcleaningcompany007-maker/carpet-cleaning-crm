@@ -1,6 +1,12 @@
 {% extends "layout.html" %}
 {% block page_title %}Customer Record{% endblock %}
 {% block body_content %}
+<section class="contact-conversation-access" aria-label="Customer messages">
+<div><strong>Messages &amp; history</strong><span>{{ customer.first_name }} {{ customer.last_name }} · Email and text conversations</span></div>
+<a class="contact-message-primary" href="{{ url_for('customer_conversation',customer_id=customer.id) }}">Open messages &amp; history</a>
+<a href="{{ url_for('customer_conversation_download',customer_id=customer.id) }}">Download conversation</a>
+</section>
+
 {% set is_archived = customer.archived_at is defined and customer.archived_at %}
 {% set xero_identity_ready = customer.first_name and customer.last_name and (customer.phone or customer.email) %}
 {% set xero_decision_needed = xero_identity_ready and (not customer.address or not customer.postcode) %}

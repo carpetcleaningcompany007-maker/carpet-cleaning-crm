@@ -2,7 +2,7 @@
 {% block page_title %}Conversation{% endblock %}
 {% block body_content %}
 <section class="panel conversation-page">
-  <header class="conversation-heading"><span class="conversation-eyebrow">Customer conversation</span><h2>{{ customer.first_name }} {{ customer.last_name }}</h2><p>Email and text history · UK times</p><a href="{{ url_for('customer_view',customer_id=customer.id) }}">Customer details</a></header>
+  <header class="conversation-heading"><span class="conversation-eyebrow">Customer conversation</span><h2>{{ customer.first_name }} {{ customer.last_name }}</h2><p>Email and text history · UK times</p><a href="{{ url_for('customer_view',customer_id=customer.id) }}">Customer details</a> · <a href="{{ url_for('customer_conversation_download',customer_id=customer.id) }}">Download conversation</a></header>
 
   <form method="get" class="conversation-search"><input name="search" value="{{ search }}" placeholder="Find something said…" aria-label="Search conversation"><button class="btn secondary">Search</button></form>
   <details class="conversation-compose" {% if error or draft.body %}open{% endif %}><summary>Write a message</summary>

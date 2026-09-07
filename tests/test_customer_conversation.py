@@ -81,3 +81,15 @@ class CustomerConversationTests(unittest.TestCase):
         self.assertIn('couldn’t confirm',text)
         ok,text=self.mod.friendly_delivery_result(True,'Demo SMS marked as sent','text message')
         self.assertIn('no real message',text)
+
+    def test_download_contains_only_selected_customer_history(self):
+        self.mod.log_sms_event(self.customer,None,'Test','inbound','','','Their reply',direction='inbound')
+        other=self.mod.run("INSERT INTO customers(first_name,last_name) VALUES ('Other','Customer')")
+        self.mod.log_sms_event(other,None,'Test','inbound','','','Private other reply',direction='inbound')
+        response=self.client.get(f'/customers/{self.customer}/conversation/download')
+        self.assertEqual(response.status_code,200)
+        self.assertIn('attachment',response.headers['Content-Disposition'])
+        self.assertIn(b'Their reply',response.data)
+        self.assertNotIn(b'Private other reply',response.data)
+        self.assertEqual(self.mod.app.test_client().get(f'/customers/{self.customer}/conversation/download').status_code,302)
+        self.assertIn(b'Open messages &amp; history',self.client.get(f'/customers/{self.customer}').data)

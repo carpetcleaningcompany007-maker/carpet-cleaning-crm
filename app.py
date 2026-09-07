@@ -151,7 +151,7 @@ def add_website_form_cors_headers(response):
         response.headers["Cache-Control"] = "no-store, private, max-age=0, must-revalidate"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
-        response.headers["X-CRM-UI-Version"] = "20260907.15"
+        response.headers["X-CRM-UI-Version"] = "20260907.16"
     elif request.path == "/static/crm-redesign.css":
         response.headers["Cache-Control"] = "no-cache, max-age=0, must-revalidate"
     return response
@@ -11349,6 +11349,29 @@ def customer_conversation_rows(customer_id=None, today_only=False, search='', li
         item['body']=strip_html_for_sms(item['body']) if '<html' in (item['body'] or '').lower() else item['body']
         result.append(item)
     return result
+
+
+@app.route('/customers/<int:customer_id>/conversation/download')
+@login_required
+def customer_conversation_download(customer_id):
+    customer=q('SELECT * FROM customers WHERE id=?',(customer_id,),one=True)
+    if not customer:
+        abort(404)
+    lines=[customer_full_name(customer), 'Email and text conversation history', 'Times shown in UK local time.', '']
+    offset=0
+    while True:
+        rows=customer_conversation_rows(customer_id,limit=500,offset=offset)
+        for message in rows:
+            lines.extend([f"{message['display_time']} | {message['channel']} | {message['direction']} | {message['status']}",
+                          message['subject'] or '', message['body'] or '(No message text)', '', '-'*48, ''])
+        if len(rows)<500:
+            break
+        offset+=500
+    if len(lines)==4:
+        lines.append('No messages recorded for this customer.')
+    return Response('\n'.join(lines),mimetype='text/plain',headers={
+        'Content-Disposition':f'attachment; filename="customer-{customer_id}-conversation.txt"',
+        'Cache-Control':'no-store'})
 
 
 @app.route('/customers/<int:customer_id>/conversation', methods=['GET','POST'])
