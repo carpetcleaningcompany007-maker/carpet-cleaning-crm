@@ -10,9 +10,9 @@
     <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
     <label>Send by<select name="channel"><option {% if draft.channel=='Email' %}selected{% endif %}>Email</option><option {% if draft.channel=='Text' %}selected{% endif %}>Text</option></select></label>
     <p class="muted">Email: {{ customer.email or 'Not saved' }} · Text: {{ customer.phone or 'Not saved' }}{% if customer.sms_opt_out %} (SMS switched off){% endif %}</p>
-    <label>Email subject<input name="subject" value="{{ draft.subject }}"></label>
+    <label data-email-only>Email subject<input name="subject" value="{{ draft.subject }}"></label>
     <label>Message<textarea name="body" rows="5" required>{{ draft.body }}</textarea></label>
-    <p class="muted">For email, your saved footer is added once. Check your message before sending.</p>
+    <p class="muted" data-email-only>For email, your saved footer is added once. Check your message before sending.</p>
     <button type="submit" class="btn primary">Send message</button>
   </form></details>
   <p class="muted">Newest first. Email replies appear when the connected inbox syncs; text replies require the SMS provider connection. Older entries marked “Recorded” do not confirm delivery.</p>
@@ -26,6 +26,14 @@
   <nav>{% if page>1 %}<a href="{{ url_for('customer_conversation',customer_id=customer.id,page=page-1,search=search) }}">Newer messages</a>{% endif %} {% if has_more %}<a href="{{ url_for('customer_conversation',customer_id=customer.id,page=page+1,search=search) }}">Older messages</a>{% endif %}</nav>
 </section>
 <style>
-body.app-page .panel.conversation-page{width:100%!important;max-width:950px!important;min-width:0!important;box-sizing:border-box;margin-inline:auto!important}.conversation-search{display:flex;gap:8px;margin:16px 0}.conversation-search input{min-width:0;flex:1}.conversation-compose{padding:12px;margin-bottom:18px}.conversation-compose summary{cursor:pointer}.conversation-compose .form{display:grid;gap:10px}.conversation-compose label{display:grid;gap:5px}.conversation-compose textarea{width:100%;min-height:120px}.conversation-history{display:grid;gap:12px}.conversation-message{padding:14px;border:1px solid #dce5ed;border-radius:10px;background:#f4f8fc}.conversation-message.received{background:#fff;border-left:3px solid #207a60}.conversation-message header{display:flex;flex-wrap:wrap;gap:6px 18px;justify-content:space-between;font-size:13px}.conversation-message h3{font-size:16px;margin:9px 0}.conversation-body{white-space:pre-wrap;overflow-wrap:anywhere;margin:8px 0;line-height:1.5}.conversation-page nav{display:flex;justify-content:space-between;margin-top:16px}
+body.app-page .panel.conversation-page{width:100%!important;max-width:950px!important;min-width:0!important;box-sizing:border-box;margin-inline:auto!important}.conversation-search{display:flex;gap:8px;margin:16px 0}.conversation-search input{min-width:0;flex:1}.conversation-compose{padding:12px;margin-bottom:18px}.conversation-compose summary{cursor:pointer}.conversation-compose .form{display:grid;gap:10px}.conversation-compose [hidden]{display:none!important}.conversation-compose label{display:grid;gap:5px}.conversation-compose textarea{width:100%;min-height:120px}.conversation-history{display:grid;gap:12px}.conversation-message{padding:14px;border:1px solid #dce5ed;border-radius:10px;background:#f4f8fc}.conversation-message.received{background:#fff;border-left:3px solid #207a60}.conversation-message header{display:flex;flex-wrap:wrap;gap:6px 18px;justify-content:space-between;font-size:13px}.conversation-message h3{font-size:16px;margin:9px 0}.conversation-body{white-space:pre-wrap;overflow-wrap:anywhere;margin:8px 0;line-height:1.5}.conversation-page nav{display:flex;justify-content:space-between;margin-top:16px}
 </style>
+<script>
+(function(){
+ const form=document.querySelector('.conversation-compose form'),channel=form?.querySelector('[name=channel]');
+ if(!channel)return;
+ function update(){form.querySelectorAll('[data-email-only]').forEach(el=>{el.hidden=channel.value!=='Email';});}
+ channel.addEventListener('change',update);update();
+})();
+</script>
 {% endblock %}
