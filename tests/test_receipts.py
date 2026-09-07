@@ -15,7 +15,7 @@ class ReceiptTests(unittest.TestCase):
             return self.client.post('/receipts',data={'receipt':(self.picture(),'receipt.png')},content_type='multipart/form-data')
     def test_upload_duplicate_review_save_and_private_original(self):
         first=self.upload();self.assertEqual(first.status_code,302)
-        second=self.upload();self.assertEqual(first.location.split('?')[0],second.location)
+        second=self.upload();self.assertEqual(first.location.split('?')[0],second.location.split('?')[0])
         self.assertEqual(self.mod.q('SELECT count(*) n FROM purchase_receipts',one=True)['n'],1)
         rid=self.mod.q('SELECT id FROM purchase_receipts',one=True)['id']
         self.assertEqual(self.mod.q('SELECT count(*) n FROM expenses',one=True)['n'],0)
@@ -70,3 +70,34 @@ class ReceiptTests(unittest.TestCase):
         self.assertEqual(updated['status'],'Needs review')
         self.assertEqual(updated['ai_error'],'AI connection unavailable')
         self.assertTrue(os.path.isfile(os.path.join(self.mod.app.config['UPLOAD_FOLDER'],'receipts',updated['filename'])))
+
+    def test_duplicate_unread_receipt_retries_but_preserves_reviewed_fields(self):
+        self.upload()
+        self.assertIn('read=1',self.upload().location)
+        self.mod.run("UPDATE purchase_receipts SET supplier='My correction'")
+        self.assertNotIn('read=1',self.upload().location)
+
+    def test_empty_ai_result_is_visible_failure(self):
+        self.upload();receipt=self.mod.q('SELECT * FROM purchase_receipts',one=True)
+        response=MagicMock();response.__enter__.return_value.read.return_value=json.dumps({'output_text':json.dumps(dict.fromkeys(('supplier','receipt_date','items','total','vat','currency','notes'),''))}).encode()
+        with patch.dict(os.environ,{'OPENAI_API_KEY':'test'}),patch.object(self.mod.urllib.request,'urlopen',return_value=response):
+            self.mod.read_receipt_background(receipt['id'])
+        page=self.client.get('/receipts/'+str(receipt['id']))
+        self.assertIn(b'No receipt details could be read',page.data)
+        self.assertIn(b'Receipt reading failed',page.data)
+        self.assertEqual(self.mod.q('SELECT count(*) n FROM expenses',one=True)['n'],0)
+
+    def test_reading_endpoint_persists_and_displays_extracted_details(self):
+        self.upload();receipt=self.mod.q('SELECT * FROM purchase_receipts',one=True)
+        result=dict(supplier='Receipt test supplier',receipt_date='2026-09-07',items='Carpet detergent',total='24.00',vat='4.00',currency='GBP',notes='')
+        response=MagicMock();response.__enter__.return_value.read.return_value=json.dumps({'output_text':json.dumps(result)}).encode()
+        endpoint='/receipts/'+str(receipt['id'])+'/reading'
+        with patch.dict(os.environ,{'OPENAI_API_KEY':'test'}),patch.object(self.mod.urllib.request,'urlopen',return_value=response):
+            started=self.client.post(endpoint)
+            self.assertEqual(started.status_code,200)
+            self.mod.receipt_read_threads[receipt['id']].join(timeout=5)
+        self.assertFalse(self.client.get(endpoint).json['reading'])
+        page=self.client.get('/receipts/'+str(receipt['id']))
+        for value in ('Receipt test supplier','Carpet detergent','24.00','4.00','Saved receipt details'):
+            self.assertIn(value.encode(),page.data)
+        self.assertEqual(self.mod.q('SELECT count(*) n FROM expenses',one=True)['n'],0)
