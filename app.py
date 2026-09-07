@@ -151,7 +151,7 @@ def add_website_form_cors_headers(response):
         response.headers["Cache-Control"] = "no-store, private, max-age=0, must-revalidate"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
-        response.headers["X-CRM-UI-Version"] = "20260907.7"
+        response.headers["X-CRM-UI-Version"] = "20260907.8"
     elif request.path == "/static/crm-redesign.css":
         response.headers["Cache-Control"] = "no-cache, max-age=0, must-revalidate"
     return response
@@ -11071,7 +11071,7 @@ def company_branding():
                     picture.convert('RGBA').save(os.path.join(directory,filename),'PNG')
                 name=clean_str(request.form.get('business_name')) or settings()['business_name']
                 run('UPDATE settings SET logo_filename=?,business_name=? WHERE id=1',('branding/'+filename,name))
-                flash('Company logo saved. It now appears in the CRM and email headers.')
+                flash('Company logo saved. It now appears in customer email headers.')
                 return redirect(url_for('company_branding'))
             except (ValueError,UnidentifiedImageError,OSError,Image.DecompressionBombError):
                 error='Please choose a valid PNG, JPG or WebP image under 5 MB and 4096 pixels.'
