@@ -4,6 +4,33 @@ from PIL import Image
 import test_customer_conversation as fixture
 
 class ReceiptTests(unittest.TestCase):
+    def test_readable_png_with_damaged_metadata_is_saved_and_cleaned_for_ai(self):
+        import struct,base64
+        raw=self.picture().getvalue()
+        # Image data is intact; a trailing text chunk has a bad checksum.
+        raw=raw[:-12]+struct.pack('>I',5)+b'tEXt'+b'a\x00abc'+bytes(4)+raw[-12:]
+        with Image.open(io.BytesIO(raw)) as picture:
+            with self.assertRaises(SyntaxError):picture.verify()
+        uploaded=self.client.post('/receipts',data={'receipt':(io.BytesIO(raw),'Screenshot.PNG')},content_type='multipart/form-data')
+        self.assertEqual(uploaded.status_code,302)
+        receipt=self.mod.q('SELECT * FROM purchase_receipts',one=True)
+        with open(os.path.join(self.mod.app.config['UPLOAD_FOLDER'],'receipts',receipt['filename']),'rb') as original:
+            self.assertEqual(original.read(),raw)
+        result=dict(supplier='Shop',receipt_date='',items='Detergent',total='12',vat='',currency='GBP',notes='')
+        response=MagicMock();response.__enter__.return_value.read.return_value=json.dumps({'output_text':json.dumps(result)}).encode()
+        with patch.dict(os.environ,{'OPENAI_API_KEY':'test'}),patch.object(self.mod.urllib.request,'urlopen',return_value=response) as api:
+            self.mod.receipt_ai_extract(receipt)
+        image_url=json.loads(api.call_args.args[0].data)['input'][0]['content'][1]['image_url']
+        self.assertTrue(image_url.startswith('data:image/jpeg;base64,'))
+        with Image.open(io.BytesIO(base64.b64decode(image_url.split(',')[1]))) as picture:
+            picture.load();self.assertEqual(picture.size,(20,20))
+
+    def test_truncated_jpeg_pixels_are_rejected(self):
+        data=io.BytesIO();Image.new('RGB',(200,200),'white').save(data,'JPEG')
+        response=self.client.post('/receipts',data={'receipt':(io.BytesIO(data.getvalue()[:-100]),'photo.jpg')},content_type='multipart/form-data')
+        self.assertEqual(response.status_code,200)
+        self.assertEqual(self.mod.q('SELECT count(*) n FROM purchase_receipts',one=True)['n'],0)
+
     def setUp(self):
         fixture.CustomerConversationTests.setUp(self)
         self.mod.app.config['UPLOAD_FOLDER']=os.path.join(self.tmp.name,'uploads')

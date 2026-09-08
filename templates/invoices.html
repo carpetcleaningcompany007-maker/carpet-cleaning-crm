@@ -14,7 +14,7 @@
   </section>
 </div>
 <section class="library-shell">
-  <div class="library-header"><div></div><div class="library-actions invoice-library-actions"><a class="btn primary" href="{{ url_for('invoice_reminders') }}">Open Invoice Reminders</a><a class="btn secondary" href="{{ url_for('xero_dashboard') }}">Xero Sync</a><a class="btn secondary" href="{{ url_for('reports') }}">Open Reports</a></div></div>
+  <div class="library-header"><div></div><div class="library-actions invoice-library-actions"><a class="btn primary" href="{{ url_for('ai_assistant',tool='invoice') }}">Create invoice by voice</a><a class="btn primary" href="{{ url_for('invoice_reminders') }}">Open Invoice Reminders</a><a class="btn secondary" href="{{ url_for('xero_dashboard') }}">Xero Sync</a><a class="btn secondary" href="{{ url_for('reports') }}">Open Reports</a></div></div>
   <details class="info-drop"><summary>What does this page do?</summary><div class="info-drop-body"><p>This is your invoice diary. Search and filter here, then open the invoice record itself for payments, reminders, or finance notes.</p></div></details>
   <div class="library-toolbar">
     <form method="get" class="stack-inline library-search-form"><input name="q" value="{{ search }}" placeholder="Search by invoice number, customer, or due date"><select name="scope"><option value="active" {% if scope=='active' %}selected{% endif %}>Active</option><option value="archived" {% if scope=='archived' %}selected{% endif %}>Archived</option><option value="all" {% if scope=='all' %}selected{% endif %}>All</option></select><button class="btn secondary">Filter</button></form>

@@ -63,11 +63,11 @@ class SecurityHardeningTests(unittest.TestCase):
         response = self.client.get("/dashboard")
         self.assertEqual(response.status_code, 200)
         self.assertIn("no-store", response.headers["Cache-Control"])
-        self.assertEqual(response.headers["X-CRM-UI-Version"], "20260906.44")
-        self.assertIn(b'data-ui-build="20260906.44"', response.data)
+        self.assertEqual(response.headers["X-CRM-UI-Version"], "20260908.1")
+        self.assertIn(b'data-ui-build="20260908.1"', response.data)
         self.assertIn(b"app-shell-20260905-9", response.data)
         self.assertIn(b"app-theme.css", response.data)
-        self.assertIn(b"Carpet Clean Pro", response.data)
+        self.assertIn(b"Carpet Cleaning", response.data)
         self.assertNotIn(b"Business workspace", response.data)
 
     def test_notification_feed_is_authenticated_real_and_seen_state_is_ui_only(self):
@@ -143,7 +143,7 @@ class SecurityHardeningTests(unittest.TestCase):
         manifest = self.client.get("/app.webmanifest")
         self.assertEqual(manifest.status_code, 200)
         data = manifest.get_json()
-        self.assertEqual(data["name"], "Carpet Clean Pro CRM")
+        self.assertEqual(data["name"], "Carpet Cleaning Manager")
         self.assertEqual(data["display"], "standalone")
         self.assertEqual(data["start_url"], "/dashboard?source=pwa")
         self.assertTrue(any(icon["sizes"] == "512x512" for icon in data["icons"]))

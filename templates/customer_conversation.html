@@ -25,6 +25,17 @@
     <p class="muted">Email: {{ customer.email or 'Not saved' }} · Text: {{ customer.phone or 'Not saved' }}{% if customer.sms_opt_out %} (SMS switched off){% endif %}</p>
     <label data-email-only>Email subject<input name="subject" value="{{ draft.subject }}"></label>
     <label>Message<textarea name="body" rows="5" required>{{ draft.body }}</textarea></label>
+    <section class="writing-assistance" data-writing-assistance data-endpoint="{{ url_for('customer_writing_assistance',customer_id=customer.id) }}">
+      <div class="writing-tools"><button type="button" class="btn secondary" data-dictate>Start dictating</button><button type="button" class="btn secondary" data-writing-action="check">Check writing</button><button type="button" class="btn secondary" data-writing-action="improve">Improve wording</button><button type="button" class="btn secondary" data-writing-action="shorten">Make shorter</button></div>
+      <p role="status" aria-live="polite" data-writing-status>Dictate or type, then let AI help with the wording. Review before sending.</p>
+      <div data-writing-preview hidden>
+        <strong>AI writing preview</strong><p data-writing-feedback></p>
+        <label data-writing-subject-label>Email subject<input data-writing-subject></label>
+        <label>Suggested message<textarea data-writing-body rows="6"></textarea></label>
+        <div class="writing-tools"><button type="button" class="btn secondary" data-use-writing>Use this draft</button><button type="button" class="btn secondary" data-dismiss-writing>Keep original</button></div>
+        <p>This replaces the editor text only. Press Send message when you are ready.</p>
+      </div>
+    </section>
     <div class="sms-length-panel" hidden data-sms-length>
       <p data-sms-count></p><p data-sms-warning hidden>This text is too long to send safely. Your message will stay intact. Send it by email instead, or shorten it.</p>
       <button type="button" data-switch-email {% if not customer.email %}disabled{% endif %}>Use email instead</button>
@@ -94,4 +105,5 @@ body.app-page .panel.conversation-page{width:100%!important;max-width:950px!impo
 
 })();
 </script>
+<script src="{{ url_for('static',filename='writing-assistance.js',v='20260908-1') }}" defer></script>
 {% endblock %}

@@ -3,48 +3,68 @@
 {% block body_content %}
 <main class="ai-workspace">
   <header class="ai-workspace-head">
-    <div><span class="section-kicker">Private business assistant</span><h2>What would you like AI to do?</h2><p>Choose one job. It reads the relevant CRM information and prepares an answer for you to check.</p><strong class="ai-no-send">Nothing is ever sent to a customer without you checking it and pressing Send yourself.</strong></div>
+    <div><span class="section-kicker">Your business assistant</span><h2>A little help with the everyday.</h2><p>Choose a tool, add the details, then check your draft.</p></div>
     <a class="btn secondary" href="{{ url_for('ai_settings_page') }}">AI settings</a>
   </header>
-
-  <nav class="ai-tool-grid" aria-label="AI tools">
-    {% for key,item in tools.items() %}<a href="{{ url_for('ai_assistant',tool=key) }}" class="ai-tool-card {% if key==selected_tool %}active{% endif %}"><span>{{ loop.index }}</span><strong>{{ item[0] }}</strong><small>{{ item[1] }}</small></a>{% endfor %}
+  <div class="ai-workbench">
+  <nav class="ai-tool-menu" aria-label="AI tools">
+    <h3>1. Choose a tool</h3>
+    {% for group,keys in [('Customers',['quote','reply','followup']),('Jobs & diary',['job_plan','voice','diary']),('Money & growth',['invoice','bookkeeping','performance','leads'])] %}
+    <details class="ai-tool-group" {% if selected_tool in keys %}open{% endif %}>
+      <summary>{{ group }}</summary>
+      <div>{% for key in keys %}<a href="{{ url_for('ai_assistant',tool=key) }}" class="ai-tool-choice {% if key==selected_tool %}active{% endif %}" {% if key==selected_tool %}aria-current="page"{% endif %}>{{ tools[key][0] }}<span aria-hidden="true">›</span></a>{% endfor %}</div>
+    </details>
+    {% endfor %}
+    <a class="ai-receipt-shortcut" href="{{ url_for('customers') }}">Find customer by voice <span aria-hidden="true">↗</span></a>
+    <a class="ai-receipt-shortcut" href="{{ url_for('receipts') }}">Upload a receipt <span aria-hidden="true">↗</span></a>
   </nav>
-
+  <div class="ai-detail-workspace">
   <section class="panel ai-run-panel">
-    <div class="panel-head"><div><span class="section-kicker">Selected tool</span><h3>{{ tools[selected_tool][0] }}</h3><p>{{ tools[selected_tool][1] }}</p></div></div>
-    {% if not api_key_configured %}<div class="receipt-read-result receipt-read-error"><strong>AI connection needed</strong><p>Add the OpenAI API key in the server settings before running this.</p></div>{% endif %}
+    <div class="panel-head"><div><span class="section-kicker">2. Add the details</span><h3>{{ tools[selected_tool][0] }}</h3><p>{{ tools[selected_tool][1] }}</p></div></div>
+    {% if not api_key_configured %}<div class="receipt-read-result receipt-read-error"><strong>AI connection needed</strong><p>Connect AI in settings to generate a draft.</p></div>{% endif %}
     <form method="post" class="form ai-run-form" data-ai-form>
       <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
       <input type="hidden" name="tool_key" value="{{ selected_tool }}">
-      <label data-for="customer">Customer (optional)<select name="customer_id"><option value="">Choose customer</option>{% for row in customers %}<option value="{{ row.id }}" {% if request.values.get('customer_id')|int==row.id %}selected{% endif %}>{{ row.first_name }} {{ row.last_name }}{% if row.company %} · {{ row.company }}{% endif %}</option>{% endfor %}</select></label>
-      <label data-for="job">Job (optional)<select name="job_id"><option value="">Choose job</option>{% for row in jobs %}<option value="{{ row.id }}" {% if request.values.get('job_id')|int==row.id %}selected{% endif %}>{{ row.job_date or 'No date' }} · {{ row.customer_name or row.title or 'Job' }} · {{ row.status }}</option>{% endfor %}</select></label>
-      <label data-for="intake">Enquiry (optional)<select name="intake_id"><option value="">Choose enquiry</option>{% for row in intakes %}<option value="{{ row.id }}" {% if request.values.get('intake_id')|int==row.id %}selected{% endif %}>{{ row.name or 'Enquiry' }} · {{ row.postcode or 'No postcode' }} · {{ row.status }}</option>{% endfor %}</select></label>
-      <label>Your instructions or extra information<textarea name="notes" rows="6" data-ai-notes placeholder="{% if selected_tool=='voice' %}Tap Start speaking, or use your iPhone keyboard microphone, then describe the job…{% elif selected_tool=='quote' %}For example: three bedrooms, stairs and landing, dog odour…{% else %}Add anything you want the assistant to take into account…{% endif %}">{{ request.form.get('notes','') }}</textarea></label>
-      {% if selected_tool=='voice' %}<div class="ai-voice-tools"><button type="button" class="btn secondary" data-start-voice>🎙 Start speaking</button><span data-voice-status>Or use the microphone on your iPhone keyboard.</span></div>{% endif %}
-      <button class="btn primary ai-run-button" type="submit" {% if not api_key_configured %}disabled{% endif %}><span>Run {{ tools[selected_tool][0] }}</span><em hidden data-ai-running>Working…</em></button>
+      <label data-for="customer" {% if selected_tool not in ['quote','reply','invoice'] %}hidden{% endif %}>Customer (optional)<select name="customer_id"><option value="">Choose customer</option>{% for row in customers %}<option value="{{ row.id }}" {% if request.values.get('customer_id')|int==row.id %}selected{% endif %}>{{ row.first_name }} {{ row.last_name }}{% if row.company %} · {{ row.company }}{% endif %}</option>{% endfor %}</select></label>
+      <label data-for="job" {% if selected_tool not in ['job_plan','voice'] %}hidden{% endif %}>Job (optional)<select name="job_id"><option value="">Choose job</option>{% for row in jobs %}<option value="{{ row.id }}" {% if request.values.get('job_id')|int==row.id %}selected{% endif %}>{{ row.job_date or 'No date' }} · {{ row.customer_name or row.title or 'Job' }} · {{ row.status }}</option>{% endfor %}</select></label>
+      <label data-for="intake" {% if selected_tool!='quote' %}hidden{% endif %}>Enquiry (optional)<select name="intake_id"><option value="">Choose enquiry</option>{% for row in intakes %}<option value="{{ row.id }}" {% if request.values.get('intake_id')|int==row.id %}selected{% endif %}>{{ row.name or 'Enquiry' }} · {{ row.postcode or 'No postcode' }} · {{ row.status }}</option>{% endfor %}</select></label>
+      <label>What would you like help with?<textarea name="notes" rows="4" data-ai-notes placeholder="{% if selected_tool in ['voice','invoice','reply'] %}Tap Start speaking, or use your iPhone keyboard microphone, then describe what you need…{% elif selected_tool=='quote' %}For example: three bedrooms, stairs and landing, dog odour…{% else %}Add anything you want the assistant to take into account…{% endif %}">{{ request.form.get('notes','') }}</textarea></label>
+      {% if selected_tool in ['voice','invoice','reply'] %}<div class="ai-voice-tools"><button type="button" class="btn secondary" data-start-voice>🎙 Start speaking</button><span data-voice-status>Or use the microphone on your iPhone keyboard.</span></div>{% endif %}
+      <button class="btn primary ai-run-button" type="submit" {% if not api_key_configured %}disabled{% endif %}><span>Prepare draft</span><em hidden data-ai-running>Working…</em></button>
       <div class="receipt-loading" hidden data-ai-loading><span class="receipt-spinner" aria-hidden="true"></span><strong>AI is checking your CRM…</strong><small>This may take a few seconds. Nothing will be sent or changed automatically.</small></div>
     </form>
   </section>
 
   {% if result %}<section class="panel ai-result-panel" id="ai-result">
-    <div class="ai-result-head"><div><span class="section-kicker">Ready to check</span><h3>{{ result.title }}</h3></div><span>Draft only</span></div>
-    <p class="ai-result-summary">{{ result.summary }}</p>
-    <div class="ai-result-sections">{% for section in result.sections %}<article><h4>{{ section.heading }}</h4><div>{{ section.body }}</div></article>{% endfor %}</div>
-    {% if result.warning %}<div class="receipt-read-result receipt-read-error"><strong>Check this</strong><p>{{ result.warning }}</p></div>{% endif %}
-    <div class="receipt-tools"><button type="button" class="btn secondary" data-copy-ai>Copy result</button>{% if selected_tool=='quote' %}<a class="btn primary" href="{{ url_for('calculator') }}">Open quote builder</a>{% elif selected_tool=='reply' and run_row.customer_id %}<a class="btn primary" href="{{ url_for('customer_conversation',customer_id=run_row.customer_id) }}">Open customer conversation</a>{% elif selected_tool in ['job_plan','voice'] and run_row.job_id %}<a class="btn primary" href="{{ url_for('job_view',job_id=run_row.job_id) }}">Open job</a>{% elif selected_tool in ['bookkeeping','performance'] %}<a class="btn primary" href="{{ url_for('reports') }}">Open reports</a>{% elif selected_tool=='followup' %}<a class="btn primary" href="{{ url_for('invoice_reminders') }}">Open follow-ups</a>{% elif selected_tool=='diary' %}<a class="btn primary" href="{{ url_for('full_calendar') }}">Open calendar</a>{% elif selected_tool=='leads' %}<a class="btn primary" href="{{ url_for('new_leads') }}">Open commercial leads</a>{% endif %}</div>
-    {% if selected_tool=='voice' and run_row and run_row.job_id and result.job_note %}<form method="post" action="{{ url_for('ai_assistant_save_job_note',run_id=run_row.id) }}" class="ai-save-note"><input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><label><input type="checkbox" name="apply_suggestions" value="1"> Also apply the suggested job status and price</label><button class="btn primary" type="submit" onclick="return confirm('Save this voice update to the selected job?')">Save to job</button></form>{% endif %}
-  </section>{% endif %}
+    <div class="ai-result-head"><div><span class="section-kicker">3. Review &amp; use</span><h3>{{ result.title }}</h3></div><span>Draft only</span></div>
+    {% if selected_tool=='invoice' and result.invoice %}{% include '_ai_invoice_preview.html' %}{% else %}
+    <p class="ai-preview-help">Edit the draft below. Copy uses your edited text.</p>
+    <label class="ai-preview-label" for="ai-preview">Editable preview</label>
+    <textarea id="ai-preview" class="ai-preview" data-ai-preview rows="12" {% if selected_tool=='voice' and run_row and run_row.job_id and result.job_note %}name="job_note" form="ai-save-note" maxlength="8000"{% endif %}>{% if selected_tool=='voice' and result.job_note %}{{ result.job_note }}{% else %}{{ result.summary }}{% for section in result.sections %}
 
-  {% if history %}<details class="panel ai-history"><summary>Recent AI work</summary><div>{% for row in history %}<a href="{{ url_for('ai_assistant',tool=row.tool_key) }}"><strong>{{ tools.get(row.tool_key,('AI result',''))[0] }}</strong><span>{{ row.result.title or 'Saved result' }} · {{ row.created_at }}</span></a>{% endfor %}</div></details>{% endif %}
+{{ section.heading }}
+{{ section.body }}{% endfor %}{% endif %}</textarea>
+    {% if selected_tool=='voice' and result.job_note %}<details class="ai-suggestions"><summary>Suggested job changes</summary><p>Status: {{ result.suggested_status or 'No change' }} · Price: {{ result.suggested_amount or 'No change' }}</p><p>{{ result.summary }}</p></details>{% endif %}
+    {% if result.warning %}<div class="receipt-read-result receipt-read-error"><strong>Check this</strong><p>{{ result.warning }}</p></div>{% endif %}
+    <div class="receipt-tools"><button type="button" class="btn secondary" data-copy-ai>Copy edited draft</button>{% if selected_tool=='quote' %}<a class="btn primary" href="{{ url_for('calculator') }}">Open quote builder</a>{% elif selected_tool=='reply' and run_row.customer_id %}<a class="btn primary" href="{{ url_for('customer_conversation',customer_id=run_row.customer_id) }}">Open customer conversation</a>{% elif selected_tool in ['job_plan','voice'] and run_row.job_id %}<a class="btn primary" href="{{ url_for('job_view',job_id=run_row.job_id) }}">Open job</a>{% elif selected_tool in ['bookkeeping','performance'] %}<a class="btn primary" href="{{ url_for('reports') }}">Open reports</a>{% elif selected_tool=='followup' %}<a class="btn primary" href="{{ url_for('invoice_reminders') }}">Open follow-ups</a>{% elif selected_tool=='diary' %}<a class="btn primary" href="{{ url_for('full_calendar') }}">Open calendar</a>{% elif selected_tool=='leads' %}<a class="btn primary" href="{{ url_for('new_leads') }}">Open commercial leads</a>{% endif %}</div>
+    {% if selected_tool=='voice' and run_row and run_row.job_id and result.job_note %}<form method="post" action="{{ url_for('ai_assistant_save_job_note',run_id=run_row.id) }}" class="ai-save-note" id="ai-save-note"><input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><label><input type="checkbox" name="apply_suggestions" value="1"> Also apply the suggested job status and price</label><button class="btn primary" type="submit" onclick="return confirm('Save this voice update to the selected job?')">Save to job</button></form>{% endif %}
+    <p class="ai-preview-help">Copy your draft before opening another page. Opening a page does not transfer it.</p>
+    {% endif %}
+  </section>{% else %}<section class="panel ai-preview-empty"><span class="section-kicker">3. Review &amp; use</span><h3>Your draft will appear here</h3><p>Prepare a draft above, then edit it before using it.</p></section>{% endif %}
+  <p class="ai-no-send">Nothing is ever sent to a customer without you checking it and pressing Send yourself.</p>
+  </div></div>
+
+  {% if history %}<details class="panel ai-history"><summary>Recent AI work</summary><div>{% for row in history %}<a href="{{ url_for('ai_assistant',run=row.id) }}"><strong>{{ tools.get(row.tool_key,('AI result',''))[0] }}</strong><span>{{ row.result.title or 'Saved result' }} · {{ row.created_at }}</span></a>{% endfor %}</div></details>{% endif %}
 </main>
 <script>
 (function(){
  const form=document.querySelector('[data-ai-form]');if(!form)return;
- const tool={{ selected_tool|tojson }},show={quote:['customer','intake'],reply:['customer'],job_plan:['job'],voice:['job'],bookkeeping:[],followup:[],diary:[],performance:[],leads:[]}[tool]||[];
+ const tool={{ selected_tool|tojson }},show={quote:['customer','intake'],reply:['customer'],job_plan:['job'],voice:['job'],invoice:['customer'],bookkeeping:[],followup:[],diary:[],performance:[],leads:[]}[tool]||[];
  form.querySelectorAll('[data-for]').forEach(el=>el.hidden=!show.includes(el.dataset.for));
  form.addEventListener('submit',()=>{form.querySelector('[data-ai-loading]').hidden=false;form.querySelector('[data-ai-running]').hidden=false;form.querySelector('.ai-run-button span').hidden=true;form.querySelector('.ai-run-button').disabled=true;});
- const copy=document.querySelector('[data-copy-ai]');if(copy)copy.addEventListener('click',async()=>{const text=document.querySelector('.ai-result-panel').innerText;try{await navigator.clipboard.writeText(text);copy.textContent='Copied';}catch(e){copy.textContent='Press and hold the result to copy';}});
+ const preview=document.querySelector('[data-ai-preview]');
+ const copy=document.querySelector('[data-copy-ai]');if(copy)copy.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(preview.value);copy.textContent='Copied';}catch(e){preview.focus();preview.select();copy.textContent='Text selected — copy it here';}});
+ if(preview)preview.addEventListener('input',()=>{copy.textContent='Copy edited draft';});
  const voice=document.querySelector('[data-start-voice]');if(!voice)return;
  const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition,status=document.querySelector('[data-voice-status]'),notes=document.querySelector('[data-ai-notes]');
  if(!SpeechRecognition){voice.disabled=true;status.textContent='Use the microphone on your iPhone keyboard to dictate the update.';return;}

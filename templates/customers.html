@@ -21,10 +21,11 @@
     <div><span>No phone</span><strong>{{ customer_stats.missing_phone }}</strong></div>
   </div>
 
+  <div class="writing-tools"><button type="button" class="btn secondary" data-voice-target="#voice-customer-query">Find customer by voice</button><span role="status" data-voice-hint>Say a name, town or postcode, then press Filter to see matches.</span></div>
   <form method="get" class="contacts-filter-bar">
     <label class="contacts-search">
       <span>Search contacts</span>
-      <input name="q" value="{{ search }}" placeholder="Name, phone, email, address, postcode, town, or tag" autocomplete="off">
+      <input id="voice-customer-query" name="q" value="{{ search }}" placeholder="Name, phone, email, address, postcode, town, or tag" autocomplete="off">
     </label>
     <label class="contacts-scope">
       <span>View</span>
@@ -148,4 +149,5 @@
     </form>
   </div>
 </div>
+<script src="{{ url_for('static',filename='voice-input.js',v='20260908-1') }}" defer></script>
 {% endblock %}
