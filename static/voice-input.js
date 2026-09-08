@@ -11,7 +11,7 @@
       active.onresult = event => {
         input.value = event.results[0][0].transcript.trim().replace(/[.!?]+$/, '');
         input.dispatchEvent(new Event('input', { bubbles: true }));
-        input.focus(); hint.textContent = 'Check the name or place, then press Filter to see matching customers.';
+        input.focus(); hint.textContent = 'Check the name or place, then press Find customer to see matching customers.';
       };
       active.onerror = () => { hint.textContent = 'Allow microphone access, or use your phone keyboard microphone in the search box.'; };
       active.onend = () => { active = null; button.textContent = 'Find customer by voice'; };

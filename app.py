@@ -152,7 +152,7 @@ def add_website_form_cors_headers(response):
         response.headers["Cache-Control"] = "no-store, private, max-age=0, must-revalidate"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
-        response.headers["X-CRM-UI-Version"] = "20260908.1"
+        response.headers["X-CRM-UI-Version"] = "20260908.2"
     elif request.path == "/static/crm-redesign.css":
         response.headers["Cache-Control"] = "no-cache, max-age=0, must-revalidate"
     return response

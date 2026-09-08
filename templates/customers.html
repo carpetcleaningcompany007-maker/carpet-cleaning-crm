@@ -21,7 +21,7 @@
     <div><span>No phone</span><strong>{{ customer_stats.missing_phone }}</strong></div>
   </div>
 
-  <div class="writing-tools"><button type="button" class="btn secondary" data-voice-target="#voice-customer-query">Find customer by voice</button><span role="status" data-voice-hint>Say a name, town or postcode, then press Filter to see matches.</span></div>
+  <div class="writing-tools"><button type="button" class="btn secondary" data-voice-target="#voice-customer-query">Find customer by voice</button><span role="status" data-voice-hint>Say a name, town or postcode, then press Find customer to see matches.</span></div>
   <form method="get" class="contacts-filter-bar">
     <label class="contacts-search">
       <span>Search contacts</span>
@@ -149,5 +149,5 @@
     </form>
   </div>
 </div>
-<script src="{{ url_for('static',filename='voice-input.js',v='20260908-1') }}" defer></script>
+<script src="{{ url_for('static',filename='voice-input.js',v='20260908-2') }}" defer></script>
 {% endblock %}
