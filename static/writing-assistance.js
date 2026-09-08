@@ -9,32 +9,10 @@
   const preview = panel.querySelector('[data-writing-preview]');
   const previewBody = panel.querySelector('[data-writing-body]');
   const previewSubject = panel.querySelector('[data-writing-subject]');
-  const dictate = panel.querySelector('[data-dictate]');
-  let recognition = null, source = null, pending = false;
-  const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!Recognition) {
-    dictate.disabled = true;
-    status.textContent = 'Use the microphone on your phone keyboard to dictate into Message, then choose an AI writing tool.';
-  }
-  dictate.addEventListener('click', () => {
-    if (recognition) { recognition.stop(); return; }
-    recognition = new Recognition();
-    recognition.lang = 'en-GB'; recognition.interimResults = false; recognition.continuous = true;
-    recognition.onresult = event => {
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        if (event.results[i].isFinal) body.value += (body.value ? ' ' : '') + event.results[i][0].transcript;
-      }
-      body.dispatchEvent(new Event('input', { bubbles: true }));
-    };
-    recognition.onerror = () => { status.textContent = 'Dictation could not continue. Allow microphone access, or use your phone keyboard microphone.'; };
-    recognition.onend = () => { recognition = null; dictate.textContent = 'Start dictating'; };
-    try { recognition.start(); dictate.textContent = 'Stop dictating'; status.textContent = 'Listening. Stop when finished, then check or improve the wording.'; }
-    catch (_) { recognition = null; status.textContent = 'Dictation is unavailable here. Use your keyboard microphone.'; }
-  });
+  let source = null, pending = false;
   panel.querySelectorAll('[data-writing-action]').forEach(button => button.addEventListener('click', async () => {
     if (pending) return;
     if (!body.value.trim()) { status.textContent = 'Type or dictate your message first.'; body.focus(); return; }
-    if (recognition) recognition.stop();
     source = { body: body.value, subject: subject.value, channel: channel.value };
     pending = true;
     panel.querySelectorAll('[data-writing-action]').forEach(el => el.disabled = true);
@@ -64,6 +42,4 @@
     preview.hidden = true; status.textContent = 'Draft added to the editor. Check it, then press Send message when ready.';
   });
   panel.querySelector('[data-dismiss-writing]').addEventListener('click', () => { preview.hidden = true; status.textContent = 'Original message kept.'; });
-  form.addEventListener('submit', () => { if (recognition) recognition.stop(); });
-  window.addEventListener('pagehide', () => { if (recognition) recognition.stop(); });
 })();

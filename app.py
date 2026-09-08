@@ -136,7 +136,7 @@ def add_website_form_cors_headers(response):
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
     response.headers.setdefault("X-Frame-Options", "DENY")
     response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
-    microphone = '(self)' if request.endpoint in {'ai_assistant','customer_conversation','customers'} else '()'
+    microphone = '(self)' if session.get('logged_in') else '()'
     response.headers.setdefault("Permissions-Policy", f"camera=(), microphone={microphone}, geolocation=()")
     response.headers.setdefault(
         "Content-Security-Policy",
@@ -152,7 +152,7 @@ def add_website_form_cors_headers(response):
         response.headers["Cache-Control"] = "no-store, private, max-age=0, must-revalidate"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
-        response.headers["X-CRM-UI-Version"] = "20260908.2"
+        response.headers["X-CRM-UI-Version"] = "20260908.3"
     elif request.path == "/static/crm-redesign.css":
         response.headers["Cache-Control"] = "no-cache, max-age=0, must-revalidate"
     return response
@@ -11501,6 +11501,41 @@ def prepare_conversation_suggestions():
         except RuntimeError:
             logger.warning('Conversation suggestion unavailable; will retry later.')
         break  # One per pass keeps the existing AI usage bounded.
+
+
+@app.route('/api/voice/transcribe', methods=['POST'])
+@login_required
+def voice_transcribe():
+    key=clean_str(os.environ.get('OPENAI_API_KEY'))
+    if not key:
+        return jsonify(error='Voice typing needs the AI connection. Your recording has not been sent.'),503
+    upload=request.files.get('audio')
+    if not upload:
+        return jsonify(error='Record your voice or choose an audio file first.'),400
+    data=upload.read(8*1024*1024+1)
+    extension=os.path.splitext(upload.filename or '')[1].lower()
+    if not data or len(data)>8*1024*1024:
+        return jsonify(error='Use a recording under 8 MB.'),400
+    if extension not in {'.webm','.mp4','.m4a','.mp3','.mpeg','.mpga','.wav'}:
+        return jsonify(error='Use a WebM, MP4, M4A, MP3 or WAV recording.'),400
+    boundary='crmvoice'+uuid.uuid4().hex
+    body=(f'--{boundary}\r\nContent-Disposition: form-data; name="model"\r\n\r\ngpt-4o-mini-transcribe\r\n'
+          f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="recording{extension}"\r\nContent-Type: application/octet-stream\r\n\r\n').encode()+data+f'\r\n--{boundary}--\r\n'.encode()
+    req=urllib.request.Request('https://api.openai.com/v1/audio/transcriptions',data=body,
+        headers={'Authorization':'Bearer '+key,'Content-Type':'multipart/form-data; boundary='+boundary},method='POST')
+    try:
+        with urllib.request.urlopen(req,timeout=25) as response:
+            result=json.loads(response.read().decode())
+        text=result.get('text')
+        if not isinstance(text,str) or not text.strip():
+            return jsonify(error='No speech was detected. Please try again closer to the microphone.'),422
+        return jsonify(text=text.strip())
+    except urllib.error.HTTPError as exc:
+        app.logger.warning('Voice transcription failed: HTTP %s',exc.code)
+        message={401:'The AI connection needs checking.',429:'The AI service is busy or out of credit. Keep your recording and try again.'}.get(exc.code,'The recording could not be read. Try a shorter recording or another audio file.')
+        return jsonify(error=message),502
+    except (urllib.error.URLError,TimeoutError,ValueError):
+        return jsonify(error='Voice typing could not finish. Your recording is ready to retry.'),502
 
 
 @app.route('/customers/<int:customer_id>/writing-assistance', methods=['POST'])

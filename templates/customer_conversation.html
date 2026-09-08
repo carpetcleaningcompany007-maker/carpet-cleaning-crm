@@ -16,7 +16,7 @@
     </form>
   </section>
   <form method="get" class="conversation-search"><input name="search" value="{{ search }}" placeholder="Find something said…" aria-label="Search conversation"><button class="btn secondary">Search</button></form>
-  <details class="conversation-compose" {% if error or draft.body %}open{% endif %}><summary>Write a message</summary>
+  <details class="conversation-compose" open><summary>Write a message</summary>
   {% if error %}<p role="alert">{{ error }}</p>{% endif %}
   <form method="post" class="form">
     {% if suggestion %}<input type="hidden" name="ai_draft_id" value="{{ suggestion.id }}">{% endif %}
@@ -26,7 +26,7 @@
     <label data-email-only>Email subject<input name="subject" value="{{ draft.subject }}"></label>
     <label>Message<textarea name="body" rows="5" required>{{ draft.body }}</textarea></label>
     <section class="writing-assistance" data-writing-assistance data-endpoint="{{ url_for('customer_writing_assistance',customer_id=customer.id) }}">
-      <div class="writing-tools"><button type="button" class="btn secondary" data-dictate>Start dictating</button><button type="button" class="btn secondary" data-writing-action="check">Check writing</button><button type="button" class="btn secondary" data-writing-action="improve">Improve wording</button><button type="button" class="btn secondary" data-writing-action="shorten">Make shorter</button></div>
+      <div class="writing-tools"><button type="button" class="btn secondary" data-record-voice data-record-target=".conversation-compose [name=body]">🎙 Record voice</button><button type="button" class="btn secondary" data-writing-action="check">Check writing</button><button type="button" class="btn secondary" data-writing-action="improve">Improve wording</button><button type="button" class="btn secondary" data-writing-action="shorten">Make shorter</button></div>
       <p role="status" aria-live="polite" data-writing-status>Dictate or type, then let AI help with the wording. Review before sending.</p>
       <div data-writing-preview hidden>
         <strong>AI writing preview</strong><p data-writing-feedback></p>
@@ -105,5 +105,5 @@ body.app-page .panel.conversation-page{width:100%!important;max-width:950px!impo
 
 })();
 </script>
-<script src="{{ url_for('static',filename='writing-assistance.js',v='20260908-1') }}" defer></script>
+<script src="{{ url_for('static',filename='writing-assistance.js',v='20260908-3') }}" defer></script>
 {% endblock %}

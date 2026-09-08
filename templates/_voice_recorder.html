@@ -1,0 +1,13 @@
+<aside class="voice-dock" aria-label="Voice typing">
+  <button type="button" class="voice-record-launch" data-record-voice aria-label="Record voice to type"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="2" width="8" height="13" rx="4"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8"/></svg><span>Record voice</span></button>
+  <section class="voice-recorder-panel" data-recorder-panel hidden aria-label="Voice recording controls">
+    <div class="voice-panel-head"><strong>Voice to text</strong><button type="button" data-close-recorder aria-label="Close voice typing">×</button></div>
+    <p data-record-status role="status" aria-live="polite">Choose a text box, then record your voice.</p>
+    <p class="voice-record-info">Up to 90 seconds. Audio is sent to OpenAI to turn it into text.</p>
+    <button type="button" class="btn primary" data-stop-recording hidden>Stop recording &amp; transcribe</button>
+    <button type="button" class="btn secondary" data-retry-recording hidden>Retry transcription</button>
+    <label class="voice-upload">Or use an audio recording<input type="file" data-audio-upload accept="audio/*,.webm,.mp4,.m4a,.mp3,.wav"></label>
+    <div data-transcript-preview hidden><label>Check your words<textarea data-record-transcript rows="4"></textarea></label><button type="button" class="btn primary" data-insert-transcript>Insert text</button><button type="button" class="btn secondary" data-copy-transcript>Copy text</button></div>
+  </section>
+</aside>
+<script src="{{ url_for('static',filename='voice-recorder.js',v='20260908-3') }}" defer></script>
