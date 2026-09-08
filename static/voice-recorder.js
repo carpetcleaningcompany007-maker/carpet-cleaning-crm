@@ -34,7 +34,16 @@
     }
     busy = true; status.textContent = 'Allow microphone access to start recording.';
     try {
-      stream = await navigator.mediaDevices.getUserMedia({audio:true});
+      let expired = false, permissionTimer;
+      const microphone = navigator.mediaDevices.getUserMedia({audio:true}).then(media => {
+        if (expired || cancelled) { media.getTracks().forEach(track => track.stop()); throw Error('Microphone request cancelled.'); }
+        return media;
+      });
+      try {
+        stream = await Promise.race([microphone, new Promise((_, reject) => {
+          permissionTimer = setTimeout(() => { expired = true; reject(Error('Microphone permission timed out.')); },15000);
+        })]);
+      } finally { clearTimeout(permissionTimer); }
       if (cancelled) { release(); return; }
       const mime = ['audio/webm;codecs=opus','audio/mp4','audio/webm'].find(type => MediaRecorder.isTypeSupported(type));
       recorder = new MediaRecorder(stream, mime ? {mimeType:mime} : undefined);
