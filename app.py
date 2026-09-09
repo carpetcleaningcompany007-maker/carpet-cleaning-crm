@@ -11680,7 +11680,7 @@ def attach_clicksend_history_items():
         run('UPDATE clicksend_history_items SET customer_id=?,event_id=? WHERE id=?',(cid,event_id,row['id']))
 
 
-def poll_clicksend_history():
+def poll_clicksend_history(force=False):
     username, key = clicksend_history_credentials()
     if not username or not key:
         return
@@ -11703,7 +11703,10 @@ def poll_clicksend_history():
     for channel in ('sms','email'):
         run('INSERT OR IGNORE INTO clicksend_history_sync(channel) VALUES (?)',(channel,))
         # A shared lease prevents simultaneous workers importing the same page.
-        cursor = db().execute('UPDATE clicksend_history_sync SET last_attempt=? WHERE channel=? AND last_attempt<?',(now,channel,now-300))
+        if force:
+            cursor = db().execute('UPDATE clicksend_history_sync SET last_attempt=? WHERE channel=?',(now,channel))
+        else:
+            cursor = db().execute('UPDATE clicksend_history_sync SET last_attempt=? WHERE channel=? AND last_attempt<?',(now,channel,now-300))
         db().commit()
         if cursor.rowcount != 1:
             continue
@@ -11739,6 +11742,16 @@ def clicksend_history_loop():
         except Exception:
             logger.warning('ClickSend history import will retry later.')
         time.sleep(300)
+
+
+@app.route('/customers/<int:customer_id>/conversation/check-clicksend', methods=['POST'])
+@login_required
+def customer_conversation_check_clicksend(customer_id):
+    if not q('SELECT id FROM customers WHERE id=?', (customer_id,), one=True):
+        abort(404)
+    poll_clicksend_history(force=True)
+    flash('ClickSend checked now. Any provider update or reply matched to this customer is shown below.')
+    return redirect(url_for('customer_conversation', customer_id=customer_id, channel=request.form.get('channel', '')))
 
 
 def customer_conversation_rows(customer_id=None, today_only=False, search='', limit=100, offset=0, scheduled_today=False, channel=''):

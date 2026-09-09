@@ -54,6 +54,7 @@
   </div>
   <details class="conversation-sync"><summary>ClickSend history sync</summary>
   {% if history_connected %}<p>Messages sent directly through ClickSend are checked every five minutes and matched by phone number or email address.</p>
+  <form method="post" action="{{ url_for('customer_conversation_check_clicksend', customer_id=customer.id) }}"><input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="channel" value="{{ history_channel }}"><button type="submit" class="btn secondary">Check ClickSend now</button></form>
   {% for sync in history_sync %}<p>{{ 'Text' if sync.channel=='sms' else 'Email' }}: {{ sync.status }}{% if sync.last_success %} · Last completed: {{ sync.last_success }} UTC{% endif %}</p>{% else %}<p>Waiting for the first import.</p>{% endfor %}
   {% if history_unmatched %}<p>{{ history_unmatched }} messages could not be matched uniquely to a customer and have been kept unassigned.</p>{% endif %}
   {% else %}<p>ClickSend account details are needed in the CRM connection settings before history can be imported.</p>{% endif %}
