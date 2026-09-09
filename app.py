@@ -435,6 +435,11 @@ def pricing():
     row = q("SELECT data_json FROM pricing_config WHERE id=1", one=True)
     return json.loads(row["data_json"]) if row and row["data_json"] else PRICING_DEFAULTS
 
+def business_pricing_context():
+    data = pricing()
+    return {'catalogue': data, 'minimum_charge': settings()['minimum_charge'],
+            'instructions': 'Use these saved business prices as the current pricing reference. Room rules apply only to carpet rooms, not stairs, rugs or upholstery. Apply the minimum to the whole job. On-site rates require explicit owner approval; never assume a room qualifies as small. Missing prices require review. Prepare drafts only; do not promise or send a final price. Saved room rules take precedence over catalogue room prices when a room method other than catalogue is selected.'}
+
 def save_pricing(data):
     run("UPDATE pricing_config SET data_json=? WHERE id=1", (json.dumps(data),))
 
@@ -12829,6 +12834,7 @@ def generate_ai_customer_reply(customer_id=None, intake_id=None, channel='SMS', 
         context['confirmed_jobs']=[dict(r) for r in q("SELECT title,job_date,job_time,status,amount,service_type FROM jobs WHERE customer_id=? ORDER BY job_date DESC LIMIT 5",(resolved_customer_id,))]
         context['context_scope']={'customer_id':resolved_customer_id,'rule':'Only this customer history. Job records are historical facts, never proof of new availability.'}
     model = clean_str(os.environ.get('OPENAI_MODEL')) or clean_str(row_get(cfg, 'model')) or 'gpt-5.4-mini'
+    context['saved_business_pricing'] = business_pricing_context()
     knowledge_sections = [
         ('Business information', row_get(cfg, 'business_information')),
         ('Services', row_get(cfg, 'services')),
@@ -13173,7 +13179,7 @@ def ai_assistant_context(tool_key, customer_id=None, job_id=None, intake_id=None
         row=q('SELECT * FROM intake_submissions WHERE id=?',(intake_id,),one=True)
         context['selected_enquiry']=assistant_row(row,('id','name','full_address','postcode','what_cleaned','number_rooms','upholstery','rugs','stains','pets','parking','preferred_days_times','job_notes','additional_notes','agreed_quote_price','status','created_at'))
     if tool_key=='quote':
-        context['saved_pricing']=pricing()
+        context['saved_pricing']=business_pricing_context()
         context['pricing_rules']=clean_str(row_get(ai_settings_row(),'prices_and_rules'))
     elif tool_key=='bookkeeping':
         report=build_reports_data(6)
@@ -16369,7 +16375,7 @@ def settings_page():
             request.form.get("business_name"), request.form.get("phone"), request.form.get("email"),
             request.form.get("website"), request.form.get("address"), request.form.get("accent"),
             request.form.get("review_link"), new_username, final_password,
-            request.form.get("minimum_charge") or 100, request.form.get("vat_rate") or 0.20,
+            request.form.get("minimum_charge", settings()["minimum_charge"]), request.form.get("vat_rate") or 0.20,
             logo_filename, dashboard_carpet_image, dashboard_upholstery_image,
             request.form.get("email_footer_html"), request.form.get("sms_footer_text"), bg_darkness, bg_palette, bg_color, sidebar_color,
             request.form.get("gmail_address"), request.form.get("gmail_app_password") or s["gmail_app_password"], request.form.get("smtp_from_name"), request.form.get("test_email"),
@@ -16546,6 +16552,46 @@ def quote_request_archive(request_id):
     run("UPDATE quote_requests SET status='Archived' WHERE id=?", (request_id,))
     flash("Request archived.")
     return redirect(url_for("quote_requests"))
+
+@app.route('/settings/prices', methods=['GET', 'POST'])
+@login_required
+def pricing_settings():
+    data = pricing()
+    rules = data.get('room_rules', {})
+    error = ''
+    if request.method == 'POST':
+        try:
+            from decimal import Decimal, InvalidOperation
+            def amount(name, optional=False):
+                raw = request.form.get(name, '').strip()
+                if not raw and optional:
+                    return None
+                value = Decimal(raw)
+                if not value.is_finite() or value < 0 or value > 100000 or value.as_tuple().exponent < -2:
+                    raise ValueError('Enter prices from £0 to £100,000, with no more than two decimal places.')
+                return float(value)
+            method = request.form.get('method', 'catalogue')
+            if method not in ('catalogue', 'first_room', 'lounge', 'flat'):
+                raise ValueError('Choose a room pricing method.')
+            rules = {'method': method, 'first_price': amount('first_price', True),
+                     'other_price': amount('other_price', True), 'onsite_price': amount('onsite_price', True),
+                     'notes': request.form.get('notes', '').strip()[:4000]}
+            if method != 'catalogue' and (rules['other_price'] is None or (method in ('first_room','lounge') and rules['first_price'] is None)):
+                raise ValueError('Enter the room rates needed for your selected method.')
+            minimum = amount('minimum_charge')
+            for i, item in enumerate(data['domestic']):
+                item['price'] = amount('price_' + str(i))
+            data['room_rules'] = rules
+            # Save minimum and catalogue together so failed validation cannot partly change prices.
+            conn = db()
+            conn.execute('UPDATE pricing_config SET data_json=? WHERE id=1', (json.dumps(data),))
+            conn.execute('UPDATE settings SET minimum_charge=? WHERE id=1', (minimum,))
+            conn.commit()
+            flash('Business prices saved. AI quote assistance can now use these rates.')
+            return redirect(url_for('pricing_settings'))
+        except (ValueError, InvalidOperation):
+            error = 'Check your prices: use amounts from £0 to £100,000 with at most two decimal places, and fill in the rates required for your selected method.'
+    return render_template('pricing_settings.html', pricing=data, rules=rules, minimum=settings()['minimum_charge'], error=error), (400 if error else 200)
 
 @app.route("/calculator-manager", methods=["GET", "POST"])
 @login_required
