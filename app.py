@@ -3953,7 +3953,7 @@ def build_notification_feed():
                       "title": row["title"] or "Scheduled job", "detail": "Job is overdue" if overdue else "Job is due today",
                       "time": row["job_date"] or "", "url": url_for("job_view", job_id=row["id"])})
     replies = q("""SELECT communications.id,communications.customer_id,communications.created_at
-                   FROM communications WHERE lower(IFNULL(subject,''))='inbound sms'
+                   FROM communications WHERE lower(IFNULL(subject,'')) IN ('inbound sms','inbound sms reply')
                      AND datetime(created_at) >= datetime('now','-7 days')
                    ORDER BY id DESC LIMIT 10""")
     for row in replies:
@@ -4234,6 +4234,16 @@ def customer_for_clicksend_sms_reply(sender_email):
     phone = clicksend_sms_reply_phone(sender_email)
     if not phone:
         return None
+    # Prefer the customer record that sent the latest message to this number. This keeps replies
+    # with a shared test/household number on the active conversation rather than a duplicate record.
+    recent = q("""SELECT customers.id,customers.phone FROM sms_events
+                  JOIN customers ON customers.id=sms_events.customer_id
+                  WHERE customers.archived_at IS NULL AND sms_events.direction='outbound'
+                    AND IFNULL(sms_events.to_phone,'')<>''
+                  ORDER BY sms_events.id DESC LIMIT 100""")
+    for row in recent:
+        if normalize_phone(row["phone"]) == phone:
+            return row
     # Phone values have historically been saved with spaces, 0-prefixes and +44-prefixes.
     for row in q("SELECT id,phone FROM customers WHERE archived_at IS NULL AND IFNULL(phone,'')<>'' ORDER BY id DESC"):
         if normalize_phone(row["phone"]) == phone:
@@ -10440,6 +10450,11 @@ def dashboard():
             dashboard_finished.append(item)
         else:
             dashboard_schedule.append(item)
+    quote_ready = q("""SELECT quotes.id,quotes.quote_number,quotes.total,customers.first_name || ' ' || customers.last_name AS customer_name
+                       FROM quotes LEFT JOIN customers ON customers.id=quotes.customer_id
+                       WHERE lower(IFNULL(quotes.status,'Draft'))='draft'
+                         AND quotes.title='Quote draft from customer reply'
+                       ORDER BY quotes.id DESC LIMIT 1""", one=True)
     next_enquiry = q("""SELECT * FROM intake_submissions
                           WHERE IFNULL(is_test,0)=0 AND IFNULL(ignore_alerts,0)=0
                             AND IFNULL(status,'New') NOT IN ('Booked','Closed','Closed - no reply','Form returned - ready to quote')
@@ -10449,7 +10464,11 @@ def dashboard():
                          WHERE IFNULL(future_reminders.status,'Open')='Open'
                            AND COALESCE(future_reminders.reminder_date,'9999-12-31')<=?
                          ORDER BY future_reminders.reminder_date, future_reminders.id LIMIT 1""", (today.isoformat(),), one=True)
-    if next_enquiry and clean_str(row_get(next_enquiry, "source")).lower() == "customer details form" and clean_str(row_get(next_enquiry, "status")).lower() == "waiting for customer form":
+    if quote_ready:
+        dashboard_next = {"eyebrow": "Customer replied — quote ready", "title": clean_str(quote_ready["customer_name"]) or "Customer",
+                          "detail": f"Draft quote for £{float(quote_ready['total'] or 0):.0f} is ready to check before sending.",
+                          "label": "Review quote", "url": url_for("quote_view", quote_id=quote_ready["id"])}
+    elif next_enquiry and clean_str(row_get(next_enquiry, "source")).lower() == "customer details form" and clean_str(row_get(next_enquiry, "status")).lower() == "waiting for customer form":
         dashboard_next = {"eyebrow": "Customer form sent", "title": clean_str(next_enquiry["name"]) or "Customer",
                           "detail": "Waiting for the customer to send their details back.",
                           "label": "View customer form", "url": url_for("intake_form_view", lead_id=next_enquiry["id"])}
