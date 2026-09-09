@@ -3804,11 +3804,11 @@ def pwa_manifest():
 
 @app.route("/service-worker.js")
 def pwa_service_worker():
-    source = """const CACHE='carpet-clean-pro-v41';
+    source = """const CACHE='carpet-clean-pro-v42';
 	const SHELL=['/offline','/static/app-theme.css?v=20260906-44','/static/dashboard-exact.css?v=20260906-6','/static/customer-record-premium.css?v=20260906-3','/static/app.js?v=mobile-more-20260905-1','/static/site/site-icon-512.png'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim())));
-self.addEventListener('fetch',event=>{if(event.request.method!=='GET')return;const url=new URL(event.request.url);if(url.origin!==location.origin)return;if(event.request.mode==='navigate'){event.respondWith(fetch(event.request).catch(()=>caches.match('/offline')));return;}if(url.pathname.startsWith('/static/'))event.respondWith(caches.match(event.request).then(hit=>hit||fetch(event.request).then(response=>{const copy=response.clone();caches.open(CACHE).then(cache=>cache.put(event.request,copy));return response;})));});
+self.addEventListener('fetch',event=>{if(event.request.method!=='GET')return;const url=new URL(event.request.url);if(url.origin!==location.origin)return;if(event.request.mode==='navigate'){event.respondWith(fetch(event.request).then(async response=>response.status>=500?(await caches.match('/offline')||response):response).catch(()=>caches.match('/offline')));return;}if(url.pathname.startsWith('/static/'))event.respondWith(caches.match(event.request).then(hit=>hit||fetch(event.request).then(response=>{if(response.ok){const copy=response.clone();caches.open(CACHE).then(cache=>cache.put(event.request,copy));}return response;})));});
 self.addEventListener('push',event=>{let data={};try{data=event.data?event.data.json():{}}catch(e){}const title=data.title||'Carpet Cleaning Manager';const options={body:data.body||'Open the CRM to review an update.',icon:'/static/site/site-icon-512.png',badge:'/static/site/site-icon-512.png',tag:data.tag||'crm-update',renotify:false,data:{url:data.url||'/notifications'}};event.waitUntil(Promise.all([self.registration.showNotification(title,options),self.navigator.setAppBadge&&self.navigator.setAppBadge(Number(data.badge||0))]));});
 self.addEventListener('notificationclick',event=>{event.notification.close();const target=new URL(event.notification.data.url||'/notifications',self.location.origin).href;event.waitUntil(clients.matchAll({type:'window',includeUncontrolled:true}).then(list=>{for(const client of list){if(client.url.startsWith(self.location.origin)){client.navigate(target);return client.focus();}}return clients.openWindow(target);}));});"""
     response = Response(source, mimetype="application/javascript")
@@ -3819,7 +3819,18 @@ self.addEventListener('notificationclick',event=>{event.notification.close();con
 
 @app.route("/offline")
 def pwa_offline():
-    return Response("""<!doctype html><meta name=viewport content='width=device-width,initial-scale=1'><meta name=theme-color content='#062747'><title>Carpet Cleaning Manager</title><style>body{margin:0;background:#f3f7fa;color:#062747;font:16px system-ui;display:grid;min-height:100vh;place-items:center}.c{max-width:340px;margin:20px;padding:28px;border:1px solid #d8e2ec;border-radius:16px;background:#fff;text-align:center}h1{font:800 32px Georgia;margin:10px 0}p{color:#607487;line-height:1.55}button{min-height:48px;padding:0 20px;border:0;border-radius:8px;background:#062747;color:#fff;font-weight:800}</style><div class=c><img src='/static/site/site-icon-192.png' width=88 height=88 alt=''><h1>You’re offline</h1><p>Your CRM data stays private. Reconnect to the internet, then try again.</p><button onclick=location.reload()>Try again</button></div>""", mimetype="text/html")
+    return Response("""<!doctype html><meta name=viewport content='width=device-width,initial-scale=1'><meta name=theme-color content='#062747'><title>Carpet Cleaning Manager</title><style>body{margin:0;background:#f3f7fa;color:#062747;font:16px system-ui;display:grid;min-height:100vh;place-items:center}.c{max-width:340px;margin:20px;padding:28px;border:1px solid #d8e2ec;border-radius:16px;background:#fff;text-align:center}h1{font:800 32px Georgia;margin:10px 0}p{color:#607487;line-height:1.55}button{min-height:48px;padding:0 20px;border:0;border-radius:8px;background:#062747;color:#fff;font-weight:800}</style><div class=c><img src='/static/site/site-icon-192.png' width=88 height=88 alt=''><h1>Reconnecting…</h1><p>The connection was interrupted. We’ll reopen your CRM when it’s available.</p><p id=status role=status>Checking the connection…</p><button onclick=checkConnection()>Try again</button></div><script>
+let checking=false;
+async function checkConnection(){
+ if(checking||document.hidden)return;checking=true;
+ const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),8000);
+ try{const response=await fetch('/login',{cache:'no-store',credentials:'same-origin',signal:controller.signal});
+ if(response.ok){location.replace(location.pathname==='/offline'?'/dashboard':location.href);return;}
+ }catch(e){}finally{clearTimeout(timeout);checking=false;}
+ document.getElementById('status').textContent='Still reconnecting. Your saved records are unchanged.';
+}
+window.addEventListener('online',checkConnection);document.addEventListener('visibilitychange',checkConnection);setInterval(checkConnection,15000);checkConnection();
+</script>""", mimetype="text/html")
 
 
 @app.route("/uploads/<path:filename>")
