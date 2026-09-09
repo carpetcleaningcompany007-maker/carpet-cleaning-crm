@@ -69,3 +69,31 @@ class DashboardEnquiryTests(unittest.TestCase):
         self.lead(status='Email fallback sent')
         page=self.client.get('/dashboard/enquiry-alerts').data
         self.assertIn(b'email delivery is not confirmed',page)
+
+    def test_contact_attempt_logs_reminder_and_stays_open(self):
+        lead=self.lead()
+        response=self.action(lead,'no_answer')
+        self.assertEqual(response.status_code,302)
+        self.assertEqual(self.status(lead),'Cancelled')
+        self.assertEqual(len(self.mod.enquiry_contact_history(lead)),1)
+        self.assertEqual(self.mod.dashboard_enquiry_alerts()[0]['owner_action'],'no_answer')
+        self.action(lead,'voicemail')
+        self.assertEqual(len(self.mod.enquiry_contact_history(lead)),2)
+        reminders=self.mod.q("SELECT * FROM future_reminders WHERE status='Open'")
+        self.assertEqual(len(reminders),1)
+        self.assertEqual(reminders[0]['reminder_date'],(self.mod.uk_today()+timedelta(days=1)).isoformat())
+        page=self.client.get(f'/intake-forms/{lead}')
+        self.assertIn(b'Contact attempts',page.data)
+        self.action(lead,'handled')
+        self.assertEqual(self.mod.q("SELECT COUNT(*) AS c FROM future_reminders WHERE status='Open'",one=True)['c'],0)
+        self.assertEqual(len(self.mod.enquiry_contact_history(lead)),3)
+    def test_location_source_and_missing_attribution_are_truthful(self):
+        lead=self.lead()
+        self.mod.run("UPDATE intake_submissions SET postcode=?,full_address=?,landing_page=?,landing_area=? WHERE id=?",('SY1 1AA','Example street','landing-shrewsbury','Shrewsbury',lead))
+        page=self.client.get('/dashboard/enquiry-alerts').data
+        self.assertIn(b'Shrewsbury landing page',page);self.assertIn(b'Example street',page)
+        with patch.object(self.mod,'postcode_location_details',return_value={'area':'Shrewsbury','maps_url':''}):
+            result=self.client.get(f'/dashboard/enquiries/{lead}/location')
+            self.assertEqual(result.json['area'],'Shrewsbury')
+        self.mod.run("UPDATE intake_submissions SET landing_page='' WHERE id=?",(lead,))
+        self.assertIn(b'Landing page not recorded',self.client.get('/dashboard/enquiry-alerts').data)

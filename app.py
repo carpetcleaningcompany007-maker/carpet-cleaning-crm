@@ -8318,6 +8318,10 @@ def init_db():
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
+    CREATE TABLE IF NOT EXISTS enquiry_contact_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, lead_id INTEGER NOT NULL, action TEXT NOT NULL,
+        note TEXT DEFAULT '', follow_up_date TEXT DEFAULT '', created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
     CREATE TABLE IF NOT EXISTS dashboard_enquiry_decisions (
         lead_id INTEGER PRIMARY KEY, action TEXT NOT NULL, updated_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
@@ -10269,6 +10273,29 @@ def dashboard():
 
 
 
+ENQUIRY_ACTION_LABELS = {
+    'call':'Paul chose to call the customer', 'message':'Paul chose to message personally',
+    'no_answer':'Called customer — no answer', 'voicemail':'Called customer — left a voicemail',
+    'message_waiting':'Paul reports message sent — waiting for reply',
+    'stop':'Stopped the scheduled acknowledgement', 'handled':'Enquiry marked handled',
+    'send_now':'Requested acknowledgement send now'
+}
+
+
+def enquiry_contact_history(lead_id):
+    history=[]
+    for row in q('SELECT * FROM enquiry_contact_log WHERE lead_id=? ORDER BY id DESC',(lead_id,)):
+        entry=dict(row)
+        entry['label']=ENQUIRY_ACTION_LABELS.get(entry['action'],entry['action'])
+        try:
+            stamp=datetime.fromisoformat(entry['created_at'])
+            if stamp.tzinfo is None: stamp=stamp.replace(tzinfo=ZoneInfo('UTC'))
+            entry['when']=stamp.astimezone(ZoneInfo('Europe/London')).strftime('%d %b at %H:%M')
+        except (ValueError,TypeError):entry['when']=entry['created_at']
+        history.append(entry)
+    return history
+
+
 def dashboard_enquiry_alerts():
     rows = q("""SELECT s.*, a.status AS ack_status, a.due_at AS ack_due, a.channel AS ack_channel,
                        a.message AS ack_message, a.sent_at AS ack_sent_at, a.delivered_at AS ack_delivered_at, a.fallback_sent_at AS ack_fallback_at, d.action AS owner_action
@@ -10339,6 +10366,15 @@ def dashboard_enquiry_alerts():
         item['delivery_problem'] = any(word in failure_text for word in ('failed','failure','bounced','bounce','returned','rejected','undeliver','unconfirmed'))
         item['owner_step'] = {'call':'You chose to call this customer. The call is not yet marked complete.','message':'You chose to message personally. Check the conversation and mark handled when finished.','stop':'You stopped the automatic acknowledgement. Choose a manual next step.'}.get(item.get('owner_action'),'You have not chosen a manual next step yet.')
         if item['delivery_problem']: item['next_step'] = 'Delivery needs attention. Check the text and email statuses below before sending another message.'
+        item['source_label'] = website_enquiry_source_label(item) if clean_str(item.get('landing_page')) else 'Landing page not recorded'
+        item['supplied_address'] = clean_str(item.get('full_address')) or 'Street address not supplied'
+        item['source_campaign'] = clean_str(item.get('utm_campaign'))
+        item['traffic_source'] = ' / '.join(filter(None,[clean_str(item.get('utm_source')),clean_str(item.get('utm_medium'))])) or ('Google Ads click recorded' if any(item.get(k) for k in ('gclid','gbraid','wbraid')) else 'Traffic source not recorded')
+        item['contact_history'] = enquiry_contact_history(item['id'])
+        item['next_followup_date'] = (uk_today()+timedelta(days=1)).isoformat()
+        item['followup_reminder'] = q("SELECT reminder_date FROM future_reminders WHERE reminder_type=? AND status='Open' ORDER BY id DESC LIMIT 1",('Enquiry follow-up #'+str(item['id']),),one=True)
+        if item.get('owner_action') in ('no_answer','voicemail','message_waiting'):
+            item['owner_step'] = ENQUIRY_ACTION_LABELS[item['owner_action']] + '. Follow-up still needed.'
         item['preview'] = enquiry_acknowledgement_text(item)
         alerts.append(item)
     return alerts
@@ -10352,11 +10388,33 @@ def dashboard_enquiry_alerts_fragment():
     return response
 
 
+@app.route('/dashboard/enquiries/<int:lead_id>/location')
+@login_required
+def dashboard_enquiry_location(lead_id):
+    lead=q('SELECT postcode FROM intake_submissions WHERE id=?',(lead_id,),one=True)
+    if not lead: abort(404)
+    result=postcode_location_details(clean_str(lead['postcode']))
+    response=jsonify(result)
+    response.headers['Cache-Control']='private, max-age=300'
+    return response
+
+
 @app.route('/dashboard/enquiries/<int:lead_id>/action', methods=['POST'])
 @login_required
 def dashboard_enquiry_action(lead_id):
     action = request.form.get('action')
-    if action not in ('stop','call','message','send_now','handled'): abort(400)
+    if action not in ENQUIRY_ACTION_LABELS: abort(400)
+    contact_attempt = action in ('no_answer','voicemail','message_waiting')
+    note = clean_str(request.form.get('contact_note'))[:2000]
+    followup_date = ''
+    if contact_attempt:
+        try:
+            chosen = datetime.strptime(request.form.get('followup_date') or (uk_today()+timedelta(days=1)).isoformat(),'%Y-%m-%d').date()
+            if chosen < uk_today(): raise ValueError('Past date')
+            followup_date=chosen.isoformat()
+        except ValueError:
+            flash('Choose today or a future date for the follow-up.')
+            return redirect(url_for('dashboard'))
     lead = q('SELECT * FROM intake_submissions WHERE id=?', (lead_id,), one=True)
     if not lead: abort(404)
     if row_get(lead,'is_test') or row_get(lead,'ignore_alerts'):
@@ -10372,7 +10430,9 @@ def dashboard_enquiry_action(lead_id):
         db().commit()
         if cur.rowcount:
             results = run_due_enquiry_acknowledgements(lead_id=lead_id)
-            flash('Acknowledgement: ' + (results[0]['status'] if results else 'already being processed; refresh for its status') + '.')
+            result_status = results[0]['status'] if results else 'already being processed; refresh for its status'
+            run('INSERT INTO enquiry_contact_log(lead_id,action,note) VALUES (?,?,?)',(lead_id,action,'Acknowledgement status: '+result_status))
+            flash('Acknowledgement: ' + result_status + '.')
         else: flash('This message is no longer queued. It has not been sent again.')
         return redirect(url_for('dashboard'))
     # Only a still-queued message can be cancelled; a worker that already claimed it wins.
@@ -10380,11 +10440,28 @@ def dashboard_enquiry_action(lead_id):
                     WHERE lead_id=? AND status='Queued' AND sent_at=''""", ('Stopped by Paul from dashboard: '+action,lead_id))
     db().commit()
     queued = q('SELECT status FROM enquiry_acknowledgement_queue WHERE lead_id=?',(lead_id,),one=True)
-    if row_get(queued,'status') == 'Sending':
+    if row_get(queued,'status') == 'Sending' and not contact_attempt:
         flash('The acknowledgement is already being processed and could not be stopped. Check its status before sending another message.')
         return redirect(url_for('dashboard'))
     run("""INSERT INTO dashboard_enquiry_decisions(lead_id,action) VALUES (?,?)
            ON CONFLICT(lead_id) DO UPDATE SET action=excluded.action, updated_at=datetime('now')""",(lead_id,action))
+    run('INSERT INTO enquiry_contact_log(lead_id,action,note,follow_up_date) VALUES (?,?,?,?)',(lead_id,action,note,followup_date))
+    reminder_key='Enquiry follow-up #'+str(lead_id)
+    if contact_attempt:
+        existing=q("SELECT id FROM future_reminders WHERE reminder_type=? AND status='Open' ORDER BY id DESC LIMIT 1",(reminder_key,),one=True)
+        title='Follow up with '+(clean_str(row_get(lead,'name')) or 'enquiry customer')
+        detail=ENQUIRY_ACTION_LABELS[action]+'. '+note+' Enquiry: '+url_for('intake_form_view',lead_id=lead_id)
+        if existing:
+            run('UPDATE future_reminders SET reminder_date=?,title=?,notes=? WHERE id=?',(followup_date,title,detail,existing['id']))
+        else:
+            run("INSERT INTO future_reminders(customer_id,reminder_date,title,notes,reminder_type,status) VALUES (?,?,?,?,?,'Open')",(row_get(lead,'customer_id'),followup_date,title,detail,reminder_key))
+        run("UPDATE intake_submissions SET follow_up_status=?,updated_at=datetime('now') WHERE id=?",(ENQUIRY_ACTION_LABELS[action]+'; follow up '+followup_date,lead_id))
+        if row_get(lead,'customer_id'):
+            run("INSERT INTO customer_timeline(customer_id,note_text,created_at) VALUES (?,?,datetime('now'))",(lead['customer_id'],detail+' Follow up: '+followup_date))
+        flash('Contact attempt logged. Follow-up reminder set for '+followup_date+'. This action did not send a message.' + (' The acknowledgement was already processing and could not be stopped.' if row_get(queued,'status')=='Sending' else ' Any still-queued acknowledgement was stopped.'))
+        return redirect(url_for('dashboard'))
+    if action == 'handled':
+        run("UPDATE future_reminders SET status='Completed',completed_at=datetime('now') WHERE reminder_type=? AND status='Open'",(reminder_key,))
     if action in ('call','message','handled'):
         run("UPDATE intake_submissions SET follow_up_status=?, updated_at=datetime('now') WHERE id=?",('Paul handling personally: '+action,lead_id))
     if row_get(lead,'customer_id'):
@@ -18894,7 +18971,7 @@ def intake_form_view(lead_id):
         return redirect(url_for("intake_forms"))
     ai_draft = q("SELECT * FROM ai_drafts WHERE intake_id=? AND status NOT IN ('Sent','Discarded','Replaced') ORDER BY id DESC LIMIT 1", (lead_id,), one=True)
     return render_template(
-        "intake_form_view.html",
+        "intake_form_view.html", contact_history=enquiry_contact_history(lead_id),
         lead=lead,
         display_job_notes=clean_intake_job_notes(lead),
         xero_configured=xero_is_configured(),

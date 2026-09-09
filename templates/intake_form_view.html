@@ -2,6 +2,7 @@
 {% block title %}Review Customer Details{% endblock %}
 {% block page_title %}Review Customer Details{% endblock %}
 {% block body_content %}
+{% if contact_history %}<section class="panel" id="contact-attempt-history"><div class="panel-head"><h2>Contact attempts &amp; follow-up history</h2></div><div style="padding:20px">{% for event in contact_history %}<article style="border-bottom:1px solid #ddd;padding:15px 0"><strong>{{ event.label }}</strong><p>{{ event.when }} UK time{% if event.follow_up_date %} · Follow up {{ event.follow_up_date }}{% endif %}</p>{% if event.note %}<p>{{ event.note }}</p>{% endif %}</article>{% endfor %}</div></section>{% endif %}
 {% set xero_identity_ready = lead.name and (lead.phone or lead.email) %}
 {% set xero_decision_needed = xero_identity_ready and (not lead.full_address or not lead.postcode) %}
 {% set xero_missing_summary = (([] if lead.full_address else ['address']) + ([] if lead.postcode else ['postcode']))|join(', ') %}
