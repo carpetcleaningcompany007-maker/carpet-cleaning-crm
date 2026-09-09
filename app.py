@@ -6389,9 +6389,14 @@ def calc_from_payload(payload):
     lines = [normalise_quote_line(line) for line in list(payload.get('lines') or [])]
     subtotal = round(sum(float(line.get('line_total') or 0) for line in lines), 2)
     vat = round(float(payload.get('vat') or 0), 2)
-    total = round(float(payload.get('total') or (subtotal + vat)), 2)
+    discount = max(0, round(float(payload.get('discount_amount') or 0), 2))
+    uplift = max(0, round(float(payload.get('difficulty_uplift') or 0), 2))
+    urine_treatment = max(0, round(float(payload.get('urine_treatment') or 0), 2))
+    adjusted_total = subtotal - discount + uplift + urine_treatment + vat
+    total = round(float(payload.get('total') or adjusted_total), 2)
     raw_total = round(float(payload.get('raw_total') or total), 2)
-    return {'lines': lines, 'subtotal': subtotal, 'vat': vat, 'total': total, 'raw_total': raw_total, 'minimum': 0}
+    return {'lines': lines, 'subtotal': subtotal, 'vat': vat, 'total': total, 'raw_total': raw_total, 'minimum': 0,
+            'discount': discount, 'uplift': uplift, 'urine_treatment': urine_treatment}
 
 
 def log_sms_event(customer_id, communication_id, provider, event_type, to_phone, from_phone, body, external_id='', status='Logged', direction='outbound', payload=None, error_text=''):
@@ -13928,10 +13933,14 @@ def quote_view(quote_id):
                  LEFT JOIN customers ON customers.id = quotes.customer_id
                  WHERE quotes.id=?""", (quote_id,), one=True)
     lines = q("SELECT * FROM quote_lines WHERE quote_id=? ORDER BY id", (quote_id,))
+    try:
+        quote_adjustments = json.loads(quote["payload_json"] or "{}")
+    except (TypeError, json.JSONDecodeError):
+        quote_adjustments = {}
     existing_job = q("SELECT id FROM jobs WHERE quote_id=? AND IFNULL(status,'') <> 'Archived' ORDER BY id DESC LIMIT 1", (quote_id,), one=True)
     recent_contacts = recent_customer_contacts(quote["customer_id"] if quote else None, 6)
     contact_summary = customer_contact_summary(quote["customer_id"] if quote else None, 30)
-    return render_template("quote_view.html", quote=quote, lines=lines, is_archived=((quote["status"] or "") == "Archived"), existing_job_id=(existing_job["id"] if existing_job else None), recent_contacts=recent_contacts, contact_summary=contact_summary)
+    return render_template("quote_view.html", quote=quote, lines=lines, quote_adjustments=quote_adjustments, is_archived=((quote["status"] or "") == "Archived"), existing_job_id=(existing_job["id"] if existing_job else None), recent_contacts=recent_contacts, contact_summary=contact_summary)
 
 @app.route("/quotes/<int:quote_id>/edit", methods=["POST"])
 @login_required
@@ -13996,6 +14005,42 @@ def quote_lines_edit(quote_id):
     run("UPDATE quotes SET subtotal=?, vat=?, total=?, payload_json=? WHERE id=?", (
         calculated["subtotal"], calculated["vat"], calculated["total"], json.dumps(payload), quote_id))
     flash("Cleaning list and quote total updated.")
+    return redirect(url_for("quote_view", quote_id=quote_id))
+
+
+@app.route("/quotes/<int:quote_id>/adjustment", methods=["POST"])
+@login_required
+def quote_adjustment(quote_id):
+    quote = q("SELECT * FROM quotes WHERE id=?", (quote_id,), one=True)
+    if not quote:
+        abort(404)
+    try:
+        discount_percent = float(request.form.get("discount_percent") or 0)
+        difficulty_uplift = float(request.form.get("difficulty_uplift") or 0)
+        urine_treatment = float(request.form.get("urine_treatment") or 0)
+    except (TypeError, ValueError):
+        flash("Enter valid adjustment amounts.")
+        return redirect(url_for("quote_view", quote_id=quote_id))
+    if not (0 <= discount_percent <= 50 and 0 <= difficulty_uplift <= 1000 and 0 <= urine_treatment <= 1000):
+        flash("Keep the discount and extra-work amounts within the available range.")
+        return redirect(url_for("quote_view", quote_id=quote_id))
+    try:
+        payload = json.loads(quote["payload_json"] or "{}")
+    except (TypeError, json.JSONDecodeError):
+        payload = {}
+    base_total = round(sum(float(line.get("line_total") or 0) for line in payload.get("lines") or []), 2)
+    payload["discount_percent"] = discount_percent
+    payload["discount_amount"] = round(base_total * discount_percent / 100, 2)
+    payload["difficulty_uplift"] = round(difficulty_uplift, 2)
+    payload["urine_treatment"] = round(urine_treatment, 2)
+    payload.pop("total", None)
+    payload.pop("raw_total", None)
+    calculated = calc_from_payload(payload)
+    payload["total"] = calculated["total"]
+    payload["raw_total"] = calculated["raw_total"]
+    run("UPDATE quotes SET subtotal=?, vat=?, total=?, payload_json=? WHERE id=?", (
+        calculated["subtotal"], calculated["vat"], calculated["total"], json.dumps(payload), quote_id))
+    flash("Quote adjustment saved.")
     return redirect(url_for("quote_view", quote_id=quote_id))
 
 @app.route("/quotes/<int:quote_id>/delete", methods=["POST"])

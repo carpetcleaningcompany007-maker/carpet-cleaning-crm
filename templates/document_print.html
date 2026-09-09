@@ -55,7 +55,7 @@ tbody td{font-size:15px;padding:10px 6px;border-bottom:1px solid #ddd;vertical-a
   </table>
   <table class="totals">
     <tr><td>Subtotal</td><td class="num">{{ '%.2f'|format(calc.subtotal or 0) }}</td></tr>
-    <tr><td>VAT</td><td class="num">{{ '%.2f'|format(calc.vat or 0) }}</td></tr>
+    <tr><td>VAT</td><td class="num">{{ '%.2f'|format(calc.vat or 0) }}</td></tr>{% if calc.discount %}`n    <tr><td>Empty property discount</td><td class="num">-{{ '%.2f'|format(calc.discount) }}</td></tr>{% endif %}
     <tr class="grand"><td>TOTAL PAYABLE GBP</td><td class="num">{{ '%.2f'|format(calc.total or 0) }}</td></tr>
   </table>
   {% if mode=='quote' %}
