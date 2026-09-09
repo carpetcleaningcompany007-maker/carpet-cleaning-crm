@@ -81,7 +81,7 @@
 
   <section class="lead-action-panel" id="lead-action-panel">
     {% set received = lead.update_form_status == 'Customer sent updated details' %}
-    <ol class="simple-stage-strip" aria-label="Customer journey"><li class="{{ 'current' if missing_details else 'done' }}">1 · Quote &amp; agree price</li><li class="{{ 'current' if not missing_details and not lead.xero_contact_id else '' }}">2 · Booking details</li><li>3 · Review &amp; Xero</li></ol>
+    <ol class="simple-stage-strip" aria-label="Customer journey"><li class="{{ 'current' if not lead.job_id and (lead.status or '') not in ['Accepted','Booked'] else 'done' }}">1 · Quote &amp; agree price</li><li class="{{ 'current' if (lead.job_id or (lead.status or '') in ['Accepted','Booked']) and missing_details else '' }}">2 · Booking details</li><li>3 · Review &amp; Xero</li></ol>
     <section class="simple-next-step">
     {% if not lead.job_id and (lead.status or '') not in ['Accepted','Booked'] %}
       <h4>Next step · Confirm the price and prepare a quote</h4><p>Agree the cleaning package with {{ lead.name }} first. Collect the booking details after the customer accepts.</p><a class="btn primary" href="{{ url_for('ai_assistant',tool='quote',intake_id=lead.id,customer_id=lead.customer_id or '') }}">Prepare quote</a>

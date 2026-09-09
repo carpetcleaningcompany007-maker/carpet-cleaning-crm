@@ -109,7 +109,7 @@ class DashboardEnquiryTests(unittest.TestCase):
         result=self.client.post(f'/dashboard/enquiries/{lead}/action',data={'action':'link_document','document':'invoice:'+str(invoice)})
         self.assertEqual(result.status_code,302)
         page=self.client.get('/dashboard/enquiry-alerts').data
-        self.assertIn(b'Invoice prepared',page);self.assertIn(b'TEST-READY',page)
+        self.assertIn(b'Review the prepared invoice',page);self.assertIn(b'TEST-READY',page)
         self.action(lead,'declined');self.assertEqual(self.mod.dashboard_enquiry_alerts(),[])
     def test_accept_moves_to_customer_record(self):
         lead=self.lead()
