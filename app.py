@@ -4274,13 +4274,17 @@ def poll_inbound_customer_emails(imap_factory=None, force=False):
 @app.route("/inbox")
 @login_required
 def inbound_email_inbox():
-    rows = q("""SELECT inbound_customer_emails.*,customers.first_name || ' ' || customers.last_name AS customer_name,
+    scope=request.args.get('scope','customers')
+    if scope not in ('customers','other'): scope='customers'
+    clause = "inbound_customer_emails.customer_id IS NOT NULL AND customers.id IS NOT NULL" if scope=='customers' else "(inbound_customer_emails.customer_id IS NULL OR customers.id IS NULL)"
+    rows = q(f"""SELECT inbound_customer_emails.*,customers.first_name || ' ' || customers.last_name AS customer_name,
                        (SELECT COUNT(*) FROM inbound_email_attachments WHERE email_id=inbound_customer_emails.id) AS attachment_count
                 FROM inbound_customer_emails LEFT JOIN customers ON customers.id=inbound_customer_emails.customer_id
+                WHERE {clause}
                 ORDER BY inbound_customer_emails.id DESC LIMIT 100""")
     state = q("SELECT * FROM inbound_email_poll_state WHERE id=1", one=True)
     address, password = inbound_email_config()
-    return render_template("inbound_email_inbox.html", emails=rows, poll_state=state, inbox_configured=bool(address and password))
+    return render_template("inbound_email_inbox.html", emails=rows, inbox_scope=scope, poll_state=state, inbox_configured=bool(address and password))
 
 
 @app.route("/inbox/<int:email_id>")
