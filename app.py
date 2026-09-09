@@ -8534,6 +8534,8 @@ def init_db():
         ("intake_submissions", "review_notes", "TEXT DEFAULT ''"),
         ("intake_submissions", "customer_id", "INTEGER"),
         ("intake_submissions", "job_id", "INTEGER"),
+        ("intake_submissions", "prepared_quote_id", "INTEGER"),
+        ("intake_submissions", "prepared_invoice_id", "INTEGER"),
         ("intake_submissions", "agreed_quote_price", "REAL DEFAULT 0"),
         ("intake_submissions", "xero_contact_id", "TEXT DEFAULT ''"),
         ("intake_submissions", "xero_sent_at", "TEXT DEFAULT ''"),
@@ -10283,7 +10285,8 @@ ENQUIRY_ACTION_LABELS = {
     'no_answer':'Called customer — no answer', 'voicemail':'Called customer — left a voicemail',
     'message_waiting':'Paul reports message sent — waiting for reply',
     'stop':'Stopped the scheduled acknowledgement', 'handled':'Enquiry marked handled',
-    'send_now':'Requested acknowledgement send now'
+    'send_now':'Requested acknowledgement send now',
+    'accepted':'Accepted and moved to customer library', 'declined':'Enquiry declined', 'link_document':'Prepared document linked'
 }
 
 
@@ -10308,8 +10311,8 @@ def dashboard_enquiry_alerts():
                 LEFT JOIN enquiry_acknowledgement_queue a ON a.lead_id=s.id
                 LEFT JOIN dashboard_enquiry_decisions d ON d.lead_id=s.id
                 WHERE IFNULL(s.is_test,0)=0 AND IFNULL(s.ignore_alerts,0)=0
-                  AND IFNULL(s.status,'New') IN ('New','Waiting for review','Needs missing details')
-                  AND IFNULL(d.action,'') <> 'handled'
+                  AND lower(IFNULL(s.status,'New')) NOT IN ('accepted','booked','declined','rejected','archived','cancelled','completed')
+                  AND IFNULL(d.action,'') NOT IN ('accepted','declined')
                 ORDER BY s.id DESC""")
     alerts = []
     now = datetime.now(ZoneInfo("Europe/London"))
@@ -10369,7 +10372,7 @@ def dashboard_enquiry_alerts():
             if event: item['latest_email'] = dict(event)
         failure_text = ' '.join([status,item['sms_detail'],item['email_detail'],clean_str((item['latest_email'] or {}).get('status'))]).lower()
         item['delivery_problem'] = any(word in failure_text for word in ('failed','failure','bounced','bounce','returned','rejected','undeliver','unconfirmed'))
-        item['owner_step'] = {'call':'You chose to call this customer. The call is not yet marked complete.','message':'You chose to message personally. Check the conversation and mark handled when finished.','stop':'You stopped the automatic acknowledgement. Choose a manual next step.'}.get(item.get('owner_action'),'You have not chosen a manual next step yet.')
+        item['owner_step'] = {'call':'You chose to call this customer. The call is not yet marked complete.','message':'You chose to message personally. Check the conversation and record the next step.','stop':'You stopped the automatic acknowledgement. Choose a manual next step.'}.get(item.get('owner_action'),'You have not chosen a manual next step yet.')
         if item['delivery_problem']: item['next_step'] = 'Delivery needs attention. Check the text and email statuses below before sending another message.'
         item['source_label'] = website_enquiry_source_label(item) if clean_str(item.get('landing_page')) else 'Landing page not recorded'
         item['supplied_address'] = clean_str(item.get('full_address')) or 'Street address not supplied'
@@ -10380,6 +10383,25 @@ def dashboard_enquiry_alerts():
         item['followup_reminder'] = q("SELECT reminder_date FROM future_reminders WHERE reminder_type=? AND status='Open' ORDER BY id DESC LIMIT 1",('Enquiry follow-up #'+str(item['id']),),one=True)
         if item.get('owner_action') in ('no_answer','voicemail','message_waiting'):
             item['owner_step'] = ENQUIRY_ACTION_LABELS[item['owner_action']] + '. Follow-up still needed.'
+        item['prepared_documents'] = []
+        item['available_documents'] = []
+        for kind, table, number in [('quote','quotes','quote_number'),('invoice','invoices','invoice_number')]:
+            document_id = item.get('prepared_'+kind+'_id')
+            document = q(f"SELECT id,{number} AS number,status,total FROM {table} WHERE id=? AND customer_id=? AND lower(IFNULL(status,''))<>'archived'",(document_id,item.get('customer_id')),one=True) if document_id else None
+            if document:
+                item['prepared_documents'].append(dict(document,kind=kind,url=url_for(kind+'_view',**{kind+'_id':document['id']})))
+            if item.get('customer_id'):
+                for candidate in q(f"SELECT id,{number} AS number,status FROM {table} WHERE customer_id=? AND lower(IFNULL(status,''))<>'archived' ORDER BY id DESC LIMIT 20",(item['customer_id'],)):
+                    item['available_documents'].append(dict(candidate,kind=kind))
+        item['workflow_next'] = 'Review the cleaning list, confirm missing details and prepare the quote.'
+        if item['prepared_documents']:
+            document=item['prepared_documents'][-1]
+            if clean_str(document['status']).lower() == 'draft':
+                item['workflow_next'] = document['kind'].title()+' prepared. Check the itemised work and price, then send when ready.'
+            else:
+                item['workflow_next'] = document['kind'].title()+' status: '+clean_str(document['status'])+'. Check the customer response and record the outcome.'
+        elif item['followup_reminder']:
+            item['workflow_next'] = 'Follow up with the customer on '+item['followup_reminder']['reminder_date']+'.'
         item['preview'] = enquiry_acknowledgement_text(item)
         alerts.append(item)
     return alerts
@@ -10425,6 +10447,18 @@ def dashboard_enquiry_action(lead_id):
     if row_get(lead,'is_test') or row_get(lead,'ignore_alerts'):
         flash('Test or ignored enquiries cannot send from this alert.')
         return redirect(url_for('dashboard'))
+    if action == 'handled':
+        flash('Keep this enquiry open until you choose Accepted or Declined.')
+        return redirect(url_for('dashboard'))
+    if action == 'link_document':
+        kind, _, identifier = request.form.get('document','').partition(':')
+        if kind not in ('quote','invoice') or not identifier.isdigit(): abort(400)
+        document=q(f'SELECT id FROM {kind}s WHERE id=? AND customer_id=?',(int(identifier),lead['customer_id']),one=True)
+        if not document: abort(400)
+        run(f'UPDATE intake_submissions SET prepared_{kind}_id=?,updated_at=datetime("now") WHERE id=?',(document['id'],lead_id))
+        run('INSERT INTO enquiry_contact_log(lead_id,action,note) VALUES (?,?,?)',(lead_id,action,kind.title()+' #'+identifier+' linked for review.'))
+        flash('Prepared document linked. Nothing has been sent.')
+        return redirect(url_for('dashboard'))
     if action == 'send_now':
         now = datetime.now(ZoneInfo('Europe/London'))
         if not customer_sms_hours_open(now):
@@ -10448,6 +10482,15 @@ def dashboard_enquiry_action(lead_id):
     if row_get(queued,'status') == 'Sending' and not contact_attempt:
         flash('The acknowledgement is already being processed and could not be stopped. Check its status before sending another message.')
         return redirect(url_for('dashboard'))
+    if action in ('accepted','declined'):
+        customer_id = lead['customer_id']
+        if action == 'accepted':
+            customer_id = create_customer_from_intake(lead)
+            if not customer_id:
+                flash('Open the enquiry and resolve the customer details before accepting.')
+                return redirect(url_for('intake_form_view',lead_id=lead_id))
+        run("UPDATE intake_submissions SET status=?,updated_at=datetime('now') WHERE id=?",('Accepted' if action=='accepted' else 'Declined',lead_id))
+        run("UPDATE future_reminders SET status='Completed',completed_at=datetime('now') WHERE reminder_type=? AND status='Open'",('Enquiry follow-up #'+str(lead_id),))
     run("""INSERT INTO dashboard_enquiry_decisions(lead_id,action) VALUES (?,?)
            ON CONFLICT(lead_id) DO UPDATE SET action=excluded.action, updated_at=datetime('now')""",(lead_id,action))
     run('INSERT INTO enquiry_contact_log(lead_id,action,note,follow_up_date) VALUES (?,?,?,?)',(lead_id,action,note,followup_date))
@@ -10472,6 +10515,7 @@ def dashboard_enquiry_action(lead_id):
     if row_get(lead,'customer_id'):
         run("INSERT INTO customer_timeline(customer_id,note_text,created_at) VALUES (?,?,datetime('now'))",(lead['customer_id'],'Dashboard enquiry action: '+action+'.'))
     flash('Queued acknowledgement stopped.' if action=='stop' and row_get(queued,'status')=='Cancelled' else 'Your choice has been recorded. Any still-queued acknowledgement was stopped; already-sent messages cannot be recalled.')
+    if action == 'accepted': return redirect(url_for('customer_view',customer_id=customer_id))
     if action == 'message' and row_get(lead,'customer_id'):
         return redirect(url_for('customer_conversation',customer_id=lead['customer_id']))
     if action in ('call','message'): return redirect(url_for('intake_form_view',lead_id=lead_id))
@@ -13332,6 +13376,8 @@ def ai_assistant_save_invoice(run_id):
         payload={'lines':lines,'vat':float(vat),'total':float(total),'include_vat':vat>0}
         invoice_id=connection.execute('INSERT INTO invoices(customer_id,invoice_number,invoice_date,due_date,status,subtotal,vat,total,payload_json,notes) VALUES (?,?,?,?,?,?,?,?,?,?)',
             (customer_id,next_invoice_number(),invoice_date.isoformat(),due_date.isoformat(),'Draft',float(subtotal),float(vat),float(total),json.dumps(payload),edited['notes'])).lastrowid
+        if row['intake_id']:
+            connection.execute('UPDATE intake_submissions SET prepared_invoice_id=? WHERE id=? AND customer_id=?',(invoice_id,row['intake_id'],customer_id))
         result['saved_invoice_id']=invoice_id
         connection.execute('UPDATE ai_assistant_runs SET result_json=?,customer_id=? WHERE id=?',(json.dumps(result),customer_id,run_id))
         connection.commit()

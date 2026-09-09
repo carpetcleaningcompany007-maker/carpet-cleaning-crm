@@ -64,7 +64,7 @@ class DashboardEnquiryTests(unittest.TestCase):
         self.assertIn(b'DELIVERY PROBLEM',page);self.assertIn(b'email returned',page);self.assertIn(b'data-received=',page)
         self.action(lead,'message')
         self.assertIn(b'You chose to message personally',self.client.get('/dashboard/enquiry-alerts').data)
-        self.action(lead,'handled');self.assertEqual(self.mod.dashboard_enquiry_alerts(),[])
+        self.action(lead,'declined');self.assertEqual(self.mod.dashboard_enquiry_alerts(),[])
     def test_email_sent_is_not_treated_as_delivery_confirmation(self):
         self.lead(status='Email fallback sent')
         page=self.client.get('/dashboard/enquiry-alerts').data
@@ -84,7 +84,7 @@ class DashboardEnquiryTests(unittest.TestCase):
         self.assertEqual(reminders[0]['reminder_date'],(self.mod.uk_today()+timedelta(days=1)).isoformat())
         page=self.client.get(f'/intake-forms/{lead}')
         self.assertIn(b'Contact attempts',page.data)
-        self.action(lead,'handled')
+        self.action(lead,'declined')
         self.assertEqual(self.mod.q("SELECT COUNT(*) AS c FROM future_reminders WHERE status='Open'",one=True)['c'],0)
         self.assertEqual(len(self.mod.enquiry_contact_history(lead)),3)
     def test_location_source_and_missing_attribution_are_truthful(self):
@@ -97,3 +97,23 @@ class DashboardEnquiryTests(unittest.TestCase):
             self.assertEqual(result.json['area'],'Shrewsbury')
         self.mod.run("UPDATE intake_submissions SET landing_page='' WHERE id=?",(lead,))
         self.assertIn(b'Landing page not recorded',self.client.get('/dashboard/enquiry-alerts').data)
+
+    def test_reviewed_remains_and_prepared_document_is_explicit(self):
+        lead=self.lead()
+        self.mod.run("UPDATE intake_submissions SET status='Reviewed' WHERE id=?",(lead,))
+        self.assertEqual(len(self.mod.dashboard_enquiry_alerts()),1)
+        self.action(lead,'handled')
+        self.assertEqual(len(self.mod.dashboard_enquiry_alerts()),1)
+        invoice=self.mod.run("INSERT INTO invoices(customer_id,invoice_number,status,total) VALUES (?,'TEST-READY','Draft',150)",(self.customer,))
+        self.assertEqual(self.mod.dashboard_enquiry_alerts()[0]['prepared_documents'],[])
+        result=self.client.post(f'/dashboard/enquiries/{lead}/action',data={'action':'link_document','document':'invoice:'+str(invoice)})
+        self.assertEqual(result.status_code,302)
+        page=self.client.get('/dashboard/enquiry-alerts').data
+        self.assertIn(b'Invoice prepared',page);self.assertIn(b'TEST-READY',page)
+        self.action(lead,'declined');self.assertEqual(self.mod.dashboard_enquiry_alerts(),[])
+    def test_accept_moves_to_customer_record(self):
+        lead=self.lead()
+        result=self.action(lead,'accepted')
+        self.assertEqual(result.status_code,302)
+        self.assertIn('/customers/',result.location)
+        self.assertEqual(self.mod.dashboard_enquiry_alerts(),[])
