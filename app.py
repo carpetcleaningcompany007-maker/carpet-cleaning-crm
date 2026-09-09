@@ -4241,6 +4241,77 @@ def customer_for_clicksend_sms_reply(sender_email):
     return None
 
 
+def sms_reply_text(message):
+    """Keep just the customer's reply from ClickSend's email relay wrapper."""
+    text = safe_email_body(message)
+    marker = "You've received a reply from"
+    if marker in text:
+        text = text.split(":", 1)[-1]
+        text = text.split("Original Message", 1)[0]
+    return clean_str(text)
+
+
+def prepare_quote_draft_from_sms_reply(customer_id, reply_text, source_email_id=0):
+    """Create a review-only quote draft when a reply clearly lists priced services."""
+    text = clean_str(reply_text).lower()
+    if not customer_id or not text:
+        return None
+    catalogue = {item.get('id'): item for item in pricing().get('domestic', [])}
+    requested = []
+    def add(item_id, quantity=1):
+        item = catalogue.get(item_id)
+        if item and quantity:
+            requested.append(normalise_quote_line({'item_name': item.get('name'), 'method': 'Price book',
+                'quantity': quantity, 'unit_price': item.get('price') or 0, 'group_name': item.get('group') or 'Residential'}))
+    # A single reply can be informal; only use recognisable priced services and leave everything editable.
+    if 'stairs' in text or 'landing' in text:
+        add('stairslanding')
+    if re.search(r'\b(lounge|living room)\b', text):
+        add('living')
+    bedroom_match = re.search(r'\b(\d+)\s*(?:x\s*)?(?:bedroom|bedrooms)\b', text)
+    if bedroom_match:
+        add('bedroom', min(int(bedroom_match.group(1)), 12))
+    elif re.search(r'\bbedroom\b', text):
+        add('bedroom')
+    if re.search(r'\bdining(?: room)?\b', text):
+        add('dining')
+    if re.search(r'\b(study|office)\b', text):
+        add('study')
+    sofa_match = re.search(r'\b([235])[- ]?(?:seat|seater)\s*(?:corner )?sofa\b', text)
+    if sofa_match:
+        seats = int(sofa_match.group(1))
+        add('sofa_2' if seats == 2 else 'sofa_3' if seats == 3 else 'seat', 1 if seats < 5 else 5)
+    elif 'corner sofa' in text:
+        add('seat', 5)
+    if 'armchair' in text or re.search(r'\bchair\b', text):
+        add('armchair')
+    if 'large rug' in text:
+        add('rug_large')
+    elif 'medium rug' in text:
+        add('rug_medium')
+    elif 'small rug' in text or re.search(r'\brug\b', text):
+        add('rug_small')
+    if not requested:
+        return None
+    # Do not duplicate a quote when the mailbox polls the same reply again.
+    note_marker = f"SMS reply email #{int(source_email_id or 0)}"
+    existing = q("SELECT id FROM quotes WHERE customer_id=? AND notes LIKE ? LIMIT 1", (customer_id, f"%{note_marker}%"), one=True)
+    if existing:
+        return existing['id']
+    payload = {'lines': requested, 'include_vat': False}
+    calc = calc_from_payload(payload)
+    quote_id = run("""INSERT INTO quotes(customer_id,quote_number,title,quote_date,valid_until,status,subtotal,vat,total,payload_json,notes)
+                      VALUES (?,?,?,?,?,?,?,?,?,?,?)""", (customer_id, next_quote_number(), 'Quote draft from customer reply',
+        date.today().isoformat(), '', 'Draft', calc['subtotal'], calc['vat'], calc['total'], json.dumps(payload),
+        f"Prepared from {note_marker}. Check rooms, method and price before sending."))
+    for line in calc['lines']:
+        run("""INSERT INTO quote_lines(quote_id,item_name,method,quantity,unit_price,line_total,group_name)
+               VALUES (?,?,?,?,?,?,?)""", (quote_id, line.get('item_name',''), line.get('method',''), line.get('quantity',0),
+               line.get('unit_price',0), line.get('line_total',0), line.get('group_name','')))
+    set_customer_workflow(customer_id, 'quote_created', 'Quote draft prepared from customer SMS reply. Check before sending.', 'Quote draft prepared')
+    return quote_id
+
+
 def ingest_inbound_message(raw_message, mailbox_uid=""):
     if not isinstance(raw_message, (bytes, bytearray)) or len(raw_message) > 30 * 1024 * 1024:
         return {"status": "rejected"}
@@ -4283,6 +4354,7 @@ def ingest_inbound_message(raw_message, mailbox_uid=""):
                VALUES (?,?,?,?,datetime('now'))""",
             (customer_id, "SMS", "Inbound SMS reply", body))
         prepare_ai_draft_for_inbound_sms(customer_id)
+        prepare_quote_draft_from_sms_reply(customer_id, sms_reply_text(message), email_id)
     return {"status": "created", "id": email_id, "matched": bool(customer_id), "attachments": len(attachments)}
 
 
