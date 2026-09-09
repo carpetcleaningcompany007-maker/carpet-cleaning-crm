@@ -93,45 +93,45 @@
         <summary class="customer-form-card-head">
           <span>Step 3</span>
           <div>
-            <h2>Access and parking</h2>
-            <p>Please complete this section. We need these details so we can arrive prepared, park safely and bring the right equipment to your door.</p>
+            <h2>A few quick access questions</h2>
+            <p>These short answers help us arrive prepared.</p>
             <small class="stage-missing" aria-live="polite"></small>
           </div>
           <strong class="stage-status">Not started</strong>
         </summary>
         <div class="customer-form-grid">
-          <label>Parking near the property
+          <label>Will we have access to water?
             <select name="parking_issues" required>
               <option value="">Please choose</option>
-              {% for option in ['No parking issues','Street parking nearby','Permit or restricted parking','Driveway available','Parking may be difficult'] %}
+              {% for option in ['Yes','No','Not sure'] %}
                 <option {% if prefill.parking_issues == option %}selected{% endif %}>{{ option }}</option>
               {% endfor %}
             </select>
           </label>
-          <label>Steps to access the property
+          <label>Are there stairs to the property?
             <select name="steps_access" required>
               <option value="">Please choose</option>
-              {% for option in ['No steps','A few steps','One flight of stairs','Two or more flights of stairs','Lift available'] %}
+              {% for option in ['No','Yes - a few','Yes - one flight or more','Not sure'] %}
                 <option {% if prefill.steps_access == option %}selected{% endif %}>{{ option }}</option>
               {% endfor %}
             </select>
           </label>
-          <label>Property type and access
+          <label>Hot water and electricity available?
             <select name="property_access" required>
               <option value="">Please choose</option>
-              {% for option in ['House','Flat or apartment','Commercial premises','Gated access','Key safe or arranged access'] %}
+              {% for option in ['Yes','No','Not sure'] %}
                 <option {% if prefill.property_access == option %}selected{% endif %}>{{ option }}</option>
               {% endfor %}
             </select>
           </label>
-          <label class="wide">Access notes
-            <textarea name="access_info" rows="3" placeholder="Your extra details like: gates, flats, lift, stairs, key safe, narrow access, pets, parking permits, or anything useful">{{ prefill.access_info or '' }}</textarea>
+          <label class="wide">Directions or anything useful (optional)
+            <textarea name="access_info" rows="3" placeholder="What3Words, gate code, parking or any directions that will help us find you.">{{ prefill.access_info or '' }}</textarea>
           </label>
         </div>
         <div class="stage-controls"><button type="button" class="stage-back">Back</button><button type="button" class="stage-next">Save progress &amp; next stage</button></div>
       </details>
 
-      <details class="customer-form-card intake-stage" data-stage="4">
+      <details class="customer-form-card intake-stage optional-long-form" data-stage="4">
         <summary class="customer-form-card-head">
           <span>Step 4</span>
           <div>
@@ -155,7 +155,7 @@
         <div class="stage-controls"><button type="button" class="stage-back">Back</button><button type="button" class="stage-next">Save progress &amp; next stage</button></div>
       </details>
 
-      <details class="customer-form-card customer-photo-card intake-stage" data-stage="5">
+      <details class="customer-form-card customer-photo-card intake-stage optional-long-form" data-stage="5">
         <summary class="customer-form-card-head">
           <span>Step 5</span>
           <div>
@@ -223,6 +223,7 @@
     </form>
   </div>
 </section>
+<style>.customer-form .optional-long-form{display:none!important}.customer-form-hero h1{font-size:clamp(28px,5vw,42px)!important}.customer-form-hero-copy .customer-form-lead{max-width:640px}</style>
 <script>
   (function () {
     var form = document.querySelector(".customer-form");
@@ -238,10 +239,9 @@
       privacy_acknowledgement: "privacy acknowledgement"
     };
 
-    var stages = Array.prototype.slice.call(form.querySelectorAll(".intake-stage"));
+    var stages = Array.prototype.slice.call(form.querySelectorAll(".intake-stage:not(.optional-long-form)"));
     var recommended = {
       2: ["full_address", "postcode"],
-      4: ["job_notes", "rooms_areas"]
     };
 
     function fieldIsFilled(field) {

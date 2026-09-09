@@ -60,6 +60,7 @@
         <label><input type="checkbox" name="send_sms" value="1"><span>▣</span><b>Text message</b><small>Send a link by SMS</small></label>
       </div>
       <div class="customer-form-send-summary"><strong>What happens next?</strong><p>The customer receives a secure link where they can check and complete their details.</p></div>
+      <a class="btn secondary" href="{{ url_for('booking_form') }}" target="_blank" rel="noopener">Preview customer form</a>
       <span class="review-final-label">Send to customer</span><button class="btn primary customer-form-send-button" type="submit">Send customer details form</button>
       <p class="review-send-note">Nothing is sent until you press this button.</p>
     </aside>

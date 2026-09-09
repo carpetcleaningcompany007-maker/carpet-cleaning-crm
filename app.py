@@ -18410,10 +18410,10 @@ def booking_form():
         privacy_line = "Privacy acknowledgement: accepted by customer on submission."
         marketing_line = "Marketing consent: yes - customer opted in to occasional rebooking reminders/offers." if marketing_consent == "yes" else "Marketing consent: no - service messages only."
         parking_summary = "\n".join([part for part in [
-            f"Parking: {parking_issues}" if parking_issues else "",
-            f"Steps/access: {steps_access}" if steps_access else "",
-            f"Property type and access: {property_access}" if property_access else "",
-            f"Access notes: {access_info}" if access_info else "",
+            f"Water access: {parking_issues}" if parking_issues else "",
+            f"Stairs: {steps_access}" if steps_access else "",
+            f"Hot water and electricity: {property_access}" if property_access else "",
+            f"Directions / access notes: {access_info}" if access_info else "",
         ] if part])
         job_notes = "\n".join([part for part in [
             job_details,
