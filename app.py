@@ -16013,6 +16013,32 @@ def clicksend_webhook_authorized():
     return bool(supplied and secrets.compare_digest(expected, supplied))
 
 
+@app.route('/settings/connect-clicksend-inbound', methods=['POST'])
+@login_required
+def connect_clicksend_inbound():
+    """Create ClickSend's single catch-all inbound rule for CRM conversations."""
+    username = clean_str(os.environ.get('CLICKSEND_USERNAME'))
+    api_key = clean_str(os.environ.get('CLICKSEND_API_KEY'))
+    if not username or not api_key:
+        flash('ClickSend is not connected on this CRM yet.')
+        return redirect(url_for('settings_page'))
+    callback = (clean_str(os.environ.get('CRM_PUBLIC_BASE_URL')).rstrip('/') or request.url_root.rstrip('/')) + '/webhooks/sms/inbound/clicksend'
+    payload = {
+        'dedicated_number': '*', 'rule_name': 'Carpet Cleaning CRM replies',
+        'message_search_type': 0, 'message_search_term': '', 'action': 'URL',
+        'action_address': callback, 'enabled': 1, 'webhook_type': 'json'
+    }
+    try:
+        response = json.loads(http_post_basic_json('https://rest.clicksend.com/v3/automations/sms/inbound', payload, username, api_key))
+        if str(response.get('response_code') or '').upper() == 'SUCCESS':
+            flash('ClickSend replies are now connected to CRM conversations. Send a new test text and reply to it.')
+        else:
+            flash('ClickSend could not connect replies: ' + clean_str(response.get('response_msg') or 'check that a reply-capable dedicated number is available.'))
+    except Exception as exc:
+        flash('ClickSend could not connect replies: ' + clean_str(exc))
+    return redirect(url_for('settings_page'))
+
+
 @app.route("/webhooks/sms/status/twilio", methods=["POST"])
 def sms_status_twilio():
     if not twilio_webhook_authorized():

@@ -53,6 +53,7 @@
           <div class="cols"><div><label>Optional API key</label><input type="password" name="sms_api_key" value="{{ app_settings.sms_api_key or '' }}"></div><div><label>Zapier Catch Hook URL</label><input name="sms_gateway_url" value="{{ app_settings.sms_gateway_url or '' }}" placeholder="https://hooks.zapier.com/hooks/catch/..."></div></div>
           <div class="cols"><div><label>Account ID or username</label><input name="sms_account_id" value="{{ app_settings.sms_account_id or '' }}"></div><div><label>API secret or auth token</label><input type="password" name="sms_api_secret" value="{{ app_settings.sms_api_secret or '' }}"></div></div>
           <div class="cols"><div><label>Owner alert mobile / test phone number</label><input name="sms_test_number" value="{{ app_settings.sms_test_number or '' }}" placeholder="Where new form alerts should text"></div><div><label>Marketing STOP notice</label><input name="sms_marketing_opt_out_notice" value="{{ app_settings.sms_marketing_opt_out_notice or '' }}"></div></div>
+          <button class="btn secondary" form="clicksendInboundForm" type="submit">Connect ClickSend replies to CRM</button>
         </div>
         <div class="settings-card">
           <h4>Lead generation</h4>
@@ -123,6 +124,7 @@
       <button class="btn primary" id="saveSettingsBtn">Save Settings</button>
     </form>
     <form id="leadSettingsForm" method="post" action="{{ url_for('lead_generation_settings_update') }}"></form>
+    <form id="clicksendInboundForm" method="post" action="{{ url_for('connect_clicksend_inbound') }}"><input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"></form>
     <p><a class="btn primary" href="{{ url_for('security_setup') }}">Open Secure Login Setup</a></p>
   </section>
   <aside class="utility-rail">
