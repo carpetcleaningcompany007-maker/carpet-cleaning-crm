@@ -1,8 +1,8 @@
-<details class="dashboard-job{% if is_next_job %} dashboard-job-next{% endif %}" name="{{ job_group }}">
+<details class="dashboard-job{% if is_next_job %} dashboard-job-next{% endif %}" name="{{ job_group }}" {% if is_next_job %}open{% endif %}>
 <summary><time>{{ job.job_time or 'TBC' }}</time><strong>{{ job.customer_name }}</strong><small>{{ 'Your next job' if is_next_job else job.status }}</small></summary>
 <div class="dashboard-job-body">
 <a href="{{ url_for('job_view',job_id=job.id) }}">{{ job.service_type or job.title or 'Job details' }}</a>
-<p>{{ job.address_text or 'Address not saved' }}</p>
+<p>{{ job.address_text or 'Address not saved' }}</p>{% if not job.customer_id %}<p class="dashboard-saved-note">This job has no linked customer. <a href="{{ url_for('job_edit',job_id=job.id) }}">Add customer details</a> to enable calls, messages and directions.</p>{% endif %}
 <div class="dashboard-job-buttons">
 {% if job.directions_url %}<a href="{{ job.directions_url }}" target="_blank" rel="noopener">Google Maps</a>{% endif %}
 {% if job.w3w_url %}<a href="{{ job.w3w_url }}" target="_blank" rel="noopener">what3words</a>{% endif %}
@@ -12,7 +12,7 @@
 <details class="dashboard-late"><summary>I’m running late</summary>{% if job.customer_id %}<form method="get" action="{{ url_for('customer_conversation',customer_id=job.customer_id) }}">
 <input type="hidden" name="job" value="{{ job.id }}"><input type="hidden" name="action" value="late">
 <label>Running late <select name="minutes"><option value="10">10 minutes</option><option value="20" selected>20 minutes</option><option value="30">30 minutes</option><option value="60">1 hour</option><option value="120">2 hours</option></select></label><button type="submit">Preview message</button></form>{% endif %}</details>
-<details><summary>Job actions</summary><div class="dashboard-job-buttons">
+<section class="dashboard-job-workflow"><h4>Job workflow</h4><div class="dashboard-job-buttons">
 {% if job.customer_id %}
 <a href="{{ url_for('customer_conversation',customer_id=job.customer_id,job=job.id,action='coming') }}">On my way</a>
 <a href="{{ url_for('customer_conversation',customer_id=job.customer_id,job=job.id,action='review') }}">Request a review</a>
@@ -20,6 +20,6 @@
 
 <details><summary>Add a job note</summary><form method="post" action="{{ url_for('dashboard_job_note',job_id=job.id) }}"><input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><textarea name="note" rows="2" required placeholder="Notes about this job"></textarea><button>Save note</button></form></details>
 {% for note in job.saved_notes %}<p class="dashboard-saved-note">{{ note.note }}</p>{% endfor %}
-</details>
+</section>
 <details><summary>Finish job</summary><form method="post" action="{{ url_for('today_run_job_complete',job_id=job.id) }}"><input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="next_url" value="{{ url_for('dashboard') }}"><label>Work carried out<textarea name="work_carried_out" rows="2" required></textarea></label><label>Outcome<select name="outcome" required><option value="">Choose outcome</option><option>Completed as planned</option><option>Completed with follow-up needed</option></select></label><button>Finish &amp; show next job</button></form></details>
 </div></details>
