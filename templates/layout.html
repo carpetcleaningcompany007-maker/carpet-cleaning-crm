@@ -75,6 +75,7 @@
       <a class="nav-link {% if ep=='message_settings' %}active{% endif %}" href="{{ url_for('message_settings') }}"><span>Message settings</span></a>
       <a class="nav-link {% if ep=='communication_automation_settings' %}active{% endif %}" href="{{ url_for('communication_automation_settings') }}"><span>Automation</span></a>
       <a class="nav-link {% if ep=='ai_settings_page' %}active{% endif %}" href="{{ url_for('ai_settings_page') }}"><span>AI replies</span></a>
+      <a class="nav-link" href="{{ url_for('method_pricing_settings') }}"><span>Price book</span></a>
       <a class="nav-link {% if ep=='settings_page' %}active{% endif %}" href="{{ url_for('settings_page') }}"><span>Settings</span></a>
       <a class="nav-link" href="{{ url_for('send_contact_form',action_type='review') }}">Send review request</a>
     </nav>

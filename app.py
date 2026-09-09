@@ -433,12 +433,16 @@ def settings():
 
 def pricing():
     row = q("SELECT data_json FROM pricing_config WHERE id=1", one=True)
-    return json.loads(row["data_json"]) if row and row["data_json"] else PRICING_DEFAULTS
+    data = json.loads(row["data_json"]) if row and row["data_json"] else json.loads(json.dumps(PRICING_DEFAULTS))
+    if 'cleaning_methods' not in data:
+        with open(os.path.join(os.path.dirname(__file__), 'docs', 'cleaning-method-prices.json'), encoding='utf-8') as source:
+            data['cleaning_methods'] = json.load(source)
+    return data
 
 def business_pricing_context():
     data = pricing()
     return {'catalogue': data, 'minimum_charge': settings()['minimum_charge'],
-            'instructions': 'Use these saved business prices as the current pricing reference. Room rules apply only to carpet rooms, not stairs, rugs or upholstery. Apply the minimum to the whole job. On-site rates require explicit owner approval; never assume a room qualifies as small. Missing prices require review. Prepare drafts only; do not promise or send a final price. Saved room rules take precedence over catalogue room prices when a room method other than catalogue is selected.'}
+            'instructions': 'Use these saved business prices as the current pricing reference. For a selected cleaning method, use its cleaning_methods rates rather than legacy catalogue rates. Never substitute another method price for a null rate. Upholstery chair categories are alternatives, not additive charges. Confirm whether first-room or lounge pricing applies before choosing. Room rules apply only to carpet rooms, not stairs, rugs or upholstery. Apply the minimum to the whole job. On-site rates require explicit owner approval; never assume a room qualifies as small. Missing prices require review. Prepare drafts only; do not promise or send a final price. Saved room rules take precedence over catalogue room prices when a room method other than catalogue is selected.'}
 
 def save_pricing(data):
     run("UPDATE pricing_config SET data_json=? WHERE id=1", (json.dumps(data),))
@@ -16623,6 +16627,30 @@ def quote_request_archive(request_id):
     run("UPDATE quote_requests SET status='Archived' WHERE id=?", (request_id,))
     flash("Request archived.")
     return redirect(url_for("quote_requests"))
+
+@app.route('/settings/prices/methods', methods=['GET','POST'])
+@login_required
+def method_pricing_settings():
+    from decimal import Decimal, InvalidOperation
+    data=pricing()
+    selected=request.values.get('method','deep')
+    method=next((item for item in data['cleaning_methods'] if item['id']==selected),None)
+    if method is None: abort(404)
+    error=''
+    if request.method=='POST':
+        try:
+            method['description']=request.form.get('description','').strip()[:4000]
+            for index,item in enumerate(method['items']):
+                raw=request.form.get('price_'+str(index),'').strip()
+                if not raw: item['price']=None;continue
+                value=Decimal(raw)
+                if not value.is_finite() or value<0 or value>100000 or value.as_tuple().exponent < -2:raise ValueError()
+                item['price']=float(value)
+            save_pricing(data)
+            flash('Prices and description saved for '+method['name']+'.')
+            return redirect(url_for('method_pricing_settings',method=selected))
+        except (ValueError,InvalidOperation):error='Use a price from £0 to £100,000 with up to two decimal places, or leave it blank.'
+    return render_template('method_pricing.html',methods=data['cleaning_methods'],selected=method,error=error),(400 if error else 200)
 
 @app.route('/settings/prices', methods=['GET', 'POST'])
 @login_required

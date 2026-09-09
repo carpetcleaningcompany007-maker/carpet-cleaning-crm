@@ -4,7 +4,7 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='workflow-guide.css') }}">
 <section class="journey-guide">
 <header class="journey-header"><div><span class="journey-eyebrow">Settings / Your price book</span><h2>Your business. Your prices.</h2><p>One saved reference for service prices and AI quote assistance.</p></div><a class="btn secondary" href="{{ url_for('settings_page') }}">Back to Settings</a></header>
-<form method="post" class="form" style="padding:24px">
+<p style="padding:0 24px"><a class="btn primary" href="{{ url_for('method_pricing_settings') }}">Cleaning methods &amp; upholstery prices →</a></p><form method="post" class="form" style="padding:24px">
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 {% if error %}<p role="alert" class="flash">{{ error }}</p>{% endif %}
 {% set values = request.form if request.method == 'POST' else rules %}

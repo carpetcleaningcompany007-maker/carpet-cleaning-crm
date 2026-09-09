@@ -1,0 +1,226 @@
+[
+  {
+    "id": "deep",
+    "name": "HWE \u00b7 Deep clean",
+    "description": "Targeted pre-spray, suitable agitation with a counter-rotating brush (CRB), then hot water extraction and rinsing. Choose pressure, temperature and tools to suit the carpet. Powered extraction or brushing can be specified where appropriate. Do not promise 220-degree steam: temperature units, equipment settings and fibre suitability must be confirmed.",
+    "items": [
+      {
+        "name": "First room",
+        "unit": "room",
+        "price": null
+      },
+      {
+        "name": "Additional room",
+        "unit": "room",
+        "price": null
+      },
+      {
+        "name": "Lounge",
+        "unit": "room",
+        "price": null
+      },
+      {
+        "name": "Minimum job charge",
+        "unit": "job",
+        "price": null
+      },
+      {
+        "name": "Commercial carpet",
+        "unit": "m\u00b2",
+        "price": null
+      }
+    ]
+  },
+  {
+    "id": "standard",
+    "name": "HWE \u00b7 Standard",
+    "description": "Hot water extraction using a wand and suitable in-tank cleaning solution, with extraction passes to recover the solution and soil. Separate pre-spray and CRB agitation are not included unless added to the quote.",
+    "items": [
+      {
+        "name": "First room",
+        "unit": "room",
+        "price": null
+      },
+      {
+        "name": "Additional room",
+        "unit": "room",
+        "price": null
+      },
+      {
+        "name": "Lounge",
+        "unit": "room",
+        "price": null
+      },
+      {
+        "name": "Minimum job charge",
+        "unit": "job",
+        "price": null
+      },
+      {
+        "name": "Commercial carpet",
+        "unit": "m\u00b2",
+        "price": null
+      }
+    ]
+  },
+  {
+    "id": "encap",
+    "name": "Rotary / encapsulation",
+    "description": "Low-moisture maintenance cleaning using an appropriate encapsulation product and rotary or suitable brush machine. Soil is encapsulated as the product dries and removed by subsequent vacuuming. Often used for suitable low-pile commercial carpets and carpet tiles; check the carpet manufacturer\u2019s care guidance.",
+    "items": [
+      {
+        "name": "First room",
+        "unit": "room",
+        "price": null
+      },
+      {
+        "name": "Additional room",
+        "unit": "room",
+        "price": null
+      },
+      {
+        "name": "Lounge",
+        "unit": "room",
+        "price": null
+      },
+      {
+        "name": "Minimum job charge",
+        "unit": "job",
+        "price": null
+      },
+      {
+        "name": "Commercial carpet",
+        "unit": "m\u00b2",
+        "price": null
+      }
+    ]
+  },
+  {
+    "id": "bonnet",
+    "name": "Bonnet cleaning",
+    "description": "Low-moisture surface maintenance using a rotary machine and an absorbent pad. The pad collects loosened surface soil and is changed as it soils. Use only on suitable carpet constructions; this is not the same process as hot water extraction.",
+    "items": [
+      {
+        "name": "First room",
+        "unit": "room",
+        "price": null
+      },
+      {
+        "name": "Additional room",
+        "unit": "room",
+        "price": null
+      },
+      {
+        "name": "Lounge",
+        "unit": "room",
+        "price": null
+      },
+      {
+        "name": "Minimum job charge",
+        "unit": "job",
+        "price": null
+      },
+      {
+        "name": "Commercial carpet",
+        "unit": "m\u00b2",
+        "price": null
+      }
+    ]
+  },
+  {
+    "id": "rotowash",
+    "name": "Rotowash",
+    "description": "Twin cylindrical contra-rotating brushes work the cleaning solution through the surface, lift the carpet pile and transfer dirty liquid to a separate recovery tank. Suitable brushes and solution must be selected for the carpet or floor.",
+    "items": [
+      {
+        "name": "First room",
+        "unit": "room",
+        "price": null
+      },
+      {
+        "name": "Additional room",
+        "unit": "room",
+        "price": null
+      },
+      {
+        "name": "Lounge",
+        "unit": "room",
+        "price": null
+      },
+      {
+        "name": "Minimum job charge",
+        "unit": "job",
+        "price": null
+      },
+      {
+        "name": "Commercial carpet",
+        "unit": "m\u00b2",
+        "price": null
+      }
+    ]
+  },
+  {
+    "id": "compound",
+    "name": "Dry compound",
+    "description": "A suitable absorbent carpet-cleaning compound is brushed into the pile, allowed to work according to its instructions and thoroughly vacuumed out with the captured soil. Check fibre and construction suitability before quoting.",
+    "items": [
+      {
+        "name": "First room",
+        "unit": "room",
+        "price": null
+      },
+      {
+        "name": "Additional room",
+        "unit": "room",
+        "price": null
+      },
+      {
+        "name": "Lounge",
+        "unit": "room",
+        "price": null
+      },
+      {
+        "name": "Minimum job charge",
+        "unit": "job",
+        "price": null
+      },
+      {
+        "name": "Commercial carpet",
+        "unit": "m\u00b2",
+        "price": null
+      }
+    ]
+  },
+  {
+    "id": "upholstery",
+    "name": "Upholstery",
+    "description": "Price by seating position for sofas and armchairs. Use the specific chair rates below for smaller chairs. Check fabric, construction and condition before confirming the method and quote.",
+    "items": [
+      {
+        "name": "Sofa / armchair seating position",
+        "unit": "seat",
+        "price": 40
+      },
+      {
+        "name": "Single seat cushion only",
+        "unit": "chair",
+        "price": 6
+      },
+      {
+        "name": "Seat plus small back cushion",
+        "unit": "chair",
+        "price": 8
+      },
+      {
+        "name": "Small upholstered chair / square sides and back",
+        "unit": "chair",
+        "price": 10
+      },
+      {
+        "name": "Small bucket chair",
+        "unit": "chair",
+        "price": 20
+      }
+    ]
+  }
+]
