@@ -128,6 +128,18 @@
 @media (max-width:760px) {
   .concept-toolbar-greeting,.concept-toolbar-actions { display:none!important; }
 }
+
+@media (max-width:1023px){
+  body.app-page.page-dashboard .mobile-route-welcome h1{font-size:42px!important;line-height:1.08!important}
+  body.app-page.page-dashboard .mobile-route-welcome p{font-size:19px!important;color:#405268!important}
+  body.app-page.page-dashboard .mobile-route-heading h2{font-size:32px!important;font-weight:400!important}
+  body.app-page.page-dashboard .mobile-route-empty strong{font-size:25px!important;font-weight:400!important}
+  body.app-page.page-dashboard .mobile-route-empty span{font-size:17px!important;line-height:1.55!important;color:#405268!important}
+  body.app-page.page-dashboard .mobile-route-empty .mobile-route-preview,
+  body.app-page.page-dashboard .mobile-route-empty a{min-height:58px!important;font-size:19px!important;font-weight:600!important}
+  body.app-page.page-dashboard .mobile-route-stats small{font-size:16px!important;color:#405268!important}
+  body.app-page.page-dashboard .mobile-route-stats strong{font-size:27px!important;font-weight:400!important}
+}
 /* Today's job controls expand naturally without overlapping the calendar footer. */
 body.app-page.page-dashboard main.concept-dashboard .concept-schedule{height:auto!important;min-height:0!important;overflow:visible!important}
 body.app-page.page-dashboard main.concept-dashboard .schedule-list{height:auto!important;min-height:0!important}

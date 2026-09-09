@@ -3811,8 +3811,8 @@ def pwa_manifest():
 
 @app.route("/service-worker.js")
 def pwa_service_worker():
-    source = """const CACHE='carpet-clean-pro-v43';
-	const SHELL=['/offline','/static/app-theme.css?v=20260906-44','/static/dashboard-exact.css?v=20260910-7','/static/customer-record-premium.css?v=20260906-3','/static/app.js?v=price-book-20260909-2','/static/site/site-icon-512.png'];
+    source = """const CACHE='carpet-clean-pro-v44';
+	const SHELL=['/offline','/static/app-theme.css?v=20260906-44','/static/dashboard-exact.css?v=20260910-8','/static/customer-record-premium.css?v=20260906-3','/static/app.js?v=price-book-20260909-2','/static/site/site-icon-512.png'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim())));
 self.addEventListener('fetch',event=>{if(event.request.method!=='GET')return;const url=new URL(event.request.url);if(url.origin!==location.origin)return;if(event.request.mode==='navigate'){event.respondWith(fetch(event.request).then(async response=>response.status>=500?(await caches.match('/offline')||response):response).catch(()=>caches.match('/offline')));return;}if(url.pathname.startsWith('/static/'))event.respondWith(caches.match(event.request).then(hit=>hit||fetch(event.request).then(response=>{if(response.ok){const copy=response.clone();caches.open(CACHE).then(cache=>cache.put(event.request,copy));}return response;})));});
