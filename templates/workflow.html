@@ -19,6 +19,8 @@
   </div>
 </header>
 
+{% include "_workflow_guide.html" %}
+
 <section class="cc-stat-grid">
   <a href="{{ url_for('intake_forms') }}"><span>New enquiries</span><strong>{{ data.new_intake }}</strong></a>
   <a href="{{ url_for('quotes') }}"><span>Open quotes</span><strong>{{ data.open_quotes }}</strong></a>

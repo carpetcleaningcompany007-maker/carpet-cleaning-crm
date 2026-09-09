@@ -14,7 +14,7 @@
   </section>
 </div>
 <section class="library-shell">
-  <div class="library-header"><div></div><div class="library-actions quote-library-actions"><a class="btn primary" href="{{ url_for('quote_requests') }}">Open Quote Requests</a><a class="btn secondary" href="{{ url_for('calculator') }}">Create Quote from Calculator</a></div></div>
+  <div class="library-header"><div><a class="mini-link" href="{{ url_for('workflow') }}#workflow-guide">How the enquiry-to-quote workflow works →</a></div><div class="library-actions quote-library-actions"><a class="btn primary" href="{{ url_for('quote_requests') }}">Open Quote Requests</a><a class="btn secondary" href="{{ url_for('calculator') }}">Create Quote from Calculator</a></div></div>
   <details class="info-drop"><summary>What does this page do?</summary><div class="info-drop-body"><p>This is your quote diary. Search and filter here, then open the quote itself for pricing, approval, conversion, or archiving.</p></div></details>
   <div class="library-toolbar">
     <form method="get" class="stack-inline library-search-form"><input name="q" value="{{ search }}" placeholder="Search by quote number, customer, or title"><select name="scope"><option value="active" {% if scope=='active' %}selected{% endif %}>Active</option><option value="archived" {% if scope=='archived' %}selected{% endif %}>Archived</option><option value="all" {% if scope=='all' %}selected{% endif %}>All</option></select><button class="btn secondary">Filter</button></form>
