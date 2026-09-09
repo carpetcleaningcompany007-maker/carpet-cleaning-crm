@@ -36,7 +36,7 @@ from email.parser import BytesParser
 from email.header import decode_header, make_header
 from difflib import SequenceMatcher
 
-from flask import Flask, render_template, request, redirect, url_for, flash, session, g, Response, send_file, send_from_directory, has_request_context, jsonify, abort
+from flask import Flask, render_template, request, redirect, url_for, flash, session, g, Response, send_file, send_from_directory, has_request_context, jsonify, abort, make_response
 from itsdangerous import BadSignature, SignatureExpired, URLSafeSerializer, URLSafeTimedSerializer
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -1970,24 +1970,25 @@ def schedule_enquiry_acknowledgement(lead_id, customer_id=None, data=None, delay
     return True, f"Customer acknowledgement queued for about {delay_minutes} minutes after the enquiry."
 
 
-def run_due_enquiry_acknowledgements(dry_run=False):
+def run_due_enquiry_acknowledgements(dry_run=False, lead_id=None):
     now = datetime.now(ZoneInfo("Europe/London"))
     rows = q("""SELECT q.*, s.is_test, s.ignore_alerts, s.phone AS lead_phone, s.email AS lead_email,
                        s.customer_id AS lead_customer_id
                 FROM enquiry_acknowledgement_queue q
                 LEFT JOIN intake_submissions s ON s.id=q.lead_id
-                WHERE q.sent_at='' AND q.due_at <= ?
+                WHERE q.sent_at='' AND q.due_at <= ? AND (? IS NULL OR q.lead_id=?)
                   AND IFNULL(s.is_test,0)=0 AND IFNULL(s.ignore_alerts,0)=0
                   AND (
                     q.status='Queued'
                     OR (q.status='Sending' AND datetime(IFNULL(q.updated_at, q.created_at)) <= datetime('now','-5 minutes'))
                   )
-                ORDER BY q.due_at ASC LIMIT 50""", (now.isoformat(timespec="seconds"),))
+                ORDER BY q.due_at ASC LIMIT 50""", (now.isoformat(timespec="seconds"), lead_id, lead_id))
     results = []
     for row in rows:
         if not dry_run:
             cur = db().execute("""UPDATE enquiry_acknowledgement_queue SET status='Sending', updated_at=datetime('now')
-                                WHERE id=? AND sent_at='' AND status IN ('Queued','Sending')""", (row_value(row, "id"),))
+                                WHERE id=? AND sent_at='' AND status=? AND updated_at IS ?""",
+                                (row_value(row, "id"), row_value(row, "status"), row_value(row, "updated_at")))
             db().commit()
             if cur.rowcount != 1:
                 continue
@@ -8317,6 +8318,9 @@ def init_db():
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
+    CREATE TABLE IF NOT EXISTS dashboard_enquiry_decisions (
+        lead_id INTEGER PRIMARY KEY, action TEXT NOT NULL, updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
     CREATE TABLE IF NOT EXISTS enquiry_acknowledgement_queue (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         lead_id INTEGER UNIQUE,
@@ -10250,7 +10254,7 @@ def dashboard():
                           "label": "Open workflow", "url": url_for("workflow")}
     current_hour = datetime.now().hour
     dashboard_greeting = "Good morning" if current_hour < 12 else ("Good afternoon" if current_hour < 18 else "Good evening")
-    return render_template("dashboard.html", today_messages=customer_conversation_rows(today_only=True, limit=12, scheduled_today=True), dashboard_finished=dashboard_finished, stats=stats, dashboard_metrics=dashboard_metrics,
+    return render_template("dashboard.html", enquiry_alerts=dashboard_enquiry_alerts(), today_messages=customer_conversation_rows(today_only=True, limit=12, scheduled_today=True), dashboard_finished=dashboard_finished, stats=stats, dashboard_metrics=dashboard_metrics,
                            recent_quotes=quotes, recent_jobs=jobs, recent_invoices=recent_invoices,
                            archive_counts=archive_counts, report_summary=report_summary,
                            invoice_alerts=invoice_alerts, app_settings=settings(),
@@ -10263,6 +10267,100 @@ def dashboard():
                            dashboard_next=dashboard_next, dashboard_greeting=dashboard_greeting,
                            dashboard_date=f"{today.strftime('%A')}, {today.day} {today.strftime('%B')}")
 
+
+
+def dashboard_enquiry_alerts():
+    rows = q("""SELECT s.*, a.status AS ack_status, a.due_at AS ack_due, a.channel AS ack_channel,
+                       a.message AS ack_message, d.action AS owner_action
+                FROM intake_submissions s
+                LEFT JOIN enquiry_acknowledgement_queue a ON a.lead_id=s.id
+                LEFT JOIN dashboard_enquiry_decisions d ON d.lead_id=s.id
+                WHERE IFNULL(s.is_test,0)=0 AND IFNULL(s.ignore_alerts,0)=0
+                  AND IFNULL(s.status,'New') IN ('New','Waiting for review','Needs missing details')
+                  AND IFNULL(d.action,'') NOT IN ('call','message','handled')
+                ORDER BY s.id DESC""")
+    alerts = []
+    now = datetime.now(ZoneInfo("Europe/London"))
+    for row in rows:
+        item = dict(row)
+        status = clean_str(item.get('ack_status'))
+        item['channel_label'] = 'text message' if is_valid_uk_phone(item.get('phone')) else 'email'
+        item['due_epoch'] = None
+        item['can_control'] = status == 'Queued'
+        if status == 'Queued':
+            try:
+                due = datetime.fromisoformat(item.get('ack_due') or '')
+                if due.tzinfo is None: due = due.replace(tzinfo=ZoneInfo('Europe/London'))
+                if not customer_sms_hours_open(due): due = next_customer_sms_window_open(due)
+                item['due_epoch'] = int(due.timestamp() * 1000)
+                item['next_step'] = 'Acknowledgement ' + item['channel_label'] + ' scheduled for ' + due.strftime('%a %d %b, %H:%M') + '.'
+            except (ValueError, TypeError):
+                item['next_step'] = 'Acknowledgement queued. Open the enquiry to check its schedule.'
+        elif status == 'Sending': item['next_step'] = 'Acknowledgement is being processed. It is too late to stop it here.'
+        elif status == 'Accepted': item['next_step'] = 'Text accepted by the provider; delivery is not confirmed yet. Review the enquiry and follow up.'
+        elif status in ('Sent','Delivered'): item['next_step'] = 'Acknowledgement ' + status.lower() + '. Review the enquiry and follow up.'
+        elif status == 'Cancelled': item['next_step'] = 'Automatic acknowledgement stopped. Choose how you will contact this customer.'
+        elif status == 'Failed': item['next_step'] = 'Acknowledgement failed. Open the enquiry and contact this customer yourself.'
+        else: item['next_step'] = 'No automatic acknowledgement is scheduled. Review the enquiry and contact the customer.'
+        try:
+            created = datetime.fromisoformat(item.get('created_at') or '').replace(tzinfo=ZoneInfo('UTC'))
+            item['fresh'] = 0 <= (now-created).total_seconds() < 86400
+        except (ValueError,TypeError): item['fresh'] = False
+        item['preview'] = enquiry_acknowledgement_text(item)
+        alerts.append(item)
+    return alerts
+
+
+@app.route('/dashboard/enquiry-alerts')
+@login_required
+def dashboard_enquiry_alerts_fragment():
+    response = make_response(render_template('_dashboard_enquiry_alerts.html', enquiry_alerts=dashboard_enquiry_alerts()))
+    response.headers['Cache-Control'] = 'no-store'
+    return response
+
+
+@app.route('/dashboard/enquiries/<int:lead_id>/action', methods=['POST'])
+@login_required
+def dashboard_enquiry_action(lead_id):
+    action = request.form.get('action')
+    if action not in ('stop','call','message','send_now','handled'): abort(400)
+    lead = q('SELECT * FROM intake_submissions WHERE id=?', (lead_id,), one=True)
+    if not lead: abort(404)
+    if row_get(lead,'is_test') or row_get(lead,'ignore_alerts'):
+        flash('Test or ignored enquiries cannot send from this alert.')
+        return redirect(url_for('dashboard'))
+    if action == 'send_now':
+        now = datetime.now(ZoneInfo('Europe/London'))
+        if not customer_sms_hours_open(now):
+            flash('Customer contact hours are 09:30–19:00. The message stays queued for the next permitted time.')
+            return redirect(url_for('dashboard'))
+        cur = db().execute("""UPDATE enquiry_acknowledgement_queue SET due_at=?, updated_at=datetime('now')
+                              WHERE lead_id=? AND status='Queued' AND sent_at=''""", (now.isoformat(timespec='seconds'),lead_id))
+        db().commit()
+        if cur.rowcount:
+            results = run_due_enquiry_acknowledgements(lead_id=lead_id)
+            flash('Acknowledgement: ' + (results[0]['status'] if results else 'already being processed; refresh for its status') + '.')
+        else: flash('This message is no longer queued. It has not been sent again.')
+        return redirect(url_for('dashboard'))
+    # Only a still-queued message can be cancelled; a worker that already claimed it wins.
+    db().execute("""UPDATE enquiry_acknowledgement_queue SET status='Cancelled', message=?, updated_at=datetime('now')
+                    WHERE lead_id=? AND status='Queued' AND sent_at=''""", ('Stopped by Paul from dashboard: '+action,lead_id))
+    db().commit()
+    queued = q('SELECT status FROM enquiry_acknowledgement_queue WHERE lead_id=?',(lead_id,),one=True)
+    if row_get(queued,'status') == 'Sending':
+        flash('The acknowledgement is already being processed and could not be stopped. Check its status before sending another message.')
+        return redirect(url_for('dashboard'))
+    run("""INSERT INTO dashboard_enquiry_decisions(lead_id,action) VALUES (?,?)
+           ON CONFLICT(lead_id) DO UPDATE SET action=excluded.action, updated_at=datetime('now')""",(lead_id,action))
+    if action in ('call','message','handled'):
+        run("UPDATE intake_submissions SET follow_up_status=?, updated_at=datetime('now') WHERE id=?",('Paul handling personally: '+action,lead_id))
+    if row_get(lead,'customer_id'):
+        run("INSERT INTO customer_timeline(customer_id,note_text,created_at) VALUES (?,?,datetime('now'))",(lead['customer_id'],'Dashboard enquiry action: '+action+'.'))
+    flash('Queued acknowledgement stopped.' if action=='stop' and row_get(queued,'status')=='Cancelled' else 'Your choice has been recorded. Any still-queued acknowledgement was stopped; already-sent messages cannot be recalled.')
+    if action == 'message' and row_get(lead,'customer_id'):
+        return redirect(url_for('customer_conversation',customer_id=lead['customer_id']))
+    if action in ('call','message'): return redirect(url_for('intake_form_view',lead_id=lead_id))
+    return redirect(url_for('dashboard'))
 
 @app.route("/dashboard/add-sample-route", methods=["POST"])
 @login_required
