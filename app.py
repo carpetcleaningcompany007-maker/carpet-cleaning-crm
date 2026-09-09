@@ -12918,7 +12918,7 @@ def ai_settings_page():
 
 
 AI_ASSISTANT_TOOLS = {
-    'invoice': ('Create an invoice by voice', 'Describe the work and prices. AI prepares invoice details for you to check and save as a draft.'),
+    'invoice': ('Prepare an invoice draft', 'Describe the work and prices. AI prepares invoice details for you to check and save as a draft.'),
     'quote': ('Build a quote', 'Turn enquiry details into a sensible itemised quote using saved prices. Flag anything that still needs checking.'),
     'reply': ('Write a customer reply', 'Use the customer history to draft a short reply in Paul’s normal style. Never send it.'),
     'job_plan': ('Prepare a job', 'Create the equipment, chemical, access and job-day checklist for a selected booking.'),
@@ -12927,7 +12927,7 @@ AI_ASSISTANT_TOOLS = {
     'diary': ('Plan the diary', 'Group upcoming jobs by date and location and suggest an efficient running order.'),
     'performance': ('Analyse the business', 'Explain what is making money, what is underperforming and the best next actions.'),
     'leads': ('Analyse commercial leads', 'Rank the saved commercial opportunities and suggest the strongest contact angle.'),
-    'voice': ('Voice job entry', 'Turn a spoken job update into a clean job note with suggested status, price and payment method.'),
+    'voice': ('Tidy a job note', 'Turn a written job update into a clean job note with suggested status, price and payment method.'),
 }
 
 

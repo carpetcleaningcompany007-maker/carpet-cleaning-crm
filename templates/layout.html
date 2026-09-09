@@ -168,6 +168,6 @@
   document.addEventListener('keydown', function(e){ if(e.key==='Escape'){ document.querySelectorAll('.modal-shell.is-open').forEach(function(el){ setModal(el.id, false); }); } });
 })();
 </script>
-{% if session.get('logged_in') %}{% include '_voice_recorder.html' %}{% endif %}
+
 </body>
 </html>

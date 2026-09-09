@@ -26,7 +26,7 @@
     <label data-email-only>Email subject<input name="subject" value="{{ draft.subject }}"></label>
     <label>Message<textarea name="body" rows="5" required>{{ draft.body }}</textarea></label>
     <section class="writing-assistance" data-writing-assistance data-endpoint="{{ url_for('customer_writing_assistance',customer_id=customer.id) }}">
-      <div class="writing-tools"><button type="button" class="btn secondary" data-record-voice data-record-target=".conversation-compose [name=body]">🎙 Record voice</button><button type="button" class="btn secondary" data-writing-action="check">Check writing</button><button type="button" class="btn secondary" data-writing-action="improve">Improve wording</button><button type="button" class="btn secondary" data-writing-action="shorten">Make shorter</button></div>
+      <div class="writing-tools"><button type="button" class="btn secondary" data-writing-action="check">Check writing</button><button type="button" class="btn secondary" data-writing-action="improve">Improve wording</button><button type="button" class="btn secondary" data-writing-action="shorten">Make shorter</button></div>
       <p role="status" aria-live="polite" data-writing-status>Dictate or type, then let AI help with the wording. Review before sending.</p>
       <div data-writing-preview hidden>
         <strong>AI writing preview</strong><p data-writing-feedback></p>

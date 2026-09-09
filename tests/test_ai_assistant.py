@@ -19,7 +19,7 @@ class AiAssistantTests(unittest.TestCase):
     def test_hub_lists_tools_without_stain_analyser(self):
         page=self.client.get('/ai-assistant')
         self.assertEqual(page.status_code,200)
-        for text in (b'Build a quote',b'Write a customer reply',b'Voice job entry',b'Analyse commercial leads',b'Nothing is ever sent'):
+        for text in (b'Build a quote',b'Write a customer reply',b'Tidy a job note',b'Analyse commercial leads',b'Nothing is ever sent'):
             self.assertIn(text,page.data)
         self.assertNotIn(b'Stain analysis',page.data)
 
