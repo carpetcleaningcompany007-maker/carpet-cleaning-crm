@@ -4436,18 +4436,28 @@ def customer_full_name(row):
         return "Customer"
 
 
-def customer_address_text(row):
+def customer_address_lines(row):
+    """Return a customer's address as clean postal lines for documents."""
     if not row:
-        return ""
-    parts = []
-    for key in ("address", "town", "postcode"):
-        try:
-            value = clean_str(row[key])
-        except Exception:
-            value = ""
-        if value:
-            parts.append(value)
-    return ", ".join(parts)
+        return []
+    try:
+        raw_address = str(row["address"] or "").strip()
+    except Exception:
+        raw_address = ""
+    lines = [part.strip() for part in raw_address.replace("\r", "").split("\n") if part.strip()]
+    if len(lines) == 1 and "," in lines[0]:
+        lines = [part.strip() for part in lines[0].split(",") if part.strip()]
+    existing = {line.casefold() for line in lines}
+    for key in ("town", "postcode"):
+        value = clean_str(row_get(row, key))
+        if value and value.casefold() not in existing:
+            lines.append(value)
+            existing.add(value.casefold())
+    return lines
+
+
+def customer_address_text(row):
+    return ", ".join(customer_address_lines(row))
 
 
 def directions_url_for_customer(row):
@@ -10269,14 +10279,18 @@ def dashboard():
             dashboard_schedule.append(item)
     next_enquiry = q("""SELECT * FROM intake_submissions
                           WHERE IFNULL(is_test,0)=0 AND IFNULL(ignore_alerts,0)=0
-                            AND IFNULL(status,'New') NOT IN ('Booked','Closed','Closed - no reply')
+                            AND IFNULL(status,'New') NOT IN ('Booked','Closed','Closed - no reply','Form returned - ready to quote')
                           ORDER BY id DESC LIMIT 1""", one=True)
     due_reminder = q("""SELECT future_reminders.*, customers.first_name || ' ' || customers.last_name AS customer_name
                          FROM future_reminders LEFT JOIN customers ON customers.id=future_reminders.customer_id
                          WHERE IFNULL(future_reminders.status,'Open')='Open'
                            AND COALESCE(future_reminders.reminder_date,'9999-12-31')<=?
                          ORDER BY future_reminders.reminder_date, future_reminders.id LIMIT 1""", (today.isoformat(),), one=True)
-    if next_enquiry:
+    if next_enquiry and clean_str(row_get(next_enquiry, "source")).lower() == "customer details form" and clean_str(row_get(next_enquiry, "status")).lower() == "waiting for customer form":
+        dashboard_next = {"eyebrow": "Customer form sent", "title": clean_str(next_enquiry["name"]) or "Customer",
+                          "detail": "Waiting for the customer to send their details back.",
+                          "label": "View customer form", "url": url_for("intake_form_view", lead_id=next_enquiry["id"])}
+    elif next_enquiry:
         dashboard_next = {"eyebrow": "Customer waiting", "title": clean_str(next_enquiry["name"]) or "New enquiry",
                           "detail": "Review the enquiry and take the next customer action.",
                           "label": "Open enquiry", "url": url_for("intake_form_view", lead_id=next_enquiry["id"])}
@@ -10340,7 +10354,7 @@ def dashboard_enquiry_alerts():
                 LEFT JOIN enquiry_acknowledgement_queue a ON a.lead_id=s.id
                 LEFT JOIN dashboard_enquiry_decisions d ON d.lead_id=s.id
                 WHERE IFNULL(s.is_test,0)=0 AND IFNULL(s.ignore_alerts,0)=0
-                  AND lower(IFNULL(s.status,'New')) NOT IN ('accepted','booked','declined','rejected','archived','cancelled','completed')
+                  AND lower(IFNULL(s.status,'New')) NOT IN ('accepted','booked','declined','rejected','archived','cancelled','completed','form returned - ready to quote')
                   AND IFNULL(d.action,'') NOT IN ('accepted','declined')
                 ORDER BY s.id DESC""")
     alerts = []
@@ -10348,6 +10362,14 @@ def dashboard_enquiry_alerts():
     for row in rows:
         item = dict(row)
         status = clean_str(item.get('ack_status'))
+        item['form_waiting'] = (
+            clean_str(item.get('source')).lower() == 'customer details form'
+            and clean_str(item.get('status')).lower() == 'waiting for customer form'
+            and bool(clean_str(item.get('update_form_sent_at')))
+        )
+        if item['form_waiting']:
+            # Reuse the compact sent-message row instead of adding another card.
+            item['ack_status'] = 'Sent'
         item['channel_label'] = 'text message' if is_valid_uk_phone(item.get('phone')) else 'email'
         item['due_epoch'] = None
         item['can_control'] = status == 'Queued'
@@ -10402,7 +10424,9 @@ def dashboard_enquiry_alerts():
         failure_text = ' '.join([status,item['sms_detail'],item['email_detail'],clean_str((item['latest_email'] or {}).get('status'))]).lower()
         item['delivery_problem'] = any(word in failure_text for word in ('failed','failure','bounced','bounce','returned','rejected','undeliver','unconfirmed'))
         item['owner_step'] = {'call':'You chose to call this customer. The call is not yet marked complete.','message':'You chose to message personally. Check the conversation and record the next step.','stop':'You stopped the automatic acknowledgement. Choose a manual next step.'}.get(item.get('owner_action'),'You have not chosen a manual next step yet.')
-        if item['delivery_problem']: item['next_step'] = 'Delivery needs attention. Check the text and email statuses below before sending another message.'
+        if item['form_waiting']:
+            item['next_step'] = 'Customer form sent. Waiting for their reply.'
+        elif item['delivery_problem']: item['next_step'] = 'Delivery needs attention. Check the text and email statuses below before sending another message.'
         item['source_label'] = website_enquiry_source_label(item) if clean_str(item.get('landing_page')) else 'Landing page not recorded'
         item['supplied_address'] = clean_str(item.get('full_address')) or 'Street address not supplied'
         item['source_campaign'] = clean_str(item.get('utm_campaign'))
@@ -10640,7 +10664,25 @@ def send_contact_form():
             "phone": sms_to,
             "email": email_to,
         }
-        form_link = booking_form_url(prefill=prefill)
+        tracked_form_lead_id = None
+        if action_type == "form":
+            existing_form_lead = q("""SELECT id FROM intake_submissions
+                                      WHERE customer_id=? AND source='Customer details form'
+                                        AND status IN ('Waiting for customer form','Message failed - retry required')
+                                      ORDER BY id DESC LIMIT 1""", (row_value(selected_customer, "id"),), one=True) if selected_customer else None
+            if existing_form_lead:
+                tracked_form_lead_id = existing_form_lead["id"]
+                run("""UPDATE intake_submissions SET name=?, phone=?, email=?, status='Waiting for customer form',
+                       follow_up_status='Preparing customer form', update_form_status='Preparing to send', updated_at=datetime('now')
+                       WHERE id=?""", (recipient_name, sms_to, email_to, tracked_form_lead_id))
+            else:
+                tracked_form_lead_id = run("""INSERT INTO intake_submissions
+                    (name, phone, email, customer_id, status, source, follow_up_status, update_form_status)
+                    VALUES (?,?,?,?,?,?,?,?)""", (recipient_name, sms_to, email_to, row_value(selected_customer, "id"),
+                    "Waiting for customer form", "Customer details form", "Preparing customer form", "Preparing to send"))
+            form_link = intake_update_short_url(tracked_form_lead_id)
+        else:
+            form_link = booking_form_url(prefill=prefill)
         if action_type == "review":
             latest_job = latest_customer_job(selected_customer["id"]) if selected_customer else None
             template_context = customer_message_replacements(selected_customer, latest_job) if selected_customer else {
@@ -10710,9 +10752,23 @@ def send_contact_form():
                 (row_value(selected_customer, "id"), "SMS", "Google review request" if action_type == "review" else "Customer details form", message_for_sms))
 
         if not results:
+            if tracked_form_lead_id:
+                run("""UPDATE intake_submissions SET status='Message failed - retry required',
+                       follow_up_status='Message failed - retry required', update_form_status='No form was sent', updated_at=datetime('now')
+                       WHERE id=?""", (tracked_form_lead_id,))
             flash("Add an email address or mobile number, then choose email, text, or both.")
             return redirect(url_for("send_contact_form", action_type=action_type, **prefill))
 
+        sent_labels = [label for label, ok, _ in results if ok]
+        if tracked_form_lead_id:
+            delivery_status = "; ".join(f"{label}: {'sent' if ok else 'failed'} - {msg}" for label, ok, msg in results)
+            if sent_labels:
+                run("""UPDATE intake_submissions SET update_form_sent_at=datetime('now'), update_form_status=?,
+                       follow_up_status='Waiting for customer form reply', status='Waiting for customer form', updated_at=datetime('now')
+                       WHERE id=?""", (delivery_status, tracked_form_lead_id))
+            else:
+                run("""UPDATE intake_submissions SET update_form_status=?, follow_up_status='Message failed - retry required',
+                       status='Message failed - retry required', updated_at=datetime('now') WHERE id=?""", (delivery_status, tracked_form_lead_id))
         flash("; ".join(f"{label}: {'sent' if ok else 'failed'} - {msg}" for label, ok, msg in results))
         redirect_values = {k: v for k, v in prefill.items() if clean_str(v)}
         if selected_customer:
@@ -16533,7 +16589,8 @@ def quote_print(quote_id):
                  WHERE quotes.id=?""", (quote_id,), one=True)
     payload = json.loads(quote["payload_json"] or "{}") if quote["payload_json"] else {}
     calc = calc_from_payload(payload)
-    return render_template("document_print.html", mode="quote", row=quote, calc=calc)
+    return render_template("document_print.html", mode="quote", row=quote, calc=calc,
+                           customer_address_lines=customer_address_lines(quote))
 
 @app.route("/invoices/reminders")
 @login_required
@@ -16579,7 +16636,8 @@ def invoice_print(invoice_id):
                    WHERE invoices.id=?""", (invoice_id,), one=True)
     payload = json.loads(invoice["payload_json"] or "{}") if invoice["payload_json"] else {}
     calc = calc_from_payload(payload) if payload else {"lines": [], "subtotal": invoice["subtotal"], "vat": invoice["vat"], "total": invoice["total"], "raw_total": invoice["total"], "minimum": 100}
-    return render_template("document_print.html", mode="invoice", row=invoice, calc=calc)
+    return render_template("document_print.html", mode="invoice", row=invoice, calc=calc,
+                           customer_address_lines=customer_address_lines(invoice))
 
 
 
@@ -18444,7 +18502,7 @@ def booking_form():
                 clean_str(request.form.get("stains")), clean_str(request.form.get("pets")),
                 parking_summary, clean_str(request.form.get("preferred_days_times")), submitted_additional_notes,
                 clean_str(request.form.get("preferred_date")), clean_str(request.form.get("preferred_time")),
-                combined_photo_filename, linked_customer_id or None, "Updated - waiting for review",
+                combined_photo_filename, linked_customer_id or None, "Form returned - ready to quote",
                 "Customer contact form update", marketing_consent, "Customer sent updated details", lead_id,
             ))
         else:
@@ -18468,7 +18526,8 @@ def booking_form():
         lead = q("SELECT * FROM intake_submissions WHERE id=?", (lead_id,), one=True)
         customer_id = create_customer_from_intake(lead)
         update_customer_basic_details_from_intake(customer_id, lead)
-        run("UPDATE intake_submissions SET customer_id=?, status='Waiting for review', updated_at=datetime('now') WHERE id=?", (customer_id, lead_id))
+        completion_status = "Form returned - ready to quote" if existing_update_lead else "Waiting for review"
+        run("UPDATE intake_submissions SET customer_id=?, status=?, updated_at=datetime('now') WHERE id=?", (customer_id, completion_status, lead_id))
         send_contact_form_owner_alerts(lead_id, customer_id)
         return render_template("customer_intake_thanks.html", biz=settings(), public_mode=True)
     return render_template("customer_intake.html", biz=settings(), linked_customer=linked_customer, prefill=prefill, public_mode=True, update_lead=update_lead)

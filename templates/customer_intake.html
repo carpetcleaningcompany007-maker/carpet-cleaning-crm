@@ -70,14 +70,14 @@
           <span>Step 2</span>
           <div>
             <h2>Property and address</h2>
-            <p>Your address and any location details that will help us find you.</p>
+            <p>Enter one address line at a time. It will appear in this same format on your quote.</p>
             <small class="stage-missing" aria-live="polite"></small>
           </div>
           <strong class="stage-status">Not started</strong>
         </summary>
         <div class="customer-form-grid">
           <label class="wide">Full address
-            <textarea name="full_address" rows="4" autocomplete="street-address" placeholder="House number, street, town, and any useful directions">{% if prefill.full_address %}{{ prefill.full_address }}{% elif linked_customer %}{{ linked_customer.address or '' }}{% endif %}</textarea>
+            <textarea name="full_address" rows="4" autocomplete="street-address" placeholder="House number and street&#10;Area or village (if useful)&#10;Town or city">{% if prefill.full_address %}{{ prefill.full_address }}{% elif linked_customer %}{{ linked_customer.address or '' }}{% endif %}</textarea>
           </label>
           <label>Postcode
             <input name="postcode" autocomplete="postal-code" value="{% if prefill.postcode %}{{ prefill.postcode }}{% elif linked_customer %}{{ linked_customer.postcode or '' }}{% endif %}">

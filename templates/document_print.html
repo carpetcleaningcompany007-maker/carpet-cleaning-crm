@@ -29,8 +29,7 @@ tbody td{font-size:15px;padding:10px 6px;border-bottom:1px solid #ddd;vertical-a
     <div class="block">
       <h1 class="doc-title">{{ 'QUOTE' if mode=='quote' else 'INVOICE' }}</h1>
       <p>{{ row.first_name or '' }} {{ row.last_name or '' }}</p>
-      <p>{{ row.address or '' }}</p>
-      <p>{{ row.town or '' }} {{ row.postcode or '' }}</p>
+      {% for line in customer_address_lines or [] %}<p>{{ line }}</p>{% endfor %}
     </div>
     <div class="block">
       <div class="meta-line"><div class="label">{{ 'Quote Date' if mode=='quote' else 'Invoice Date' }}</div><div>{{ row.quote_date if mode=='quote' else row.invoice_date }}</div></div>
