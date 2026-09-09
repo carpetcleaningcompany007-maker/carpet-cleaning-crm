@@ -4121,9 +4121,15 @@ INBOUND_ATTACHMENT_TYPES = {"image/jpeg": ".jpg", "image/png": ".png", "image/he
 
 def inbound_email_config():
     row = settings()
-    address = clean_str(row["gmail_address"] if "gmail_address" in row.keys() else "")
-    password = clean_str(row["gmail_app_password"] if "gmail_app_password" in row.keys() else "")
-    return address, password
+    address = clean_str(row_get(row, 'gmail_address'))
+    password = clean_str(row_get(row, 'gmail_app_password'))
+    # Keep credential pairs together; never combine two different mailboxes.
+    if address or password:
+        return address, password.replace(' ', '')
+    smtp_host = clean_str(os.environ.get('SMTP_HOST')) or 'smtp.gmail.com'
+    if smtp_host.lower() == 'smtp.gmail.com':
+        return clean_str(os.environ.get('SMTP_USER')), clean_str(os.environ.get('SMTP_PASSWORD')).replace(' ', '')
+    return '', ''
 
 
 def decode_email_header(value):
