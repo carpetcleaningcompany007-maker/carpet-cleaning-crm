@@ -4220,6 +4220,27 @@ def save_inbound_attachments(message, email_id):
     return stored
 
 
+def clicksend_sms_reply_phone(sender_email):
+    """Return the customer number encoded in ClickSend's SMS-to-email reply address."""
+    address = clean_str(sender_email).lower()
+    if not address.endswith("@sms.clicksend.com"):
+        return ""
+    local = address.rsplit("@", 1)[0]
+    phone = normalize_phone(local)
+    return phone if is_valid_uk_phone(phone) else ""
+
+
+def customer_for_clicksend_sms_reply(sender_email):
+    phone = clicksend_sms_reply_phone(sender_email)
+    if not phone:
+        return None
+    # Phone values have historically been saved with spaces, 0-prefixes and +44-prefixes.
+    for row in q("SELECT id,phone FROM customers WHERE archived_at IS NULL AND IFNULL(phone,'')<>'' ORDER BY id DESC"):
+        if normalize_phone(row["phone"]) == phone:
+            return row
+    return None
+
+
 def ingest_inbound_message(raw_message, mailbox_uid=""):
     if not isinstance(raw_message, (bytes, bytearray)) or len(raw_message) > 30 * 1024 * 1024:
         return {"status": "rejected"}
@@ -4236,6 +4257,9 @@ def ingest_inbound_message(raw_message, mailbox_uid=""):
     if existing:
         return {"status": "duplicate", "id": existing["id"]}
     customer = q("SELECT id FROM customers WHERE archived_at IS NULL AND lower(trim(email))=? ORDER BY id LIMIT 1", (sender_email,), one=True)
+    sms_reply_phone = clicksend_sms_reply_phone(sender_email)
+    if not customer and sms_reply_phone:
+        customer = customer_for_clicksend_sms_reply(sender_email)
     customer_id = customer["id"] if customer else None
     enquiry = q("SELECT id FROM intake_submissions WHERE customer_id=? ORDER BY id DESC LIMIT 1", (customer_id,), one=True) if customer_id else None
     job = q("SELECT id FROM jobs WHERE customer_id=? AND IFNULL(status,'')<>'Archived' ORDER BY COALESCE(job_date,'') DESC,id DESC LIMIT 1", (customer_id,), one=True) if customer_id else None
@@ -4249,7 +4273,43 @@ def ingest_inbound_message(raw_message, mailbox_uid=""):
                       decode_email_header(message.get("Subject")), safe_email_body(message), received_at, customer_id,
                       enquiry["id"] if enquiry else None, job["id"] if job else None, "matched" if customer_id else "unmatched"))
     attachments = save_inbound_attachments(message, email_id)
+    if customer_id and sms_reply_phone:
+        body = safe_email_body(message)
+        run("""INSERT INTO sms_events(customer_id,provider,event_type,to_phone,from_phone,body,status,direction,payload_json,created_at,updated_at)
+               VALUES (?,?,?,?,?,?,?,?,?,datetime('now'),datetime('now'))""",
+            (customer_id, "ClickSend email relay", "inbound", "", sms_reply_phone, body,
+             "Received by email relay", "inbound", json.dumps({"email_id": email_id})))
+        run("""INSERT INTO communications(customer_id,channel,subject,body,created_at)
+               VALUES (?,?,?,?,datetime('now'))""",
+            (customer_id, "SMS", "Inbound SMS reply", body))
+        prepare_ai_draft_for_inbound_sms(customer_id)
     return {"status": "created", "id": email_id, "matched": bool(customer_id), "attachments": len(attachments)}
+
+
+def reconcile_clicksend_sms_reply_emails():
+    """Attach previously imported ClickSend SMS reply emails to their phone-matched customer."""
+    rows = q("""SELECT id,sender_email,customer_id,body_text FROM inbound_customer_emails
+              WHERE customer_id IS NULL AND lower(sender_email) LIKE '%@sms.clicksend.com'""")
+    matched = 0
+    for row in rows:
+        customer = customer_for_clicksend_sms_reply(row["sender_email"])
+        if not customer:
+            continue
+        customer_id = customer["id"]
+        run("UPDATE inbound_customer_emails SET customer_id=?,match_status='matched' WHERE id=?", (customer_id, row["id"]))
+        exists = q("SELECT id FROM sms_events WHERE provider='ClickSend email relay' AND payload_json LIKE ? LIMIT 1", (f'%\"email_id\": {row["id"]}%',), one=True)
+        if not exists:
+            phone = clicksend_sms_reply_phone(row["sender_email"])
+            run("""INSERT INTO sms_events(customer_id,provider,event_type,to_phone,from_phone,body,status,direction,payload_json,created_at,updated_at)
+                   VALUES (?,?,?,?,?,?,?,?,?,datetime('now'),datetime('now'))""",
+                (customer_id, "ClickSend email relay", "inbound", "", phone, row["body_text"] or "",
+                 "Received by email relay", "inbound", json.dumps({"email_id": row["id"]})))
+            run("""INSERT INTO communications(customer_id,channel,subject,body,created_at)
+                   VALUES (?,?,?,?,datetime('now'))""",
+                (customer_id, "SMS", "Inbound SMS reply", row["body_text"] or ""))
+        prepare_ai_draft_for_inbound_sms(customer_id)
+        matched += 1
+    return matched
 
 
 def poll_inbound_customer_emails(imap_factory=None, force=False):
@@ -8950,6 +9010,10 @@ def init_db():
     conn.execute("INSERT OR IGNORE INTO inbound_email_poll_state(id) VALUES (1)")
     conn.commit()
     conn.close()
+    try:
+        reconcile_clicksend_sms_reply_emails()
+    except Exception:
+        logger.exception("Could not match ClickSend SMS reply emails")
     try:
         ensure_backup_dir()
     except Exception:
