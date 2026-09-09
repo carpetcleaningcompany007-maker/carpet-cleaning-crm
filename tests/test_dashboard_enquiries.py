@@ -26,7 +26,7 @@ class DashboardEnquiryTests(unittest.TestCase):
         self.assertIn(b'Automatic acknowledgement stopped',self.client.get('/dashboard/enquiry-alerts').data)
     def test_call_stops_queue_and_records_ownership(self):
         lead=self.lead();response=self.action(lead,'call');self.assertEqual(response.status_code,302)
-        self.assertEqual(self.status(lead),'Cancelled');self.assertEqual(self.mod.dashboard_enquiry_alerts(),[])
+        self.assertEqual(self.status(lead),'Cancelled');self.assertEqual(self.mod.dashboard_enquiry_alerts()[0]['owner_action'],'call')
     def test_inflight_send_cannot_claim_cancelled(self):
         lead=self.lead(status='Sending');self.action(lead,'stop');self.assertEqual(self.status(lead),'Sending')
         self.assertIsNone(self.mod.q('SELECT * FROM dashboard_enquiry_decisions WHERE lead_id=?',(lead,),one=True))
@@ -56,3 +56,16 @@ class DashboardEnquiryTests(unittest.TestCase):
         with patch.object(self.mod,'q',side_effect=read_then_cancel),patch.object(self.mod,'send_clicksend_env_sms') as sms:
             self.mod.run_due_enquiry_acknowledgements();sms.assert_not_called()
         self.assertEqual(self.status(lead),'Cancelled')
+
+    def test_failure_time_and_owner_choice_are_visible(self):
+        lead=self.lead(status='Delivery failed')
+        self.mod.run("UPDATE intake_submissions SET customer_sms_status=?,customer_email_status=? WHERE id=?",('Failed: SMS rejected','Failed: email returned',lead))
+        page=self.client.get('/dashboard/enquiry-alerts').data
+        self.assertIn(b'DELIVERY PROBLEM',page);self.assertIn(b'email returned',page);self.assertIn(b'data-received=',page)
+        self.action(lead,'message')
+        self.assertIn(b'You chose to message personally',self.client.get('/dashboard/enquiry-alerts').data)
+        self.action(lead,'handled');self.assertEqual(self.mod.dashboard_enquiry_alerts(),[])
+    def test_email_sent_is_not_treated_as_delivery_confirmation(self):
+        self.lead(status='Email fallback sent')
+        page=self.client.get('/dashboard/enquiry-alerts').data
+        self.assertIn(b'email delivery is not confirmed',page)

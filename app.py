@@ -10271,13 +10271,13 @@ def dashboard():
 
 def dashboard_enquiry_alerts():
     rows = q("""SELECT s.*, a.status AS ack_status, a.due_at AS ack_due, a.channel AS ack_channel,
-                       a.message AS ack_message, d.action AS owner_action
+                       a.message AS ack_message, a.sent_at AS ack_sent_at, a.delivered_at AS ack_delivered_at, a.fallback_sent_at AS ack_fallback_at, d.action AS owner_action
                 FROM intake_submissions s
                 LEFT JOIN enquiry_acknowledgement_queue a ON a.lead_id=s.id
                 LEFT JOIN dashboard_enquiry_decisions d ON d.lead_id=s.id
                 WHERE IFNULL(s.is_test,0)=0 AND IFNULL(s.ignore_alerts,0)=0
                   AND IFNULL(s.status,'New') IN ('New','Waiting for review','Needs missing details')
-                  AND IFNULL(d.action,'') NOT IN ('call','message','handled')
+                  AND IFNULL(d.action,'') <> 'handled'
                 ORDER BY s.id DESC""")
     alerts = []
     now = datetime.now(ZoneInfo("Europe/London"))
@@ -10298,14 +10298,47 @@ def dashboard_enquiry_alerts():
                 item['next_step'] = 'Acknowledgement queued. Open the enquiry to check its schedule.'
         elif status == 'Sending': item['next_step'] = 'Acknowledgement is being processed. It is too late to stop it here.'
         elif status == 'Accepted': item['next_step'] = 'Text accepted by the provider; delivery is not confirmed yet. Review the enquiry and follow up.'
-        elif status in ('Sent','Delivered'): item['next_step'] = 'Acknowledgement ' + status.lower() + '. Review the enquiry and follow up.'
+        elif status == 'Sent': item['next_step'] = 'Acknowledgement sent; this is not confirmation the customer received it. Follow up if needed.'
+        elif status == 'Delivered': item['next_step'] = 'Text delivery confirmed. Review the enquiry and follow up.'
+        elif status == 'Email fallback sent': item['next_step'] = 'SMS was unsuccessful or unconfirmed. A fallback email was sent; email delivery is not confirmed.'
+        elif status in ('Delivery failed','Delivery unconfirmed'): item['next_step'] = 'Customer acknowledgement delivery needs attention. Check the channel details below and contact the customer.'
         elif status == 'Cancelled': item['next_step'] = 'Automatic acknowledgement stopped. Choose how you will contact this customer.'
         elif status == 'Failed': item['next_step'] = 'Acknowledgement failed. Open the enquiry and contact this customer yourself.'
         else: item['next_step'] = 'No automatic acknowledgement is scheduled. Review the enquiry and contact the customer.'
         try:
-            created = datetime.fromisoformat(item.get('created_at') or '').replace(tzinfo=ZoneInfo('UTC'))
+            created = datetime.fromisoformat(item.get('created_at') or '')
+            if created.tzinfo is None: created = created.replace(tzinfo=ZoneInfo('UTC'))
+            item['received_epoch'] = int(created.timestamp()*1000)
+            item['received_label'] = created.astimezone(ZoneInfo('Europe/London')).strftime('%a %d %b at %H:%M')
             item['fresh'] = 0 <= (now-created).total_seconds() < 86400
-        except (ValueError,TypeError): item['fresh'] = False
+        except (ValueError,TypeError):
+            item['fresh'] = False
+            item['received_epoch'] = None
+            item['received_label'] = 'Time not recorded'
+        item['sms_detail'] = clean_str(item.get('customer_sms_status')) or 'No SMS send recorded.'
+        item['email_detail'] = clean_str(item.get('customer_email_status')) or 'No email send recorded.'
+        if status == 'Cancelled':
+            if item['sms_detail'].lower().startswith('queued'): item['sms_detail'] = 'Scheduled SMS stopped by Paul.'
+            if item['email_detail'].lower().startswith('queued'): item['email_detail'] = 'Scheduled email stopped by Paul.'
+        for field in ('ack_sent_at','ack_delivered_at','ack_fallback_at'):
+            try:
+                stamp = datetime.fromisoformat(item.get(field) or '')
+                if stamp.tzinfo is None: stamp = stamp.replace(tzinfo=ZoneInfo('UTC'))
+                item[field] = stamp.astimezone(ZoneInfo('Europe/London')).strftime('%d %b, %H:%M')
+            except (ValueError,TypeError): pass
+        item['latest_email'] = None
+        if item.get('customer_id'):
+            event = q("""SELECT status,subject,created_at FROM customer_email_events
+                         WHERE customer_id=? AND lower(recipient)=lower(?)
+                           AND datetime(created_at)>=datetime(?)
+                           AND datetime(created_at)<COALESCE((SELECT MIN(datetime(created_at)) FROM intake_submissions WHERE customer_id=? AND id>?), '9999-12-31')
+                         ORDER BY datetime(created_at) DESC,id DESC LIMIT 1""",
+                      (item['customer_id'],item.get('email') or '',item.get('created_at'),item['customer_id'],item['id']),one=True)
+            if event: item['latest_email'] = dict(event)
+        failure_text = ' '.join([status,item['sms_detail'],item['email_detail'],clean_str((item['latest_email'] or {}).get('status'))]).lower()
+        item['delivery_problem'] = any(word in failure_text for word in ('failed','failure','bounced','bounce','returned','rejected','undeliver','unconfirmed'))
+        item['owner_step'] = {'call':'You chose to call this customer. The call is not yet marked complete.','message':'You chose to message personally. Check the conversation and mark handled when finished.','stop':'You stopped the automatic acknowledgement. Choose a manual next step.'}.get(item.get('owner_action'),'You have not chosen a manual next step yet.')
+        if item['delivery_problem']: item['next_step'] = 'Delivery needs attention. Check the text and email statuses below before sending another message.'
         item['preview'] = enquiry_acknowledgement_text(item)
         alerts.append(item)
     return alerts
