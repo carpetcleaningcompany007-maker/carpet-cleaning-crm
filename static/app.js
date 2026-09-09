@@ -142,8 +142,11 @@
     }
     const vat = includeVat && includeVat.checked ? subtotal * 0.20 : 0;
     const rawTotal = subtotal + vat;
-    const total = rawTotal < 100 ? 100 : rawTotal;
-    return {lines, subtotal, vat, total, include_vat:!!(includeVat && includeVat.checked)};
+    // A fixed-price special is deliberately allowed below the normal minimum charge.
+    const hasSpecial = pricing.domestic.some(item => Number(qty[item.id] || 0) > 0 && /special/i.test(String(item.group || "")));
+    const minimum = hasSpecial ? 0 : Number(pricing.minimum_charge || 0);
+    const total = rawTotal < minimum ? minimum : rawTotal;
+    return {lines, subtotal, vat, raw_total:rawTotal, minimum, total, include_vat:!!(includeVat && includeVat.checked)};
   }
 
   function renderReview() {
