@@ -7,6 +7,8 @@
 {% set xero_decision_needed = xero_identity_ready and (not lead.full_address or not lead.postcode) %}
 {% set xero_missing_summary = (([] if lead.full_address else ['address']) + ([] if lead.postcode else ['postcode']))|join(', ') %}
 <style>
+.simple-stage-strip{display:flex;list-style:none;gap:10px;margin:0;padding:0;flex-wrap:wrap}.simple-stage-strip li{padding:9px 13px;border-radius:8px;background:#f1f4f6;color:#687887;font-size:14px}.simple-stage-strip .current{background:#fff0cc;color:#77561c}.simple-stage-strip .done{background:#eaf5ef;color:#366a50}.simple-next-step h4{font-size:24px!important;font-weight:400!important;margin:4px 0 12px!important}.simple-next-step p,.simple-next-step li{font-size:16px;line-height:1.7;font-weight:400}.simple-next-step ul{margin:12px 0 20px;padding-left:22px}.simple-form-actions,.simple-form-actions form{display:flex;gap:10px;flex-wrap:wrap;margin:0}.simple-form-actions .btn{font-weight:400!important}.simple-step-help{color:#617486;font-size:14px!important}.simple-send-status{color:#526c7f;font-size:14px!important}.lead-action-panel{box-shadow:none!important}.review-hero{padding:22px!important}.review-hero h3{font-weight:400!important}
+
   .review-shell{display:grid;gap:20px;max-width:1260px;margin:0 auto}
   .review-hero{background:linear-gradient(135deg,#081a30 0%,#123a61 100%);border:1px solid rgba(239,198,90,.28);border-radius:22px;padding:28px;display:flex;justify-content:space-between;gap:22px;align-items:flex-start;box-shadow:0 20px 48px rgba(8,26,48,.18)}
   body.app-page .review-hero h3{margin:0 0 8px;font-size:32px;color:#fff!important;letter-spacing:-.025em;text-shadow:0 1px 0 rgba(0,0,0,.12)}
@@ -72,74 +74,26 @@
   <div class="review-hero">
     <div>
       <h3>{{ lead.name or 'Customer details form' }}</h3>
-      <p>This is the form reply the customer sent back. Check it, edit anything that needs tidying, then send the contact to Xero when you are happy.</p>
+      <p>Follow the next step below. Customer details and message history stay saved here.</p>
     </div>
-    <span class="review-pill">{% if lead.is_test or lead.ignore_alerts %}Test · alerts ignored{% else %}{{ lead.status or 'Waiting for review' }}{% endif %}</span>
+    
   </div>
 
   <section class="lead-action-panel" id="lead-action-panel">
-    <div class="lead-action-head">
-      <div>
-        <h4>Your next step</h4>
-        <p>Complete this action first. The CRM will then show you what comes next.</p>
-      </div>
-      <span class="lead-next-pill">{{ lead_next_action }}</span>
-    </div>
+    {% set received = lead.update_form_status == 'Customer sent updated details' %}
+    <ol class="simple-stage-strip" aria-label="Customer journey"><li class="{{ 'current' if missing_details else 'done' }}">1 · Customer details</li><li class="{{ 'current' if not missing_details and not lead.xero_contact_id else '' }}">2 · Review &amp; Xero</li><li>3 · Quote &amp; booking</li></ol>
+    <section class="simple-next-step">
     {% if missing_details %}
-      <div class="missing-warning">
-        <strong>This enquiry is not complete yet.</strong>
-        <ul>
-          {% for detail in missing_details %}<li>{{ detail }}</li>{% endfor %}
-        </ul>
-      </div>
+      {% if received %}<h4>Step 1 · Check the returned form</h4><p>{{ lead.name }} has returned the form, but some details are still missing.</p>
+      {% elif lead.update_form_sent_at %}<h4>Step 1 · Waiting for {{ lead.name }}</h4><p>A form request is recorded. Wait for their reply or follow up below.</p><p class="simple-send-status">{{ lead.update_form_status }}</p>
+      {% else %}<h4>Step 1 · Ask {{ lead.name }} for their details</h4><p>Send a short form so we can collect:</p>{% endif %}
+      <ul>{% for detail in missing_details %}<li>{{ detail }}</li>{% endfor %}</ul>
+      <div class="simple-form-actions"><a class="btn secondary" href="{{ update_form_preview_url }}" target="_blank" rel="noopener">Preview customer form</a><form method="post" action="{{ url_for('intake_request_missing_details',lead_id=lead.id) }}"><input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">{% for detail in missing_details %}<input type="hidden" name="missing_fields" value="{{ detail }}">{% endfor %}<button class="btn primary" name="channel" value="sms" {% if not lead.phone %}disabled{% endif %}>Send form by text</button><button class="btn secondary" name="channel" value="email" {% if not lead.email %}disabled{% endif %}>Send form by email</button></form></div>
+      <p class="simple-step-help">Already have the answers? <a href="#edit-intake-details" onclick="document.getElementById('edit-intake-details').closest('details').open=true">Enter the details</a>. Sending the form does not complete this step; the answers do.</p>
+    {% else %}
+      <h4>Step 2 · Review customer details</h4><p>{% if received %}Form received. {% endif %}Check the saved details below before updating Xero.</p><div class="simple-form-actions"><a class="btn secondary" href="#edit-intake-details" onclick="document.getElementById('edit-intake-details').closest('details').open=true">Review / edit details</a>{% if not lead.xero_contact_id %}<form method="post" action="{{ url_for('xero_create_contact',lead_id=lead.id) }}"><input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><button class="btn primary">Details checked — update Xero</button></form>{% else %}<a class="btn primary" href="{{ url_for('ai_assistant',tool='quote',intake_id=lead.id,customer_id=lead.customer_id or '') }}">Prepare quote</a>{% endif %}</div>
     {% endif %}
-    <div class="lead-primary-next">
-      <span>Recommended now</span>
-      <strong>{{ lead_next_action }}</strong>
-      {% if missing_details and not lead.update_form_sent_at %}
-      <div class="lead-next-choice">
-      <form method="post" action="{{ url_for('intake_request_missing_details', lead_id=lead.id) }}">
-        {% for detail in missing_details %}<input type="hidden" name="missing_fields" value="{{ detail }}">{% endfor %}
-        <button class="btn primary" type="submit" {% if not lead.email and not lead.phone %}disabled{% endif %}>Send missing-details request →</button>
-      </form>
-      <form method="post" action="{{ url_for('intake_form_quick_action', lead_id=lead.id) }}" onsubmit="return confirm('Skip the missing-details request and advance this enquiry to customer contact? The missing information will remain recorded.');">
-        <input type="hidden" name="action" value="override_missing">
-        <button class="btn lead-override-btn" type="submit">Override and move to next step</button>
-      </form>
-      </div>
-      {% elif missing_details and lead.update_form_sent_at %}
-      <div class="lead-next-choice lead-waiting-choice">
-        <div class="lead-waiting-status"><span>Request sent</span><strong>{{ lead.update_form_sent_at }}</strong><small>The next normal step is to wait for the customer’s reply.</small></div>
-        <form method="post" action="{{ url_for('intake_form_quick_action', lead_id=lead.id) }}" onsubmit="return confirm('Continue without the missing details? The missing information will remain recorded.');">
-          <input type="hidden" name="action" value="override_missing">
-          <button class="btn lead-override-btn" type="submit">Continue without their reply</button>
-        </form>
-        <form method="post" action="{{ url_for('intake_request_missing_details', lead_id=lead.id) }}">
-          {% for detail in missing_details %}<input type="hidden" name="missing_fields" value="{{ detail }}">{% endfor %}
-          <button class="btn lead-override-btn" type="submit">Resend missing-details request</button>
-        </form>
-      </div>
-      {% elif not lead.customer_id %}
-      <form method="post" action="{{ url_for('intake_form_quick_action', lead_id=lead.id) }}"><input type="hidden" name="action" value="open_customer"><button class="btn primary" type="submit">Create customer record →</button></form>
-      {% elif (lead.follow_up_status or '') in ['', 'Follow up required', 'Pending'] %}
-        {% if lead.phone %}<a class="btn primary" href="tel:{{ lead.phone|replace(' ', '') }}">Call {{ lead.name or 'customer' }} now →</a>{% elif lead.email %}<a class="btn primary" href="mailto:{{ lead.email }}">Email {{ lead.name or 'customer' }} now →</a>{% endif %}
-      {% elif not lead.xero_contact_id %}
-      <form method="post" action="{{ url_for('xero_create_contact', lead_id=lead.id) }}" {% if xero_decision_needed %}onsubmit="return confirm('Missing {{ xero_missing_summary }}. Continue to Xero anyway with the available customer details?');"{% endif %}>{% if xero_decision_needed %}<input type="hidden" name="allow_incomplete" value="1">{% endif %}<button class="btn primary" type="submit" {% if not xero_identity_ready %}disabled{% endif %}>{% if xero_decision_needed %}Continue to Xero anyway →{% else %}Approve and update Xero →{% endif %}</button></form>
-      {% elif not lead.job_id %}
-      <form method="post" action="{{ url_for('intake_create_job', lead_id=lead.id) }}"><button class="btn primary" type="submit">Create booked job →</button></form>
-      {% else %}
-      <a class="btn primary" href="{{ url_for('job_view', job_id=lead.job_id) }}">Continue to job →</a>
-      {% endif %}
-    </div>
-    {% if lead.missing_details_overridden %}<div class="lead-override-note"><strong>Manual override active.</strong> Missing details were deliberately skipped and remain recorded in the customer timeline.</div>{% endif %}
-    <details class="lead-progress-details">
-      <summary>Progress details</summary>
-      <div class="lead-check-grid">
-        {% for item in lead_checklist %}
-          <a class="lead-check {{ 'done' if item.ok else 'missing' }}" href="{{ item.href or '#' }}"><span>{{ 'Done' if item.ok else 'To do' }}</span><strong>{{ item.label }}</strong>{% if not item.ok %}<em>{{ item.help }}</em>{% endif %}</a>
-        {% endfor %}
-      </div>
-    </details>
+    </section>
     <details class="lead-progress-details lead-other-actions">
       <summary>More contact and status options</summary>
       <div class="lead-action-buttons">

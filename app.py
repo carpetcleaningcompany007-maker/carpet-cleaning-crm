@@ -3275,6 +3275,9 @@ def send_contact_form_owner_alerts(lead_id, customer_id=None):
 
 
 def sync_xero_contact_for_intake(lead_id, allow_incomplete=False):
+    completeness_lead = q('SELECT * FROM intake_submissions WHERE id=?',(lead_id,),one=True)
+    if completeness_lead and intake_missing_details(dict(completeness_lead, missing_details_overridden=0)):
+        raise RuntimeError('Complete and review the missing customer details before updating Xero.')
     lead = q("SELECT * FROM intake_submissions WHERE id=?", (lead_id,), one=True)
     if not lead:
         raise RuntimeError("Intake form not found.")
@@ -19092,7 +19095,8 @@ def intake_form_view(lead_id):
         xero_connected=bool(xero_token_row()),
         lead_checklist=intake_lead_checklist(lead),
         lead_next_action=intake_lead_next_action(lead),
-        missing_details=intake_missing_details(lead),
+        missing_details=intake_missing_details(dict(lead, missing_details_overridden=0)),
+        update_form_preview_url=intake_update_short_url(lead_id),
         prepared_follow_up_sms=prepared_enquiry_follow_up_sms(lead),
         prepared_follow_up_status=prepared_enquiry_follow_up_status(lead_id),
         ai_draft=ai_draft,
@@ -19131,14 +19135,16 @@ def intake_request_missing_details(lead_id):
     else:
         message = send_standalone_contact_form_message(form_link, recipient_name)
     subject = "Please update your customer details - The Carpet Cleaning Company"
+    channel = request.form.get("channel", "both")
+    if channel not in ("email", "sms", "both"): abort(400)
     results = []
-    if email_to:
+    if email_to and channel in ("email", "both"):
         email_html = booking_form_email_html(customer, form_link, recipient_name=recipient_name)
         ok, msg = send_env_email(email_to, subject, message, email_html, customer=customer)
         if ok:
             send_owner_customer_message_copy("email", email_to, subject, message, html_body=email_html, customer=customer, context="Missing details update form")
         results.append(("Email", ok, msg))
-    if sms_to and not is_customer_sms_opted_out(customer):
+    if sms_to and channel in ("sms", "both") and not is_customer_sms_opted_out(customer):
         ok, msg = send_clicksend_env_sms(sms_to, message, customer=customer, category="Customer Form Update")
         if ok:
             send_owner_customer_message_copy("sms", sms_to, "Customer update form", message, customer=customer, context="Missing details update form")
@@ -19149,8 +19155,8 @@ def intake_request_missing_details(lead_id):
     sent_labels = [label for label, ok, _ in results if ok]
     status = "; ".join(f"{label}: {'sent' if ok else 'failed'} - {msg}" for label, ok, msg in results)
     run("""UPDATE intake_submissions
-           SET update_form_sent_at=datetime('now'), update_form_status=?, follow_up_status='Waiting for customer', updated_at=datetime('now')
-           WHERE id=?""", (status, lead_id))
+           SET update_form_sent_at=CASE WHEN ? THEN datetime('now') ELSE update_form_sent_at END, update_form_status=?, follow_up_status=CASE WHEN ? THEN 'Waiting for customer' ELSE 'Message failed - retry required' END, updated_at=datetime('now')
+           WHERE id=?""", (bool(sent_labels), status, bool(sent_labels), lead_id))
     if customer_id:
         run("INSERT INTO communications(customer_id, channel, subject, body, created_at) VALUES (?,?,?,?,datetime('now'))",
             (customer_id, "Customer Form", subject, message))
