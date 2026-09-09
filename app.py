@@ -4262,58 +4262,67 @@ def sms_reply_text(message):
 
 
 def prepare_quote_draft_from_sms_reply(customer_id, reply_text, source_email_id=0):
-    """Create a review-only quote draft when a reply clearly lists priced services."""
+    """Create a review-only professional deep-clean quote draft from clear SMS room lists."""
     text = clean_str(reply_text).lower()
     if not customer_id or not text:
         return None
     catalogue = {item.get('id'): item for item in pricing().get('domestic', [])}
-    requested = []
-    def add(item_id, quantity=1):
+    room_count = 0
+    extras = []
+    def add_catalogue(item_id, quantity=1):
         item = catalogue.get(item_id)
         if item and quantity:
-            requested.append(normalise_quote_line({'item_name': item.get('name'), 'method': 'Price book',
+            extras.append(normalise_quote_line({'item_name': item.get('name'), 'method': 'Professional deep clean',
                 'quantity': quantity, 'unit_price': item.get('price') or 0, 'group_name': item.get('group') or 'Residential'}))
-    # A single reply can be informal; only use recognisable priced services and leave everything editable.
-    if 'stairs' in text or 'landing' in text:
-        add('stairslanding')
+    # Carpet rooms use the owner's first-room package pricing. Stairs/landing have their own rate.
     if re.search(r'\b(lounge|living room)\b', text):
-        add('living')
+        room_count += 1
     bedroom_match = re.search(r'\b(\d+)\s*(?:x\s*)?(?:bedroom|bedrooms)\b', text)
     if bedroom_match:
-        add('bedroom', min(int(bedroom_match.group(1)), 12))
+        room_count += min(int(bedroom_match.group(1)), 12)
     elif re.search(r'\bbedroom\b', text):
-        add('bedroom')
+        room_count += 1
     if re.search(r'\bdining(?: room)?\b', text):
-        add('dining')
+        room_count += 1
     if re.search(r'\b(study|office)\b', text):
-        add('study')
+        room_count += 1
+    lines = []
+    if room_count:
+        lines.append(normalise_quote_line({'item_name': 'First carpet room', 'method': 'Professional deep clean', 'quantity': 1,
+            'unit_price': 75.0, 'group_name': 'Carpet cleaning'}))
+        if room_count > 1:
+            lines.append(normalise_quote_line({'item_name': 'Additional carpet rooms', 'method': 'Professional deep clean',
+                'quantity': room_count - 1, 'unit_price': 45.0, 'group_name': 'Carpet cleaning'}))
+    if 'stairs' in text or 'landing' in text or re.search(r'\bhall(?:way)?\b', text):
+        lines.append(normalise_quote_line({'item_name': 'Hall, stairs and landing', 'method': 'Professional deep clean',
+            'quantity': 1, 'unit_price': 45.0, 'group_name': 'Carpet cleaning'}))
     sofa_match = re.search(r'\b([235])[- ]?(?:seat|seater)\s*(?:corner )?sofa\b', text)
     if sofa_match:
         seats = int(sofa_match.group(1))
-        add('sofa_2' if seats == 2 else 'sofa_3' if seats == 3 else 'seat', 1 if seats < 5 else 5)
+        add_catalogue('sofa_2' if seats == 2 else 'sofa_3' if seats == 3 else 'seat', 1 if seats < 5 else 5)
     elif 'corner sofa' in text:
-        add('seat', 5)
+        add_catalogue('seat', 5)
     if 'armchair' in text or re.search(r'\bchair\b', text):
-        add('armchair')
+        add_catalogue('armchair')
     if 'large rug' in text:
-        add('rug_large')
+        add_catalogue('rug_large')
     elif 'medium rug' in text:
-        add('rug_medium')
+        add_catalogue('rug_medium')
     elif 'small rug' in text or re.search(r'\brug\b', text):
-        add('rug_small')
-    if not requested:
+        add_catalogue('rug_small')
+    lines.extend(extras)
+    if not lines:
         return None
-    # Do not duplicate a quote when the mailbox polls the same reply again.
     note_marker = f"SMS reply email #{int(source_email_id or 0)}"
     existing = q("SELECT id FROM quotes WHERE customer_id=? AND notes LIKE ? LIMIT 1", (customer_id, f"%{note_marker}%"), one=True)
     if existing:
         return existing['id']
-    payload = {'lines': requested, 'include_vat': False}
+    payload = {'lines': lines, 'include_vat': False, 'quote_stage': 'professional_deep_clean'}
     calc = calc_from_payload(payload)
     quote_id = run("""INSERT INTO quotes(customer_id,quote_number,title,quote_date,valid_until,status,subtotal,vat,total,payload_json,notes)
                       VALUES (?,?,?,?,?,?,?,?,?,?,?)""", (customer_id, next_quote_number(), 'Quote draft from customer reply',
         date.today().isoformat(), '', 'Draft', calc['subtotal'], calc['vat'], calc['total'], json.dumps(payload),
-        f"Prepared from {note_marker}. Check rooms, method and price before sending."))
+        f"Prepared from {note_marker}. Professional deep clean: £75 first carpet room, £45 each additional room, £45 hall/stairs/landing. Check rooms, method and price before sending."))
     for line in calc['lines']:
         run("""INSERT INTO quote_lines(quote_id,item_name,method,quantity,unit_price,line_total,group_name)
                VALUES (?,?,?,?,?,?,?)""", (quote_id, line.get('item_name',''), line.get('method',''), line.get('quantity',0),
@@ -10500,7 +10509,7 @@ def dashboard():
                            intake_needs_contact=intake_needs_contact["c"] if intake_needs_contact else 0,
                            intake_waiting=intake_waiting["c"] if intake_waiting else 0,
                            recent_enquiries=recent_enquiries, dashboard_schedule=dashboard_schedule,
-                           dashboard_next=dashboard_next, dashboard_greeting=dashboard_greeting,
+                           dashboard_next=dashboard_next, dashboard_quote_ready=quote_ready, dashboard_greeting=dashboard_greeting,
                            dashboard_date=f"{today.strftime('%A')}, {today.day} {today.strftime('%B')}")
 
 
