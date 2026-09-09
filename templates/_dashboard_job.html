@@ -1,4 +1,4 @@
-<details class="dashboard-job{% if is_next_job %} dashboard-job-next{% endif %}" name="{{ job_group }}" {% if is_next_job %}open{% endif %}>
+<details class="dashboard-job{% if is_next_job %} dashboard-job-next{% endif %}" name="{{ job_group }}">
 <summary><time>{{ job.job_time or 'TBC' }}</time><strong>{{ job.customer_name }}</strong><small>{{ 'Your next job' if is_next_job else job.status }}</small></summary>
 <div class="dashboard-job-body">
 <a href="{{ url_for('job_view',job_id=job.id) }}">{{ job.service_type or job.title or 'Job details' }}</a>
@@ -12,9 +12,7 @@
 </div>
 {% if job.w3w_url %}<a href="{{ job.w3w_url }}" target="_blank" rel="noopener">what3words →</a>{% endif %}
 {% if not job.customer_id or not job.phone or not job.directions_url %}<small>Missing contact or address details? These shortcuts open the job editor so you can add them.</small>{% endif %}
-<details class="dashboard-late"><summary>I’m running late</summary>{% if job.customer_id %}<form method="get" action="{{ url_for('customer_conversation',customer_id=job.customer_id) }}">
-<input type="hidden" name="job" value="{{ job.id }}"><input type="hidden" name="action" value="late">
-<label>Running late <select name="minutes"><option value="10">10 minutes</option><option value="20" selected>20 minutes</option><option value="30">30 minutes</option><option value="60">1 hour</option><option value="120">2 hours</option></select></label><button type="submit">Preview message</button></form>{% endif %}</details>
+
 <section class="dashboard-job-workflow"><h4>Job workflow</h4><div class="dashboard-job-buttons">
 {% if job.customer_id %}
 <a href="{{ url_for('customer_conversation',customer_id=job.customer_id,job=job.id,action='review') }}">Request a review</a>
