@@ -2642,10 +2642,37 @@ def send_clicksend_env_sms(*args, **kwargs):
     return friendly_delivery_result(ok, detail, 'text message')
 
 
+def clicksend_reply_number(username=None, api_key=None):
+    """Find the number used for two-way SMS without exposing account details."""
+    configured = normalize_phone(os.environ.get("CLICKSEND_REPLY_NUMBER", ""))
+    if configured:
+        return configured
+    username = username or clean_str(os.environ.get("CLICKSEND_USERNAME"))
+    api_key = api_key or clean_str(os.environ.get("CLICKSEND_API_KEY"))
+    if not username or not api_key:
+        return ""
+    try:
+        request = urllib.request.Request("https://rest.clicksend.com/v3/numbers?limit=100")
+        request.add_header("Authorization", "Basic " + base64.b64encode((username + ":" + api_key).encode()).decode())
+        with urllib.request.urlopen(request, timeout=12) as response:
+            payload = json.load(response)
+        data = payload.get("data") or {}
+        numbers = data.get("data", []) if isinstance(data, dict) else data if isinstance(data, list) else []
+        for item in numbers:
+            if not isinstance(item, dict):
+                continue
+            number = normalize_phone(item.get("number") or item.get("dedicated_number") or item.get("phone") or "")
+            if number:
+                return number
+    except Exception:
+        logger.warning("Could not look up a ClickSend reply number.")
+    return ""
+
+
 def _raw_send_clicksend_env_sms(to_phone, body, customer=None, category="Website Enquiry"):
     username = os.environ.get("CLICKSEND_USERNAME", "").strip()
     api_key = os.environ.get("CLICKSEND_API_KEY", "").strip()
-    from_name = os.environ.get("CLICKSEND_FROM_NAME", "").strip()
+    from_name = clicksend_reply_number(username, api_key) or os.environ.get("CLICKSEND_FROM_NAME", "").strip()
     phone = normalize_phone(to_phone)
     if not phone:
         return False, "No recipient mobile number was supplied."
@@ -16106,9 +16133,13 @@ def connect_clicksend_inbound():
     if not username or not api_key:
         flash('ClickSend is not connected on this CRM yet.')
         return redirect(url_for('settings_page'))
+    reply_number = clicksend_reply_number(username, api_key)
+    if not reply_number:
+        flash('Two-way SMS needs a ClickSend shared or dedicated number. No reply-capable number was found on this ClickSend account, so texts cannot receive customer replies yet.')
+        return redirect(url_for('settings_page'))
     callback = (clean_str(os.environ.get('CRM_PUBLIC_BASE_URL')).rstrip('/') or request.url_root.rstrip('/')) + '/webhooks/sms/inbound/clicksend'
     payload = {
-        'dedicated_number': '*', 'rule_name': 'Carpet Cleaning CRM replies',
+        'dedicated_number': reply_number, 'rule_name': 'Carpet Cleaning CRM replies',
         'message_search_type': 0, 'message_search_term': '', 'action': 'URL',
         'action_address': callback, 'enabled': 1, 'webhook_type': 'json'
     }
