@@ -1,6 +1,8 @@
 {% extends "layout.html" %}
-{% block title %}AI Settings{% endblock %}
-{% block page_title %}AI Customer Reply Settings{% endblock %}
+{% block title %}AI Settings<section class="panel" id="saved-follow-up-example"><div class="panel-head"><h2>Saved follow-up example</h2><p>Your reference for bringing an unanswered quotation back into conversation.</p></div><div style="padding:20px"><h3>{{ approved_example.title }}</h3><p>{{ approved_example.scenario }}</p><p><strong>Used by:</strong> Find follow-ups, Write a customer reply and conversation drafts. This is drafting guidance, not automatic sending or model retraining.</p><details><summary>Read your original letter</summary><div style="white-space:pre-wrap;line-height:1.7;padding:18px;background:#f7f9fc">{{ approved_example.original }}</div></details><details><summary>How the example is adapted</summary><p>{{ approved_example.guidance }}</p><p>Sarah’s name and £230 are kept in your original reference only. Other customers receive their own confirmed details.</p></details></div></section>
+{% endblock %}
+{% block page_title %}AI Customer Reply Settings<section class="panel" id="saved-follow-up-example"><div class="panel-head"><h2>Saved follow-up example</h2><p>Your reference for bringing an unanswered quotation back into conversation.</p></div><div style="padding:20px"><h3>{{ approved_example.title }}</h3><p>{{ approved_example.scenario }}</p><p><strong>Used by:</strong> Find follow-ups, Write a customer reply and conversation drafts. This is drafting guidance, not automatic sending or model retraining.</p><details><summary>Read your original letter</summary><div style="white-space:pre-wrap;line-height:1.7;padding:18px;background:#f7f9fc">{{ approved_example.original }}</div></details><details><summary>How the example is adapted</summary><p>{{ approved_example.guidance }}</p><p>Sarah’s name and £230 are kept in your original reference only. Other customers receive their own confirmed details.</p></details></div></section>
+{% endblock %}
 {% block body_content %}
 <style>
   .ai-toggle{display:inline-flex!important;gap:10px;align-items:center;width:auto!important;padding:10px 14px;border:1px solid #d8e6f0;border-radius:12px;background:#f8fcff;font-weight:800}
@@ -32,4 +34,5 @@
     <button class="btn primary" type="submit">Save AI Settings</button>
   </form>
 </section>
+<section class="panel" id="saved-follow-up-example"><div class="panel-head"><h2>Saved follow-up example</h2><p>Your reference for bringing an unanswered quotation back into conversation.</p></div><div style="padding:20px"><h3>{{ approved_example.title }}</h3><p>{{ approved_example.scenario }}</p><p><strong>Used by:</strong> Find follow-ups, Write a customer reply and conversation drafts. This is drafting guidance, not automatic sending or model retraining.</p><details><summary>Read your original letter</summary><div style="white-space:pre-wrap;line-height:1.7;padding:18px;background:#f7f9fc">{{ approved_example.original }}</div></details><details><summary>How the example is adapted</summary><p>{{ approved_example.guidance }}</p><p>Sarah’s name and £230 are kept in your original reference only. Other customers receive their own confirmed details.</p></details></div></section>
 {% endblock %}
