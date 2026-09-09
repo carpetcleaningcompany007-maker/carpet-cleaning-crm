@@ -3,18 +3,20 @@
 <div class="dashboard-job-body">
 <a href="{{ url_for('job_view',job_id=job.id) }}">{{ job.service_type or job.title or 'Job details' }}</a>
 <p>{{ job.address_text or 'Address not saved' }}</p>{% if not job.customer_id %}<p class="dashboard-saved-note">This job has no linked customer. <a href="{{ url_for('job_edit',job_id=job.id) }}">Add customer details</a> to enable calls, messages and directions.</p>{% endif %}
-<div class="dashboard-job-buttons">
-{% if job.directions_url %}<a href="{{ job.directions_url }}" target="_blank" rel="noopener">Google Maps</a>{% endif %}
-{% if job.w3w_url %}<a href="{{ job.w3w_url }}" target="_blank" rel="noopener">what3words</a>{% endif %}
-{% if job.phone %}<a href="tel:{{ job.phone }}">Call customer</a>{% endif %}
-{% if job.customer_id %}<a href="{{ url_for('customer_conversation',customer_id=job.customer_id) }}">Messages &amp; history</a>{% endif %}
+<div class="dashboard-job-buttons dashboard-quick-five" aria-label="Quick job actions">
+<a href="{{ job.directions_url or url_for('job_edit',job_id=job.id) }}" {% if job.directions_url %}target="_blank" rel="noopener"{% endif %}>Map</a>
+<a href="{{ 'tel:' ~ job.phone if job.phone else url_for('job_edit',job_id=job.id) }}">Call customer</a>
+<a href="{{ url_for('customer_conversation',customer_id=job.customer_id) if job.customer_id else url_for('job_edit',job_id=job.id) }}">Message customer</a>
+<a href="{{ url_for('customer_conversation',customer_id=job.customer_id,job=job.id,action='coming') if job.customer_id else url_for('job_edit',job_id=job.id) }}">On my way</a>
+<a href="{{ url_for('customer_conversation',customer_id=job.customer_id,job=job.id,action='late',minutes=20) if job.customer_id else url_for('job_edit',job_id=job.id) }}">Running late</a>
 </div>
+{% if job.w3w_url %}<a href="{{ job.w3w_url }}" target="_blank" rel="noopener">what3words →</a>{% endif %}
+{% if not job.customer_id or not job.phone or not job.directions_url %}<small>Missing contact or address details? These shortcuts open the job editor so you can add them.</small>{% endif %}
 <details class="dashboard-late"><summary>I’m running late</summary>{% if job.customer_id %}<form method="get" action="{{ url_for('customer_conversation',customer_id=job.customer_id) }}">
 <input type="hidden" name="job" value="{{ job.id }}"><input type="hidden" name="action" value="late">
 <label>Running late <select name="minutes"><option value="10">10 minutes</option><option value="20" selected>20 minutes</option><option value="30">30 minutes</option><option value="60">1 hour</option><option value="120">2 hours</option></select></label><button type="submit">Preview message</button></form>{% endif %}</details>
 <section class="dashboard-job-workflow"><h4>Job workflow</h4><div class="dashboard-job-buttons">
 {% if job.customer_id %}
-<a href="{{ url_for('customer_conversation',customer_id=job.customer_id,job=job.id,action='coming') }}">On my way</a>
 <a href="{{ url_for('customer_conversation',customer_id=job.customer_id,job=job.id,action='review') }}">Request a review</a>
 {% endif %}</div>
 
