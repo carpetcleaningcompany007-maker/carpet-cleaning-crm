@@ -38,6 +38,8 @@
   const totalLabel = document.getElementById("totalLabel");
   const includeVat = document.getElementById("includeVat");
   const payloadJson = document.getElementById("payloadJson");
+  const domesticMethod = document.getElementById("domesticMethod");
+  const carpetRoomIds = new Set(["living", "bedroom", "dining", "boxroom", "study", "loungediner"]);
 
   const fmt = n => "£" + (Math.round((Number(n)||0) * 100) / 100).toFixed(2);
   const getBands = method => {
@@ -48,6 +50,17 @@
   };
   const methodLabel = method => ({rotary:"Rotary bonnet", hybrid:"Hybrid Deep Clean", hwe:"Hot water extraction", hardfloor:"Hard floor cleaning"}[method] || method);
   const pickBand = (sqm, bands) => bands.find(b => sqm >= b.min && sqm <= b.max) || bands[bands.length - 1];
+  const selectedMethod = () => (pricing.cleaning_methods || []).find(m => m.id === (domesticMethod || {}).value) || null;
+  const methodRate = (name) => {
+    const method = selectedMethod();
+    const item = method && (method.items || []).find(i => i.name === name);
+    return item && item.price !== null && item.price !== undefined ? Number(item.price) : null;
+  };
+  const domesticPriceHint = item => {
+    if (!carpetRoomIds.has(item.id)) return `${fmt(item.price)} each`;
+    const first = methodRate("First room"), other = methodRate("Additional room");
+    return first !== null && other !== null ? `${fmt(first)} first · ${fmt(other)} additional` : `${fmt(item.price)} each`;
+  };
 
   function renderDomestic() {
     resGrid.innerHTML = pricing.domestic.map(item => `
@@ -55,7 +68,7 @@
         <h4>${item.name}</h4>
         <p>${item.desc}</p>
         <div class="row-actions">
-          <span class="pill">${fmt(item.price)} each</span>
+          <span class="pill">${domesticPriceHint(item)}</span>
           <input type="number" min="0" step="1" value="${qty[item.id] || 0}" data-domestic-id="${item.id}">
         </div>
       </div>
@@ -88,9 +101,20 @@
   function calculate() {
     const lines = [];
     let subtotal = 0;
+    let carpetRooms = 0;
     pricing.domestic.forEach(item => {
       const q = Number(qty[item.id] || 0);
       if (!q) return;
+      if (carpetRoomIds.has(item.id) && methodRate("First room") !== null && methodRate("Additional room") !== null) {
+        for (let room = 0; room < q; room += 1) {
+          const price = carpetRooms === 0 ? methodRate("First room") : methodRate("Additional room");
+          const method = (selectedMethod() || {}).name || item.name;
+          subtotal += price;
+          lines.push({item_name:item.name + (carpetRooms === 0 ? " · first room" : " · additional room"), method, quantity:1, unit_price:price, line_total:price, group_name:item.group});
+          carpetRooms += 1;
+        }
+        return;
+      }
       const total = q * item.price;
       subtotal += total;
       lines.push({item_name:item.name, method:item.name, quantity:q, unit_price:item.price, line_total:total, group_name:item.group});
@@ -161,6 +185,7 @@
     }
   });
   if (includeVat) includeVat.addEventListener("change", renderReview);
+  if (domesticMethod) domesticMethod.addEventListener("change", () => { renderDomestic(); renderReview(); });
 
   renderDomestic();
   renderAreas();

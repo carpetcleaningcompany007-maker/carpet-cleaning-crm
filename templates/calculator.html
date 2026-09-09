@@ -22,6 +22,12 @@
         <p>Use the boxes below to build the customer quote.</p>
       </div>
     </div>
+    <label class="calculator-method-choice">Carpet cleaning package
+      <select id="domesticMethod">
+        {% for method in pricing.cleaning_methods if method.id in ['deep','standard'] %}<option value="{{ method.id }}">{{ method.name }}</option>{% endfor %}
+      </select>
+      <small>Room prices change with the package you choose. Stairs, rugs and upholstery keep their own saved prices.</small>
+    </label>
     <div class="res-grid" id="resGrid"></div>
     <details class="soft-box">
       <summary>Commercial work</summary>
