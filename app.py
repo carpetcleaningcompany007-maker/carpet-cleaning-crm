@@ -11551,7 +11551,7 @@ def store_clicksend_history_item(channel, item):
     if not external_id:
         return 0
     try:
-        stamp = datetime.fromtimestamp(float(item.get('date') or item.get('date_added') or item.get('timestamp_send')), timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
+        stamp = datetime.fromtimestamp(float(item.get('date') or item.get('date_added') or item.get('timestamp_send') or item.get('timestamp')), timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
     except (ValueError, TypeError, OverflowError, OSError):
         return 0
     direction = 'inbound' if str(item.get('direction', 'out')).lower() in ('in', 'inbound') else 'outbound'
@@ -11628,6 +11628,21 @@ def poll_clicksend_history():
     username, key = clicksend_history_credentials()
     if not username or not key:
         return
+    # ClickSend keeps replies in a separate inbound feed, not in normal SMS history.
+    try:
+        request = urllib.request.Request('https://rest.clicksend.com/v3/sms/inbound?limit=100')
+        request.add_header('Authorization', 'Basic ' + base64.b64encode((username + ':' + key).encode()).decode())
+        with urllib.request.urlopen(request, timeout=12) as response:
+            inbound_result = json.load(response)
+        inbound_data = (inbound_result.get('data') or {})
+        inbound_items = inbound_data.get('data', []) if isinstance(inbound_data, dict) else []
+        for item in inbound_items:
+            if isinstance(item, dict):
+                item['direction'] = 'inbound'
+                store_clicksend_history_item('sms', item)
+        attach_clicksend_history_items()
+    except Exception:
+        logger.warning('ClickSend inbound history import could not complete; it will retry.')
     now = int(time.time())
     for channel in ('sms','email'):
         run('INSERT OR IGNORE INTO clicksend_history_sync(channel) VALUES (?)',(channel,))
