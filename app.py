@@ -11670,7 +11670,7 @@ def clicksend_history_loop():
         time.sleep(300)
 
 
-def customer_conversation_rows(customer_id=None, today_only=False, search='', limit=100, offset=0, scheduled_today=False):
+def customer_conversation_rows(customer_id=None, today_only=False, search='', limit=100, offset=0, scheduled_today=False, channel=''):
     # Keep provider events authoritative; old manual logs remain labelled Recorded.
     sql = """WITH messages AS (
       SELECT 'sms-'||e.id AS key,e.customer_id,'Text' AS channel,
@@ -11699,6 +11699,9 @@ def customer_conversation_rows(customer_id=None, today_only=False, search='', li
       WHERE (? IS NULL OR m.customer_id=?) AND (?='' OR m.body LIKE ? OR m.subject LIKE ?)
     """
     params=[customer_id,customer_id,search,'%'+search+'%','%'+search+'%']
+    if channel in ('Text','Email'):
+        sql+=' AND m.channel=?'
+        params.append(channel)
     if scheduled_today:
         sql+=" AND m.customer_id IN (SELECT customer_id FROM jobs WHERE job_date=? AND lower(IFNULL(status,'')) NOT IN ('archived','cancelled'))"
         params.append(uk_today().isoformat())
@@ -11872,6 +11875,11 @@ def customer_conversation(customer_id):
     draft={'channel':'Email','subject':'','body':''}
     if suggestion:
         draft={'channel':'Text' if suggestion['channel']=='SMS' else 'Email','subject':suggestion['subject'] or 'Your enquiry','body':suggestion['body']}
+    history_channel=request.args.get('channel','')
+    if history_channel not in ('Text','Email'): history_channel=''
+    if request.method=='GET' and history_channel:
+        draft={'channel':history_channel,'subject':'','body':''}
+        suggestion=None
     error=''
     if request.method=='GET' and request.args.get('job'):
         job=q('SELECT j.*,c.first_name,c.last_name,c.phone,c.email,c.address,c.town,c.postcode FROM jobs j JOIN customers c ON c.id=j.customer_id WHERE j.id=? AND j.customer_id=?',(request.args.get('job'),customer_id),one=True)
@@ -11918,9 +11926,9 @@ def customer_conversation(customer_id):
     search=clean_str(request.args.get('search'))
     try: page=max(1,int(request.args.get('page','1')))
     except ValueError: page=1
-    messages=customer_conversation_rows(customer_id,search=search,limit=51,offset=(page-1)*50)
+    messages=customer_conversation_rows(customer_id,search=search,limit=51,offset=(page-1)*50,channel=history_channel)
     return render_template('customer_conversation.html',customer=customer,messages=messages[:50],has_more=len(messages)>50,
-                           page=page,search=search,draft=draft,error=error,suggestion=suggestion,
+                           page=page,search=search,draft=draft,error=error,suggestion=suggestion,history_channel=history_channel,
                            history_sync=q('SELECT * FROM clicksend_history_sync ORDER BY channel'),
                            sms_footer_preview='' if os.environ.get('CLICKSEND_USERNAME','').strip() and os.environ.get('CLICKSEND_API_KEY','').strip() else build_sms_text('',customer),
                            history_connected=all(clicksend_history_credentials()),

@@ -15,8 +15,8 @@
       <a href="{{ url_for('ai_settings_page') }}">AI Settings</a>
     </form>
   </section>
-  <form method="get" class="conversation-search"><input name="search" value="{{ search }}" placeholder="Find something said…" aria-label="Search conversation"><button class="btn secondary">Search</button></form>
-  <details class="conversation-compose" open><summary>Write a message</summary>
+  <nav aria-label="Message type"><a href="{{ url_for('customer_conversation',customer_id=customer.id) }}#message-history">All messages</a><a href="{{ url_for('customer_conversation',customer_id=customer.id,channel='Text') }}#message-history">Texts</a><a href="{{ url_for('customer_conversation',customer_id=customer.id,channel='Email') }}#message-history">Emails</a></nav><form method="get" class="conversation-search"><input type="hidden" name="channel" value="{{ history_channel }}"><input name="search" value="{{ search }}" placeholder="Find something said…" aria-label="Search conversation"><button class="btn secondary">Search</button></form>
+  <details id="write-message" class="conversation-compose" {% if not history_channel or error %}open{% endif %}><summary>Write a message</summary>
   {% if error %}<p role="alert">{{ error }}</p>{% endif %}
   <form method="post" class="form">
     {% if suggestion %}<input type="hidden" name="ai_draft_id" value="{{ suggestion.id }}">{% endif %}
@@ -45,7 +45,7 @@
     <div><button type="submit" class="btn primary">Send message</button> <a class="btn secondary" href="{{ url_for('dashboard') }}">Cancel</a></div>
   </form></details>
   <p class="muted">Newest first. Email replies appear when the connected inbox syncs; text replies require the SMS provider connection. Older entries marked “Recorded” do not confirm delivery.</p>
-  <div class="conversation-history">
+  <div id="message-history" class="conversation-history"><h3>{{ history_channel or "Message" }} history</h3><p><a href="#write-message" onclick="document.getElementById('write-message').open=true">Write {{ "a text" if history_channel == "Text" else "an email" if history_channel == "Email" else "a message" }} →</a></p>
   {% for message in messages %}<article id="{{ message.key }}" class="conversation-message {{ 'received' if message.direction=='Received' else 'outgoing' }}">
     <header><strong>{{ 'Customer' if message.direction=='Received' else 'You' }} · {{ message.channel }}</strong><span>{{ message.status }} · {{ message.display_time }}</span></header>
     {% if message.subject %}<h3>{{ message.subject }}</h3>{% endif %}<div class="conversation-body">{{ message.body or '(No message text)' }}</div>
@@ -58,7 +58,7 @@
   {% if history_unmatched %}<p>{{ history_unmatched }} messages could not be matched uniquely to a customer and have been kept unassigned.</p>{% endif %}
   {% else %}<p>ClickSend account details are needed in the CRM connection settings before history can be imported.</p>{% endif %}
   </details>
-  <nav>{% if page>1 %}<a href="{{ url_for('customer_conversation',customer_id=customer.id,page=page-1,search=search) }}">Newer messages</a>{% endif %} {% if has_more %}<a href="{{ url_for('customer_conversation',customer_id=customer.id,page=page+1,search=search) }}">Older messages</a>{% endif %}</nav>
+  <nav>{% if page>1 %}<a href="{{ url_for('customer_conversation',customer_id=customer.id,page=page-1,search=search,channel=history_channel) }}">Newer messages</a>{% endif %} {% if has_more %}<a href="{{ url_for('customer_conversation',customer_id=customer.id,page=page+1,search=search,channel=history_channel) }}">Older messages</a>{% endif %}</nav>
 </section>
 <style>
 body.app-page .panel.conversation-page{padding:20px!important;border:1px solid #dce5ec!important;border-radius:18px!important;background:#fff!important}

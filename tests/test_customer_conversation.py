@@ -45,6 +45,18 @@ class CustomerConversationTests(unittest.TestCase):
         self.assertNotIn(b'Private other message',page.data)
         self.assertIn(b'Customer email reply',page.data)
 
+    def test_channel_links_filter_before_pagination_and_do_not_send(self):
+        self.mod.log_sms_event(self.customer,None,'Test','inbound','','','Only text',direction='inbound')
+        self.mod.run("INSERT INTO customer_email_events(customer_id,body,status) VALUES (?,?,?)",(self.customer,'Only email','Sent'))
+        self.assertEqual([r['body'] for r in self.mod.customer_conversation_rows(self.customer,channel='Text')],['Only text'])
+        with patch.object(self.mod,'send_clicksend_env_sms') as sms, patch.object(self.mod,'send_env_email') as email:
+            page=self.client.get(f'/customers/{self.customer}/conversation?channel=Text')
+            self.assertEqual(page.status_code,200)
+            self.assertIn(b'Only text',page.data)
+            self.assertNotIn(b'Only email',page.data)
+            self.assertIn(b'id="message-history"',page.data)
+            sms.assert_not_called();email.assert_not_called()
+
     def test_failed_email_is_recorded_as_failed_and_draft_is_preserved(self):
         with patch.object(self.mod,'_send_env_email',return_value=(False,'Provider unavailable')):
             response=self.client.post(f'/customers/{self.customer}/conversation',data={'channel':'Email','subject':'Test','body':'Keep this draft'})
