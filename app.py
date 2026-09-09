@@ -10381,6 +10381,7 @@ def dashboard_enquiry_alerts():
         item['contact_history'] = enquiry_contact_history(item['id'])
         item['next_followup_date'] = (uk_today()+timedelta(days=1)).isoformat()
         item['followup_reminder'] = q("SELECT reminder_date FROM future_reminders WHERE reminder_type=? AND status='Open' ORDER BY id DESC LIMIT 1",('Enquiry follow-up #'+str(item['id']),),one=True)
+        item['followup_overdue'] = bool(item['followup_reminder'] and item['followup_reminder']['reminder_date'] < uk_today().isoformat())
         if item.get('owner_action') in ('no_answer','voicemail','message_waiting'):
             item['owner_step'] = ENQUIRY_ACTION_LABELS[item['owner_action']] + '. Follow-up still needed.'
         item['prepared_documents'] = []
@@ -10404,6 +10405,7 @@ def dashboard_enquiry_alerts():
             item['workflow_next'] = 'Follow up with the customer on '+item['followup_reminder']['reminder_date']+'.'
         item['preview'] = enquiry_acknowledgement_text(item)
         alerts.append(item)
+    alerts.sort(key=lambda item: (not item['delivery_problem'], not item['followup_overdue']))
     return alerts
 
 
