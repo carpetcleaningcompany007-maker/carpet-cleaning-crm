@@ -8,6 +8,7 @@
 .sheet{max-width:920px;margin:0 auto;background:#fff;padding:32px 24px 40px;box-shadow:0 6px 24px rgba(0,0,0,.08)}
 .top{display:grid;grid-template-columns:1.3fr .7fr .7fr;gap:24px}
 .doc-title{font-size:34px;font-weight:300;margin:0 0 8px}
+.letterhead-logo{display:block;max-width:170px;max-height:105px;width:auto;height:auto;object-fit:contain;margin-bottom:14px}
 .block p{margin:2px 0;line-height:1.45}
 .label{font-weight:700}
 .meta-line{margin-bottom:10px}
@@ -37,6 +38,7 @@ tbody td{font-size:15px;padding:10px 6px;border-bottom:1px solid #ddd;vertical-a
       {% if mode=='invoice' %}<div class="meta-line"><div class="label">Due Date</div><div>{{ row.due_date }}</div></div>{% endif %}
     </div>
     <div class="block">
+      <img class="letterhead-logo" src="{{ company_logo_path() }}" alt="{{ biz.business_name }} logo">
       <p>{{ biz.business_name }}</p>
       <p>{{ biz.address }}</p>
       <p>{{ biz.phone }}</p>
