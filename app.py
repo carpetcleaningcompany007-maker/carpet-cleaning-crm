@@ -15922,7 +15922,10 @@ def communications_send_test_sms():
     )
     communication_id = cur.lastrowid
     db().commit()
-    ok, msg = send_sms_gateway(test_phone, rendered_body, communication_id=communication_id, message_category=request.form.get('message_category') or '')
+    if os.environ.get('CLICKSEND_USERNAME') and os.environ.get('CLICKSEND_API_KEY'):
+        ok, msg = send_clicksend_env_sms(test_phone, strip_html_for_sms(rendered_body), category='Owner SMS test')
+    else:
+        ok, msg = send_sms_gateway(test_phone, rendered_body, communication_id=communication_id, message_category=request.form.get('message_category') or '')
     flash(msg)
     if not ok:
         db().execute("DELETE FROM communications WHERE id=?", (communication_id,))
