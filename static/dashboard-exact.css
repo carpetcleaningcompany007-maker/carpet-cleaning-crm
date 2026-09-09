@@ -131,3 +131,21 @@
 /* Today's job controls expand naturally without overlapping the calendar footer. */
 body.app-page.page-dashboard main.concept-dashboard .concept-schedule{height:auto!important;min-height:0!important;overflow:visible!important}
 body.app-page.page-dashboard main.concept-dashboard .schedule-list{height:auto!important;min-height:0!important}
+
+/* Desktop dashboard: larger, darker reading scale without heavy type. */
+@media (min-width:1024px){
+  body.app-page.page-dashboard .concept-welcome p{color:#42566b!important;font-size:17px!important}
+  body.app-page.page-dashboard .concept-metrics{margin-bottom:26px!important}
+  body.app-page.page-dashboard .concept-metrics>a{min-height:122px!important;padding:21px 23px!important;grid-template-columns:62px minmax(0,1fr)!important}
+  body.app-page.page-dashboard .metric-symbol{width:58px!important;height:58px!important}
+  body.app-page.page-dashboard .concept-metrics small{color:#1b344c!important;font-size:17px!important;font-weight:400!important}
+  body.app-page.page-dashboard .concept-metrics strong{font-size:34px!important;font-weight:400!important}
+  body.app-page.page-dashboard .concept-panel h2{font-size:26px!important;font-weight:400!important}
+  body.app-page.page-dashboard .concept-panel>header{min-height:66px!important;padding:18px 22px!important}
+  body.app-page.page-dashboard .recent-grid>a{min-height:58px!important}
+  body.app-page.page-dashboard .recent-grid>a strong{font-size:15px!important;font-weight:400!important;color:#173249!important}
+  body.app-page.page-dashboard .recent-grid>a span{font-size:13px!important;color:#42566b!important}
+  body.app-page.page-dashboard .concept-glance>a span strong{font-size:15px!important;font-weight:400!important}
+  body.app-page.page-dashboard .concept-glance>a span small{font-size:13px!important;color:#42566b!important}
+  body.app-page.page-dashboard .concept-next>div>span{font-size:13px!important}
+}
