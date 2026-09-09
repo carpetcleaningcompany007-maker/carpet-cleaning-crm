@@ -27,3 +27,15 @@ Move to PostgreSQL and private object storage, then add organisations, membershi
 Live service: Starter, 512 MB RAM, 0.5 CPU, 1 GB persistent disk. Memory chart approximately 30% at inspection, not a capacity guarantee. Disk-backed services cannot run multiple instances; RAM is not a supported-user count. Load testing and storage growth measurements are needed before promising capacity.
 
 Reference: https://render.com/docs/scaling
+
+## Saved direction from Paul — 9 September 2026
+
+Immediate priority: get the existing Carpet Cleaning Manager stable and finish the current usability and communication-delivery issues. Production rollout is paused, not cancelled. Do not enable public signup or migrate the live business as part of routine repairs.
+
+Future goal: sell this CRM to multiple independent carpet-cleaning businesses. The intended production destination is a shared application with separate, securely isolated business workspaces, rather than indefinitely maintaining a separate application for every customer. Separate installations are an optional early pilot bridge, not a final architecture decision.
+
+Each business must be able to manage its own branding, staff, customers, jobs, pricing by cleaning method, minimum charges, quotes/invoices, editable payment footer, AI writing examples, email/SMS accounts and Xero connection. Onboarding should use simple guided steps and connection checks. Incoming customer replies must be separated from unrelated mailbox messages. Provider acceptance, confirmed delivery, failure and missing receipts must remain distinct.
+
+Before a production rollout: audit the existing code and data model; implement and test business isolation; migrate with backups and a tested rollback; test signup/invitations, permissions, message routing, background tasks and file access; measure load and storage; add monitoring, restore procedures and support/account lifecycle. Do not claim capacity from current idle RAM alone. Keep Paul's customer data and credentials out of demo or new-business environments.
+
+Earlier planning estimates of 2–4 weeks for a limited pilot and 6–12+ weeks for a production offering are provisional, not commitments. Re-estimate after inspecting the implementation. Codex usage cannot be reliably predicted as a percentage or described as Render memory.
