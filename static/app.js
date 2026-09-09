@@ -39,6 +39,9 @@
   const includeVat = document.getElementById("includeVat");
   const payloadJson = document.getElementById("payloadJson");
   const domesticMethod = document.getElementById("domesticMethod");
+  const priceSourceInputs = document.querySelectorAll('input[name="calculatorPriceSource"]');
+  const packageChoice = document.getElementById("packageChoice");
+  const calculatorPriceSummary = document.getElementById("calculatorPriceSummary");
   const carpetRoomIds = new Set(["living", "bedroom", "dining", "boxroom", "study", "loungediner"]);
 
   const fmt = n => "£" + (Math.round((Number(n)||0) * 100) / 100).toFixed(2);
@@ -51,19 +54,33 @@
   const methodLabel = method => ({rotary:"Rotary bonnet", hybrid:"Hybrid Deep Clean", hwe:"Hot water extraction", hardfloor:"Hard floor cleaning"}[method] || method);
   const pickBand = (sqm, bands) => bands.find(b => sqm >= b.min && sqm <= b.max) || bands[bands.length - 1];
   const selectedMethod = () => (pricing.cleaning_methods || []).find(m => m.id === (domesticMethod || {}).value) || null;
+  const usingPackageRates = () => [...priceSourceInputs].some(input => input.checked && input.value === "package");
+  const specialIsAvailable = () => usingPackageRates() && (selectedMethod() || {}).id === "standard" && pricing.room_rules?.standard_special_enabled !== false;
   const methodRate = (name) => {
     const method = selectedMethod();
     const item = method && (method.items || []).find(i => i.name === name);
     return item && item.price !== null && item.price !== undefined ? Number(item.price) : null;
   };
+  function renderPriceSummary() {
+    if (!calculatorPriceSummary) return;
+    if (!usingPackageRates()) {
+      calculatorPriceSummary.innerHTML = '<span class="calculator-summary-kicker">Price list active</span><strong>Each room uses the amount shown on its card.</strong><small>Switch to Cleaning package when you want first-room and additional-room pricing.</small>';
+      return;
+    }
+    const method = selectedMethod() || {};
+    const first = methodRate("First room"), additional = methodRate("Additional room");
+    calculatorPriceSummary.innerHTML = `<span class="calculator-summary-kicker">${method.name || 'Cleaning package'}</span><strong>${first === null ? 'Set rates in Price Book' : `${fmt(first)} first room · ${fmt(additional)} each additional room`}</strong><small>${method.description || ''}</small>`;
+  }
   const domesticPriceHint = item => {
-    if (!carpetRoomIds.has(item.id)) return `${fmt(item.price)} each`;
+    if (!carpetRoomIds.has(item.id) || !usingPackageRates()) return `${fmt(item.price)} each`;
     const first = methodRate("First room"), other = methodRate("Additional room");
     return first !== null && other !== null ? `${fmt(first)} first · ${fmt(other)} additional` : `${fmt(item.price)} each`;
   };
 
   function renderDomestic() {
-    resGrid.innerHTML = pricing.domestic.map(item => `
+    if (packageChoice) packageChoice.hidden = !usingPackageRates();
+    renderPriceSummary();
+    resGrid.innerHTML = pricing.domestic.filter(item => !/special/i.test(String(item.group || "")) || specialIsAvailable()).map(item => `
       <div class="res-item">
         <h4>${item.name}</h4>
         <p>${item.desc}</p>
@@ -105,7 +122,7 @@
     pricing.domestic.forEach(item => {
       const q = Number(qty[item.id] || 0);
       if (!q) return;
-      if (carpetRoomIds.has(item.id) && methodRate("First room") !== null && methodRate("Additional room") !== null) {
+      if (carpetRoomIds.has(item.id) && usingPackageRates() && methodRate("First room") !== null && methodRate("Additional room") !== null) {
         for (let room = 0; room < q; room += 1) {
           const price = carpetRooms === 0 ? methodRate("First room") : methodRate("Additional room");
           const method = (selectedMethod() || {}).name || item.name;
@@ -143,7 +160,7 @@
     const vat = includeVat && includeVat.checked ? subtotal * 0.20 : 0;
     const rawTotal = subtotal + vat;
     // A fixed-price special is deliberately allowed below the normal minimum charge.
-    const hasSpecial = pricing.domestic.some(item => Number(qty[item.id] || 0) > 0 && /special/i.test(String(item.group || "")));
+    const hasSpecial = specialIsAvailable() && pricing.domestic.some(item => Number(qty[item.id] || 0) > 0 && /special/i.test(String(item.group || "")));
     const minimum = hasSpecial ? 0 : Number(pricing.minimum_charge || 0);
     const total = rawTotal < minimum ? minimum : rawTotal;
     return {lines, subtotal, vat, raw_total:rawTotal, minimum, total, include_vat:!!(includeVat && includeVat.checked)};
@@ -189,6 +206,7 @@
   });
   if (includeVat) includeVat.addEventListener("change", renderReview);
   if (domesticMethod) domesticMethod.addEventListener("change", () => { renderDomestic(); renderReview(); });
+  priceSourceInputs.forEach(input => input.addEventListener("change", () => { renderDomestic(); renderReview(); }));
 
   renderDomestic();
   renderAreas();

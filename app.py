@@ -16731,10 +16731,13 @@ def pricing_settings():
                 save_pricing(data)
                 flash((removed.get('name') or 'Service') + ' has been removed from the price book and calculator.')
                 return redirect(url_for('pricing_settings'))
-            method = request.form.get('method', 'catalogue')
-            if method not in ('catalogue', 'first_room', 'lounge', 'flat'):
-                raise ValueError('Choose a room pricing method.')
-            rules = {'method': method, 'first_price': amount('first_price', True),
+            price_source = request.form.get('price_source', 'package')
+            if price_source not in ('price_list', 'package'):
+                raise ValueError('Choose whether quotes use the price list or package rates.')
+            method = 'catalogue' if price_source == 'price_list' else 'first_room'
+            rules = {'method': method, 'price_source': price_source,
+                     'standard_special_enabled': request.form.get('standard_special_enabled') == '1',
+                     'first_price': amount('first_price', True),
                      'other_price': amount('other_price', True), 'onsite_price': amount('onsite_price', True),
                      'notes': request.form.get('notes', '').strip()[:4000]}
             if method != 'catalogue' and (rules['other_price'] is None or (method in ('first_room','lounge') and rules['first_price'] is None)):
