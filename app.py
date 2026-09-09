@@ -8534,6 +8534,7 @@ def init_db():
         ("intake_submissions", "review_notes", "TEXT DEFAULT ''"),
         ("intake_submissions", "customer_id", "INTEGER"),
         ("intake_submissions", "job_id", "INTEGER"),
+        ("settings", "enquiry_preview_mode", "INTEGER DEFAULT 1"),
         ("intake_submissions", "prepared_quote_id", "INTEGER"),
         ("intake_submissions", "prepared_invoice_id", "INTEGER"),
         ("intake_submissions", "agreed_quote_price", "REAL DEFAULT 0"),
@@ -10265,7 +10266,7 @@ def dashboard():
                           "label": "Open workflow", "url": url_for("workflow")}
     current_hour = datetime.now().hour
     dashboard_greeting = "Good morning" if current_hour < 12 else ("Good afternoon" if current_hour < 18 else "Good evening")
-    return render_template("dashboard.html", enquiry_alerts=dashboard_enquiry_alerts(), today_messages=customer_conversation_rows(today_only=True, limit=12, scheduled_today=True), dashboard_finished=dashboard_finished, stats=stats, dashboard_metrics=dashboard_metrics,
+    return render_template("dashboard.html", enquiry_alerts=dashboard_enquiry_alerts(), enquiry_preview_mode=bool(settings()["enquiry_preview_mode"]), today_messages=customer_conversation_rows(today_only=True, limit=12, scheduled_today=True), dashboard_finished=dashboard_finished, stats=stats, dashboard_metrics=dashboard_metrics,
                            recent_quotes=quotes, recent_jobs=jobs, recent_invoices=recent_invoices,
                            archive_counts=archive_counts, report_summary=report_summary,
                            invoice_alerts=invoice_alerts, app_settings=settings(),
@@ -10409,10 +10410,18 @@ def dashboard_enquiry_alerts():
     return alerts
 
 
+@app.route('/settings/enquiry-preview', methods=['POST'])
+@login_required
+def enquiry_preview_settings():
+    enabled = 1 if request.form.get('enquiry_preview_mode') == '1' else 0
+    run('UPDATE settings SET enquiry_preview_mode=? WHERE id=1',(enabled,))
+    flash('Development preview: showing the two newest enquiries.' if enabled else 'Dashboard now shows every outstanding enquiry.')
+    return redirect(url_for('settings_page'))
+
 @app.route('/dashboard/enquiry-alerts')
 @login_required
 def dashboard_enquiry_alerts_fragment():
-    response = make_response(render_template('_dashboard_enquiry_alerts.html', enquiry_alerts=dashboard_enquiry_alerts()))
+    response = make_response(render_template('_dashboard_enquiry_alerts.html', enquiry_alerts=dashboard_enquiry_alerts(), enquiry_preview_mode=bool(settings()['enquiry_preview_mode'])))
     response.headers['Cache-Control'] = 'no-store'
     return response
 

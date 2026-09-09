@@ -117,3 +117,13 @@ class DashboardEnquiryTests(unittest.TestCase):
         self.assertEqual(result.status_code,302)
         self.assertIn('/customers/',result.location)
         self.assertEqual(self.mod.dashboard_enquiry_alerts(),[])
+
+    def test_preview_limit_can_be_disabled_without_removing_leads(self):
+        for name in ('Preview Oldest','Preview Middle','Preview Newest'): self.lead(name)
+        page=self.client.get('/dashboard/enquiry-alerts').data
+        self.assertNotIn(b'Preview Oldest',page)
+        self.assertIn(b'Preview Newest',page)
+        self.assertEqual(len(self.mod.dashboard_enquiry_alerts()),3)
+        self.client.post('/settings/enquiry-preview',data={})
+        self.assertIn(b'Preview Oldest',self.client.get('/dashboard/enquiry-alerts').data)
+        self.assertEqual(len(self.mod.dashboard_enquiry_alerts()),3)

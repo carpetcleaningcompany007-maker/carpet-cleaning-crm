@@ -10,6 +10,7 @@
 </header>
 <p><a class="btn primary" href="{{ url_for('company_branding') }}">Company logo · Upload or change</a></p>
 <section class="panel" style="margin-bottom:22px"><div class="section-kicker">Your price book</div><h3>Prices &amp; cleaning packages</h3><p>Set room pricing, your minimum charge, upholstery rates and guidance for AI quote assistance.</p><a class="btn primary" href="{{ url_for('pricing_settings') }}">Manage business prices</a></section>
+<section class="panel" style="margin-bottom:22px"><h3>Dashboard development preview</h3><p>Temporarily show only the two newest open enquiries while reviewing the design. Turn this off to show every outstanding enquiry. Customer records are never removed by this setting.</p><form method="post" action="{{ url_for('enquiry_preview_settings') }}"><input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><label><input type="checkbox" name="enquiry_preview_mode" value="1" {% if app_settings.enquiry_preview_mode %}checked{% endif %}> Show only two enquiries during development</label><button class="btn secondary">Save preview setting</button></form></section>
 <div class="workspace-grid">
   <section class="panel">
     <form method="post" class="form">
