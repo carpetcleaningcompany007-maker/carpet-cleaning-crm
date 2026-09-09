@@ -13954,6 +13954,50 @@ def quote_edit(quote_id):
     flash("Quote updated.")
     return redirect(url_for("quote_view", quote_id=quote_id))
 
+
+@app.route("/quotes/<int:quote_id>/lines", methods=["POST"])
+@login_required
+def quote_lines_edit(quote_id):
+    quote = q("SELECT * FROM quotes WHERE id=?", (quote_id,), one=True)
+    if not quote:
+        abort(404)
+
+    saved_lines = []
+    for existing in q("SELECT * FROM quote_lines WHERE quote_id=? ORDER BY id", (quote_id,)):
+        try:
+            quantity = float(request.form.get(f"quantity_{existing['id']}", existing["quantity"] or 0))
+            unit_price = float(request.form.get(f"unit_price_{existing['id']}", existing["unit_price"] or 0))
+        except (TypeError, ValueError):
+            flash("Enter a valid quantity and price for every line.")
+            return redirect(url_for("quote_view", quote_id=quote_id))
+        if not (0 <= quantity <= 10000 and 0 <= unit_price <= 100000):
+            flash("Enter a sensible quantity and price for every line.")
+            return redirect(url_for("quote_view", quote_id=quote_id))
+
+        item_name = clean_str(request.form.get(f"item_name_{existing['id']}")) or existing["item_name"]
+        method = clean_str(request.form.get(f"method_{existing['id']}")) or existing["method"]
+        line_total = round(quantity * unit_price, 2)
+        run("""UPDATE quote_lines SET item_name=?, method=?, quantity=?, unit_price=?, line_total=?
+               WHERE id=? AND quote_id=?""", (item_name, method, quantity, unit_price, line_total, existing["id"], quote_id))
+        saved_lines.append({"item_code": existing["item_code"] or "CUSTOM", "item_name": item_name, "method": method,
+                            "quantity": quantity, "unit_price": unit_price, "line_total": line_total})
+
+    try:
+        payload = json.loads(quote["payload_json"] or "{}")
+    except (TypeError, json.JSONDecodeError):
+        payload = {}
+    payload["lines"] = saved_lines
+    payload["vat"] = 0
+    payload.pop("total", None)
+    payload.pop("raw_total", None)
+    calculated = calc_from_payload(payload)
+    payload["total"] = calculated["total"]
+    payload["raw_total"] = calculated["raw_total"]
+    run("UPDATE quotes SET subtotal=?, vat=?, total=?, payload_json=? WHERE id=?", (
+        calculated["subtotal"], calculated["vat"], calculated["total"], json.dumps(payload), quote_id))
+    flash("Cleaning list and quote total updated.")
+    return redirect(url_for("quote_view", quote_id=quote_id))
+
 @app.route("/quotes/<int:quote_id>/delete", methods=["POST"])
 @login_required
 def quote_delete(quote_id):
