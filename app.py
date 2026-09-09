@@ -16652,32 +16652,20 @@ def quote_request_archive(request_id):
 @app.route('/settings/prices/methods', methods=['GET','POST'])
 @login_required
 def method_pricing_settings():
-    from decimal import Decimal, InvalidOperation
-    data=pricing()
-    selected=request.values.get('method','deep')
-    method=next((item for item in data['cleaning_methods'] if item['id']==selected),None)
-    if method is None: abort(404)
-    error=''
-    if request.method=='POST':
-        try:
-            method['description']=request.form.get('description','').strip()[:4000]
-            for index,item in enumerate(method['items']):
-                raw=request.form.get('price_'+str(index),'').strip()
-                if not raw: item['price']=None;continue
-                value=Decimal(raw)
-                if not value.is_finite() or value<0 or value>100000 or value.as_tuple().exponent < -2:raise ValueError()
-                item['price']=float(value)
-            save_pricing(data)
-            flash('Prices and description saved for '+method['name']+'.')
-            return redirect(url_for('method_pricing_settings',method=selected))
-        except (ValueError,InvalidOperation):error='Use a price from £0 to £100,000 with up to two decimal places, or leave it blank.'
-    return render_template('method_pricing.html',methods=data['cleaning_methods'],selected=method,error=error),(400 if error else 200)
+    return redirect(url_for('pricing_settings', tab='method', method=request.values.get('method', 'deep')))
 
 @app.route('/settings/prices', methods=['GET', 'POST'])
 @login_required
 def pricing_settings():
     data = pricing()
     rules = data.get('room_rules', {})
+    active_tab = request.values.get('tab', 'calculator')
+    selected_method_id = request.values.get('method', 'deep')
+    selected_method = next((item for item in data['cleaning_methods'] if item['id'] == selected_method_id), None)
+    if active_tab == 'method' and selected_method is None:
+        abort(404)
+    if active_tab not in ('calculator', 'commercial', 'method'):
+        active_tab = 'calculator'
     error = ''
     if request.method == 'POST':
         try:
@@ -16691,6 +16679,27 @@ def pricing_settings():
                     raise ValueError('Enter prices from £0 to £100,000, with no more than two decimal places.')
                 return float(value)
             action = request.form.get('action', 'save_catalogue')
+            if action == 'save_method':
+                method_id = clean_str(request.form.get('method_id'))
+                method = next((item for item in data['cleaning_methods'] if item['id'] == method_id), None)
+                if method is None:
+                    raise ValueError('Choose a recognised cleaning method.')
+                method['description'] = request.form.get('description', '').strip()[:4000]
+                for index, item in enumerate(method['items']):
+                    item['price'] = amount('method_price_' + str(index), optional=True)
+                save_pricing(data)
+                flash(method['name'] + ' prices saved.')
+                return redirect(url_for('pricing_settings', tab='method', method=method_id))
+            if action == 'save_commercial':
+                hotels = data.setdefault('hotelRooms', {})
+                for key in ('rotary', 'hybrid', 'hwe'):
+                    hotels[key] = amount('hotel_' + key)
+                for key in ('rotaryBands', 'hybridBands', 'hweBands', 'hardfloorBands'):
+                    for index, band in enumerate(data.get(key, [])):
+                        band['rate'] = amount('commercial_' + key + '_' + str(index))
+                save_pricing(data)
+                flash('Commercial and hotel rates saved.')
+                return redirect(url_for('pricing_settings', tab='commercial'))
             if action == 'add_service':
                 name = clean_str(request.form.get('service_name'))
                 if not name:
@@ -16747,7 +16756,8 @@ def pricing_settings():
             return redirect(url_for('pricing_settings'))
         except (ValueError, InvalidOperation):
             error = 'Check your prices: use amounts from £0 to £100,000 with at most two decimal places, and fill in the rates required for your selected method.'
-    return render_template('pricing_settings.html', pricing=data, rules=rules, minimum=settings()['minimum_charge'], error=error), (400 if error else 200)
+    return render_template('pricing_settings.html', pricing=data, rules=rules, minimum=settings()['minimum_charge'], error=error,
+                           active_tab=active_tab, selected_method=selected_method), (400 if error else 200)
 
 @app.route("/calculator-manager", methods=["GET", "POST"])
 @login_required
