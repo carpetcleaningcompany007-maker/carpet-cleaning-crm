@@ -16745,9 +16745,6 @@ def pricing_settings():
                 item['desc'] = clean_str(request.form.get('desc_' + str(i)))[:240]
                 item['group'] = clean_str(request.form.get('group_' + str(i)))[:80] or 'Other services'
                 item['price'] = amount('price_' + str(i))
-            hotels = data.setdefault('hotelRooms', {})
-            for key in ('rotary', 'hybrid', 'hwe'):
-                hotels[key] = amount('hotel_' + key)
             data['room_rules'] = rules
             # Save minimum and catalogue together so failed validation cannot partly change prices.
             conn = db()
