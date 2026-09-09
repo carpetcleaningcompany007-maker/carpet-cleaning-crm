@@ -41,3 +41,30 @@
 #dashboard-enquiry-alerts .enquiry-row-toggle{justify-content:flex-start!important;gap:11px!important}.enquiry-side-icon{width:39px;height:42px;flex:0 0 39px;display:flex;align-items:center;justify-content:center;border-radius:11px;background:#fbf3dc;position:relative}.enquiry-side-icon svg{width:29px;height:29px}.enquiry-side-icon i{position:absolute;right:-3px;top:-3px;background:#a64234;border:2px solid #fff;border-radius:50%;width:15px;height:15px;font-size:10px;font-weight:800;color:white;font-style:normal;display:grid;place-items:center}.enquiry-side-icon i.new-dot{width:9px;height:9px;background:#c19a3e}.enquiry-row-copy{display:grid;gap:5px;flex:1;min-width:0}.enquiry-row-title{font-size:15px;font-weight:750;color:#18334b;display:flex;align-items:center;gap:8px;flex-wrap:wrap}.enquiry-row-title small{font-size:10px;font-weight:600;color:#98762e}.enquiry-step-caption{font-size:11px;color:#60776e;font-weight:400;line-height:1.4}.enquiry-step-caption.needs-attention{color:#a2463a}.enquiry-row-copy+.enquiry-row-meta{margin-left:auto}
 
 .enquiry-backup-sent{display:block;color:#45695b;margin-top:4px}.enquiry-step-caption{line-height:1.65!important}
+
+/* Desktop reading scale: regular-weight type, with room for status details. */
+@media(min-width:1024px){
+ body.app-page.page-dashboard .concept-dashboard{font-size:16px}
+ body.app-page.page-dashboard .concept-welcome p{font-size:16px!important;line-height:1.6}
+ #dashboard-enquiry-alerts .enquiry-schedule-panel>header{padding:20px 6px!important}
+ #dashboard-enquiry-alerts .enquiry-schedule-panel>header h2{font-size:28px!important;font-weight:400!important}
+ #dashboard-enquiry-alerts .enquiry-schedule-panel>header a{font-size:14px!important;font-weight:400!important}
+ #dashboard-enquiry-alerts .enquiry-priority-item>.enquiry-row-expand>.enquiry-row-toggle{padding:17px 18px!important;gap:17px!important}
+ #dashboard-enquiry-alerts .enquiry-row-title{font-size:19px!important;font-weight:400!important;gap:12px}
+ #dashboard-enquiry-alerts .enquiry-row-title small{font-size:13px!important;font-weight:400!important}
+ #dashboard-enquiry-alerts .enquiry-step-caption{font-size:15px!important;line-height:1.65!important;font-weight:400!important}
+ #dashboard-enquiry-alerts .enquiry-row-copy{gap:6px}
+ #dashboard-enquiry-alerts .enquiry-side-icon{width:46px;height:48px;flex-basis:46px}
+ #dashboard-enquiry-alerts .enquiry-row-meta b{font-size:28px;font-weight:400}
+ #dashboard-enquiry-alerts .enquiry-row-body{font-size:16px;padding:14px 20px}
+ #dashboard-enquiry-alerts .enquiry-row-body summary,#dashboard-enquiry-alerts .enquiry-priority-next p,#dashboard-enquiry-alerts .enquiry-location dd,#dashboard-enquiry-alerts .enquiry-delivery-list dd{font-size:15px!important;font-weight:400!important}
+ body.app-page.page-dashboard .dashboard-job>summary strong,body.app-page.page-dashboard .dashboard-job>summary time{font-size:18px!important;font-weight:400!important}
+ body.app-page.page-dashboard .dashboard-job>summary small{font-size:14px!important;font-weight:400!important}
+ body.app-page.page-dashboard .dashboard-job>summary{padding:17px 14px!important}
+ body.app-page.page-dashboard .concept-next h3{font-size:20px!important;font-weight:400!important}
+ body.app-page.page-dashboard .concept-next p{font-size:16px!important;line-height:1.65!important}
+ body.app-page.page-dashboard .concept-next span,body.app-page.page-dashboard .concept-next a,body.app-page.page-dashboard .concept-panel footer a{font-size:14px!important;font-weight:400!important}
+ body.app-page.page-dashboard .concept-metrics small{font-size:15px!important;font-weight:400!important}
+ body.app-page.page-dashboard .concept-metrics strong{font-weight:400!important}
+ body.app-page.page-dashboard .concept-toolbar-greeting strong{font-size:19px!important;font-weight:400!important}
+}
