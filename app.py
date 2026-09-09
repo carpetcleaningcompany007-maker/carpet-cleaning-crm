@@ -16690,6 +16690,36 @@ def pricing_settings():
                 if not value.is_finite() or value < 0 or value > 100000 or value.as_tuple().exponent < -2:
                     raise ValueError('Enter prices from £0 to £100,000, with no more than two decimal places.')
                 return float(value)
+            action = request.form.get('action', 'save_catalogue')
+            if action == 'add_service':
+                name = clean_str(request.form.get('service_name'))
+                if not name:
+                    raise ValueError('Give the new service a name.')
+                price = amount('service_price')
+                service_id = re.sub(r'[^a-z0-9]+', '_', name.lower()).strip('_') or 'service'
+                used_ids = {clean_str(item.get('id')) for item in data['domestic']}
+                base_id, suffix = service_id, 2
+                while service_id in used_ids:
+                    service_id = base_id + '_' + str(suffix)
+                    suffix += 1
+                data['domestic'].append({'id': service_id, 'name': name,
+                    'desc': clean_str(request.form.get('service_description'))[:240],
+                    'group': clean_str(request.form.get('service_group'))[:80] or 'Other services',
+                    'price': price})
+                save_pricing(data)
+                flash(name + ' has been added to your price book and quote calculator.')
+                return redirect(url_for('pricing_settings'))
+            if action == 'delete_service':
+                try:
+                    index = int(request.form.get('service_index', '-1'))
+                except ValueError:
+                    index = -1
+                if not 0 <= index < len(data['domestic']):
+                    raise ValueError('That service could not be found.')
+                removed = data['domestic'].pop(index)
+                save_pricing(data)
+                flash((removed.get('name') or 'Service') + ' has been removed from the price book and calculator.')
+                return redirect(url_for('pricing_settings'))
             method = request.form.get('method', 'catalogue')
             if method not in ('catalogue', 'first_room', 'lounge', 'flat'):
                 raise ValueError('Choose a room pricing method.')
@@ -16700,7 +16730,13 @@ def pricing_settings():
                 raise ValueError('Enter the room rates needed for your selected method.')
             minimum = amount('minimum_charge')
             for i, item in enumerate(data['domestic']):
+                item['name'] = clean_str(request.form.get('name_' + str(i)))[:120] or item['name']
+                item['desc'] = clean_str(request.form.get('desc_' + str(i)))[:240]
+                item['group'] = clean_str(request.form.get('group_' + str(i)))[:80] or 'Other services'
                 item['price'] = amount('price_' + str(i))
+            hotels = data.setdefault('hotelRooms', {})
+            for key in ('rotary', 'hybrid', 'hwe'):
+                hotels[key] = amount('hotel_' + key)
             data['room_rules'] = rules
             # Save minimum and catalogue together so failed validation cannot partly change prices.
             conn = db()
@@ -16716,35 +16752,7 @@ def pricing_settings():
 @app.route("/calculator-manager", methods=["GET", "POST"])
 @login_required
 def calculator_manager():
-    data = pricing()
-    if request.method == "POST":
-        action = request.form.get("action")
-        if action == "add_domestic":
-            data["domestic"].append({
-                "id": request.form.get("item_id") or f"item_{len(data['domestic'])+1}",
-                "name": request.form.get("name") or "New Item",
-                "desc": request.form.get("desc") or "",
-                "price": float(request.form.get("price") or 0),
-                "group": request.form.get("group") or "Residential",
-            })
-        elif action == "update_domestic":
-            for i, item in enumerate(data["domestic"]):
-                item["name"] = request.form.get(f"name_{i}") or item["name"]
-                item["desc"] = request.form.get(f"desc_{i}") or item["desc"]
-                item["price"] = float(request.form.get(f"price_{i}") or item["price"])
-                item["group"] = request.form.get(f"group_{i}") or item["group"]
-        elif action == "delete_domestic":
-            idx = int(request.form.get("index"))
-            if 0 <= idx < len(data["domestic"]):
-                data["domestic"].pop(idx)
-        elif action == "update_hotels":
-            data["hotelRooms"]["rotary"] = float(request.form.get("hotel_rotary") or data["hotelRooms"]["rotary"])
-            data["hotelRooms"]["hybrid"] = float(request.form.get("hotel_hybrid") or data["hotelRooms"]["hybrid"])
-            data["hotelRooms"]["hwe"] = float(request.form.get("hotel_hwe") or data["hotelRooms"]["hwe"])
-        save_pricing(data)
-        flash("Calculator settings saved.")
-        return redirect(url_for("calculator_manager"))
-    return render_template("calculator_manager.html", pricing=data)
+    return redirect(url_for('pricing_settings'))
 
 
 @app.route("/seed")
