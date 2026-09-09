@@ -1,92 +1,14 @@
 {% extends "layout.html" %}
 {% block page_title %}Quote{% endblock %}
 {% block body_content %}
-{% if is_archived %}
-<section class="archive-banner panel compact-panel">
-  <strong>This quote is archived.</strong>
-  <p>Restore it first if you want to convert it into a job.</p>
-</section>
-{% endif %}
-<section class="doc-hero">
-  <div><div class="hero-tag">Quote</div><h3>{{ quote.quote_number }}</h3><p>{{ quote.first_name or '' }} {{ quote.last_name or '' }}</p></div>
-  <div class="row-actions"><a class="btn secondary" href="{{ url_for('quote_print', quote_id=quote.id) }}" target="_blank">Print Quote</a></div>
-</section>
-
-<div class="grid-2">
-  <section class="panel">
-    <div class="panel-head"><h3>Edit Quote</h3></div>
-    <form method="post" action="{{ url_for('quote_edit', quote_id=quote.id) }}" class="form">
-      <input name="title" value="{{ quote.title or '' }}">
-      <div class="cols"><input type="date" name="quote_date" value="{{ quote.quote_date or '' }}"><input type="date" name="valid_until" value="{{ quote.valid_until or '' }}"></div>
-      <select name="status">{% for s in ['Draft','Sent','Accepted','Declined','Converted'] %}<option {% if quote.status==s %}selected{% endif %}>{{ s }}</option>{% endfor %}</select>
-      <textarea name="notes">{{ quote.notes or '' }}</textarea>
-      <button class="btn primary">Save Quote</button>
-    </form>
-    <p class="muted inline-note">Use the archive button below rather than setting archive as a normal status.</p>
-    {% if is_archived %}
-    <form method="post" action="{{ url_for('quote_restore', quote_id=quote.id) }}"><button class="btn secondary">Restore Quote</button></form>
-    {% else %}
-    <form method="post" action="{{ url_for('quote_delete', quote_id=quote.id) }}" onsubmit="return confirm('Archive this quote?')"><button class="btn danger">Archive Quote</button></form>
-    {% endif %}
-  </section>
-  <section class="panel">
-    <div class="panel-head"><h3>Convert to Job</h3></div>
-    {% if existing_job_id %}
-    <p>This quote already has a live job.</p>
-    <a class="btn secondary" href="{{ url_for('job_view', job_id=existing_job_id) }}">Open Existing Job</a>
-    {% else %}
-    <form method="post" action="{{ url_for('quote_to_job', quote_id=quote.id) }}" class="form">
-      <input name="title" value="{{ quote.title or 'Job from Quote' }}">
-      <div class="cols">
-        <input type="date" name="job_date">
-        <select name="job_time">
-          <option value="">Choose booking time</option>
-          {% for booking_time in booking_time_options %}<option value="{{ booking_time }}">{{ booking_time }}</option>{% endfor %}
-        </select>
-      </div>
-      <input name="assigned_to" placeholder="Assigned to">
-      <button class="btn primary" {% if is_archived %}disabled{% endif %}>Convert Quote to Job</button>
-    </form>
-    {% endif %}
-  </section>
-</div>
-
-
-<section class="panel">
-  <div class="panel-head"><h3>Contact Timeline</h3></div>
-  <div class="stats-grid" style="margin-bottom:12px;">
-    <div class="stat"><span>Last Contact</span><strong>{{ contact_summary.last_contacted_at or 'Not yet' }}</strong></div>
-    <div class="stat"><span>Last 30 Days</span><strong>{{ contact_summary.count_recent }}</strong></div>
-    <div class="stat"><span>Email</span><strong>{{ contact_summary.email_recent }}</strong></div>
-    <div class="stat"><span>SMS</span><strong>{{ contact_summary.sms_recent }}</strong></div>
-  </div>
-  <div class="row-actions" style="margin-bottom:12px;">
-    <a class="btn secondary" href="{{ url_for('communications', customer_id=quote.customer_id if quote is defined else job.customer_id if job is defined else invoice.customer_id if invoice is defined else customer.id) }}">Open Communications</a>
-    <a class="btn secondary" href="{{ url_for('communications', customer_id=quote.customer_id if quote is defined else job.customer_id if job is defined else invoice.customer_id if invoice is defined else customer.id, channel='Email') }}">New Email Draft</a>
-  </div>
-  <div class="timeline">
-    {% for c in recent_contacts %}
-    <div class="timeline-item">
-      <strong>{{ c.created_at }} · {{ c.channel or 'Note' }}</strong>
-      <p><strong>{{ c.subject or 'No subject' }}</strong></p>
-      <p>{{ (c.body or '')[:220] }}{% if c.body and c.body|length > 220 %}...{% endif %}</p>
-    </div>
-    {% else %}
-    <div class="empty-state">No communications logged yet for this customer.</div>
-    {% endfor %}
-  </div>
-</section>
-
-<section class="panel">
-  <div class="panel-head"><h3>Quote Lines</h3></div>
-  <table class="table">
-    <tr><th>Description</th><th>Method</th><th>Qty</th><th>Unit</th><th>Total</th></tr>
-    {% for l in lines %}
-    <tr><td>{{ l.item_name }}</td><td>{{ l.method }}</td><td>{{ l.quantity }}</td><td>£{{ '%.2f'|format(l.unit_price or 0) }}</td><td>£{{ '%.2f'|format(l.line_total or 0) }}</td></tr>
-    {% else %}
-    <tr><td colspan="5" class="empty-cell">No quote lines were saved on this record.</td></tr>
-    {% endfor %}
-    <tr><td colspan="4"><strong>Total</strong></td><td><strong>£{{ '%.2f'|format(quote.total or 0) }}</strong></td></tr>
-  </table>
-</section>
+<style>
+.quote-page{max-width:1120px;margin:0 auto;color:#16334d}.quote-hero{display:flex;justify-content:space-between;gap:24px;align-items:center;padding:30px 34px;border-radius:18px;background:linear-gradient(115deg,#092846,#164d72 65%,#c99d30);color:#fff;box-shadow:0 12px 28px rgba(11,45,72,.18)}.quote-kicker{font:600 12px system-ui;letter-spacing:.12em;color:#ffe28b}.quote-hero h1{font:400 36px Georgia,serif;margin:6px 0}.quote-hero p{margin:0;color:#e6f0f6;font-size:17px}.quote-total{text-align:right}.quote-total span{display:block;font-size:14px;color:#f4dd9c}.quote-total strong{display:block;font:400 42px Georgia,serif}.quote-actions{display:flex;gap:10px;flex-wrap:wrap;margin:22px 0}.quote-actions a,.quote-actions button{border:0;border-radius:9px;padding:13px 17px;text-decoration:none;font:500 16px system-ui;cursor:pointer}.quote-actions .primary{background:#dba500;color:#102d48}.quote-actions .secondary{background:#edf4f7;color:#173c59}.quote-card{margin:18px 0;padding:25px;border:1px solid #dce7ed;border-radius:15px;background:#fff;box-shadow:0 5px 16px rgba(18,54,80,.05)}.quote-card h2{margin:0 0 5px;font:400 28px Georgia,serif}.quote-card>p{margin:0 0 20px;color:#5f7383;font-size:16px}.quote-table{width:100%;border-collapse:separate;border-spacing:0 9px}.quote-table th{text-align:left;padding:0 12px 7px;color:#6e7e88;font:500 12px system-ui;letter-spacing:.06em}.quote-table td{padding:15px 12px;background:#f5f9fb;font-size:16px}.quote-table td:first-child{border-radius:9px 0 0 9px;font-weight:500}.quote-table td:last-child{border-radius:0 9px 9px 0;text-align:right;font-weight:600}.quote-table .num{text-align:right}.quote-grand td{background:#fff3d2;color:#16334d;font-size:19px}.quote-tools{display:grid;grid-template-columns:1fr 1fr;gap:16px}.quote-tools details{border:1px solid #dde7ed;border-radius:12px;background:#fff}.quote-tools summary{padding:17px;font:500 17px system-ui;cursor:pointer}.quote-tools form{padding:0 17px 17px}.quote-tools input,.quote-tools select,.quote-tools textarea{box-sizing:border-box;width:100%;margin:6px 0;padding:11px;border:1px solid #cad9e2;border-radius:8px;font:400 16px system-ui}.quote-tools textarea{min-height:96px}.quote-tools .cols{display:grid;grid-template-columns:1fr 1fr;gap:9px}.archive{color:#a33;background:#fff3f2}@media(max-width:720px){.quote-hero{display:block;padding:24px}.quote-hero h1{font-size:31px}.quote-total{text-align:left;margin-top:17px}.quote-tools{grid-template-columns:1fr}.quote-table th:nth-child(2),.quote-table td:nth-child(2){display:none}.quote-table td{padding:12px 7px;font-size:15px}.quote-card{padding:18px}}
+</style>
+<main class="quote-page">
+  <header class="quote-hero"><div><span class="quote-kicker">{{ quote.status|upper }} QUOTE · {{ quote.quote_number }}</span><h1>{{ quote.first_name or 'Customer' }} {{ quote.last_name or '' }}</h1><p>{{ quote.title or 'Cleaning quote' }}</p></div><div class="quote-total"><span>QUOTE TOTAL</span><strong>£{{ '%.0f'|format(quote.total or 0) }}</strong></div></header>
+  <nav class="quote-actions"><a class="primary" href="{{ url_for('quote_print', quote_id=quote.id) }}" target="_blank">Download / print PDF</a><a class="secondary" href="{{ url_for('communications',customer_id=quote.customer_id,channel='Email') }}">Email customer</a><a class="secondary" href="{{ url_for('customer_view',customer_id=quote.customer_id) }}">Customer record</a></nav>
+  <section class="quote-card"><h2>Cleaning list</h2><p>Check the rooms and the price. Everything remains editable before you send it.</p><table class="quote-table"><tr><th>Description</th><th>Cleaning method</th><th class="num">Qty</th><th class="num">Unit</th><th class="num">Total</th></tr>{% for l in lines %}<tr><td>{{ l.item_name }}</td><td>{{ l.method }}</td><td class="num">{{ l.quantity|int }}</td><td class="num">£{{ '%.2f'|format(l.unit_price or 0) }}</td><td>£{{ '%.2f'|format(l.line_total or 0) }}</td></tr>{% else %}<tr><td colspan="5">No services have been added yet.</td></tr>{% endfor %}<tr class="quote-grand"><td colspan="4">Quote total</td><td>£{{ '%.2f'|format(quote.total or 0) }}</td></tr></table></section>
+  <section class="quote-tools"><details><summary>Edit quote details</summary><form method="post" action="{{ url_for('quote_edit',quote_id=quote.id) }}"><input name="title" value="{{ quote.title or '' }}"><div class="cols"><input type="date" name="quote_date" value="{{ quote.quote_date or '' }}"><input type="date" name="valid_until" value="{{ quote.valid_until or '' }}"></div><select name="status">{% for s in ['Draft','Sent','Accepted','Declined','Converted'] %}<option {% if quote.status==s %}selected{% endif %}>{{ s }}</option>{% endfor %}</select><textarea name="notes">{{ quote.notes or '' }}</textarea><button class="primary">Save changes</button></form></details><details><summary>Book this work</summary>{% if existing_job_id %}<p><a href="{{ url_for('job_view',job_id=existing_job_id) }}">Open the booked job</a></p>{% else %}<form method="post" action="{{ url_for('quote_to_job',quote_id=quote.id) }}"><input name="title" value="{{ quote.title or 'Job from Quote' }}"><div class="cols"><input type="date" name="job_date"><select name="job_time"><option value="">Choose time</option>{% for t in booking_time_options %}<option>{{ t }}</option>{% endfor %}</select></div><input name="assigned_to" placeholder="Assigned to"><button class="primary">Create job</button></form>{% endif %}</details></section>
+  {% if not is_archived %}<form method="post" action="{{ url_for('quote_delete',quote_id=quote.id) }}" onsubmit="return confirm('Archive this quote?')"><button class="quote-actions archive">Archive quote</button></form>{% endif %}
+</main>
 {% endblock %}
