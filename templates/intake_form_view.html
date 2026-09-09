@@ -81,9 +81,12 @@
 
   <section class="lead-action-panel" id="lead-action-panel">
     {% set received = lead.update_form_status == 'Customer sent updated details' %}
-    <ol class="simple-stage-strip" aria-label="Customer journey"><li class="{{ 'current' if missing_details else 'done' }}">1 · Customer details</li><li class="{{ 'current' if not missing_details and not lead.xero_contact_id else '' }}">2 · Review &amp; Xero</li><li>3 · Quote &amp; booking</li></ol>
+    <ol class="simple-stage-strip" aria-label="Customer journey"><li class="{{ 'current' if missing_details else 'done' }}">1 · Quote &amp; agree price</li><li class="{{ 'current' if not missing_details and not lead.xero_contact_id else '' }}">2 · Booking details</li><li>3 · Review &amp; Xero</li></ol>
     <section class="simple-next-step">
-    {% if missing_details %}
+    {% if not lead.job_id and (lead.status or '') not in ['Accepted','Booked'] %}
+      <h4>Next step · Confirm the price and prepare a quote</h4><p>Agree the cleaning package with {{ lead.name }} first. Collect the booking details after the customer accepts.</p><a class="btn primary" href="{{ url_for('ai_assistant',tool='quote',intake_id=lead.id,customer_id=lead.customer_id or '') }}">Prepare quote</a>
+      {% if missing_details %}<details><summary>Need more information to quote?</summary><p>Ask only for the information needed to price the work.</p><a class="btn secondary" href="{{ update_form_preview_url }}" target="_blank" rel="noopener">Preview form</a><form method="post" action="{{ url_for('intake_request_missing_details',lead_id=lead.id) }}"><input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><button class="btn secondary" name="channel" value="sms" {% if not lead.phone %}disabled{% endif %}>Send form by text</button><button class="btn secondary" name="channel" value="email" {% if not lead.email %}disabled{% endif %}>Send form by email</button></form></details>{% endif %}
+    {% elif missing_details %}
       {% if received %}<h4>Step 1 · Check the returned form</h4><p>{{ lead.name }} has returned the form, but some details are still missing.</p>
       {% elif lead.update_form_sent_at %}<h4>Step 1 · Waiting for {{ lead.name }}</h4><p>A form request is recorded. Wait for their reply or follow up below.</p><p class="simple-send-status">{{ lead.update_form_status }}</p>
       {% else %}<h4>Step 1 · Ask {{ lead.name }} for their details</h4><p>Send a short form so we can collect:</p>{% endif %}
