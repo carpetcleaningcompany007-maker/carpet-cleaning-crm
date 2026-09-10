@@ -10530,10 +10530,20 @@ def dashboard():
                          WHERE IFNULL(future_reminders.status,'Open')='Open'
                            AND COALESCE(future_reminders.reminder_date,'9999-12-31')<=?
                          ORDER BY future_reminders.reminder_date, future_reminders.id LIMIT 1""", (today.isoformat(),), one=True)
+    dashboard_follow_up_ready = q("""SELECT enquiry_follow_up_queue.*, intake_submissions.name AS customer_name
+                                     FROM enquiry_follow_up_queue
+                                     LEFT JOIN intake_submissions ON intake_submissions.id=enquiry_follow_up_queue.lead_id
+                                     WHERE enquiry_follow_up_queue.status='Ready for Paul'
+                                     ORDER BY enquiry_follow_up_queue.updated_at DESC, enquiry_follow_up_queue.id DESC
+                                     LIMIT 1""", one=True)
     if quote_ready:
         dashboard_next = {"eyebrow": "Customer replied — quote ready", "title": clean_str(quote_ready["customer_name"]) or "Customer",
                           "detail": f"Draft quote for £{float(quote_ready['total'] or 0):.0f} is ready to check before sending.",
                           "label": "Review quote", "url": url_for("quote_view", quote_id=quote_ready["id"])}
+    elif dashboard_follow_up_ready:
+        dashboard_next = {"eyebrow": "Customer has not replied", "title": clean_str(dashboard_follow_up_ready["customer_name"]) or "Customer",
+                          "detail": "Their follow-up text is ready for you to check and send.",
+                          "label": "Review follow-up text", "url": url_for("intake_form_view", lead_id=dashboard_follow_up_ready["lead_id"]) + "#customer-message-approval"}
     elif next_enquiry and clean_str(row_get(next_enquiry, "source")).lower() == "customer details form" and clean_str(row_get(next_enquiry, "status")).lower() == "waiting for customer form":
         dashboard_next = {"eyebrow": "Customer form sent", "title": clean_str(next_enquiry["name"]) or "Customer",
                           "detail": "Waiting for the customer to send their details back.",
@@ -10566,7 +10576,8 @@ def dashboard():
                            intake_needs_contact=intake_needs_contact["c"] if intake_needs_contact else 0,
                            intake_waiting=intake_waiting["c"] if intake_waiting else 0,
                            recent_enquiries=recent_enquiries, dashboard_schedule=dashboard_schedule,
-                           dashboard_next=dashboard_next, dashboard_quote_ready=quote_ready, dashboard_greeting=dashboard_greeting,
+                           dashboard_next=dashboard_next, dashboard_quote_ready=quote_ready,
+                           dashboard_follow_up_ready=dashboard_follow_up_ready, dashboard_greeting=dashboard_greeting,
                            dashboard_date=f"{today.strftime('%A')}, {today.day} {today.strftime('%B')}")
 
 
