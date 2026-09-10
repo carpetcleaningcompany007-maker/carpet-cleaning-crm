@@ -12,67 +12,51 @@
 {% set xero_decision_needed = xero_identity_ready and (not customer.address or not customer.postcode) %}
 {% set xero_missing_summary = (([] if customer.address else ['address']) + ([] if customer.postcode else ['postcode']))|join(', ') %}
 {% set customer_detail_complete = customer.first_name and customer.last_name and (customer.phone or customer.email) and customer.address and customer.town and customer.postcode %}
-<section class="customer-hero">
-  <div class="customer-identity-shell">
-    <div class="avatar">{{ (customer.first_name or '?')[:1] }}{{ (customer.last_name or '')[:1] }}</div>
-    <div class="customer-identity-copy">
-      <div class="section-kicker">Customer hub</div>
-      <h3 style="margin:0 0 6px;">{{ customer.first_name }} {{ customer.last_name }}</h3>
-      <div class="customer-contact-facts" aria-label="Customer contact details">
-        <div class="customer-contact-fact is-company">
-          <small>Business or company</small>
-          <strong>{{ customer.company or 'Not provided' }}</strong>
-        </div>
-        <div class="customer-contact-fact is-address">
-          <small>Postal address</small>
-          <strong>{% if customer.address or customer.town or customer.county or customer.postcode %}{{ [customer.address, customer.town, customer.county, customer.postcode]|select|join(', ') }}{% else %}Not provided{% endif %}</strong>
-        </div>
-        <div class="customer-contact-fact">
-          <small>Phone</small>
-          <strong>{{ customer.phone or 'Not provided' }}</strong>
-        </div>
-        <div class="customer-contact-fact">
-          <small>Email</small>
-          <strong>{{ customer.email or 'Not provided' }}</strong>
-        </div>
-      </div>
-      <p style="margin:0;color:#d9dfe5;max-width:700px;">Keep this page as the main working record for the customer. Quotes, jobs, invoices, communications, SMS, notes, and recurring plans all sit here.</p>
-      <div class="badge-row">
-        <span>{{ customer.phone or 'No phone saved' }}</span>
-        <span>{{ customer.email or 'No email saved' }}</span>
-        <span>{{ customer.town or 'No town saved' }}</span>
-        <span>{% if customer.sms_opt_out %}SMS opted out{% else %}SMS allowed{% endif %}</span>
-      </div>
-      <div class="customer-mobile-actions">
-        {% if customer.phone %}<a class="btn primary" href="tel:{{ customer.phone|replace(' ', '') }}">Call</a>{% endif %}
+<section class="customer-record-header" id="customer-record">
+  <div class="customer-record-titlebar">
+    <div>
+      <span class="section-kicker">Customer record</span>
+      <h1>{{ customer.first_name }} {{ customer.last_name }}</h1>
+      <p>Keep contact details here so quotes, jobs and messages use the right information.</p>
+    </div>
+    <div class="customer-record-status {% if customer_detail_complete %}is-complete{% endif %}">
+      {% if customer_detail_complete %}Details complete{% else %}Details need checking{% endif %}
+    </div>
+  </div>
+
+  {% if request.args.get('details_saved') == '1' %}
+    <div class="customer-record-saved" role="status">Customer details saved.</div>
+  {% endif %}
+
+  <form method="post" action="{{ url_for('customer_edit', customer_id=customer.id) }}" class="customer-record-editor">
+    <div class="customer-record-grid">
+      <label>First name<input name="first_name" value="{{ customer.first_name }}" required></label>
+      <label>Last name<input name="last_name" value="{{ customer.last_name }}"></label>
+      <label>Business or company<input name="company" value="{{ customer.company or '' }}" placeholder="Optional"></label>
+      <label>Phone<input name="phone" value="{{ customer.phone or '' }}" inputmode="tel" placeholder="Phone number"></label>
+      <label class="wide">Email<input type="email" name="email" value="{{ customer.email or '' }}" placeholder="Email address"></label>
+      <label class="wide">Address<input name="address" value="{{ customer.address or '' }}" placeholder="House number and street"></label>
+      <label>Town<input name="town" value="{{ customer.town or '' }}" placeholder="Town or city"></label>
+      <label>Postcode<input name="postcode" value="{{ customer.postcode or '' }}" placeholder="Postcode"></label>
+      <input type="hidden" name="county" value="{{ customer.county or '' }}">
+      <input type="hidden" name="source" value="{{ customer.source or '' }}">
+      <input type="hidden" name="tags" value="{{ customer.tags or '' }}">
+      <input type="hidden" name="notes" value="{{ customer.notes or '' }}">
+    </div>
+    <div class="customer-record-footer">
+      <div class="customer-record-contact-actions">
+        {% if customer.phone %}<a class="btn secondary" href="tel:{{ customer.phone|replace(' ', '') }}">Call</a>{% endif %}
         {% if customer.phone %}<a class="btn secondary" href="sms:{{ customer.phone|replace(' ', '') }}">Text</a>{% endif %}
         {% if customer.email %}<a class="btn secondary" href="mailto:{{ customer.email }}">Email</a>{% endif %}
-        <a class="btn secondary" href="#customer-message-actions">Templates</a>
       </div>
+      <button class="btn primary" type="submit">Save customer details</button>
     </div>
-  </div>
-  <div class="customer-record-tools" aria-label="Customer record actions">
-    <div class="xero-status {% if customer.xero_contact_id %}is-synced{% elif customer.xero_contact_error %}is-failed{% endif %}">
-      <strong>{% if customer.xero_contact_id %}✓ Synced with Xero{% elif customer.xero_contact_error %}Xero needs attention{% else %}Not yet in Xero{% endif %}</strong>
-      <span>{% if customer.xero_contact_id %}{% if customer.xero_contact_synced_at %}Last synced {{ friendly_local_datetime(customer.xero_contact_synced_at) }}{% else %}The Xero contact is connected.{% endif %}{% elif customer.xero_contact_error %}{{ friendly_xero_error(customer.xero_contact_error) }}{% elif xero_decision_needed %}Needs your confirmation — missing {{ xero_missing_summary }}. You can update the record or continue with the safe details available.{% elif not xero_identity_ready %}Add the customer’s full name and a phone number or email before Xero can continue.{% else %}Use the button to safely create or match this contact.{% endif %}</span>
-      {% if customer.xero_contact_id %}<details class="xero-technical-detail"><summary>Technical details</summary><code>Xero contact reference: {{ customer.xero_contact_id }}</code></details>{% endif %}
-    </div>
-    <div class="customer-record-action-grid">
-      <form method="post" action="{{ url_for('xero_sync_contact', customer_id=customer.id) }}" {% if xero_decision_needed %}onsubmit="return confirm('Missing {{ xero_missing_summary }}. Continue to Xero anyway with the available customer details?');"{% endif %}>
-        <input type="hidden" name="next_url" value="{{ url_for('customer_view', customer_id=customer.id) }}">
-        {% if xero_decision_needed %}<input type="hidden" name="allow_incomplete" value="1">{% endif %}
-        <button class="btn xero-action" type="submit" {% if not xero_identity_ready %}disabled{% endif %}>{% if customer.xero_contact_id %}Update in Xero{% elif xero_decision_needed %}Continue to Xero anyway{% else %}Create / match in Xero{% endif %}</button>
-      </form>
-      <a class="btn customer-export-action" href="{{ url_for('export_customer_csv', customer_id=customer.id) }}">Download customer CSV</a>
-    </div>
-    <small>This checks for a safe Xero match first and stops if a possible duplicate is ambiguous.</small>
-  </div>
-  <div class="row-actions">
-    <a class="btn primary" href="#send-customer-form">Send Contact Form</a>
-    <a class="btn secondary" href="#customer-details">Details</a>
-    <a class="btn secondary" href="#customer-sales">Sales and Work</a>
-    <a class="btn secondary" href="{{ url_for('customer_conversation', customer_id=customer.id) }}">Conversation history</a>
-    <a class="btn secondary" href="#customer-finance">Finance</a>
+  </form>
+  <div class="customer-record-links">
+    <a href="{{ url_for('customer_conversation', customer_id=customer.id) }}">Messages &amp; history</a>
+    <a href="#send-customer-form">Send customer form</a>
+    <a href="#customer-sales">Quotes &amp; jobs</a>
+    <a href="#customer-finance">Finance</a>
   </div>
 </section>
 
@@ -250,6 +234,29 @@
   @media(max-width:1180px){.stage-detail-panel,.stage-action-fields{grid-template-columns:1fr}}
   @media(max-width:1000px){.workflow-main{grid-template-columns:1fr}.workflow-current{font-size:40px}.workflow-next{font-size:26px}.customer-form-send-fields,.unlinked-review-grid{grid-template-columns:1fr}}
   @media(max-width:720px){body.app-page .customer-hero{padding:18px!important;gap:16px!important}body.app-page .customer-hero p{display:block!important;font-size:14px!important;line-height:1.45!important}body.app-page .customer-hero>.row-actions{display:none!important}body.app-page .customer-hero .badge-row{display:none!important}body.app-page .customer-mobile-actions{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important}body.app-page .customer-mobile-actions .btn{display:flex!important;align-items:center!important;justify-content:center!important;min-height:48px!important;border-radius:13px!important}.stage-overview-head{display:grid;grid-template-columns:1fr;text-align:center}.stage-overview-head>div{min-width:0}.stage-overview-head h3{font-size:28px}.stage-overview-head .stage-pill{justify-self:center;width:auto;max-width:100%;padding:9px 13px;white-space:normal;text-align:center;line-height:1.25}.stage-section-head{grid-template-columns:auto minmax(0,1fr)}.customer-stage-overview{padding:18px;margin:16px 0;border-radius:18px;overflow:hidden}.stage-check-list,.stage-detail-grid{grid-template-columns:1fr}.customer-stage-card{padding:17px}.stage-mini-status{grid-column:2;white-space:normal}.stage-detail-main,.stage-next-box{padding:15px}.stage-current-action{padding:16px 0 0}.stage-template-actions{display:grid;grid-template-columns:1fr}.stage-template-actions form,.stage-template-actions .btn{width:100%;justify-content:center;min-height:48px}.template-send-row{padding:12px}.customer-library-record .kpi-band{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important}.customer-library-record .kpi-card{width:auto!important;min-width:0!important;text-align:center}}
+
+  /* The customer record starts with the information a cleaner needs, rather than a decorative profile card. */
+  .customer-record-header{max-width:1180px;margin:18px auto;padding:26px;border:1px solid #d9dfdf;border-radius:18px;background:#fff;box-shadow:0 14px 34px rgba(17,39,61,.08)}
+  .customer-record-titlebar{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;padding-bottom:19px;border-bottom:1px solid #e5e8e8}
+  .customer-record-titlebar h1{margin:6px 0 5px;color:#09233e;font-size:clamp(29px,4vw,43px);line-height:1.05;font-weight:650;letter-spacing:-.025em}
+  .customer-record-titlebar p{margin:0;color:#587080;font-size:16px;line-height:1.45}
+  .customer-record-titlebar .section-kicker{display:inline-flex}
+  .customer-record-status{flex:0 0 auto;margin-top:5px;padding:9px 12px;border-radius:999px;background:#fff4d6;border:1px solid #e1bd63;color:#6b4d11;font-size:13px;font-weight:700}
+  .customer-record-status.is-complete{background:#e9f7ef;border-color:#9bd4b5;color:#126542}
+  .customer-record-saved{margin:16px 0 0;padding:12px 14px;border:1px solid #9bd4b5;border-radius:11px;background:#edf9f1;color:#126542;font-weight:700}
+  .customer-record-editor{margin:0;padding-top:21px}
+  .customer-record-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 18px}
+  .customer-record-grid label{display:grid;gap:7px;color:#345064;font-size:13px;font-weight:700}
+  .customer-record-grid label.wide{grid-column:1/-1}
+  .customer-record-grid input{width:100%;min-height:48px;padding:11px 13px;border:1px solid #bac8d0;border-radius:10px;background:#fff;color:#112c43;font:inherit;font-size:16px;font-weight:500;box-sizing:border-box}
+  .customer-record-grid input:focus{outline:3px solid rgba(203,162,61,.22);border-color:#a67d23}
+  .customer-record-footer{display:flex;justify-content:space-between;align-items:center;gap:14px;margin-top:22px;padding-top:19px;border-top:1px solid #e5e8e8}
+  .customer-record-contact-actions{display:flex;flex-wrap:wrap;gap:9px}.customer-record-contact-actions .btn{min-width:94px;justify-content:center}
+  .customer-record-footer .btn.primary{min-height:48px;padding:11px 18px;font-size:16px}
+  .customer-record-links{display:flex;flex-wrap:wrap;gap:7px 18px;margin-top:20px;padding-top:17px;border-top:1px solid #e5e8e8}
+  .customer-record-links a{color:#1c5d8d;font-size:14px;font-weight:650;text-decoration:none}.customer-record-links a:hover{text-decoration:underline}
+  @media(max-width:700px){.customer-record-header{margin:0 0 14px;padding:18px 16px;border-radius:0;border-left:0;border-right:0;box-shadow:none}.customer-record-titlebar{display:grid;gap:11px}.customer-record-titlebar h1{font-size:31px}.customer-record-titlebar p{font-size:15px}.customer-record-status{justify-self:start;margin:0}.customer-record-grid{grid-template-columns:1fr;gap:14px}.customer-record-grid label.wide{grid-column:auto}.customer-record-footer{display:grid;grid-template-columns:1fr}.customer-record-contact-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}.customer-record-contact-actions .btn{min-width:0;padding:10px 6px}.customer-record-footer .btn.primary{width:100%;font-size:17px}.customer-record-links{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}.customer-record-links a{font-size:14px}}
+
 </style>
 
 {% macro stage_template_buttons(item) %}
