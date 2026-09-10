@@ -1986,7 +1986,7 @@ def run_due_enquiry_acknowledgements(dry_run=False, lead_id=None):
                 WHERE q.sent_at='' AND q.due_at <= ? AND (? IS NULL OR q.lead_id=?)
                   AND IFNULL(s.is_test,0)=0 AND IFNULL(s.ignore_alerts,0)=0
                   AND (
-                    q.status='Queued'
+                    q.status IN ('Queued','Awaiting approval')
                     OR (q.status='Sending' AND datetime(IFNULL(q.updated_at, q.created_at)) <= datetime('now','-5 minutes'))
                   )
                 ORDER BY q.due_at ASC LIMIT 50""", (now.isoformat(timespec="seconds"), lead_id, lead_id))
@@ -2293,6 +2293,24 @@ def run_due_enquiry_follow_up_sms(dry_run=False):
                 run("UPDATE enquiry_follow_up_queue SET status='Cancelled - customer replied', message='Customer replied before the follow-up was sent.', updated_at=datetime('now') WHERE id=?", (row_value(row, "id"),))
                 update_intake_delivery_status(row_value(row, "lead_id"), follow_up_status="Customer replied — follow-up stopped")
             results.append({"rule": "enquiry_follow_up_sms", "lead_id": row_value(row, "lead_id"), "customer_id": customer_id, "channel": "sms", "status": "Cancelled", "message": "Customer replied before the follow-up was sent."})
+            continue
+        if clean_str(row_value(row, "status")) == "Awaiting approval":
+            lead = q("SELECT name FROM intake_submissions WHERE id=?", (row_value(row, "lead_id"),), one=True)
+            customer_name = clean_str(row_value(lead, "name")) or "A website customer"
+            _owner_email, owner_mobile = owner_contact_form_recipients()
+            notice = f"{customer_name} has not replied to their website enquiry. Their follow-up text is ready in the CRM. Send it, stop it, or edit it before it goes out."
+            if dry_run:
+                ok, detail = True, "Dry run: owner reminder would be sent."
+            elif owner_mobile:
+                ok, detail = send_clicksend_env_sms(owner_mobile, notice, customer=None, category="Enquiry Follow-up Alert")
+            else:
+                ok, detail = False, "No owner mobile is configured."
+            if not dry_run:
+                run("UPDATE enquiry_follow_up_queue SET status='Ready for Paul', message=?, updated_at=datetime('now') WHERE id=?", (clean_str(detail), row_value(row, "id")))
+                update_intake_delivery_status(row_value(row, "lead_id"), follow_up_status="Customer has not replied — follow-up ready for Paul")
+                if customer_id:
+                    run("INSERT INTO customer_timeline(customer_id,note_text,created_at) VALUES (?,?,datetime('now'))", (customer_id, "Unanswered enquiry follow-up is ready for Paul to review."))
+            results.append({"rule": "enquiry_follow_up_sms", "lead_id": row_value(row, "lead_id"), "customer_id": customer_id, "channel": "owner_sms", "status": "Ready for Paul", "message": detail})
             continue
         if not customer_sms_allowed_now(now):
             next_due = next_customer_sms_allowed_at(now)
