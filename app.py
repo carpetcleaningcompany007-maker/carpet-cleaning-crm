@@ -2219,7 +2219,11 @@ def alert_unconfirmed_acknowledgement_deliveries():
     return results
 
 
-def schedule_enquiry_follow_up_sms(lead_id, customer_id=None, data=None, delay_minutes=4, body=None, due_at=None, status="Queued"):
+def enquiry_follow_up_settings_row():
+    return q("SELECT * FROM enquiry_follow_up_settings WHERE id=1", one=True) or {"delay_hours": 24, "send_time": "10:00", "active": 1}
+
+
+def schedule_enquiry_follow_up_sms(lead_id, customer_id=None, data=None, delay_minutes=1440, body=None, due_at=None, status="Queued"):
     if not lead_id:
         return False, "No enquiry ID to schedule."
     existing = q("SELECT status FROM enquiry_follow_up_queue WHERE lead_id=?", (lead_id,), one=True)
@@ -2235,7 +2239,18 @@ def schedule_enquiry_follow_up_sms(lead_id, customer_id=None, data=None, delay_m
     phone = normalize_phone(request_value(payload, "phone", "phone_number", "telephone", "tel"))
     if not phone:
         return False, "No customer phone number supplied."
-    due_at = due_at or (datetime.now(ZoneInfo("Europe/London")) + timedelta(minutes=delay_minutes))
+    rule = enquiry_follow_up_settings_row()
+    if not int(row_get(rule, "active") or 0):
+        return False, "Automatic enquiry follow-ups are switched off in settings."
+    if due_at is None:
+        base = datetime.now(ZoneInfo("Europe/London")) + timedelta(hours=max(1, int(row_get(rule, "delay_hours") or 24)))
+        try:
+            hour, minute = [int(part) for part in clean_str(row_get(rule, "send_time") or "10:00").split(":", 1)]
+            due_at = base.replace(hour=hour, minute=minute, second=0, microsecond=0)
+            if due_at < base:
+                due_at += timedelta(days=1)
+        except (TypeError, ValueError):
+            due_at = base
     if due_at.tzinfo is None:
         due_at = due_at.replace(tzinfo=ZoneInfo("Europe/London"))
     if status == "Queued":
@@ -8882,6 +8897,11 @@ def init_db():
         enabled INTEGER DEFAULT 0, created_at TEXT DEFAULT CURRENT_TIMESTAMP, updated_at TEXT DEFAULT CURRENT_TIMESTAMP
     )""")
     conn.execute("INSERT OR IGNORE INTO card_payment_settings (id) VALUES (1)")
+    conn.execute("""CREATE TABLE IF NOT EXISTS enquiry_follow_up_settings (
+        id INTEGER PRIMARY KEY CHECK (id=1), delay_hours INTEGER DEFAULT 24,
+        send_time TEXT DEFAULT '10:00', active INTEGER DEFAULT 1
+    )""")
+    conn.execute("INSERT OR IGNORE INTO enquiry_follow_up_settings (id) VALUES (1)")
     conn.execute("INSERT OR IGNORE INTO business_goal_settings (id) VALUES (1)")
     conn.execute("INSERT OR IGNORE INTO pricing_config (id, data_json) VALUES (1, ?)", (json.dumps(PRICING_DEFAULTS),))
     conn.execute("INSERT OR IGNORE INTO lead_generation_settings (id) VALUES (1)")
@@ -12965,6 +12985,24 @@ def automation_enquiry_follow_ups():
             for row in rows
         ],
     }
+
+
+@app.route("/automation/enquiry-follow-up-settings", methods=["GET", "POST"])
+@login_required
+def enquiry_follow_up_settings_page():
+    init_db()
+    config = enquiry_follow_up_settings_row()
+    if request.method == "POST":
+        try:
+            delay_hours = max(1, min(168, int(request.form.get("delay_hours") or 24)))
+        except ValueError:
+            delay_hours = 24
+        send_time = clean_str(request.form.get("send_time")) or "10:00"
+        run("UPDATE enquiry_follow_up_settings SET delay_hours=?, send_time=?, active=? WHERE id=1", (
+            delay_hours, send_time, 1 if request.form.get("active") else 0))
+        flash("Unanswered-enquiry follow-up settings saved.")
+        return redirect(url_for("enquiry_follow_up_settings_page"))
+    return render_template("enquiry_follow_up_settings.html", config=config, preview=enquiry_follow_up_sms_text({"name": "Lauren"}))
 
 
 @app.route('/sms-inbox')

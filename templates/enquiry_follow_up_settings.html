@@ -1,0 +1,7 @@
+{% extends "layout.html" %}
+{% block page_title %}Enquiry follow-up{% endblock %}
+{% block body_content %}
+<section class="doc-hero"><div><div class="hero-tag">Customer follow-up</div><h3>No-reply text message</h3><p>Follow up website enquiries only when they have not replied.</p></div></section>
+<section class="panel" style="max-width:780px"><form method="post" class="form"><label><input type="checkbox" name="active" value="1" {% if config.active %}checked{% endif %}> Prepare an automatic follow-up for unanswered enquiries</label><div class="cols"><label>Wait after the enquiry<input type="number" name="delay_hours" min="1" max="168" value="{{ config.delay_hours or 24 }}"> hours</label><label>Send at<input type="time" name="send_time" value="{{ config.send_time or '10:00' }}"></label></div><button class="btn primary">Save follow-up settings</button></form></section>
+<section class="panel" style="max-width:780px"><h3>Message preview</h3><p>This message is cancelled automatically if the customer replies before it is sent. It stays available in the enquiry record so you can send it, stop it, or edit it yourself.</p><pre style="white-space:pre-wrap;font:inherit;line-height:1.6">{{ preview }}</pre></section>
+{% endblock %}
