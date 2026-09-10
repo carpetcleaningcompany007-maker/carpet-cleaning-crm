@@ -144,3 +144,8 @@ body.app-page .customer-form-preview-shell,body.app-page .customer-email-preview
   #dashboard-enquiry-alerts .enquiry-row-meta b{font-size:28px!important;line-height:1!important}
   #dashboard-enquiry-alerts .enquiry-backup-sent{display:none!important}
 }
+
+
+/* Review requests can be sent directly without making a CRM customer first. */
+.review-direct-recipient{margin-top:18px;padding:18px;border:1px solid #d9e1e6;border-left:4px solid #c79a32;border-radius:9px;background:#fbfcfc}.review-direct-recipient>div:first-child>span{display:block;color:#86631b;font:600 11px/1.2 Inter,system-ui,sans-serif;letter-spacing:.1em}.review-direct-recipient h3{margin:4px 0;color:#092b4c;font:600 20px/1.2 Inter,system-ui,sans-serif}.review-direct-recipient p{margin:0;color:#617284;font-size:15px;line-height:1.45}.review-direct-recipient .review-advanced-fields{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:15px}.review-direct-recipient label{display:grid;gap:6px;color:#29465e;font:500 14px/1.3 Inter,system-ui,sans-serif}.review-direct-recipient input{min-height:44px!important;width:100%;box-sizing:border-box}.review-template-actions{margin-top:12px}
+@media(max-width:760px){.review-direct-recipient{padding:16px;margin-top:15px}.review-direct-recipient .review-advanced-fields{grid-template-columns:1fr}.review-direct-recipient h3{font-size:21px!important}.review-direct-recipient p{font-size:16px!important}.review-template-actions{display:grid!important;grid-template-columns:1fr!important}.review-template-actions .btn{width:100%!important}}

@@ -5,7 +5,7 @@
 {% block body_content %}
 {% if is_review %}
 <div class="review-request-page">
-  <header class="review-request-heading"><span>Review request</span><h1>Send a review request</h1><p>Choose the customer, check how you want to contact them, then preview everything before you send.</p></header>
+  <header class="review-request-heading"><span>Review request</span><h1>Send a review request</h1><p>Choose a saved customer, or send directly to someone who is not yet in your CRM.</p></header>
   {% if sent_confirmation %}<div class="send-form-success"><strong>Review request sent</strong><span>The request was sent using the channel you selected.</span></div>{% endif %}
   <form method="post" class="review-request-layout" id="reviewRequestForm">
     <input type="hidden" name="action_type" value="review">
@@ -19,7 +19,7 @@
         <b id="selectedCustomerReady" class="contact-readiness">{% if form_values.email and form_values.phone %}Email & text ready{% elif form_values.email %}Email ready · mobile missing{% elif form_values.phone %}Text ready · email missing{% else %}Contact details missing{% endif %}</b>
       </div>
       <div class="review-xero-compact"><div><strong>Can’t find them?</strong><span>Refresh the customer list from Xero, then search again.</span></div><input type="hidden" name="next_url" value="{{ url_for('send_contact_form', action_type='review') }}"><button class="btn secondary" type="submit" formmethod="post" formaction="{{ url_for('xero_pull_contacts') }}">Refresh from Xero</button></div>
-      <details class="review-more-options"><summary>More options <span>Manual details, templates and testing</span></summary><div class="review-advanced-fields"><label>Name<input name="name" autocomplete="name" value="{{ form_values.name or '' }}"></label><label>Email address<input type="email" name="email" autocomplete="email" value="{{ form_values.email or '' }}"></label><label>Mobile number<input name="phone" autocomplete="tel" value="{{ form_values.phone or '' }}"></label><div class="row-actions"><a class="btn secondary" href="{{ url_for('message_settings') }}">Edit message templates</a><button class="btn secondary" name="use_test_details" value="1" type="submit">Test on me</button></div></div></details>
+      <section class="review-direct-recipient" aria-labelledby="direct-review-title"><div><span>OR SEND DIRECT</span><h3 id="direct-review-title">Customer not in the CRM?</h3><p>Enter their name and one contact method. This sends the review request without creating a customer record.</p></div><div class="review-advanced-fields"><label>Name<input name="name" autocomplete="name" value="{{ form_values.name or '' }}" placeholder="Customer name"></label><label>Email address<input type="email" name="email" autocomplete="email" value="{{ form_values.email or '' }}" placeholder="name@example.com"></label><label>Mobile number<input name="phone" autocomplete="tel" value="{{ form_values.phone or '' }}" placeholder="07…"></label></div></section><div class="row-actions review-template-actions"><a class="btn secondary" href="{{ url_for('message_settings') }}">Edit message templates</a><button class="btn secondary" name="use_test_details" value="1" type="submit">Test on me</button></div>
     </section>
     <aside class="panel review-channel-step">
       <div class="review-step-head"><span>2</span><div><h2>Choose how to ask</h2><p>Only available channels can be sent.</p></div></div>

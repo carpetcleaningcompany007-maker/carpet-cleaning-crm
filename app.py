@@ -10850,6 +10850,9 @@ def send_contact_form():
         recipient_name = form_values["name"]
         email_to = form_values["email"]
         sms_to = form_values["phone"]
+        if action_type == "review" and not selected_customer and not recipient_name and request.form.get("use_test_details") != "1":
+            flash("Add the recipient's name before sending a direct review request.")
+            return redirect(url_for("send_contact_form", action_type="review", email=email_to, phone=sms_to))
         if request.form.get("use_test_details") == "1":
             recipient_name = recipient_name or "Paul"
             email_to = clean_str(row_value(s, "test_email"))
