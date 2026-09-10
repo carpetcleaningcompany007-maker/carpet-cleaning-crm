@@ -12995,9 +12995,7 @@ def enquiry_follow_up_test_owner_alert():
         customer_name = "Lauren"
         review_url = crm_external_url("intake_forms")
     message = (f"CRM test: {customer_name} has not replied to her website enquiry. "
-               "Her follow-up text is ready to review. Nothing has been sent to her.
-
-"
+               "Her follow-up text is ready to review. Nothing has been sent to her.\n\n"
                f"Open it here: {review_url}")
     ok, detail = send_clicksend_env_sms(owner_mobile, message, customer=None, category="Enquiry Follow-up Alert Test")
     flash(("Test text sent to you. " if ok else "Test text failed. ") + clean_str(detail))
