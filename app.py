@@ -13023,6 +13023,19 @@ def enquiry_follow_up_settings_page():
     return render_template("enquiry_follow_up_settings.html", config=config, preview=enquiry_follow_up_sms_text({"name": "Lauren"}))
 
 
+@app.route("/automation/enquiry-follow-up-settings/test-owner-alert", methods=["POST"])
+@login_required
+def enquiry_follow_up_test_owner_alert():
+    _owner_email, owner_mobile = owner_contact_form_recipients()
+    if not owner_mobile:
+        flash("Set your owner alert mobile number in Settings before testing.")
+        return redirect(url_for("enquiry_follow_up_settings_page"))
+    message = "CRM test: Lauren has not replied to her website enquiry. Her follow-up text is ready in the CRM. Send it, stop it, or edit it before it goes out."
+    ok, detail = send_clicksend_env_sms(owner_mobile, message, customer=None, category="Enquiry Follow-up Alert Test")
+    flash(("Test text sent to you. " if ok else "Test text failed. ") + clean_str(detail))
+    return redirect(url_for("enquiry_follow_up_settings_page"))
+
+
 @app.route('/sms-inbox')
 @login_required
 def sms_inbox():
