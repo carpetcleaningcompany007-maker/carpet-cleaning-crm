@@ -10447,30 +10447,6 @@ def dashboard():
             dashboard_finished.append(item)
         else:
             dashboard_schedule.append(item)
-    # Keep the Today workflow focused on people still waiting for something, not every historical enquiry.
-    workflow_waiting_rows = q("""SELECT id, customer_id, name, status, follow_up_status, source, created_at, updated_at
-                                 FROM intake_submissions
-                                 WHERE IFNULL(is_test,0)=0 AND IFNULL(ignore_alerts,0)=0
-                                   AND date(COALESCE(NULLIF(updated_at,''), created_at)) >= date('now','-31 days')
-                                   AND (
-                                     lower(IFNULL(status,'')) IN ('waiting for customer form','needs missing details')
-                                     OR lower(IFNULL(follow_up_status,'')) LIKE '%missing details%'
-                                     OR (lower(IFNULL(source,''))='customer details form'
-                                         AND lower(IFNULL(status,'')) NOT IN ('form returned - ready to quote','booked','closed','closed - no reply'))
-                                   )
-                                 ORDER BY datetime(COALESCE(NULLIF(updated_at,''), created_at)) DESC, id DESC
-                                 LIMIT 8""")
-    dashboard_workflow_waiting = []
-    for row in workflow_waiting_rows:
-        item = dict(row)
-        status_text = ' '.join([clean_str(item.get('status')), clean_str(item.get('follow_up_status'))]).lower()
-        if 'waiting for customer form' in status_text or clean_str(item.get('source')).lower() == 'customer details form':
-            item['waiting_label'] = 'Waiting for form'
-            item['waiting_detail'] = 'Form sent — waiting for their reply.'
-        else:
-            item['waiting_label'] = 'Missing details'
-            item['waiting_detail'] = 'Open this enquiry and request the details still needed.'
-        dashboard_workflow_waiting.append(item)
     quote_ready = q("""SELECT quotes.id,quotes.quote_number,quotes.total,customers.first_name || ' ' || customers.last_name AS customer_name
                        FROM quotes LEFT JOIN customers ON customers.id=quotes.customer_id
                        WHERE lower(IFNULL(quotes.status,'Draft'))='draft'
@@ -10533,8 +10509,7 @@ def dashboard():
                            intake_waiting=intake_waiting["c"] if intake_waiting else 0,
                            recent_enquiries=recent_enquiries, dashboard_schedule=dashboard_schedule,
                            dashboard_next=dashboard_next, dashboard_quote_ready=quote_ready,
-                           dashboard_follow_up_ready=dashboard_follow_up_ready, dashboard_workflow_waiting=dashboard_workflow_waiting,
-                           dashboard_greeting=dashboard_greeting,
+                           dashboard_follow_up_ready=dashboard_follow_up_ready, dashboard_greeting=dashboard_greeting,
                            dashboard_date=f"{today.strftime('%A')}, {today.day} {today.strftime('%B')}")
 
 
