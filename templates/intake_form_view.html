@@ -68,10 +68,11 @@ if (window.location.hash === '#customer-message-approval') {
     .lead-action-head{display:block}
     .lead-next-pill{margin-top:12px;white-space:normal}
   }
+.customer-record-editor{border:1px solid #d9e4ec!important;background:#fff!important;border-radius:18px!important;overflow:hidden}.customer-record-editor>summary{padding:18px 20px!important;background:#f4f8fb!important;color:#102c48!important;font-size:18px!important;font-weight:500!important}.customer-record-editor-body{padding:22px}.customer-record-editor-body header{display:flex;justify-content:space-between;gap:16px;padding-bottom:18px;border-bottom:1px solid #e5edf2}.customer-record-editor-body header span{display:block;color:#6b7d8b;font-size:11px;letter-spacing:.08em;text-transform:uppercase}.customer-record-editor-body h4{margin:5px 0;color:#09243c;font:400 27px Georgia,serif}.customer-record-editor-body p{margin:0;color:#5c7080}.customer-record-editor-body header>b{align-self:flex-start;padding:7px 10px;border-radius:999px;background:#edf6ff;color:#175f94;font-size:12px;font-weight:600}.customer-details-form{display:grid;gap:18px;margin-top:18px}.customer-details-form fieldset{margin:0;padding:16px;border:1px solid #dce7ee;border-radius:12px}.customer-details-form legend{padding:0 6px;color:#31516a;font-size:14px;font-weight:600}.customer-details-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.customer-details-grid label{display:grid;gap:6px;color:#465e70;font-size:13px}.customer-details-grid .wide{grid-column:1/-1}.customer-details-grid input,.customer-details-grid textarea,.customer-details-grid select{width:100%;box-sizing:border-box;border:1px solid #becfda;border-radius:8px;background:#fff;padding:11px 12px;color:#102c48;font:400 16px system-ui}.customer-details-save{width:100%;min-height:52px;font-size:16px!important}
   @media (max-width:560px){
     .review-shell{gap:14px}.review-hero{padding:20px;border-radius:18px}.review-hero h3{font-size:27px}.review-pill{display:flex;width:100%;justify-content:center;text-align:center}
     .lead-action-panel{padding:17px;border-radius:18px;gap:15px}.lead-action-head h4{font-size:21px}.lead-next-pill{display:flex;width:100%;border-radius:14px;line-height:1.35}.lead-action-buttons,.approval-actions{grid-template-columns:1fr}
-    .lead-action-buttons .btn,.approval-actions .btn{min-height:52px;font-size:15px}.review-card{padding:17px;border-radius:16px}
+    .lead-action-buttons .btn,.approval-actions .btn{min-height:52px;font-size:15px}.review-card{padding:17px;border-radius:16px}.customer-record-editor-body{padding:16px}.customer-record-editor-body header{display:block}.customer-record-editor-body header>b{display:inline-block;margin-top:10px}.customer-details-grid{grid-template-columns:1fr}.customer-details-grid .wide{grid-column:auto}
     .lead-progress-details{border-radius:14px}.lead-progress-details>summary{padding:15px}.lead-check-grid{grid-template-columns:1fr}
   }
 </style>
@@ -239,37 +240,17 @@ if (window.location.hash === '#customer-message-approval') {
   </div>
   </details>
 
-  <details class="lead-progress-details lead-optional-section">
-    <summary>Edit customer details</summary>
-  <section class="review-card" id="edit-intake-details">
-    <h4>Edit before approval</h4>
-    <form method="post" action="{{ url_for('intake_form_update_details', lead_id=lead.id) }}" class="form-grid edit-form">
-      <label>Name<input name="name" value="{{ lead.name or '' }}"></label>
-      <label>Phone<input name="phone" value="{{ lead.phone or '' }}"></label>
-      <label>Email<input name="email" type="email" value="{{ lead.email or '' }}"></label>
-      <label>Postcode<input name="postcode" value="{{ lead.postcode or '' }}"></label>
-      <label class="span-2">Full address<textarea name="full_address" rows="3">{{ lead.full_address or '' }}</textarea></label>
-      <label>What3Words<input name="what3words" value="{{ lead.what3words or '' }}"></label>
-      <label>Map pin<input name="google_maps_link" value="{{ lead.google_maps_link or '' }}"></label>
-      <label>Service<input name="what_cleaned" value="{{ lead.what_cleaned or '' }}"></label>
-      <label>Agreed quote price<input type="number" step="0.01" min="0" name="agreed_quote_price" value="{{ lead.agreed_quote_price or '' }}"></label>
-      <label class="span-2">Rooms or areas<textarea name="rooms_areas" rows="3">{{ lead.rooms_areas or '' }}</textarea></label>
-      <label class="span-2">Job details<textarea name="job_notes" rows="4">{{ lead.job_notes or '' }}</textarea></label>
-      <label class="span-2">Access / parking<textarea name="parking" rows="3">{{ lead.parking or '' }}</textarea></label>
-      <label class="span-2">Preferred dates or times<textarea name="preferred_days_times" rows="2">{{ lead.preferred_days_times or '' }}</textarea></label>
-      <label class="span-2">Extra notes<textarea name="additional_notes" rows="3">{{ lead.additional_notes or '' }}</textarea></label>
-      <label>Status
-        <select name="status">
-          {% for status in ['Waiting for review','Reviewed','Approved','Sent to Xero','Booked','Closed'] %}
-            <option value="{{ status }}" {% if lead.status == status %}selected{% endif %}>{{ status }}</option>
-          {% endfor %}
-        </select>
-      </label>
-      <div class="actions span-2">
-        <button class="btn primary" type="submit">Save changes</button>
-      </div>
-    </form>
-  </section>
+  <details class="lead-progress-details customer-record-editor" id="edit-intake-details" open>
+    <summary>Customer details — view and edit</summary>
+    <section class="customer-record-editor-body">
+      <header><div><span>Customer record</span><h4>{{ lead.name or 'New customer' }}</h4><p>Edit the details below, then press Save customer details.</p></div><b>{{ lead.status or 'New enquiry' }}</b></header>
+      <form method="post" action="{{ url_for('intake_form_update_details', lead_id=lead.id) }}" class="customer-details-form">
+        <fieldset><legend>Contact details</legend><div class="customer-details-grid"><label>Customer name<input name="name" value="{{ lead.name or '' }}" placeholder="Customer name"></label><label>Mobile number<input name="phone" value="{{ lead.phone or '' }}" placeholder="07..."></label><label class="wide">Email address<input name="email" type="email" value="{{ lead.email or '' }}" placeholder="customer@email.com"></label></div></fieldset>
+        <fieldset><legend>Address and access</legend><div class="customer-details-grid"><label class="wide">Full address<textarea name="full_address" rows="3" placeholder="House number, street, town">{{ lead.full_address or '' }}</textarea></label><label>Postcode<input name="postcode" value="{{ lead.postcode or '' }}"></label><label>What3Words<input name="what3words" value="{{ lead.what3words or '' }}" placeholder="optional"></label><label class="wide">Directions, access or parking<textarea name="parking" rows="2">{{ lead.parking or '' }}</textarea></label></div></fieldset>
+        <fieldset><legend>Work to quote</legend><div class="customer-details-grid"><label>Cleaning required<input name="what_cleaned" value="{{ lead.what_cleaned or '' }}"></label><label>Agreed price<input type="number" step="0.01" min="0" name="agreed_quote_price" value="{{ lead.agreed_quote_price or '' }}" placeholder="£"></label><label class="wide">Rooms or items<textarea name="rooms_areas" rows="2">{{ lead.rooms_areas or '' }}</textarea></label><label class="wide">Job notes<textarea name="job_notes" rows="3">{{ lead.job_notes or '' }}</textarea></label><label>Preferred date or time<input name="preferred_days_times" value="{{ lead.preferred_days_times or '' }}"></label><label>Status<select name="status">{% for status in ['Waiting for review','Reviewed','Approved','Sent to Xero','Booked','Closed'] %}<option value="{{ status }}" {% if lead.status == status %}selected{% endif %}>{{ status }}</option>{% endfor %}</select></label></div></fieldset>
+        <button class="btn primary customer-details-save" type="submit">Save customer details</button>
+      </form>
+    </section>
   </details>
 </section>
 {% endblock %}
