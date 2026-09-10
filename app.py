@@ -14008,6 +14008,62 @@ def quote_lines_edit(quote_id):
     return redirect(url_for("quote_view", quote_id=quote_id))
 
 
+@app.route("/quotes/<int:quote_id>/cleaning-price-mode", methods=["POST"])
+@login_required
+def quote_cleaning_price_mode(quote_id):
+    quote = q("SELECT * FROM quotes WHERE id=?", (quote_id,), one=True)
+    if not quote:
+        abort(404)
+    mode = clean_str(request.form.get("cleaning_price_mode"))
+    if mode not in {"professional", "standard"}:
+        flash("Choose a cleaning price option.")
+        return redirect(url_for("quote_view", quote_id=quote_id))
+    try:
+        payload = json.loads(quote["payload_json"] or "{}")
+    except (TypeError, json.JSONDecodeError):
+        payload = {}
+    carpet_count, has_hsl, extras = 0, False, []
+    carpet_words = ("lounge", "living", "bedroom", "dining", "office", "study", "carpet room", "first carpet", "additional carpet")
+    for line in list(payload.get("lines") or []):
+        name = clean_str(line.get("item_name")).lower()
+        quantity = max(0, float(line.get("quantity") or 0))
+        if any(word in name for word in ("hall", "stairs", "landing")):
+            has_hsl = True
+        elif any(word in name for word in carpet_words):
+            carpet_count += quantity
+        else:
+            extras.append(line)
+    if carpet_count <= 0:
+        flash("This quote does not have recognised carpet rooms to re-price.")
+        return redirect(url_for("quote_view", quote_id=quote_id))
+    first, additional, method = ((75.0, 45.0, "Professional deep clean") if mode == "professional"
+                                  else (55.0, 35.0, "Standard hot water extraction"))
+    new_lines = [{"item_code": "CARPET-FIRST", "item_name": "First carpet room", "method": method, "quantity": 1, "unit_price": first}]
+    if carpet_count > 1:
+        new_lines.append({"item_code": "CARPET-ADDITIONAL", "item_name": "Additional carpet rooms", "method": method, "quantity": carpet_count - 1, "unit_price": additional})
+    if has_hsl:
+        new_lines.append({"item_code": "HSL", "item_name": "Hall, stairs and landing", "method": method, "quantity": 1, "unit_price": 45.0})
+    new_lines.extend(extras)
+    new_lines = [normalise_quote_line(line) for line in new_lines]
+    payload["lines"] = new_lines
+    payload["cleaning_price_mode"] = mode
+    payload["vat"] = 0
+    payload.pop("total", None)
+    payload.pop("raw_total", None)
+    calculated = calc_from_payload(payload)
+    payload["total"] = calculated["total"]
+    payload["raw_total"] = calculated["raw_total"]
+    run("DELETE FROM quote_lines WHERE quote_id=?", (quote_id,))
+    for line in new_lines:
+        run("""INSERT INTO quote_lines(quote_id,item_name,method,quantity,unit_price,line_total,group_name)
+               VALUES (?,?,?,?,?,?,?)""", (quote_id, line.get("item_name", ""), line.get("method", ""), line.get("quantity", 0),
+               line.get("unit_price", 0), line.get("line_total", 0), line.get("group_name", "Carpet cleaning")))
+    run("UPDATE quotes SET subtotal=?, vat=?, total=?, payload_json=? WHERE id=?", (
+        calculated["subtotal"], calculated["vat"], calculated["total"], json.dumps(payload), quote_id))
+    flash("Professional £75 / £45 prices applied." if mode == "professional" else "Standard £55 / £35 prices applied.")
+    return redirect(url_for("quote_view", quote_id=quote_id))
+
+
 @app.route("/quotes/<int:quote_id>/adjustment", methods=["POST"])
 @login_required
 def quote_adjustment(quote_id):
