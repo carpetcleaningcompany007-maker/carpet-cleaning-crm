@@ -17,9 +17,9 @@
   <details class="info-drop intake-tools">
     <summary>Connections, testing and cleanup</summary>
     <div class="info-drop-body">
-      <div class="actions">
-      <a class="btn" href="{{ url_for('xero_connect') }}">Connect Xero</a>
-      <a class="btn" href="{{ url_for('xero_test') }}">Test Xero</a>
+      <div class="actions intake-system-actions">
+      <a class="btn" href="{{ url_for('xero_connect') }}">Connect to Xero</a>
+      <a class="btn" href="{{ url_for('xero_test') }}">Check Xero connection</a>
       <form method="post" action="{{ url_for('intake_forms_cleanup_tests') }}">
         <button class="btn danger" type="submit">Delete obvious test replies</button>
       </form>
@@ -64,7 +64,7 @@
         <div class="enquiry-card-footer">
           <div class="enquiry-signals">
             <span class="enquiry-signal"><b>Status</b>{{ 'Test · alerts ignored' if lead.is_test or lead.ignore_alerts else (lead.status or 'Waiting') }}</span>
-            <span class="enquiry-signal"><b>Xero</b>{{ xero_status }}</span>
+            <span class="enquiry-signal enquiry-xero-status"><b>Xero status</b>{{ xero_status }}</span>
             <span class="enquiry-signal"><b>Customer message</b>Email {{ lead.customer_email_status or 'Pending' }} · SMS {{ lead.customer_sms_status or 'Pending' }}</span>
             <span class="enquiry-signal enquiry-next"><b>Next step</b>{{ follow_up }}</span>
           </div>
