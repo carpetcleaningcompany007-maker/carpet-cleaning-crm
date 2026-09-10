@@ -1319,7 +1319,7 @@ openCustomerToolsForHash();
   const status=form.querySelector('[data-form-preview-status]');
   const subject=form.querySelector('[data-preview-subject]'), email=form.querySelector('[data-preview-email-body]'), sms=form.querySelector('[data-preview-sms-body]');
   const frame=form.querySelector('[data-preview-email-frame]');
-  const fullPreview=form.querySelector('[data-full-email-preview]');
+  const fullPreview=form.querySelector('[data-open-full-email-preview]');
   const fullFrame=form.querySelector('[data-full-email-preview-frame]');
   const fullModal=form.querySelector('[data-full-email-preview]');
   fullPreview.addEventListener('click',()=>{fullModal.hidden=false;fullModal.setAttribute('aria-hidden','false');});
