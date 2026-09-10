@@ -10519,9 +10519,11 @@ def enquiry_contact_history(lead_id):
 
 def dashboard_enquiry_alerts():
     rows = q("""SELECT s.*, a.status AS ack_status, a.due_at AS ack_due, a.channel AS ack_channel,
-                       a.message AS ack_message, a.sent_at AS ack_sent_at, a.delivered_at AS ack_delivered_at, a.fallback_sent_at AS ack_fallback_at, d.action AS owner_action
+                       a.message AS ack_message, a.sent_at AS ack_sent_at, a.delivered_at AS ack_delivered_at, a.fallback_sent_at AS ack_fallback_at, d.action AS owner_action,
+                       f.status AS no_reply_follow_up_status
                 FROM intake_submissions s
                 LEFT JOIN enquiry_acknowledgement_queue a ON a.lead_id=s.id
+                LEFT JOIN enquiry_follow_up_queue f ON f.lead_id=s.id
                 LEFT JOIN dashboard_enquiry_decisions d ON d.lead_id=s.id
                 WHERE IFNULL(s.is_test,0)=0 AND IFNULL(s.ignore_alerts,0)=0
                   AND lower(IFNULL(s.status,'New')) NOT IN ('accepted','booked','declined','rejected','archived','cancelled','completed','form returned - ready to quote')
@@ -10541,6 +10543,7 @@ def dashboard_enquiry_alerts():
             # Reuse the compact sent-message row instead of adding another card.
             item['ack_status'] = 'Sent'
         item['channel_label'] = 'text message' if is_valid_uk_phone(item.get('phone')) else 'email'
+        item['no_reply_follow_up'] = clean_str(item.get('no_reply_follow_up_status')) in {'Queued', 'Awaiting approval', 'Ready for Paul'}
         item['due_epoch'] = None
         item['can_control'] = status == 'Queued'
         if status == 'Queued':

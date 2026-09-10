@@ -91,3 +91,16 @@
   #dashboard-enquiry-alerts .enquiry-row-meta b{font-size:32px!important}
   #dashboard-enquiry-alerts .enquiry-row-body{padding:16px!important;font-size:17px!important}
 }
+
+/* Clear, aligned mobile enquiry cards. */
+.enquiry-no-reply{color:#8a5b00;font-weight:600}
+@media(max-width:1023px){
+ #dashboard-enquiry-alerts .enquiry-schedule-panel{max-width:560px;margin-inline:auto!important}
+ #dashboard-enquiry-alerts .enquiry-row-toggle{display:grid!important;grid-template-columns:52px minmax(0,1fr) 26px!important;align-items:start!important}
+ #dashboard-enquiry-alerts .enquiry-side-icon{margin-top:2px}
+ #dashboard-enquiry-alerts .enquiry-row-copy{gap:5px!important;padding-top:3px}
+ #dashboard-enquiry-alerts .enquiry-row-title{font-size:20px!important;line-height:1.2!important}
+ #dashboard-enquiry-alerts .enquiry-step-caption{font-size:15px!important;line-height:1.45!important;color:#49635d!important}
+ #dashboard-enquiry-alerts .enquiry-row-meta{height:52px;justify-content:center}
+ #dashboard-enquiry-alerts .enquiry-backup-sent{display:none!important}
+}
