@@ -14015,36 +14015,49 @@ def quote_cleaning_price_mode(quote_id):
     if not quote:
         abort(404)
     mode = clean_str(request.form.get("cleaning_price_mode"))
-    if mode not in {"professional", "standard"}:
+    if mode not in {"fixed", "price_list"}:
         flash("Choose a cleaning price option.")
         return redirect(url_for("quote_view", quote_id=quote_id))
     try:
         payload = json.loads(quote["payload_json"] or "{}")
     except (TypeError, json.JSONDecodeError):
         payload = {}
-    carpet_count, has_hsl, extras = 0, False, []
-    carpet_words = ("lounge", "living", "bedroom", "dining", "office", "study", "carpet room", "first carpet", "additional carpet")
-    for line in list(payload.get("lines") or []):
-        name = clean_str(line.get("item_name")).lower()
-        quantity = max(0, float(line.get("quantity") or 0))
-        if any(word in name for word in ("hall", "stairs", "landing")):
-            has_hsl = True
-        elif any(word in name for word in carpet_words):
-            carpet_count += quantity
+    old_lines = list(payload.get("lines") or [])
+    if mode == "price_list" and payload.get("price_list_lines"):
+        new_lines = [normalise_quote_line(line) for line in payload["price_list_lines"]]
+    else:
+        carpet_count, has_hsl, extras = 0, False, []
+        carpet_words = ("lounge", "living", "bedroom", "dining", "office", "study", "carpet room", "first carpet", "additional carpet")
+        for line in old_lines:
+            name = clean_str(line.get("item_name")).lower()
+            quantity = max(0, float(line.get("quantity") or 0))
+            if any(word in name for word in ("hall", "stairs", "landing")):
+                has_hsl = True
+            elif any(word in name for word in carpet_words):
+                carpet_count += quantity
+            else:
+                extras.append(line)
+        if carpet_count <= 0:
+            flash("This quote does not have recognised carpet rooms to re-price.")
+            return redirect(url_for("quote_view", quote_id=quote_id))
+        if mode == "price_list":
+            # Fallback for an older quote that predates the stored variable list.
+            new_lines = [{"item_code": "LIVING", "item_name": "Living Room", "method": "Individual price list", "quantity": 1, "unit_price": 79.0}]
+            if carpet_count > 1:
+                new_lines.append({"item_code": "BEDROOM", "item_name": "Bedroom", "method": "Individual price list", "quantity": carpet_count - 1, "unit_price": 37.0})
+            if has_hsl:
+                new_lines.append({"item_code": "STAIRS", "item_name": "Stairs and Landing", "method": "Individual price list", "quantity": 1, "unit_price": 75.0})
+            new_lines.extend(extras)
         else:
-            extras.append(line)
-    if carpet_count <= 0:
-        flash("This quote does not have recognised carpet rooms to re-price.")
-        return redirect(url_for("quote_view", quote_id=quote_id))
-    first, additional, method = ((75.0, 45.0, "Professional deep clean") if mode == "professional"
-                                  else (55.0, 35.0, "Standard hot water extraction"))
-    new_lines = [{"item_code": "CARPET-FIRST", "item_name": "First carpet room", "method": method, "quantity": 1, "unit_price": first}]
-    if carpet_count > 1:
-        new_lines.append({"item_code": "CARPET-ADDITIONAL", "item_name": "Additional carpet rooms", "method": method, "quantity": carpet_count - 1, "unit_price": additional})
-    if has_hsl:
-        new_lines.append({"item_code": "HSL", "item_name": "Hall, stairs and landing", "method": method, "quantity": 1, "unit_price": 45.0})
-    new_lines.extend(extras)
-    new_lines = [normalise_quote_line(line) for line in new_lines]
+            if payload.get("cleaning_price_mode") != "fixed":
+                payload["price_list_lines"] = old_lines
+            new_lines = [{"item_code": "CARPET-FIRST", "item_name": "First carpet room", "method": "Professional deep clean", "quantity": 1, "unit_price": 75.0}]
+            if carpet_count > 1:
+                new_lines.append({"item_code": "CARPET-ADDITIONAL", "item_name": "Additional carpet rooms", "method": "Professional deep clean", "quantity": carpet_count - 1, "unit_price": 45.0})
+            if has_hsl:
+                new_lines.append({"item_code": "HSL", "item_name": "Hall, stairs and landing", "method": "Professional deep clean", "quantity": 1, "unit_price": 45.0})
+            new_lines.extend(extras)
+        new_lines = [normalise_quote_line(line) for line in new_lines]
     payload["lines"] = new_lines
     payload["cleaning_price_mode"] = mode
     payload["vat"] = 0
@@ -14060,7 +14073,7 @@ def quote_cleaning_price_mode(quote_id):
                line.get("unit_price", 0), line.get("line_total", 0), line.get("group_name", "Carpet cleaning")))
     run("UPDATE quotes SET subtotal=?, vat=?, total=?, payload_json=? WHERE id=?", (
         calculated["subtotal"], calculated["vat"], calculated["total"], json.dumps(payload), quote_id))
-    flash("Professional £75 / £45 prices applied." if mode == "professional" else "Standard £55 / £35 prices applied.")
+    flash("Fixed £75 / £45 package prices applied." if mode == "fixed" else "Individual price-list prices applied.")
     return redirect(url_for("quote_view", quote_id=quote_id))
 
 
