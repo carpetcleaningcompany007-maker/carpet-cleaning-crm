@@ -12985,7 +12985,20 @@ def enquiry_follow_up_test_owner_alert():
     if not owner_mobile:
         flash("Set your owner alert mobile number in Settings before testing.")
         return redirect(url_for("enquiry_follow_up_settings_page"))
-    message = "CRM test: Lauren has not replied to her website enquiry. Her follow-up text is ready in the CRM. Send it, stop it, or edit it before it goes out."
+    lead = q("""SELECT id, name FROM intake_submissions
+                WHERE lower(IFNULL(name,'')) LIKE 'lauren%'
+                ORDER BY id DESC LIMIT 1""", one=True)
+    if lead:
+        customer_name = clean_str(row_get(lead, "name")) or "Lauren"
+        review_url = crm_external_url("intake_form_view", lead_id=row_get(lead, "id")) + "#customer-message-approval"
+    else:
+        customer_name = "Lauren"
+        review_url = crm_external_url("intake_forms")
+    message = (f"CRM test: {customer_name} has not replied to her website enquiry. "
+               "Her follow-up text is ready to review. Nothing has been sent to her.
+
+"
+               f"Open it here: {review_url}")
     ok, detail = send_clicksend_env_sms(owner_mobile, message, customer=None, category="Enquiry Follow-up Alert Test")
     flash(("Test text sent to you. " if ok else "Test text failed. ") + clean_str(detail))
     return redirect(url_for("enquiry_follow_up_settings_page"))
