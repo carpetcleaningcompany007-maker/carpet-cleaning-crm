@@ -1874,7 +1874,7 @@ def enquiry_follow_up_sms_text(data):
         f"{greeting}\n\n"
         "You recently sent an enquiry through our website about carpet or upholstery cleaning. "
         "I just wanted to check whether you still wanted help.\n\n"
-        "If you reply with a few details or photos, I can put together the right quote for you.\n\n"
+        "If you would like a quote, please reply with the areas you would like cleaned and how many rooms or items there are — for example, lounge, bedrooms, hall, stairs and landing, rugs, sofas or chairs. I can then prepare a quote for you.\n\n"
         "Thanks,\nPaul\nThe Carpet Cleaning Company"
     )
 
