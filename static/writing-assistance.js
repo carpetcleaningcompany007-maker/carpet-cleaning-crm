@@ -16,7 +16,7 @@
     source = { body: body.value, subject: subject.value, channel: channel.value };
     pending = true;
     panel.querySelectorAll('[data-writing-action]').forEach(el => el.disabled = true);
-    preview.hidden = true; status.textContent = 'AI is checking your wording… Your original stays in the editor.';
+    preview.hidden = true; status.textContent = 'AI is rewriting your one-off message…';
     const data = new FormData();
     for (const [key, value] of Object.entries(source)) data.append(key, value);
     data.append('_csrf_token', form.querySelector('[name=_csrf_token]').value);
@@ -32,7 +32,7 @@
       body.dispatchEvent(new Event('input', { bubbles: true }));
       panel.querySelector('[data-writing-subject-label]').hidden = source.channel !== 'Email';
       panel.querySelector('[data-writing-feedback]').textContent = [result.feedback, result.warning].filter(Boolean).join(' ');
-      preview.hidden = false; status.textContent = 'AI wording added to your message. You can edit it, then send when ready.';
+      preview.hidden = false; status.textContent = 'AI version is now in the message box. This is a one-off draft only — your automatic message has not changed.';
     } catch (error) { status.textContent = error.message || 'AI could not finish. Your original message is unchanged.'; }
     finally { pending = false; panel.querySelectorAll('[data-writing-action]').forEach(el => el.disabled = false); }
   }));

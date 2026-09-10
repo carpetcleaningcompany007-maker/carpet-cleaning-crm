@@ -24,14 +24,14 @@
     <label>Send by<select name="channel"><option {% if draft.channel=='Email' %}selected{% endif %}>Email</option><option {% if draft.channel=='Text' %}selected{% endif %}>Text</option></select></label>
     <p class="muted">Email: {{ customer.email or 'Not saved' }} · Text: {{ customer.phone or 'Not saved' }}{% if customer.sms_opt_out %} (SMS switched off){% endif %}</p>
     <label data-email-only>Email subject<input name="subject" value="{{ draft.subject }}"></label>
-    <label>Message<textarea name="body" rows="5" required>{{ draft.body }}</textarea></label>
+    <label>Message<textarea name="body" rows="10" required>{{ draft.body }}</textarea></label>
     <section class="writing-assistance" data-writing-assistance data-endpoint="{{ url_for('customer_writing_assistance',customer_id=customer.id) }}">
-      <div class="writing-tools"><button type="button" class="btn secondary" data-writing-action="check">Check writing</button><button type="button" class="btn secondary" data-writing-action="improve">Improve wording</button><button type="button" class="btn secondary" data-writing-action="shorten">Make shorter</button></div>
+      <div class="writing-tools"><button type="button" class="btn secondary" data-writing-action="rewrite">Rewrite completely</button><button type="button" class="btn secondary" data-writing-action="shorten">Make shorter</button><button type="button" class="btn secondary" data-writing-action="longer">Make longer</button><button type="button" class="btn secondary" data-writing-action="check">Check writing</button></div>
       <p role="status" aria-live="polite" data-writing-status>Dictate or type, then let AI help with the wording. Review before sending.</p>
       <div data-writing-preview hidden>
-        <strong>AI writing preview</strong><p data-writing-feedback></p>
+        <strong>AI has rewritten this one-off draft</strong><p data-writing-feedback></p>
         <label data-writing-subject-label>Email subject<input data-writing-subject></label>
-        <label>Suggested message<textarea data-writing-body rows="6"></textarea></label>
+        <label>Full AI version<textarea data-writing-body rows="10"></textarea></label>
         <div class="writing-tools"><button type="button" class="btn secondary" data-use-writing>Use this draft</button><button type="button" class="btn secondary" data-dismiss-writing>Keep original</button></div>
         <p>This replaces the editor text only. Press Send message when you are ready.</p>
       </div>
@@ -77,7 +77,7 @@ body.app-page .conversation-page label{font:600 13px/1.4 system-ui!important;gap
 body.app-page .conversation-page input,body.app-page .conversation-page select,body.app-page .conversation-page textarea{box-sizing:border-box!important;padding:10px 12px!important;font:400 16px/1.4 system-ui!important;border:1px solid #cbd9e3!important;border-radius:8px!important;min-height:44px!important;background:#fff!important}
 body.app-page .conversation-page .conversation-sync{margin:18px 0 0!important;padding:12px 0!important;border-top:1px solid #e1e8ed!important;box-shadow:none!important;background:transparent!important}
 
-body.app-page .panel.conversation-page{width:100%!important;max-width:950px!important;min-width:0!important;box-sizing:border-box;margin-inline:auto!important}.conversation-search{display:flex;gap:8px;margin:16px 0}.conversation-search input{min-width:0;flex:1}.conversation-sync,.conversation-compose{padding:12px;margin-bottom:18px}.conversation-compose summary{cursor:pointer}.conversation-compose .form{display:grid;gap:10px}.conversation-compose [hidden]{display:none!important}.conversation-compose label{display:grid;gap:5px}.conversation-compose textarea{width:100%;min-height:120px}.conversation-history{display:grid;gap:12px}.conversation-message{padding:14px;border:1px solid #dce5ed;border-radius:10px;background:#f4f8fc}.conversation-message.received{background:#fff;border-left:3px solid #207a60}.conversation-message header{display:flex;flex-wrap:wrap;gap:6px 18px;justify-content:space-between;font-size:13px}.conversation-message h3{font-size:16px;margin:9px 0}.conversation-body{white-space:pre-wrap;overflow-wrap:anywhere;margin:8px 0;line-height:1.5}.conversation-page nav{display:flex;justify-content:space-between;margin-top:16px}
+body.app-page .panel.conversation-page{width:100%!important;max-width:950px!important;min-width:0!important;box-sizing:border-box;margin-inline:auto!important}.conversation-search{display:flex;gap:8px;margin:16px 0}.conversation-search input{min-width:0;flex:1}.conversation-sync,.conversation-compose{padding:12px;margin-bottom:18px}.conversation-compose summary{cursor:pointer}.conversation-compose .form{display:grid;gap:10px}.conversation-compose [hidden]{display:none!important}.conversation-compose label{display:grid;gap:5px}.conversation-compose textarea{width:100%;min-height:220px}.conversation-history{display:grid;gap:12px}.conversation-message{padding:14px;border:1px solid #dce5ed;border-radius:10px;background:#f4f8fc}.conversation-message.received{background:#fff;border-left:3px solid #207a60}.conversation-message header{display:flex;flex-wrap:wrap;gap:6px 18px;justify-content:space-between;font-size:13px}.conversation-message h3{font-size:16px;margin:9px 0}.conversation-body{white-space:pre-wrap;overflow-wrap:anywhere;margin:8px 0;line-height:1.5}.conversation-page nav{display:flex;justify-content:space-between;margin-top:16px}
 </style>
 <script>
 (function(){
@@ -106,5 +106,5 @@ body.app-page .panel.conversation-page{width:100%!important;max-width:950px!impo
 
 })();
 </script>
-<script src="{{ url_for('static',filename='writing-assistance.js',v='20260910-4') }}" defer></script>
+<script src="{{ url_for('static',filename='writing-assistance.js',v='20260910-5') }}" defer></script>
 {% endblock %}
