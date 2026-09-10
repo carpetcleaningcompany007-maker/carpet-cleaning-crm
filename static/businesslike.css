@@ -125,3 +125,22 @@ body.app-page .customer-form-preview-shell,body.app-page .customer-email-preview
   body.app-page.page-new-leads .lead-command p,.page-new-leads .lead-summary{font-size:16px!important}
   body.app-page.page-new-leads .lead-title-line strong{font-size:19px!important}
 }
+
+
+/* Mobile enquiry cards: short left-aligned rows, not oversized centred tiles. */
+@media(max-width:1023px){
+  #dashboard-enquiry-alerts .enquiry-schedule-panel{max-width:none!important;margin:12px 0 20px!important;padding:0 16px 16px!important}
+  #dashboard-enquiry-alerts .enquiry-schedule-panel>header{position:static!important;display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;justify-content:normal!important;gap:10px!important;padding:18px 2px!important;text-align:left!important}
+  #dashboard-enquiry-alerts .enquiry-schedule-panel>header h2{justify-content:flex-start!important;text-align:left!important;font-size:25px!important;line-height:1.2!important;white-space:nowrap!important}
+  #dashboard-enquiry-alerts .enquiry-schedule-panel>header a{position:static!important;transform:none!important;font-size:14px!important;text-align:right!important}
+  #dashboard-enquiry-alerts .enquiry-priority-item{padding:0!important;margin:8px 0!important}
+  #dashboard-enquiry-alerts .enquiry-priority-item>.enquiry-row-expand>.enquiry-row-toggle{position:static!important;display:grid!important;grid-template-columns:46px minmax(0,1fr) 22px!important;justify-items:stretch!important;align-items:center!important;gap:12px!important;min-height:0!important;padding:14px 10px!important;text-align:left!important}
+  #dashboard-enquiry-alerts .enquiry-side-icon{width:46px!important;height:46px!important;flex-basis:46px!important;margin:0!important;border-radius:11px!important}
+  #dashboard-enquiry-alerts .enquiry-side-icon svg{width:30px!important;height:30px!important}
+  #dashboard-enquiry-alerts .enquiry-row-copy{display:grid!important;gap:3px!important;width:auto!important;padding:0!important;justify-items:start!important;text-align:left!important}
+  #dashboard-enquiry-alerts .enquiry-row-title{display:flex!important;justify-content:flex-start!important;text-align:left!important;font-size:19px!important;line-height:1.2!important}
+  #dashboard-enquiry-alerts .enquiry-step-caption{display:block!important;text-align:left!important;font-size:15px!important;line-height:1.35!important;color:#526c66!important}
+  #dashboard-enquiry-alerts .enquiry-row-meta{position:static!important;display:flex!important;align-items:center!important;justify-content:flex-end!important;height:auto!important;transform:none!important}
+  #dashboard-enquiry-alerts .enquiry-row-meta b{font-size:28px!important;line-height:1!important}
+  #dashboard-enquiry-alerts .enquiry-backup-sent{display:none!important}
+}
