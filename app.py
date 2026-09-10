@@ -19665,6 +19665,7 @@ def intake_form_view(lead_id):
         lead_next_action=intake_lead_next_action(lead),
         missing_details=intake_missing_details(dict(lead, missing_details_overridden=0)),
         update_form_preview_url=intake_update_short_url(lead_id),
+        prepared_follow_up=prepared_enquiry_follow_up_row(lead_id),
         prepared_follow_up_sms=prepared_enquiry_follow_up_sms(lead),
         prepared_follow_up_status=prepared_enquiry_follow_up_status(lead_id),
         ai_draft=ai_draft,

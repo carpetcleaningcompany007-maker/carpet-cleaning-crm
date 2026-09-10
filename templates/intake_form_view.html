@@ -1,5 +1,11 @@
 {% extends "layout.html" %}
-{% block title %}Review Customer Details{% endblock %}
+{% block title %}Review Customer Details<script>
+if (window.location.hash === '#customer-message-approval') {
+  const followUp = document.getElementById('customer-message-approval');
+  if (followUp) followUp.open = true;
+}
+</script>
+{% endblock %}
 {% block page_title %}Review Customer Details{% endblock %}
 {% block body_content %}
 {% if contact_history %}<section class="panel" id="contact-attempt-history"><div class="panel-head"><h2>Contact attempts &amp; follow-up history</h2></div><div style="padding:20px">{% for event in contact_history %}<article style="border-bottom:1px solid #ddd;padding:15px 0"><strong>{{ event.label }}</strong><p>{{ event.when }} UK time{% if event.follow_up_date %} · Follow up {{ event.follow_up_date }}{% endif %}</p>{% if event.note %}<p>{{ event.note }}</p>{% endif %}</article>{% endfor %}</div></section>{% endif %}
@@ -118,12 +124,12 @@
       {% endif %}
       </div>
     </details>
-    <details class="lead-progress-details lead-message-details" id="customer-message-approval">
-      <summary>Follow-up message waiting for approval</summary>
+    {% if prepared_follow_up %}<details class="lead-progress-details lead-message-details" id="customer-message-approval" {% if prepared_follow_up.status in ['Ready for Paul','Awaiting approval'] %}open{% endif %}>
+      <summary>No customer reply yet — follow-up text ready to review</summary>
     <div class="message-approval">
       <div>
-        <h5>Follow-up SMS approval</h5>
-        <p>The first thank-you message is sent automatically. This later call-back text only sends if you approve it.</p>
+        <h5>{{ lead.name or 'Customer' }} has not replied</h5>
+        <p>A draft text has been prepared below. It has <strong>not</strong> been sent. Review it, then choose whether to send it or stop it.</p>
       </div>
       <div class="status-line">
         <div><strong>Customer email</strong>{{ lead.customer_email_status or 'Pending Paul approval' }}</div>
@@ -150,7 +156,7 @@
         </form>
       </div>
     </div>
-    </details>
+    </details>{% endif %}
   </section>
 
   <details class="lead-progress-details lead-optional-section">
