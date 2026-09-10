@@ -2277,7 +2277,7 @@ def run_due_enquiry_follow_up_sms(dry_run=False):
                 WHERE q.sent_at='' AND q.due_at <= ?
                   AND IFNULL(s.is_test,0)=0 AND IFNULL(s.ignore_alerts,0)=0
                   AND (
-                    q.status='Queued'
+                    q.status IN ('Queued','Awaiting approval')
                     OR (q.status='Sending' AND datetime(IFNULL(q.updated_at, q.created_at)) <= datetime('now','-5 minutes'))
                   )
                 ORDER BY q.due_at ASC
