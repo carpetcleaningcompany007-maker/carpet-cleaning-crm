@@ -10556,8 +10556,9 @@ def dashboard_enquiry_alerts():
         elif status == 'Accepted': item['next_step'] = 'Text accepted by the provider; delivery is not confirmed yet. Review the enquiry and follow up.'
         elif status == 'Sent': item['next_step'] = 'Acknowledgement sent; this is not confirmation the customer received it. Follow up if needed.'
         elif status == 'Delivered': item['next_step'] = 'Text delivery confirmed. Review the enquiry and follow up.'
-        elif status == 'Email fallback sent': item['next_step'] = 'SMS was unsuccessful or unconfirmed. A fallback email was sent; email delivery is not confirmed.'
-        elif status in ('Delivery failed','Delivery unconfirmed'): item['next_step'] = 'Customer acknowledgement delivery needs attention. Check the channel details below and contact the customer.'
+        elif status == 'Email fallback sent': item['next_step'] = 'Text message was sent. ClickSend did not return a delivery receipt, so a separate email was sent five minutes later.'
+        elif status == 'Delivery unconfirmed': item['next_step'] = 'Text message was sent, but ClickSend did not return a delivery receipt. No second message was sent.'
+        elif status == 'Delivery failed': item['next_step'] = 'Text message failed. No email was sent automatically; contact the customer yourself.'
         elif status == 'Cancelled': item['next_step'] = 'Automatic acknowledgement stopped. Choose how you will contact this customer.'
         elif status == 'Failed': item['next_step'] = 'Acknowledgement failed. Open the enquiry and contact this customer yourself.'
         else: item['next_step'] = 'No automatic acknowledgement is scheduled. Review the enquiry and contact the customer.'
@@ -10592,7 +10593,7 @@ def dashboard_enquiry_alerts():
                       (item['customer_id'],item.get('email') or '',item.get('created_at'),item['customer_id'],item['id']),one=True)
             if event: item['latest_email'] = dict(event)
         failure_text = ' '.join([status,item['sms_detail'],item['email_detail'],clean_str((item['latest_email'] or {}).get('status'))]).lower()
-        item['delivery_problem'] = any(word in failure_text for word in ('failed','failure','bounced','bounce','returned','rejected','undeliver','unconfirmed'))
+        item['delivery_problem'] = any(word in failure_text for word in ('failed','failure','bounced','bounce','returned','rejected','undeliver'))
         item['owner_step'] = {'call':'You chose to call this customer. The call is not yet marked complete.','message':'You chose to message personally. Check the conversation and record the next step.','stop':'You stopped the automatic acknowledgement. Choose a manual next step.'}.get(item.get('owner_action'),'You have not chosen a manual next step yet.')
         if item['form_waiting']:
             item['next_step'] = 'Customer form sent. Waiting for their reply.'
