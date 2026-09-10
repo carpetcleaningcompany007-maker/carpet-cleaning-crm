@@ -720,7 +720,9 @@
           <label>Email message<textarea data-preview-email-body rows="4" style="min-height:110px" aria-label="Email message"></textarea></label>
           <p class="muted">Keep the form link in your message so the customer can complete their details.</p>
           <button type="button" class="btn secondary" data-form-preview="email">Update email preview</button>
-          <iframe title="Customer form email preview" sandbox="allow-same-origin" data-preview-email-frame style="width:100%;height:180px;border:1px solid #d8e7f5;border-radius:10px"></iframe>
+          <button type="button" class="btn primary" data-open-full-email-preview>View full email preview</button>
+          <iframe title="Customer form email preview" sandbox="allow-same-origin" data-preview-email-frame class="customer-email-inline-preview"></iframe>
+          <div class="customer-email-preview-modal" data-full-email-preview hidden aria-hidden="true"><div class="customer-email-preview-modal-head"><strong>Email preview</strong><button type="button" data-close-full-email-preview>Close</button></div><iframe title="Full customer form email preview" sandbox="allow-same-origin" data-full-email-preview-frame></iframe></div>
         </section>
         <section data-form-editor="sms" hidden>
           <p><strong>Text to:</strong> <span data-preview-sms-to></span></p>
@@ -1303,6 +1305,13 @@ openCustomerToolsForHash();
  body.app-page .customer-form-send-panel .row-actions{display:grid!important;grid-template-columns:1fr!important;gap:8px!important}
  body.app-page .customer-form-send-panel .btn{width:100%!important;padding:10px!important;font-size:15px!important;word-break:normal!important}
 }
+@media(max-width:760px){
+ body.app-page.page-customer-view .main{padding-inline:0!important}
+ body.app-page.page-customer-view .customer-form-send-panel{width:100%!important;max-width:none!important;border-radius:0!important}
+ .customer-email-inline-preview{width:100%!important;height:420px!important;margin-top:12px;border:1px solid #d8e7f5!important;border-radius:0!important;background:#edf6fc}
+ .customer-email-preview-modal{position:fixed!important;z-index:500!important;inset:0!important;display:grid!important;grid-template-rows:62px minmax(0,1fr)!important;background:#edf6fc!important}
+ .customer-email-preview-modal[hidden]{display:none!important}.customer-email-preview-modal-head{display:flex!important;align-items:center!important;justify-content:space-between!important;padding:0 16px!important;background:#082641!important;color:#fff!important;font-size:18px!important}.customer-email-preview-modal-head button{min-height:42px!important;padding:0 15px!important;border:1px solid #fff!important;border-radius:8px!important;background:transparent!important;color:#fff!important;font-size:15px!important}.customer-email-preview-modal iframe{width:100%!important;height:100%!important;border:0!important;background:#edf6fc!important}
+}
 </style>
 <script>
 (function(){
@@ -1310,6 +1319,11 @@ openCustomerToolsForHash();
   const status=form.querySelector('[data-form-preview-status]');
   const subject=form.querySelector('[data-preview-subject]'), email=form.querySelector('[data-preview-email-body]'), sms=form.querySelector('[data-preview-sms-body]');
   const frame=form.querySelector('[data-preview-email-frame]');
+  const fullPreview=form.querySelector('[data-full-email-preview]');
+  const fullFrame=form.querySelector('[data-full-email-preview-frame]');
+  const fullModal=form.querySelector('[data-full-email-preview]');
+  fullPreview.addEventListener('click',()=>{fullModal.hidden=false;fullModal.setAttribute('aria-hidden','false');});
+  fullModal.querySelector('[data-close-full-email-preview]').addEventListener('click',()=>{fullModal.hidden=true;fullModal.setAttribute('aria-hidden','true');});
   function fitEditor(field){field.style.height='auto';field.style.height=Math.min(320,Math.max(110,field.scrollHeight+2))+'px';}
   frame.addEventListener('load',()=>{if(frame.contentDocument?.body)frame.style.height=Math.min(680,Math.max(140,frame.contentDocument.body.scrollHeight+40))+'px';});
   [email,sms].forEach(field=>field.addEventListener('input',()=>fitEditor(field)));
@@ -1329,6 +1343,7 @@ openCustomerToolsForHash();
       form.querySelector('[data-preview-email-to]').textContent=result.email_to||'No email address entered';
       form.querySelector('[data-preview-sms-to]').textContent=result.sms_to||'No mobile number entered';
       form.querySelector('[data-preview-email-frame]').srcdoc=result.email_html;
+      fullFrame.srcdoc=result.email_html;
       form.querySelectorAll('[data-form-editor]').forEach(editor=>{editor.hidden=editor.dataset.formEditor!==channel;});
       [email,sms].forEach(field=>{if(field.offsetParent)fitEditor(field)});
       status.textContent='Preview ready. You can edit the messages below. Nothing has been sent; edits apply to this send only.';
