@@ -21,3 +21,26 @@ body.app-page .quote-hero,body.app-page .quote-header{background:var(--business-
 body.app-page .customer-form-preview-shell,body.app-page .customer-email-preview-modal__dialog{border-radius:10px!important}
 @media(min-width:1024px){body.app-page .main{padding-top:0!important}body.app-page .sidebar{box-shadow:inset -1px 0 rgba(255,255,255,.08)!important}body.app-page .nav .nav-link{border-radius:6px!important;font-weight:500!important}body.app-page .nav .nav-link.active{border-left-color:var(--business-gold)!important}}
 @media(max-width:820px){body.app-page .main{background:#fff!important}body.app-page .panel,body.app-page .card,body.app-page .workflow-panel,body.app-page .customer-section,body.app-page .concept-panel,body.app-page .cc-section{border-radius:9px!important;box-shadow:0 2px 9px rgba(11,38,60,.05)!important}body.app-page h1{font-size:29px!important}body.app-page h2{font-size:22px!important}body.app-page h3{font-size:19px!important}body.app-page .btn,body.app-page button{min-height:44px!important}}
+
+/* Desktop dashboard: denser operational workspace inspired by modern field-service software. */
+@media(min-width:1024px){
+  body.app-page.page-dashboard .main{padding:0 32px 44px!important}
+  body.app-page.page-dashboard .topbar{margin:0 -32px!important;width:calc(100% + 64px)!important;padding:0 32px!important;height:82px!important;max-height:82px!important}
+  body.app-page.page-dashboard .concept-dashboard{padding-top:28px!important}
+  body.app-page.page-dashboard .concept-welcome{display:flex!important;align-items:flex-end;justify-content:space-between;padding-bottom:18px!important;margin-bottom:18px!important;border-bottom:1px solid #dce4e9!important}
+  body.app-page.page-dashboard .concept-welcome h1{font:600 32px/1.15 Inter,system-ui,sans-serif!important;letter-spacing:-.025em!important}
+  body.app-page.page-dashboard .concept-welcome p{margin:6px 0 0!important;color:#617284!important;font-size:15px!important}
+  body.app-page.page-dashboard .quote-ready-alert{margin:0 0 18px!important;padding:18px 20px!important;border:1px solid #d6e0e6!important;border-left:5px solid #c79a32!important;border-radius:8px!important;background:#fff!important;box-shadow:0 3px 10px rgba(11,38,60,.05)!important}
+  body.app-page.page-dashboard .quote-ready-alert h2{font:600 22px/1.22 Inter,system-ui,sans-serif!important;letter-spacing:-.01em!important}
+  body.app-page.page-dashboard .quote-ready-alert p{font-size:15px!important}.quote-ready-alert a{border-radius:6px!important;background:#092b4c!important;color:#fff!important;font-weight:600!important}
+  body.app-page.page-dashboard .concept-metrics{gap:12px!important;margin-bottom:18px!important}
+  body.app-page.page-dashboard .concept-metrics>a{min-height:88px!important;padding:14px 16px!important;grid-template-columns:44px minmax(0,1fr)!important;border:1px solid #d9e1e6!important;border-radius:8px!important;box-shadow:none!important}
+  body.app-page.page-dashboard .concept-metrics>a:before{width:3px!important}.concept-metrics .metric-symbol{width:42px!important;height:42px!important;font-size:21px!important}
+  body.app-page.page-dashboard .concept-metrics small{font-size:13px!important;color:#53697b!important}.concept-metrics strong{margin-top:3px!important;font-size:25px!important;color:#092b4c!important}
+  body.app-page.page-dashboard .concept-grid{grid-template-columns:minmax(0,1.55fr) minmax(330px,.75fr)!important;gap:16px!important}
+  body.app-page.page-dashboard .concept-panel{border:1px solid #d9e1e6!important;border-radius:8px!important;box-shadow:none!important}
+  body.app-page.page-dashboard .concept-panel>header{min-height:56px!important;padding:14px 18px!important}.concept-panel h2{font:600 20px/1.2 Inter,system-ui,sans-serif!important}
+  body.app-page.page-dashboard .concept-next{height:auto!important;min-height:217px!important}.concept-next>h2{padding:17px 18px 6px!important}.concept-next>div{margin:7px 18px 0!important;padding:14px!important;border-radius:7px!important;background:#f7fafb!important;border-color:#dce5eb!important}.concept-next h3{font:600 17px/1.2 Inter,system-ui,sans-serif!important}.concept-next>div>a{border-radius:6px!important;background:#092b4c!important;color:#fff!important}
+  body.app-page.page-dashboard .concept-glance{height:auto!important;min-height:210px!important}.concept-glance>a{margin:0 18px!important}.concept-glance>a span strong{font-weight:600!important}
+  body.app-page.page-dashboard .schedule-date-chip{background:#f4f1e7!important;color:#745918!important;border-radius:5px!important}
+}
