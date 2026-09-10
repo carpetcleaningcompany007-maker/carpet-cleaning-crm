@@ -7180,3 +7180,28 @@ body.app-page.page-customer-view .customer-details-workflow>.page-accordion-summ
   body.app-page.page-customer-view .customer-stage-overview>.page-accordion-summary strong,
   body.app-page.page-customer-view .customer-details-workflow>.page-accordion-summary strong{font-size:16px!important;line-height:1.35!important}
 }
+
+
+/* Compact, unmistakable customer record panel. */
+body.app-page.page-customer-view .customer-record-header{
+  border:2px solid #c89b32!important;
+  border-top-width:5px!important;
+  background:#fffdf8!important;
+  box-shadow:0 10px 26px rgba(110,78,13,.12)!important;
+}
+body.app-page.page-customer-view .customer-record-titlebar{border-bottom-color:#e8d8aa!important}
+body.app-page.page-customer-view .customer-record-editor{padding-top:16px!important}
+body.app-page.page-customer-view .customer-record-grid{gap:12px 14px!important}
+body.app-page.page-customer-view .customer-record-grid input{min-height:44px!important;padding:9px 12px!important}
+body.app-page.page-customer-view .customer-record-footer{margin-top:16px!important;padding-top:15px!important}
+@media(max-width:700px){
+  body.app-page.page-customer-view .customer-record-header{margin:8px 10px 14px!important;padding:16px!important;border-radius:16px!important;border-left:2px solid #c89b32!important;border-right:2px solid #c89b32!important}
+  body.app-page.page-customer-view .customer-record-titlebar{gap:8px!important;padding-bottom:13px!important}
+  body.app-page.page-customer-view .customer-record-titlebar h1{font-size:29px!important;margin:3px 0!important}
+  body.app-page.page-customer-view .customer-record-titlebar p{font-size:14px!important;line-height:1.35!important}
+  body.app-page.page-customer-view .customer-record-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important}
+  body.app-page.page-customer-view .customer-record-grid label{gap:5px!important;font-size:12px!important}
+  body.app-page.page-customer-view .customer-record-grid label.wide{grid-column:1/-1!important}
+  body.app-page.page-customer-view .customer-record-grid input{min-height:42px!important;padding:8px 10px!important;font-size:15px!important}
+  body.app-page.page-customer-view .customer-record-status{padding:7px 10px!important;font-size:12px!important}
+}
