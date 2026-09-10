@@ -8868,6 +8868,12 @@ def init_db():
         conn.execute('UPDATE expenses SET category=? WHERE category=?',(new_category,old_category))
         conn.execute('UPDATE recurring_expenses SET category=? WHERE category=?',(new_category,old_category))
     conn.execute("INSERT OR IGNORE INTO settings (id) VALUES (1)")
+    conn.execute("""CREATE TABLE IF NOT EXISTS card_payment_settings (
+        id INTEGER PRIMARY KEY CHECK (id=1), provider TEXT DEFAULT 'Stripe',
+        publishable_key TEXT DEFAULT '', secret_key TEXT DEFAULT '', webhook_secret TEXT DEFAULT '',
+        enabled INTEGER DEFAULT 0, created_at TEXT DEFAULT CURRENT_TIMESTAMP, updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )""")
+    conn.execute("INSERT OR IGNORE INTO card_payment_settings (id) VALUES (1)")
     conn.execute("INSERT OR IGNORE INTO business_goal_settings (id) VALUES (1)")
     conn.execute("INSERT OR IGNORE INTO pricing_config (id, data_json) VALUES (1, ?)", (json.dumps(PRICING_DEFAULTS),))
     conn.execute("INSERT OR IGNORE INTO lead_generation_settings (id) VALUES (1)")
@@ -16946,6 +16952,22 @@ def settings_page():
         flash("Settings saved.")
         return redirect(url_for("settings_page"))
     return render_template("settings.html", app_settings=s, lead_settings=lead_generation_settings(), public_sources=LEAD_PUBLIC_SOURCES)
+
+
+@app.route("/settings/card-payments", methods=["GET", "POST"])
+@login_required
+def card_payment_settings():
+    config = q("SELECT * FROM card_payment_settings WHERE id=1", one=True)
+    if request.method == "POST":
+        secret_key = clean_str(request.form.get("secret_key")) or (config["secret_key"] if config else "")
+        webhook_secret = clean_str(request.form.get("webhook_secret")) or (config["webhook_secret"] if config else "")
+        run("""UPDATE card_payment_settings
+               SET publishable_key=?, secret_key=?, webhook_secret=?, enabled=?, updated_at=datetime('now') WHERE id=1""", (
+            clean_str(request.form.get("publishable_key")), secret_key, webhook_secret,
+            1 if request.form.get("enabled") else 0))
+        flash("Card payment settings saved. Card payments stay off until Stripe is connected and verified.")
+        return redirect(url_for("card_payment_settings"))
+    return render_template("card_payment_settings.html", config=config)
 
 @app.route("/quotes/<int:quote_id>/print")
 @login_required
