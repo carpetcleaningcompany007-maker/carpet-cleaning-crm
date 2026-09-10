@@ -58,6 +58,7 @@ tbody td{font-size:15px;padding:10px 6px;border-bottom:1px solid #ddd;vertical-a
     <tr><td>VAT</td><td class="num">{{ '%.2f'|format(calc.vat or 0) }}</td></tr>{% if calc.discount %}
     <tr><td>Empty property discount</td><td class="num">-{{ '%.2f'|format(calc.discount) }}</td></tr>{% endif %}
     <tr class="grand"><td>TOTAL PAYABLE GBP</td><td class="num">{{ '%.2f'|format(calc.total or 0) }}</td></tr>
+    {% if mode=='quote' and deposit and deposit.amount %}<tr><td>Booking deposit requested</td><td class="num">{{ '%.2f'|format(deposit.amount) }}</td></tr><tr><td>Balance due on completion</td><td class="num">{{ '%.2f'|format(deposit.balance) }}</td></tr>{% endif %}
   </table>
   {% if mode=='quote' %}
   <div class="section"><h3>Important note</h3><div>{% if calc.raw_total < calc.minimum %}Selected items total is £{{ '%.2f'|format(calc.raw_total) }}. A minimum charge of £{{ '%.2f'|format(calc.minimum) }} applies.{% else %}Your selected items are above the minimum charge.{% endif %}</div></div>

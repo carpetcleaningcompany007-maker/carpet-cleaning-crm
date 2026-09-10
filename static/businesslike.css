@@ -44,3 +44,20 @@ body.app-page .customer-form-preview-shell,body.app-page .customer-email-preview
   body.app-page.page-dashboard .concept-glance{height:auto!important;min-height:210px!important}.concept-glance>a{margin:0 18px!important}.concept-glance>a span strong{font-weight:600!important}
   body.app-page.page-dashboard .schedule-date-chip{background:#f4f1e7!important;color:#745918!important;border-radius:5px!important}
 }
+
+
+/* Every desktop page uses the same full-height blue CRM navigation as Today. */
+@media(min-width:1024px){
+  body.app-page .shell{grid-template-columns:19.886vw minmax(0,1fr)!important}
+  body.app-page .sidebar{position:sticky!important;top:0!important;width:auto!important;height:100vh!important;min-height:100vh!important;overflow:auto!important;padding:23px 19px 22px!important;background:linear-gradient(180deg,#061c3b 0%,#063065 100%)!important;box-shadow:none!important}
+  body.app-page .brand,body.app-page .brand-tabler{display:flex!important;min-width:0!important;width:100%!important;min-height:164px!important;margin:0 0 14px!important;padding:12px!important;align-items:center!important;gap:14px!important;background:transparent!important;border:0!important;border-bottom:1px solid rgba(255,255,255,.13)!important;border-radius:0!important}
+  body.app-page .brand-logo{width:102px!important;height:64px!important;flex:0 0 auto!important;border-radius:0!important;background:transparent!important;box-shadow:none!important}
+  body.app-page .brand h1{max-width:none!important;margin:0!important;color:#fff!important;font:500 24px/1.1 Georgia,serif!important;letter-spacing:-.01em!important}
+  body.app-page .brand .manager-wordmark-sub{display:block!important;margin-top:6px!important;color:#d0a63b!important;font:700 13px/1 system-ui!important;letter-spacing:.25em!important}
+  body.app-page .brand .ai-brand-tag{display:block!important;margin-top:10px!important;color:#ccd8e6!important;font:400 14px/1.25 system-ui!important;letter-spacing:0!important;text-transform:none!important}
+  body.app-page .nav,body.app-page .nav-tabler{display:flex!important;flex-direction:column!important;gap:4px!important;overflow:visible!important}
+  body.app-page .nav .nav-link{display:flex!important;align-items:center!important;min-height:50px!important;padding:0 15px!important;color:#e7eff8!important;border:0!important;border-left:3px solid transparent!important;border-radius:6px!important;background:transparent!important;font:500 16px/1.2 Inter,system-ui,sans-serif!important}
+  body.app-page .nav .nav-link:hover{background:rgba(255,255,255,.09)!important;color:#fff!important}
+  body.app-page .nav .nav-link.active{background:#264f7d!important;border-left-color:#e1b125!important;color:#fff!important}
+  body.app-page .nav .nav-icon{display:none!important}
+}

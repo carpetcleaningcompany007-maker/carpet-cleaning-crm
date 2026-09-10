@@ -6344,6 +6344,27 @@ def calc_from_payload(payload):
             'discount': discount, 'uplift': uplift, 'urine_treatment': urine_treatment}
 
 
+def quote_deposit_details(payload, total):
+    """Return the optional deposit request without changing the quote total."""
+    payload = payload or {}
+    deposit_type = clean_str(payload.get("deposit_type")).lower()
+    try:
+        value = max(0.0, float(payload.get("deposit_value") or 0))
+    except (TypeError, ValueError):
+        value = 0.0
+    total = max(0.0, float(total or 0))
+    if deposit_type == "percent":
+        value = min(value, 100.0)
+        amount = round(total * value / 100, 2)
+    elif deposit_type == "fixed":
+        amount = min(round(value, 2), total)
+    else:
+        deposit_type = "none"
+        value = 0.0
+        amount = 0.0
+    return {"type": deposit_type, "value": value, "amount": amount, "balance": round(total - amount, 2)}
+
+
 def log_sms_event(customer_id, communication_id, provider, event_type, to_phone, from_phone, body, external_id='', status='Logged', direction='outbound', payload=None, error_text=''):
     return run("""INSERT INTO sms_events(customer_id, communication_id, provider, event_type, to_phone, from_phone, body, external_id, status, direction, payload_json, error_text, created_at, updated_at)
                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'),datetime('now'))""", (customer_id, communication_id, provider, event_type, to_phone, from_phone, body, external_id, status, direction, json.dumps(payload or {}), error_text))
@@ -13960,9 +13981,10 @@ def quote_view(quote_id):
     except (TypeError, json.JSONDecodeError):
         quote_adjustments = {}
     existing_job = q("SELECT id FROM jobs WHERE quote_id=? AND IFNULL(status,'') <> 'Archived' ORDER BY id DESC LIMIT 1", (quote_id,), one=True)
+    deposit = quote_deposit_details(quote_adjustments, quote["total"] if quote else 0)
     recent_contacts = recent_customer_contacts(quote["customer_id"] if quote else None, 6)
     contact_summary = customer_contact_summary(quote["customer_id"] if quote else None, 30)
-    return render_template("quote_view.html", quote=quote, lines=lines, quote_adjustments=quote_adjustments, is_archived=((quote["status"] or "") == "Archived"), existing_job_id=(existing_job["id"] if existing_job else None), recent_contacts=recent_contacts, contact_summary=contact_summary)
+    return render_template("quote_view.html", quote=quote, lines=lines, quote_adjustments=quote_adjustments, deposit=deposit, is_archived=((quote["status"] or "") == "Archived"), existing_job_id=(existing_job["id"] if existing_job else None), recent_contacts=recent_contacts, contact_summary=contact_summary)
 
 @app.route("/quotes/<int:quote_id>/edit", methods=["POST"])
 @login_required
@@ -14132,6 +14154,38 @@ def quote_adjustment(quote_id):
     run("UPDATE quotes SET subtotal=?, vat=?, total=?, payload_json=? WHERE id=?", (
         calculated["subtotal"], calculated["vat"], calculated["total"], json.dumps(payload), quote_id))
     flash("Quote adjustment saved.")
+    return redirect(url_for("quote_view", quote_id=quote_id))
+
+@app.route("/quotes/<int:quote_id>/deposit", methods=["POST"])
+@login_required
+def quote_deposit(quote_id):
+    quote = q("SELECT * FROM quotes WHERE id=?", (quote_id,), one=True)
+    if not quote:
+        abort(404)
+    deposit_type = clean_str(request.form.get("deposit_type")).lower()
+    try:
+        deposit_value = float(request.form.get("deposit_value") or 0)
+    except (TypeError, ValueError):
+        flash("Enter a valid deposit amount.")
+        return redirect(url_for("quote_view", quote_id=quote_id))
+    if deposit_type not in {"none", "fixed", "percent"}:
+        flash("Choose how you would like to take the deposit.")
+        return redirect(url_for("quote_view", quote_id=quote_id))
+    if deposit_value < 0 or (deposit_type == "percent" and deposit_value > 100) or (deposit_type == "fixed" and deposit_value > 100000):
+        flash("Enter a sensible deposit amount.")
+        return redirect(url_for("quote_view", quote_id=quote_id))
+    try:
+        payload = json.loads(quote["payload_json"] or "{}")
+    except (TypeError, json.JSONDecodeError):
+        payload = {}
+    payload["deposit_type"] = deposit_type
+    payload["deposit_value"] = round(deposit_value, 2) if deposit_type != "none" else 0
+    run("UPDATE quotes SET payload_json=? WHERE id=?", (json.dumps(payload), quote_id))
+    deposit = quote_deposit_details(payload, quote["total"])
+    if deposit["amount"]:
+        flash(f"Booking deposit saved: £{deposit['amount']:.2f}. Payment links can be sent when card payments are connected.")
+    else:
+        flash("No booking deposit will be requested for this quote.")
     return redirect(url_for("quote_view", quote_id=quote_id))
 
 @app.route("/quotes/<int:quote_id>/delete", methods=["POST"])
@@ -16993,7 +17047,8 @@ def quote_print(quote_id):
                  WHERE quotes.id=?""", (quote_id,), one=True)
     payload = json.loads(quote["payload_json"] or "{}") if quote["payload_json"] else {}
     calc = calc_from_payload(payload)
-    return render_template("document_print.html", mode="quote", row=quote, calc=calc,
+    deposit = quote_deposit_details(payload, quote["total"])
+    return render_template("document_print.html", mode="quote", row=quote, calc=calc, deposit=deposit,
                            customer_address_lines=customer_address_lines(quote))
 
 @app.route("/invoices/reminders")
