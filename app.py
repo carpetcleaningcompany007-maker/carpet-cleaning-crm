@@ -2220,7 +2220,7 @@ def alert_unconfirmed_acknowledgement_deliveries():
 
 
 def enquiry_follow_up_settings_row():
-    return q("SELECT * FROM enquiry_follow_up_settings WHERE id=1", one=True) or {"delay_hours": 24, "send_time": "10:00", "active": 1}
+    return q("SELECT * FROM enquiry_follow_up_settings WHERE id=1", one=True) or {"delay_hours": 24, "send_time": "10:00", "active": 1, "started_at": ""}
 
 
 def schedule_enquiry_follow_up_sms(lead_id, customer_id=None, data=None, delay_minutes=1440, body=None, due_at=None, status="Queued"):
@@ -2278,6 +2278,7 @@ def run_due_enquiry_follow_up_sms(dry_run=False):
                 WHERE q.sent_at='' AND q.due_at <= ?
                   AND IFNULL(s.is_test,0)=0 AND IFNULL(s.ignore_alerts,0)=0
                   AND q.status IN ('Queued','Awaiting approval')
+                  AND q.created_at >= COALESCE((SELECT started_at FROM enquiry_follow_up_settings WHERE id=1), '9999-12-31')
                 ORDER BY q.due_at ASC LIMIT 50""", (now.isoformat(timespec="seconds"),))
     results = []
     for row in rows:
@@ -8856,6 +8857,12 @@ def init_db():
         send_time TEXT DEFAULT '10:00', active INTEGER DEFAULT 1
     )""")
     conn.execute("INSERT OR IGNORE INTO enquiry_follow_up_settings (id) VALUES (1)")
+    try:
+        conn.execute("ALTER TABLE enquiry_follow_up_settings ADD COLUMN started_at TEXT DEFAULT ''")
+    except sqlite3.OperationalError:
+        pass
+    # Historical enquiries stay out of the new no-reply workflow.
+    conn.execute("UPDATE enquiry_follow_up_settings SET started_at=datetime('now') WHERE IFNULL(started_at,'')=''")
     conn.execute("INSERT OR IGNORE INTO business_goal_settings (id) VALUES (1)")
     conn.execute("INSERT OR IGNORE INTO pricing_config (id, data_json) VALUES (1, ?)", (json.dumps(PRICING_DEFAULTS),))
     conn.execute("INSERT OR IGNORE INTO lead_generation_settings (id) VALUES (1)")
@@ -10470,6 +10477,7 @@ def dashboard():
                                      FROM enquiry_follow_up_queue
                                      LEFT JOIN intake_submissions ON intake_submissions.id=enquiry_follow_up_queue.lead_id
                                      WHERE enquiry_follow_up_queue.status='Ready for Paul'
+                                       AND enquiry_follow_up_queue.created_at >= COALESCE((SELECT started_at FROM enquiry_follow_up_settings WHERE id=1), '9999-12-31')
                                      ORDER BY enquiry_follow_up_queue.updated_at DESC, enquiry_follow_up_queue.id DESC
                                      LIMIT 1""", one=True)
     if quote_ready:
