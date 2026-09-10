@@ -1872,12 +1872,10 @@ def enquiry_follow_up_sms_text(data):
     greeting = f"Hi {first_name}," if first_name else "Hi,"
     return (
         f"{greeting}\n\n"
-        "Thanks for your enquiry.\n\n"
-        "I’ve had a quick look at what you need. If you have any photos to share, that would be great.\n\n"
-        "Often it’s easier if we have a quick chat on the phone, if that’s okay with you. Perhaps I could give you a quick call.\n\n"
-        "I’d love to help in whichever way works best for you and answer any questions you may have.\n\n"
-        "Kind regards,\n\n"
-        "Paul"
+        "You recently sent an enquiry through our website about carpet or upholstery cleaning. "
+        "I just wanted to check whether you still wanted help.\n\n"
+        "If you reply with a few details or photos, I can put together the right quote for you.\n\n"
+        "Thanks,\nPaul\nThe Carpet Cleaning Company"
     )
 
 
@@ -2271,6 +2269,16 @@ def run_due_enquiry_follow_up_sms(dry_run=False):
                 LIMIT 50""", (now.isoformat(timespec="seconds"),))
     results = []
     for row in rows:
+        customer_id = row_value(row, "customer_id") or row_value(row, "lead_customer_id")
+        reply = q("""SELECT id FROM communications WHERE customer_id=?
+                     AND created_at > ? AND (subject='Inbound SMS reply' OR subject LIKE 'Inbound%')
+                     ORDER BY id DESC LIMIT 1""", (customer_id, row_value(row, "created_at")), one=True) if customer_id else None
+        if reply:
+            if not dry_run:
+                run("UPDATE enquiry_follow_up_queue SET status='Cancelled - customer replied', message='Customer replied before the follow-up was sent.', updated_at=datetime('now') WHERE id=?", (row_value(row, "id"),))
+                update_intake_delivery_status(row_value(row, "lead_id"), follow_up_status="Customer replied — follow-up stopped")
+            results.append({"rule": "enquiry_follow_up_sms", "lead_id": row_value(row, "lead_id"), "customer_id": customer_id, "channel": "sms", "status": "Cancelled", "message": "Customer replied before the follow-up was sent."})
+            continue
         if not customer_sms_allowed_now(now):
             next_due = next_customer_sms_allowed_at(now)
             if not dry_run:
@@ -3505,7 +3513,7 @@ def run_website_enquiry_automation(lead_id, customer_id, data):
         lead_id,
         customer_id,
         data,
-        delay_minutes=4,
+        delay_minutes=1440,
         body=enquiry_follow_up_sms_text(data),
         status="Awaiting approval",
     )
