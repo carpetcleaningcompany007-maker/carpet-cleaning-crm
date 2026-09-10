@@ -26,9 +26,13 @@
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'AI could not finish. Please try again.');
       previewBody.value = result.body; previewSubject.value = result.subject;
+      // The writing buttons should visibly change the message immediately.
+      body.value = result.body;
+      if (source.channel === 'Email') subject.value = result.subject || subject.value;
+      body.dispatchEvent(new Event('input', { bubbles: true }));
       panel.querySelector('[data-writing-subject-label]').hidden = source.channel !== 'Email';
       panel.querySelector('[data-writing-feedback]').textContent = [result.feedback, result.warning].filter(Boolean).join(' ');
-      preview.hidden = false; status.textContent = 'Check and edit the suggestion, then choose Use this draft.';
+      preview.hidden = false; status.textContent = 'AI wording added to your message. You can edit it, then send when ready.';
     } catch (error) { status.textContent = error.message || 'AI could not finish. Your original message is unchanged.'; }
     finally { pending = false; panel.querySelectorAll('[data-writing-action]').forEach(el => el.disabled = false); }
   }));

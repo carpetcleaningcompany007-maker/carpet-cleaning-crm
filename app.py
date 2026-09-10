@@ -2112,27 +2112,16 @@ def process_acknowledgement_delivery_receipt(external_id, status, payload=None, 
         return
     if state != "failed" or clean_str(row_value(row, "fallback_sent_at")):
         return
-    lead = q("SELECT * FROM intake_submissions WHERE id=?", (row_value(row, "lead_id"),), one=True)
-    try:
-        data = json.loads(row_value(row, "payload_json") or "{}")
-    except (TypeError, ValueError):
-        data = {}
-    email = request_value(data, "email", "email_address") or row_value(lead, "email")
-    body = enquiry_acknowledgement_text(data)
-    fallback_ok = False
-    fallback_msg = "No valid email address was available for fallback."
-    if is_valid_email(email):
-        customer_id = row_value(row, "customer_id") or row_value(lead, "customer_id")
-        customer = q("SELECT * FROM customers WHERE id=?", (customer_id,), one=True) if customer_id else None
-        fallback_ok, fallback_msg = send_env_email(email, "Thank you for your enquiry", body, customer=customer)
+    # Never duplicate a customer enquiry by automatically falling back to email.
+    # A failed SMS is shown prominently in the CRM for Paul to handle himself.
+    detail = f"Failed: ClickSend delivery receipt was {clean_str(status)}. Message ID: {external_id}. No email was sent."
     run("""UPDATE enquiry_acknowledgement_queue
-           SET status=?, message=?, fallback_sent_at=CASE WHEN ? THEN datetime('now') ELSE fallback_sent_at END,
-               updated_at=datetime('now') WHERE id=?""",
-        ("Email fallback sent" if fallback_ok else "Delivery failed", clean_str(fallback_msg), 1 if fallback_ok else 0, row_value(row, "id")))
+           SET status='Delivery failed', message=?, updated_at=datetime('now') WHERE id=?""",
+        (detail, row_value(row, "id")))
     update_intake_delivery_status(
         row_value(row, "lead_id"),
-        customer_sms_status=f"Failed: ClickSend delivery receipt was {clean_str(status)}. Message ID: {external_id}.",
-        customer_email_status=status_text(fallback_ok, f"Fallback after failed SMS: {fallback_msg}"),
+        customer_sms_status=detail,
+        customer_email_status="No automatic email was sent after the SMS delivery failure.",
     )
 
 
@@ -2175,47 +2164,25 @@ def poll_clicksend_acknowledgement_receipts():
 
 
 def alert_unconfirmed_acknowledgement_deliveries():
-    rows = q("""SELECT q.*, s.email AS lead_email, s.customer_id AS lead_customer_id
-                FROM enquiry_acknowledgement_queue q
+    """Flag missing delivery receipts without sending duplicate customer emails."""
+    rows = q("""SELECT q.* FROM enquiry_acknowledgement_queue q
                 LEFT JOIN intake_submissions s ON s.id=q.lead_id
                 WHERE q.status='Accepted' AND q.sent_at<>'' AND q.receipt_alerted_at=''
                   AND datetime(q.sent_at) <= datetime('now','-5 minutes')
                   AND IFNULL(s.is_test,0)=0 AND IFNULL(s.ignore_alerts,0)=0
                 ORDER BY q.sent_at LIMIT 50""")
-    owner_email, _ = owner_contact_form_recipients()
     results = []
     for row in rows:
-        message = (
-            f"ClickSend has not supplied a delivery receipt within 5 minutes for website enquiry #{row_value(row, 'lead_id')}.\n\n"
-            f"Message ID: {row_value(row, 'external_id') or 'Not captured'}\n"
-            "The text was accepted by ClickSend, but handset delivery is not confirmed. Please check ClickSend SMS History."
-        )
-        try:
-            data = json.loads(row_value(row, "payload_json") or "{}")
-        except (TypeError, ValueError):
-            data = {}
-        customer_email = request_value(data, "email", "email_address") or row_value(row, "lead_email")
-        customer_id = row_value(row, "customer_id") or row_value(row, "lead_customer_id")
-        customer = q("SELECT * FROM customers WHERE id=?", (customer_id,), one=True) if customer_id else None
-        fallback_ok, fallback_detail = (False, "No valid customer email was available for fallback.")
-        if is_valid_email(customer_email):
-            fallback_ok, fallback_detail = send_env_email(
-                customer_email, "Thank you for your enquiry", enquiry_acknowledgement_text(data), customer=customer
-            )
-        ok, detail = (False, "No owner email configured.")
-        if owner_email:
-            ok, detail = send_env_email(owner_email, "SMS delivery not confirmed", message + f"\n\nCustomer email fallback: {fallback_detail}")
-        run("""UPDATE enquiry_acknowledgement_queue SET status=?, receipt_alerted_at=datetime('now'),
-               fallback_sent_at=CASE WHEN ? THEN datetime('now') ELSE fallback_sent_at END,
-               message=?, updated_at=datetime('now') WHERE id=?""",
-            ("Email fallback sent" if fallback_ok else "Delivery unconfirmed", 1 if fallback_ok else 0,
-             clean_str(fallback_detail), row_value(row, "id")))
+        detail = "ClickSend accepted the SMS but no delivery receipt arrived within five minutes. No email was sent automatically."
+        run("""UPDATE enquiry_acknowledgement_queue
+               SET status='Delivery unconfirmed', receipt_alerted_at=datetime('now'),
+                   message=?, updated_at=datetime('now') WHERE id=?""", (detail, row_value(row, "id")))
         update_intake_delivery_status(
             row_value(row, "lead_id"),
-            customer_sms_status="Warning: ClickSend accepted the SMS but no delivery receipt arrived within 5 minutes.",
-            customer_email_status=status_text(fallback_ok, f"Fallback after unconfirmed SMS: {fallback_detail}"),
+            customer_sms_status=detail,
+            customer_email_status="No automatic email was sent.",
         )
-        results.append({"rule": "acknowledgement_delivery_receipt", "lead_id": row_value(row, "lead_id"), "status": "Email fallback sent" if fallback_ok else ("Alerted" if ok else "Unconfirmed"), "message": fallback_detail})
+        results.append({"rule":"acknowledgement_delivery_receipt", "lead_id":row_value(row,"lead_id"), "status":"Delivery unconfirmed", "message":detail})
     return results
 
 
