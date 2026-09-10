@@ -104,3 +104,13 @@
  #dashboard-enquiry-alerts .enquiry-row-meta{height:52px;justify-content:center}
  #dashboard-enquiry-alerts .enquiry-backup-sent{display:none!important}
 }
+
+/* Centre the mobile dashboard framing, while keeping customer-card text easy to scan. */
+@media(max-width:1023px){
+ body.app-page.page-dashboard .mobile-route-welcome{text-align:center!important;padding-inline:0!important}
+ body.app-page.page-dashboard .mobile-route-welcome h1,body.app-page.page-dashboard .mobile-route-welcome p{text-align:center!important}
+ #dashboard-enquiry-alerts{width:100%!important;max-width:560px!important;margin-inline:auto!important}
+ #dashboard-enquiry-alerts .enquiry-schedule-panel>header{position:relative!important;justify-content:center!important;text-align:center!important}
+ #dashboard-enquiry-alerts .enquiry-schedule-panel>header h2{justify-content:center!important;text-align:center!important}
+ #dashboard-enquiry-alerts .enquiry-schedule-panel>header a{position:absolute!important;right:2px!important;top:50%!important;transform:translateY(-50%)!important}
+}
