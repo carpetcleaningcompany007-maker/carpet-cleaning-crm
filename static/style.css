@@ -7142,3 +7142,41 @@ body .login-card .big-action{background:linear-gradient(135deg,#efd17f,#c99a31)!
   background:
     linear-gradient(180deg, rgba(7,23,39,0) 0%, rgba(7,23,39,.08) 38%, rgba(7,23,39,.86) 100%) !important;
 }
+
+
+/* Customer hub: high-contrast workflow headers and an obvious gold customer-details section. */
+body.app-page.page-customer-view .customer-stage-overview.customer-page-accordion,
+body.app-page.page-customer-view .customer-details-workflow.customer-page-accordion{
+  border:2px solid #c89b32!important;
+  box-shadow:0 10px 26px rgba(110,78,13,.12)!important;
+}
+body.app-page.page-customer-view .customer-stage-overview>.page-accordion-summary,
+body.app-page.page-customer-view .customer-details-workflow>.page-accordion-summary{
+  background:#0a3156!important;
+  color:#fff!important;
+  border-radius:13px 13px 0 0!important;
+}
+body.app-page.page-customer-view .customer-stage-overview>.page-accordion-summary span,
+body.app-page.page-customer-view .customer-stage-overview>.page-accordion-summary strong,
+body.app-page.page-customer-view .customer-stage-overview>.page-accordion-summary em,
+body.app-page.page-customer-view .customer-details-workflow>.page-accordion-summary span,
+body.app-page.page-customer-view .customer-details-workflow>.page-accordion-summary strong,
+body.app-page.page-customer-view .customer-details-workflow>.page-accordion-summary em{
+  color:#fff!important;
+  opacity:1!important;
+  text-shadow:none!important;
+}
+body.app-page.page-customer-view .customer-stage-overview>.page-accordion-summary strong,
+body.app-page.page-customer-view .customer-details-workflow>.page-accordion-summary strong{font-size:16px!important;font-weight:700!important}
+body.app-page.page-customer-view .customer-stage-overview>.page-accordion-summary em,
+body.app-page.page-customer-view .customer-details-workflow>.page-accordion-summary em{background:#fff!important;color:#0a3156!important;border-color:#fff!important;font-weight:800!important}
+@media(max-width:700px){
+  body.app-page.page-customer-view .customer-stage-overview.customer-page-accordion,
+  body.app-page.page-customer-view .customer-details-workflow.customer-page-accordion{border-width:2px!important;border-radius:16px!important}
+  body.app-page.page-customer-view .customer-stage-overview>.page-accordion-summary,
+  body.app-page.page-customer-view .customer-details-workflow>.page-accordion-summary{min-height:86px!important;align-content:center!important}
+  body.app-page.page-customer-view .customer-stage-overview>.page-accordion-summary span,
+  body.app-page.page-customer-view .customer-details-workflow>.page-accordion-summary span{font-size:18px!important;font-weight:800!important}
+  body.app-page.page-customer-view .customer-stage-overview>.page-accordion-summary strong,
+  body.app-page.page-customer-view .customer-details-workflow>.page-accordion-summary strong{font-size:16px!important;line-height:1.35!important}
+}
