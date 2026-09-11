@@ -10382,10 +10382,13 @@ def dashboard_enquiry_journey():
     ack_status = clean_str(row_get(lead, 'customer_sms_status') or row_get(lead, 'ack_status'))
     stages = ['Enquiry received', 'First message sent', 'Customer reply', 'Quote prepared', 'Quote sent', 'Booked']
     current = 1
+    missed = []
     eyebrow, detail, label = 'Waiting for customer reply', 'The first message has been sent. Keep this enquiry open until the customer replies or you send the follow-up.', 'Open enquiry'
     url = url_for('intake_form_view', lead_id=lead_id)
     if queue_status in {'Queued', 'Awaiting approval', 'Ready for Paul'}:
-        current = 1
+        stages = ['Enquiry received', 'First message sent', 'Customer reply', 'Follow-up message', 'Quote prepared', 'Quote sent', 'Booked']
+        current = 3
+        missed = [2]
         due = clean_str(row_get(lead, 'follow_up_due_at'))
         time_note = 'tomorrow morning' if queue_status != 'Ready for Paul' else 'now'
         eyebrow = 'No reply — follow-up is the next step'
@@ -10406,7 +10409,7 @@ def dashboard_enquiry_journey():
         current = 2
     return {
         'lead_id': lead_id, 'customer_name': clean_str(row_get(lead, 'name')) or 'Customer',
-        'stages': stages, 'current': current, 'eyebrow': eyebrow, 'detail': detail,
+        'stages': stages, 'current': current, 'missed': missed, 'eyebrow': eyebrow, 'detail': detail,
         'label': label, 'url': url,
     }
 
