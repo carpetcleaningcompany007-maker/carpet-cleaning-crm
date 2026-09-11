@@ -148,7 +148,15 @@ if (window.location.hash === '#customer-message-approval') {
       <div class="lead-action-buttons">
         <form method="post" action="{{ url_for('intake_customer_message_action', lead_id=lead.id) }}">
           <input type="hidden" name="action" value="send_follow_up_sms">
-          <button class="btn primary" type="submit" {% if not lead.phone %}disabled{% endif %}>Send follow-up SMS / Text now</button>
+          <button class="btn primary" type="submit" {% if not lead.phone %}disabled{% endif %}>Send text</button>
+        </form>
+        <form method="post" action="{{ url_for('intake_customer_message_action', lead_id=lead.id) }}">
+          <input type="hidden" name="action" value="send_follow_up_email">
+          <button class="btn secondary" type="submit" {% if not lead.email %}disabled{% endif %}>Send email</button>
+        </form>
+        <form method="post" action="{{ url_for('intake_customer_message_action', lead_id=lead.id) }}">
+          <input type="hidden" name="action" value="send_follow_up_both">
+          <button class="btn secondary" type="submit" {% if not lead.phone or not lead.email %}disabled{% endif %}>Send both</button>
         </form>
         <form method="post" action="{{ url_for('intake_customer_message_action', lead_id=lead.id) }}">
           <input type="hidden" name="action" value="skip_follow_up_sms">
