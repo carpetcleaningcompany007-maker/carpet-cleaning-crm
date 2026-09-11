@@ -1872,9 +1872,8 @@ def enquiry_follow_up_sms_text(data):
     greeting = f"Hi {first_name}," if first_name else "Hi,"
     return (
         f"{greeting}\n\n"
-        "You recently sent an enquiry through our website about carpet or upholstery cleaning. "
-        "I just wanted to check whether you still wanted help.\n\n"
-        "If you would like a quote, please reply with the areas you would like cleaned and how many rooms or items there are — for example, lounge, bedrooms, hall, stairs and landing, rugs, sofas or chairs. I can then prepare a quote for you.\n\n"
+        "Thank you for your enquiry. I have not received a reply yet, so I wanted to check whether you are still looking for carpet or upholstery cleaning.\n\n"
+        "If you would like a quote, please reply with what you need cleaned and how many rooms or items there are — for example, lounge, bedrooms, hall, stairs and landing, rugs, sofas or chairs. I can then give you an accurate quote.\n\n"
         "Thanks,\nPaul\nThe Carpet Cleaning Company"
     )
 
