@@ -143,7 +143,7 @@ class SecurityHardeningTests(unittest.TestCase):
         manifest = self.client.get("/app.webmanifest")
         self.assertEqual(manifest.status_code, 200)
         data = manifest.get_json()
-        self.assertEqual(data["name"], "Carpet Cleaning Manager")
+        self.assertEqual(data["name"], "Carpet Cleaning Business Manager")
         self.assertEqual(data["display"], "standalone")
         self.assertEqual(data["start_url"], "/dashboard?source=pwa")
         self.assertTrue(any(icon["sizes"] == "512x512" for icon in data["icons"]))

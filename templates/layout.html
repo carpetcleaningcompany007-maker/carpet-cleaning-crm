@@ -12,7 +12,7 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Carpet Cleaning Manager">
+  <meta name="apple-mobile-web-app-title" content="Carpet Cleaning Business Manager">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=customer-form-mobile-20260910-1">
   <link rel="stylesheet" href="{{ url_for('static', filename='beautiful.css') }}?v=proper-redesign-20260606-1">
   <link rel="stylesheet" href="{{ url_for('static', filename='crm-redesign.css', v='app-shell-20260905-9') }}">
@@ -36,7 +36,7 @@
   </button>
   <div class="mobile-appbar-title">
     <img class="mobile-appbar-mark" src="{{ url_for('static', filename='site/carpet-cleaning-manager-logo.png') }}" alt="">
-    <span class="manager-wordmark"><strong>Carpet Cleaning</strong><small>MANAGER</small><span class="ai-brand-tag">Advanced AI-powered CRM</span></span>
+    <span class="manager-wordmark"><strong>Carpet Cleaning</strong><small>BUSINESS MANAGER</small><span class="ai-brand-tag">Complete cleaning business system</span></span>
   </div>
   <a class="icon-btn mobile-alert-action" href="{{ url_for('notifications') }}" aria-label="Open notifications{% if notification_count %}, {{ notification_count }} need attention{% endif %}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg>{% if notification_count %}<span class="notification-badge">{{ notification_count if notification_count < 100 else '99+' }}</span>{% endif %}</a>
 </div>
@@ -46,7 +46,7 @@
     <div class="brand brand-tabler">
       <img class="brand-logo" src="{{ url_for('static', filename='site/carpet-cleaning-manager-logo.png') }}" alt="">
       <div>
-        <h1>Carpet Cleaning<span class="manager-wordmark-sub">MANAGER</span></h1><span class="ai-brand-tag">Advanced AI-powered CRM</span>
+        <h1>Carpet Cleaning<span class="manager-wordmark-sub">BUSINESS MANAGER</span></h1><span class="ai-brand-tag">Complete cleaning business system</span>
 
       </div>
     </div>
