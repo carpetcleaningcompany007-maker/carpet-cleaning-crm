@@ -10359,9 +10359,6 @@ def build_follow_up_dashboard(days=90, limit=12):
     }
 
 
-@app.route("/")
-@app.route("/dashboard")
-@login_required
 def dashboard_enquiry_journey():
     """Return the single most important open enquiry journey for the dashboard."""
     lead = q("""SELECT s.*, f.status AS follow_up_queue_status, f.due_at AS follow_up_due_at
@@ -10414,6 +10411,9 @@ def dashboard_enquiry_journey():
     }
 
 
+@app.route("/")
+@app.route("/dashboard")
+@login_required
 def dashboard():
     archive_counts = active_archived_counts()
     today = uk_today()
