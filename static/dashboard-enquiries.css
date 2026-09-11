@@ -130,3 +130,112 @@
  body.app-page.page-dashboard .mobile-route-dashboard>#dashboard-enquiry-alerts,
  body.app-page.page-dashboard .mobile-route-dashboard>#dashboard-enquiry-alerts .enquiry-schedule-panel{box-sizing:border-box!important;min-width:0!important;width:100%!important;max-width:100%!important;margin-left:0!important;margin-right:0!important}
 }
+
+/* Compact mobile enquiry rows: keep the dashboard quick to scan. */
+@media (max-width: 1023px) {
+  #dashboard-enquiry-alerts .enquiry-schedule-panel {
+    max-width: none !important;
+    padding: 0 14px 14px !important;
+    border-radius: 16px !important;
+  }
+
+  #dashboard-enquiry-alerts .enquiry-schedule-panel > header {
+    position: static !important;
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    align-items: center !important;
+    justify-content: normal !important;
+    gap: 8px !important;
+    padding: 16px 2px !important;
+    text-align: left !important;
+  }
+
+  #dashboard-enquiry-alerts .enquiry-schedule-panel > header h2 {
+    justify-content: flex-start !important;
+    text-align: left !important;
+    font-size: 25px !important;
+    white-space: nowrap !important;
+  }
+
+  #dashboard-enquiry-alerts .enquiry-schedule-panel > header a {
+    position: static !important;
+    transform: none !important;
+    font-size: 14px !important;
+    text-align: right !important;
+  }
+
+  #dashboard-enquiry-alerts .enquiry-priority-item {
+    margin: 6px 0 !important;
+    padding: 0 !important;
+  }
+
+  #dashboard-enquiry-alerts .enquiry-priority-item > .enquiry-row-expand > .enquiry-row-toggle {
+    position: static !important;
+    display: grid !important;
+    grid-template-columns: 44px minmax(0, 1fr) 20px !important;
+    align-items: center !important;
+    justify-items: stretch !important;
+    gap: 11px !important;
+    min-height: 0 !important;
+    padding: 12px 10px !important;
+    text-align: left !important;
+  }
+
+  #dashboard-enquiry-alerts .enquiry-side-icon {
+    width: 44px !important;
+    height: 44px !important;
+    flex-basis: 44px !important;
+    margin: 0 !important;
+    border-radius: 10px !important;
+  }
+
+  #dashboard-enquiry-alerts .enquiry-side-icon svg {
+    width: 28px !important;
+    height: 28px !important;
+  }
+
+  #dashboard-enquiry-alerts .enquiry-row-copy {
+    display: grid !important;
+    width: auto !important;
+    gap: 2px !important;
+    padding: 0 !important;
+    justify-items: start !important;
+    text-align: left !important;
+  }
+
+  #dashboard-enquiry-alerts .enquiry-row-title {
+    display: flex !important;
+    justify-content: flex-start !important;
+    text-align: left !important;
+    font-size: 18px !important;
+    line-height: 1.2 !important;
+  }
+
+  #dashboard-enquiry-alerts .enquiry-step-caption {
+    display: block !important;
+    text-align: left !important;
+    font-size: 14px !important;
+    line-height: 1.35 !important;
+    color: #526c66 !important;
+  }
+
+  /* Ordinary rows show one useful status. Problem rows keep all warning detail. */
+  #dashboard-enquiry-alerts .enquiry-priority-item:not(.enquiry-delivery-problem) .enquiry-step-caption br,
+  #dashboard-enquiry-alerts .enquiry-priority-item:not(.enquiry-delivery-problem) .enquiry-step-caption > span {
+    display: none !important;
+  }
+
+  #dashboard-enquiry-alerts .enquiry-row-meta {
+    position: static !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    height: auto !important;
+    transform: none !important;
+  }
+
+  #dashboard-enquiry-alerts .enquiry-row-meta b {
+    font-size: 26px !important;
+    line-height: 1 !important;
+  }
+}
