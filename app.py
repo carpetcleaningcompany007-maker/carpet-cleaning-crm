@@ -10362,6 +10362,58 @@ def build_follow_up_dashboard(days=90, limit=12):
 @app.route("/")
 @app.route("/dashboard")
 @login_required
+def dashboard_enquiry_journey():
+    """Return the single most important open enquiry journey for the dashboard."""
+    lead = q("""SELECT s.*, f.status AS follow_up_queue_status, f.due_at AS follow_up_due_at
+                FROM intake_submissions s
+                LEFT JOIN enquiry_follow_up_queue f ON f.lead_id=s.id
+                WHERE IFNULL(s.is_test,0)=0 AND IFNULL(s.ignore_alerts,0)=0
+                  AND lower(IFNULL(s.status,'')) NOT IN ('booked','closed','closed - no reply')
+                ORDER BY CASE
+                  WHEN f.status='Ready for Paul' THEN 0
+                  WHEN lower(IFNULL(s.status,''))='quoted' THEN 1
+                  WHEN lower(IFNULL(s.follow_up_status,'')) LIKE '%waiting%' THEN 2
+                  ELSE 3 END, s.id DESC
+                LIMIT 1""", one=True)
+    if not lead:
+        return None
+    lead_id = row_get(lead, 'id')
+    customer_id = row_get(lead, 'customer_id')
+    quote = q("""SELECT id, quote_number, total, status FROM quotes
+                 WHERE customer_id=? ORDER BY id DESC LIMIT 1""", (customer_id,), one=True) if customer_id else None
+    queue_status = clean_str(row_get(lead, 'follow_up_queue_status'))
+    ack_status = clean_str(row_get(lead, 'customer_sms_status') or row_get(lead, 'ack_status'))
+    stages = ['Enquiry received', 'First message sent', 'Customer reply', 'Quote prepared', 'Quote sent', 'Booked']
+    current = 1
+    eyebrow, detail, label = 'Waiting for customer reply', 'The first message has been sent. Keep this enquiry open until the customer replies or you send the follow-up.', 'Open enquiry'
+    url = url_for('intake_form_view', lead_id=lead_id)
+    if queue_status in {'Queued', 'Awaiting approval', 'Ready for Paul'}:
+        current = 1
+        due = clean_str(row_get(lead, 'follow_up_due_at'))
+        time_note = 'tomorrow morning' if queue_status != 'Ready for Paul' else 'now'
+        eyebrow = 'No reply — follow-up is the next step'
+        detail = ('A text and email draft are ready to review and send.' if queue_status == 'Ready for Paul'
+                  else f'No reply yet. The follow-up will be ready {time_note}; you can open it now to review the draft.')
+        label = 'Review follow-up'
+        url += '#customer-message-approval'
+    elif quote:
+        status = clean_str(row_get(quote, 'status')).lower() or 'draft'
+        if status == 'draft':
+            current, eyebrow, detail, label = 3, 'Quote prepared — check it before sending', f"Quote {row_get(quote, 'quote_number') or ''} is ready to review.", 'View and approve quote'
+        else:
+            current, eyebrow, detail, label = 4, 'Quote sent — waiting for customer', 'Keep the quote visible here until the customer accepts or you follow up.', 'View quote'
+        url = url_for('quote_view', quote_id=row_get(quote, 'id'))
+    elif ack_status.lower() in {'failed', 'delivery failed'}:
+        current, eyebrow, detail, label = 1, 'First message needs attention', 'Check the customer contact details, then resend by text or email.', 'Open message options'
+    elif clean_str(row_get(lead, 'status')).lower() in {'contacted', 'waiting for customer'}:
+        current = 2
+    return {
+        'lead_id': lead_id, 'customer_name': clean_str(row_get(lead, 'name')) or 'Customer',
+        'stages': stages, 'current': current, 'eyebrow': eyebrow, 'detail': detail,
+        'label': label, 'url': url,
+    }
+
+
 def dashboard():
     archive_counts = active_archived_counts()
     today = uk_today()
@@ -10501,6 +10553,7 @@ def dashboard():
         dashboard_next = {"eyebrow": "You’re up to date", "title": "No urgent task waiting",
                           "detail": "New enquiries, due reminders and today’s jobs will appear here.",
                           "label": "Open workflow", "url": url_for("workflow")}
+    dashboard_enquiry_progress = dashboard_enquiry_journey()
     current_hour = datetime.now().hour
     dashboard_greeting = "Good morning" if current_hour < 12 else ("Good afternoon" if current_hour < 18 else "Good evening")
     return render_template("dashboard.html", enquiry_alerts=dashboard_enquiry_alerts(), enquiry_preview_mode=bool(settings()["enquiry_preview_mode"]), today_messages=customer_conversation_rows(today_only=True, limit=12, scheduled_today=True), dashboard_finished=dashboard_finished, stats=stats, dashboard_metrics=dashboard_metrics,
@@ -10514,7 +10567,7 @@ def dashboard():
                            intake_waiting=intake_waiting["c"] if intake_waiting else 0,
                            recent_enquiries=recent_enquiries, dashboard_schedule=dashboard_schedule,
                            dashboard_next=dashboard_next, dashboard_quote_ready=quote_ready,
-                           dashboard_follow_up_ready=dashboard_follow_up_ready, dashboard_greeting=dashboard_greeting,
+                           dashboard_follow_up_ready=dashboard_follow_up_ready, dashboard_enquiry_progress=dashboard_enquiry_progress, dashboard_greeting=dashboard_greeting,
                            dashboard_date=f"{today.strftime('%A')}, {today.day} {today.strftime('%B')}")
 
 
