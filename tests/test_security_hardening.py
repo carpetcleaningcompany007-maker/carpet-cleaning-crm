@@ -151,6 +151,8 @@ class SecurityHardeningTests(unittest.TestCase):
         self.assertEqual(worker.status_code, 200)
         self.assertIn(b"notificationclick", worker.data)
         self.assertIn(b"/offline", worker.data)
+        self.assertIn(b"carpet-clean-pro-v45", worker.data)
+        self.assertNotIn(b"response.status>=500", worker.data)
         self.assertEqual(worker.headers["Service-Worker-Allowed"], "/")
         login = self.client.get("/login")
         self.assertIn(b'app.webmanifest', login.data)
