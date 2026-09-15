@@ -13,6 +13,34 @@
   <div class="notice">
     Useful placeholders: {{ "{{name}}" }}, {{ "{{phone}}" }}, {{ "{{email}}" }}, {{ "{{address}}" }}, {{ "{{postcode}}" }}, {{ "{{service}}" }}, {{ "{{preferred_date}}" }}, {{ "{{date}}" }}, {{ "{{time}}" }}, {{ "{{business_name}}" }}, {{ "{{review_link}}" }}, {{ "{{facebook}}" }}, {{ "{{message}}" }}, {{ "{{website}}" }}.
   </div>
+  <section class="panel">
+    <span class="section-kicker">Website enquiry automation</span>
+    <h3>Automatic first text message</h3>
+    <p>Change the message permanently, or set a temporary version for a holiday, busy period, or special offer. Temporary wording automatically returns to the permanent version when its time ends.</p>
+    {% if temporary_acknowledgement %}
+      <div class="notice"><strong>Temporary message is active</strong> until {{ temporary_acknowledgement.expires_at }} UK time. New website enquiries will use it until then.</div>
+    {% endif %}
+    <form method="post" class="form">
+      <input type="hidden" name="temporary_change_action" value="save">
+      <label>Message
+        <textarea name="temporary_body" rows="8">{{ temporary_acknowledgement.body if temporary_acknowledgement else acknowledgement.body }}</textarea>
+      </label>
+      <fieldset class="form-choice-group">
+        <legend>How should this change work?</legend>
+        <label><input type="radio" name="change_type" value="permanent" {% if not temporary_acknowledgement %}checked{% endif %}> Make this the permanent message</label>
+        <label><input type="radio" name="change_type" value="temporary" {% if temporary_acknowledgement %}checked{% endif %}> Use this temporarily, then automatically restore the permanent message</label>
+      </fieldset>
+      <div class="row">
+        <label>Duration
+          <input type="number" name="temporary_amount" value="1" min="1" max="365">
+        </label>
+        <label>Unit
+          <select name="temporary_unit"><option value="days">Days</option><option value="weeks">Weeks</option></select>
+        </label>
+      </div>
+      <button class="btn primary">Save automatic first text message</button>
+    </form>
+  </section>
   <form method="post" class="form">
     {% for template in templates %}
       <section class="panel">

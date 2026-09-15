@@ -379,6 +379,18 @@ class WebsiteFormTests(unittest.TestCase):
         unnamed_message = self.appmod.enquiry_acknowledgement_text({})
         self.assertTrue(unnamed_message.startswith("Hi, thank you for your enquiry."))
 
+    def test_temporary_acknowledgement_replaces_permanent_message_until_expiry(self):
+        from datetime import datetime, timedelta
+        from zoneinfo import ZoneInfo
+        expires_at = datetime.now(ZoneInfo("Europe/London")) + timedelta(days=2)
+        self.appmod.run(
+            """INSERT INTO temporary_message_changes(template_key, body, expires_at, active)
+               VALUES (?,?,?,1)""",
+            ("website_enquiry_acknowledgement_sms", "Hi {{first_name}}, I am away until next week.", expires_at.isoformat()),
+        )
+        message = self.appmod.enquiry_acknowledgement_text({"name": "Jane Smith"})
+        self.assertEqual(message, "Hi Jane, I am away until next week.")
+
     def test_organic_shrewsbury_source_is_distinct_from_google_ads_landing_page(self):
         organic = self.appmod.website_enquiry_source_label({
             "landing_page": "organic-shrewsbury-carpet-cleaning.html",

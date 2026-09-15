@@ -1732,6 +1732,11 @@ DEFAULT_MESSAGE_TEMPLATES = {
         "subject": "",
         "body": "Hi {{name}}, thank you very much for your enquiry. We’ve received it and will be in touch shortly. The Carpet Cleaning Company",
     },
+    "website_enquiry_acknowledgement_sms": {
+        "name": "Website enquiry automated acknowledgement",
+        "subject": "",
+        "body": "Hi {{first_name}}, thank you for your enquiry. I've received your message and I'd be happy to help. Could you reply with a little more information about what you would like cleaned? If possible, please send me a few photos as well, as this helps me give you the best advice and an accurate quote.\n\nThanks,\nPaul\nThe Carpet Cleaning Company",
+    },
     "owner_enquiry_alert_email": {
         "name": "Owner enquiry alert email",
         "subject": "New website enquiry received",
@@ -1909,15 +1914,13 @@ def enquiry_follow_up_approval_note():
 def enquiry_acknowledgement_text(data):
     full_name = request_value(data or {}, "name", "full_name", "customer_name")
     first_name = clean_str(full_name).split()[0] if clean_str(full_name) else ""
-    greeting = f"Hi {first_name}," if first_name else "Hi,"
-    return (
-        f"{greeting} thank you for your enquiry. I've received your message and I'd be happy to help. "
-        "Could you reply with a little more information about what you would like cleaned? "
-        "If possible, please send me a few photos as well, as this helps me give you the best advice and an accurate quote. "
-        # Temporarily omitted while Paul is away from the UK.
-        "\n\n"
-        "Thanks,\nPaul\nThe Carpet Cleaning Company"
-    )
+    temporary = active_temporary_message_change("website_enquiry_acknowledgement_sms")
+    body = temporary["body"] if temporary else message_template("website_enquiry_acknowledgement_sms")["body"]
+    if not first_name:
+        body = body.replace("Hi {{first_name}},", "Hi,")
+    context = template_context_for_enquiry(data)
+    context["{{first_name}}"] = first_name
+    return render_simple_template(body, context)
 
 
 def customer_sms_hours_open(now=None):
@@ -2284,6 +2287,23 @@ def message_template(key):
         "subject": row["subject"] if row["subject"] is not None else default["subject"],
         "body": row["body"] if row["body"] is not None else default["body"],
     }
+
+
+def active_temporary_message_change(template_key):
+    row = q("""SELECT * FROM temporary_message_changes
+               WHERE template_key=? AND active=1 ORDER BY updated_at DESC LIMIT 1""", (template_key,), one=True)
+    if not row:
+        return None
+    try:
+        expires_at = datetime.fromisoformat(clean_str(row["expires_at"]))
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=ZoneInfo("Europe/London"))
+    except (TypeError, ValueError):
+        expires_at = None
+    if expires_at and expires_at <= datetime.now(ZoneInfo("Europe/London")):
+        run("UPDATE temporary_message_changes SET active=0, updated_at=datetime('now') WHERE template_key=?", (template_key,))
+        return None
+    return row
 
 
 def status_text(ok, message="", skipped=False):
@@ -8464,6 +8484,14 @@ def init_db():
         body TEXT,
         updated_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
+    CREATE TABLE IF NOT EXISTS temporary_message_changes (
+        template_key TEXT PRIMARY KEY,
+        body TEXT NOT NULL,
+        expires_at TEXT NOT NULL,
+        active INTEGER DEFAULT 1,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
     CREATE TABLE IF NOT EXISTS customer_template_overrides (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         customer_id INTEGER,
@@ -12825,6 +12853,36 @@ def sms_template_delete(template_id):
 def message_settings():
     init_db()
     if request.method == "POST":
+        temporary_action = clean_str(request.form.get("temporary_change_action"))
+        if temporary_action:
+            template_key = "website_enquiry_acknowledgement_sms"
+            body = request.form.get("temporary_body") or ""
+            change_type = clean_str(request.form.get("change_type")) or "permanent"
+            if not clean_str(body):
+                flash("Add the message wording before saving.")
+                return redirect(url_for("message_settings"))
+            if change_type == "temporary":
+                try:
+                    amount = max(1, min(365, int(request.form.get("temporary_amount") or 1)))
+                except ValueError:
+                    amount = 1
+                unit = clean_str(request.form.get("temporary_unit"))
+                days = amount * 7 if unit == "weeks" else amount
+                expires_at = datetime.now(ZoneInfo("Europe/London")) + timedelta(days=days)
+                run("""INSERT INTO temporary_message_changes(template_key, body, expires_at, active, created_at, updated_at)
+                       VALUES (?,?,?,1,datetime('now'),datetime('now'))
+                       ON CONFLICT(template_key) DO UPDATE SET body=excluded.body, expires_at=excluded.expires_at,
+                         active=1, updated_at=datetime('now')""",
+                    (template_key, body, expires_at.isoformat(timespec="seconds")))
+                flash(f"Temporary website acknowledgement saved. It will automatically revert on {expires_at.strftime('%d %B at %H:%M')}.")
+            else:
+                run("""INSERT INTO message_templates(template_key, name, subject, body, updated_at)
+                       VALUES (?,?,?,?,datetime('now'))
+                       ON CONFLICT(template_key) DO UPDATE SET body=excluded.body, updated_at=datetime('now')""",
+                    (template_key, DEFAULT_MESSAGE_TEMPLATES[template_key]["name"], "", body))
+                run("UPDATE temporary_message_changes SET active=0, updated_at=datetime('now') WHERE template_key=?", (template_key,))
+                flash("Permanent website acknowledgement saved.")
+            return redirect(url_for("message_settings"))
         for key in DEFAULT_MESSAGE_TEMPLATES:
             name = clean_str(request.form.get(f"{key}_name")) or DEFAULT_MESSAGE_TEMPLATES[key]["name"]
             subject = clean_str(request.form.get(f"{key}_subject"))
@@ -12838,6 +12896,8 @@ def message_settings():
     rows = {row["template_key"]: row for row in q("SELECT * FROM message_templates ORDER BY name")}
     templates = []
     for key, default in DEFAULT_MESSAGE_TEMPLATES.items():
+        if key == "website_enquiry_acknowledgement_sms":
+            continue
         row = rows.get(key)
         templates.append({
             "key": key,
@@ -12845,7 +12905,12 @@ def message_settings():
             "subject": row["subject"] if row else default["subject"],
             "body": row["body"] if row else default["body"],
         })
-    return render_template("message_settings.html", templates=templates)
+    acknowledgement = message_template("website_enquiry_acknowledgement_sms")
+    temporary_acknowledgement = active_temporary_message_change("website_enquiry_acknowledgement_sms")
+    return render_template(
+        "message_settings.html", templates=templates,
+        acknowledgement=acknowledgement, temporary_acknowledgement=temporary_acknowledgement,
+    )
 
 
 @app.route("/communication-automation", methods=["GET", "POST"])
