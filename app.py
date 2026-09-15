@@ -1914,7 +1914,8 @@ def enquiry_acknowledgement_text(data):
         f"{greeting} thank you for your enquiry. I've received your message and I'd be happy to help. "
         "Could you reply with a little more information about what you would like cleaned? "
         "If possible, please send me a few photos as well, as this helps me give you the best advice and an accurate quote. "
-        "You're also welcome to call me on 07802 563213 if you prefer.\n\n"
+        # Temporarily omitted while Paul is away from the UK.
+        "\n\n"
         "Thanks,\nPaul\nThe Carpet Cleaning Company"
     )
 
