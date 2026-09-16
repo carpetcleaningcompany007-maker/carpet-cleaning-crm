@@ -1988,7 +1988,7 @@ def enquiry_acknowledgement_text(data):
         no_photos = bool(re.search(r"\b(no|not|haven't|have not|without)\b.{0,20}\b(photo|photos)\b", detail_lower))
         photo_line = " No problem about the photos." if no_photos else " If you have any photos, please send them over as well."
         body = (f"{greeting} thank you for your enquiry. I have received your message and will be happy to help. "
-                f"I can see you need {detail.lower()}.{photo_line} "
+                f"I can see you need: {detail}.{photo_line} "
                 "We do have a couple of different options depending on what you are looking for. "
                 "Are you looking for the best possible job or the cheapest possible quote? Thank you, Paul")
         return sms_safe_text(body)[:sms_single_message_limit()]
