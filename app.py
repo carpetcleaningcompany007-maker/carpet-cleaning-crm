@@ -13749,14 +13749,8 @@ def notify_owner_ai_draft_ready(draft):
     channel = clean_str(row_get(draft, 'channel')) or 'reply'
     preview = clean_str(row_get(draft, 'body'))
     subject = f'Customer reply received: {customer_name}'
-    text_body = (f"{customer_name} has replied. A {channel} draft is ready for your approval. Nothing has been sent to the customer.
-
-"
-                 f"Draft:
-{preview}
-
-Review, edit, send, rewrite or discard:
-{review_url}")
+    text_body = (f"{customer_name} has replied. A {channel} draft is ready for your approval. Nothing has been sent to the customer.\n\n"
+                 f"Draft:\n{preview}\n\nReview, edit, send, rewrite or discard:\n{review_url}")
     html_body = (f'<h2>Customer reply received: {html_lib.escape(customer_name)}</h2>'
                  '<p>A draft is ready for your approval. Nothing has been sent to the customer.</p>'
                  f'<p><strong>Draft:</strong><br>{html_lib.escape(preview).replace(chr(10), "<br>")}</p>'
