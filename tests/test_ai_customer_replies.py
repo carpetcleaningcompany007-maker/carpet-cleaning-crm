@@ -135,7 +135,7 @@ class AICustomerReplyTests(unittest.TestCase):
         self.assertIn('Use plain text only: never use bold, Markdown', instructions)
         self.assertIn('Do not use hyphens, en dashes, or em dashes', instructions)
 
-    def test_long_conversation_draft_stays_as_sms_for_safe_splitting(self):
+    def test_long_conversation_draft_stays_as_sms_for_manual_shortening(self):
         payload = self.fake_payload()
         payload['output_text'] = json.dumps({
             'subject': '',
@@ -147,15 +147,13 @@ class AICustomerReplyTests(unittest.TestCase):
             draft = self.appmod.generate_ai_customer_reply(self.customer_id, self.lead_id, 'SMS', conversation_mode=True)
         self.assertEqual(draft['channel'], 'SMS')
 
-    def test_long_ai_reply_is_sent_as_complete_sms_parts(self):
+    def test_long_ai_reply_is_not_split_or_sent(self):
         body = 'This is a complete sentence for the customer. ' * 12
         with mock.patch.object(self.appmod, 'send_clicksend_env_sms', return_value=(True, 'accepted')) as send:
             ok, message = self.appmod.send_ai_reply_sms('07800111222', body)
-        self.assertTrue(ok)
-        self.assertGreater(send.call_count, 1)
-        sent_parts = [call.args[1] for call in send.call_args_list]
-        self.assertTrue(all(self.appmod.sms_length_info(part)['parts'] == 1 for part in sent_parts))
-        self.assertEqual(message, f'{len(sent_parts)} complete text messages accepted by ClickSend.')
+        self.assertFalse(ok)
+        send.assert_not_called()
+        self.assertIn('too long for one complete text message', message)
 
     def test_initial_reply_drops_early_access_and_address_request(self):
         context = {'recent_conversation': []}
