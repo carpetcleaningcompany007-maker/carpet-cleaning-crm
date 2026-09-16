@@ -127,10 +127,11 @@ class AICustomerReplyTests(unittest.TestCase):
         self.assertIn('"Standard Clean" and "Professional Deep Clean"', instructions)
         self.assertIn('Never call the Standard Clean a "basic refresh"', instructions)
         self.assertIn('Recommend the Professional Deep Clean for every carpet enquiry', instructions)
-        self.assertIn('service behind the business\'s five-star reviews', instructions)
+        self.assertIn('service behind the business\'s five star reviews', instructions)
         self.assertIn('counter rotating brush machine work that brings dirt from the base of the carpet to the top', instructions)
         self.assertIn('235 degrees of steam extraction', instructions)
         self.assertIn('Klarna can be used to spread the cost over three months', instructions)
+        self.assertIn('like for like price match', instructions)
         self.assertIn('Use plain text only: never use bold, Markdown', instructions)
         self.assertIn('Do not use hyphens, en dashes, or em dashes', instructions)
 
