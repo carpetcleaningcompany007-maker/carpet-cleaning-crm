@@ -126,7 +126,8 @@ class AICustomerReplyTests(unittest.TestCase):
         instructions = captured['request']['instructions']
         self.assertIn('"Standard Clean" and "Professional Deep Clean"', instructions)
         self.assertIn('Never call the Standard Clean a "basic refresh"', instructions)
-        self.assertIn('pet stains or heavier staining', instructions)
+        self.assertIn('Recommend the Professional Deep Clean for every carpet enquiry', instructions)
+        self.assertIn('service behind the business\'s five-star reviews', instructions)
 
     def test_initial_reply_drops_early_access_and_address_request(self):
         context = {'recent_conversation': []}
