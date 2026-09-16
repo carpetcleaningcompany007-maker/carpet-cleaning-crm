@@ -1770,7 +1770,7 @@ DEFAULT_MESSAGE_TEMPLATES = {
     "website_enquiry_acknowledgement_sms": {
         "name": "Website enquiry automated acknowledgement",
         "subject": "",
-        "body": "Hi {{first_name}}, thanks for your enquiry. Please tell me what you need cleaned, any stains or pets. Photos help if you have them. Thanks, Paul",
+        "body": "Hi {{first_name}}, thank you for your enquiry. I have received your message and will be happy to help. Could you provide a little more information about what you need cleaned? For example, a lounge, bedrooms, hall, stairs or upholstery. If you have any photos, please send them over. If not, please let me know about any stains, pet marks or heavy soiling. Thank you, Paul",
     },
     "owner_enquiry_alert_email": {
         "name": "Owner enquiry alert email",
@@ -8944,6 +8944,14 @@ def init_db():
         (
             DEFAULT_MESSAGE_TEMPLATES["website_enquiry_acknowledgement_sms"]["body"],
             "Hi {{first_name}}, thank you for your enquiry. I've received your message and I'll be happy to help. Could you provide a little more information about what you need cleaned? For example, a sofa, lounge and two bedrooms. If you have any photos, they would be helpful. If not, please let me know about any stains, including pet stains, that I should be aware of.\n\nThanks,\nPaul\nThe Carpet Cleaning Company",
+        ),
+    )
+    conn.execute(
+        """UPDATE message_templates SET body=?, updated_at=datetime('now')
+           WHERE template_key='website_enquiry_acknowledgement_sms' AND body=?""",
+        (
+            DEFAULT_MESSAGE_TEMPLATES["website_enquiry_acknowledgement_sms"]["body"],
+            "Hi {{first_name}}, thanks for your enquiry. Please tell me what you need cleaned, any stains or pets. Photos help if you have them. Thanks, Paul",
         ),
     )
     for rule in AUTOMATION_RULE_DEFAULTS:
