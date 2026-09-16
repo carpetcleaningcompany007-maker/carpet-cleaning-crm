@@ -1,0 +1,9 @@
+{% extends "layout.html" %}
+{% block page_title %}Prepare quote email{% endblock %}
+{% block body_content %}
+<main class="quote-page" style="max-width:960px;margin:0 auto;padding:24px">
+  <header class="quote-hero"><div><span class="quote-kicker">REVIEW BEFORE SENDING</span><h1>Quote email</h1><p>{{ quote.quote_number }} · £{{ '%.2f'|format(quote.total or 0) }}</p></div></header>
+  <section class="quote-card" style="margin-top:18px"><h2>Customer PDF</h2><p>Check the exact quote the customer will receive before sending the email.</p><a class="btn primary" href="{{ url_for('quote_print', quote_id=quote.id) }}" target="_blank">Preview quote PDF</a></section>
+  <section class="quote-card"><h2>Email to {{ quote.email or 'customer email missing' }}</h2><p>This is a draft. It is not sent until you press the button at the bottom. The PDF shown above will be attached.</p><form method="post" class="form"><label>Subject<input name="subject" value="{{ subject }}"></label><label>Email message<textarea name="body" rows="13">{{ body }}</textarea></label><div class="row-actions"><a class="btn secondary" href="{{ url_for('quote_view', quote_id=quote.id) }}">Back to quote</a><button class="btn primary" type="submit" {% if not quote.email %}disabled{% endif %}>Send quote email with PDF</button></div></form></section>
+</main>
+{% endblock %}

@@ -9,6 +9,7 @@ import time
 import email.utils
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from email.mime.application import MIMEApplication
 from datetime import date, timedelta, datetime, timezone
 from functools import wraps, lru_cache
 from urllib.parse import quote
@@ -14253,6 +14254,144 @@ def quote_view(quote_id):
     recent_contacts = recent_customer_contacts(quote["customer_id"] if quote else None, 6)
     contact_summary = customer_contact_summary(quote["customer_id"] if quote else None, 30)
     return render_template("quote_view.html", quote=quote, lines=lines, quote_adjustments=quote_adjustments, deposit=deposit, is_archived=((quote["status"] or "") == "Archived"), existing_job_id=(existing_job["id"] if existing_job else None), recent_contacts=recent_contacts, contact_summary=contact_summary)
+
+def quote_email_draft_content(quote):
+    first_name = clean_str(row_value(quote, "first_name")) or "there"
+    number = clean_str(row_value(quote, "quote_number"))
+    subject = f"Your carpet cleaning quote{f' {number}' if number else ''}"
+    body = f"""Hi {first_name},
+
+Thank you for your enquiry and for taking the time to discuss the cleaning with me.
+
+Please find your quote attached. I have put it together based on what we discussed. If you would like to go ahead, just reply to this email and I will get the work booked in for you.
+
+If you would like to discuss the quote or other payment options, please let me know. We offer Buy Now Pay Later and can also spread the cost over three months with Klarna if needed.
+
+Thank you very much,
+
+Paul
+The Carpet Cleaning Company"""
+    return subject, body
+
+
+def quote_pdf_bytes(quote, lines):
+    """Build a clean, attachable PDF quote from the saved CRM quote."""
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import mm
+    from reportlab.pdfgen import canvas
+    output = io.BytesIO()
+    pdf = canvas.Canvas(output, pagesize=A4)
+    width, height = A4
+    y = height - 24 * mm
+    pdf.setFillColorRGB(0.06, 0.18, 0.31)
+    pdf.setFont("Helvetica-Bold", 20)
+    pdf.drawString(20 * mm, y, clean_str(settings()["business_name"]) or "The Carpet Cleaning Company")
+    y -= 11 * mm
+    pdf.setFont("Helvetica", 10)
+    pdf.setFillColorRGB(0.25, 0.32, 0.39)
+    pdf.drawString(20 * mm, y, f"Quote {clean_str(row_value(quote, 'quote_number'))}")
+    y -= 13 * mm
+    pdf.setFillColorRGB(0.06, 0.18, 0.31)
+    pdf.setFont("Helvetica-Bold", 14)
+    pdf.drawString(20 * mm, y, "Cleaning quote")
+    y -= 8 * mm
+    pdf.setFont("Helvetica", 10)
+    customer_name = " ".join(part for part in [clean_str(row_value(quote, 'first_name')), clean_str(row_value(quote, 'last_name'))] if part)
+    pdf.drawString(20 * mm, y, f"Prepared for: {customer_name or 'Customer'}")
+    y -= 12 * mm
+    pdf.setFillColorRGB(0.06, 0.18, 0.31)
+    pdf.setFont("Helvetica-Bold", 10)
+    pdf.drawString(20 * mm, y, "Description")
+    pdf.drawRightString(190 * mm, y, "Amount")
+    y -= 4 * mm
+    pdf.line(20 * mm, y, 190 * mm, y)
+    y -= 7 * mm
+    pdf.setFont("Helvetica", 10)
+    total = 0
+    for line in lines:
+        description = clean_str(row_value(line, 'item_name')) or 'Cleaning service'
+        quantity = float(row_value(line, 'quantity') or 0)
+        amount = float(row_value(line, 'line_total') or 0)
+        total += amount
+        label = f"{description} x {quantity:g}" if quantity > 1 else description
+        if y < 35 * mm:
+            pdf.showPage(); y = height - 25 * mm; pdf.setFont("Helvetica", 10)
+        pdf.drawString(20 * mm, y, label[:75])
+        pdf.drawRightString(190 * mm, y, f"£{amount:,.2f}")
+        y -= 8 * mm
+    y -= 2 * mm
+    pdf.line(120 * mm, y, 190 * mm, y)
+    y -= 8 * mm
+    pdf.setFont("Helvetica-Bold", 13)
+    pdf.drawRightString(160 * mm, y, "Quote total")
+    pdf.drawRightString(190 * mm, y, f"£{float(row_value(quote, 'total') or total):,.2f}")
+    y -= 18 * mm
+    pdf.setFont("Helvetica", 9)
+    pdf.setFillColorRGB(0.25, 0.32, 0.39)
+    pdf.drawString(20 * mm, y, "Thank you for considering The Carpet Cleaning Company.")
+    pdf.save()
+    return output.getvalue()
+
+
+def send_quote_email_attachment(customer, subject, body, quote, lines):
+    recipient = clean_str(row_value(customer, 'email'))
+    if not recipient:
+        return False, "No email address is available for this customer."
+    host = os.environ.get("SMTP_HOST", "").strip() or "smtp.gmail.com"
+    user = os.environ.get("SMTP_USER", "").strip()
+    password = re.sub(r"\\s+", "", os.environ.get("SMTP_PASSWORD", ""))
+    port = int(os.environ.get("SMTP_PORT", "465") or 465)
+    sender = os.environ.get("SMTP_FROM", "").strip() or user
+    from_name = os.environ.get("SMTP_FROM_NAME", "The Carpet Cleaning Company").strip()
+    if not user or not password or not sender:
+        return False, "The quote email is ready, but SMTP needs to be configured before its PDF can be attached."
+    message = MIMEMultipart("mixed")
+    message["Subject"] = subject
+    message["From"] = f"{from_name} <{sender}>"
+    message["To"] = recipient
+    alternative = MIMEMultipart("alternative")
+    alternative.attach(MIMEText(body, "plain", "utf-8"))
+    alternative.attach(MIMEText("<div style='font-family:Arial,sans-serif;line-height:1.6;white-space:pre-wrap;color:#102033'>" + html_lib.escape(body) + "</div>", "html", "utf-8"))
+    message.attach(alternative)
+    filename = secure_filename(f"{clean_str(row_value(quote, 'quote_number')) or 'quote'}-carpet-cleaning-quote.pdf")
+    attachment = MIMEApplication(quote_pdf_bytes(quote, lines), _subtype="pdf")
+    attachment.add_header("Content-Disposition", "attachment", filename=filename)
+    message.attach(attachment)
+    try:
+        if port == 465:
+            with smtplib.SMTP_SSL(host, port, context=ssl.create_default_context()) as server:
+                server.login(user, password)
+                server.sendmail(sender, [recipient], message.as_string())
+        else:
+            with smtplib.SMTP(host, port, timeout=30) as server:
+                server.starttls(context=ssl.create_default_context())
+                server.login(user, password)
+                server.sendmail(sender, [recipient], message.as_string())
+    except Exception as exc:
+        return False, f"The quote email was not sent: {exc}"
+    return True, f"Quote email and PDF sent to {recipient}."
+
+
+@app.route("/quotes/<int:quote_id>/email", methods=["GET", "POST"])
+@login_required
+def quote_email_preview(quote_id):
+    quote = q("""SELECT quotes.*, customers.* FROM quotes LEFT JOIN customers ON customers.id=quotes.customer_id WHERE quotes.id=?""", (quote_id,), one=True)
+    if not quote:
+        abort(404)
+    lines = q("SELECT * FROM quote_lines WHERE quote_id=? ORDER BY id", (quote_id,))
+    subject, body = quote_email_draft_content(quote)
+    if request.method == "POST":
+        subject = clean_str(request.form.get("subject")) or subject
+        body = request.form.get("body") or body
+        ok, message = send_quote_email_attachment(quote, subject, body, quote, lines)
+        if ok:
+            run("INSERT INTO communications(customer_id,channel,subject,body,created_at) VALUES (?,?,?,?,datetime('now'))", (quote['customer_id'], 'Email', subject, body))
+            run("UPDATE quotes SET status='Sent' WHERE id=?", (quote_id,))
+            set_customer_workflow(quote['customer_id'], 'quote_sent', 'Quote PDF email sent after review.', 'Quote sent')
+        flash(message)
+        return redirect(url_for('quote_view', quote_id=quote_id))
+    return render_template("quote_email_preview.html", quote=quote, lines=lines, subject=subject, body=body)
+
 
 @app.route("/quotes/<int:quote_id>/edit", methods=["POST"])
 @login_required
