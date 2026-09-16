@@ -1587,16 +1587,16 @@ def sms_single_message_limit():
     """Conservative CRM ceiling for a single customer SMS, including the closing."""
     s = settings()
     try:
-        return max(1, min(int(s['sms_single_message_limit'] or 150), 160))
+        return max(1, min(int(s['sms_single_message_limit'] or 480), 480))
     except (TypeError, ValueError, IndexError):
-        return 150
+        return 480
 
 
 def sms_single_message_error(text):
     info = sms_length_info(text)
     limit = sms_single_message_limit()
     if info['parts'] > 1 or info['units'] > limit:
-        return f'This text is {info["units"]} SMS characters. The CRM limit is {limit} characters for one complete text, including the closing. Shorten it before sending; it will not be split.'
+        return f'This text is {info["units"]} SMS characters. The CRM limit is {limit} characters including the closing. Shorten it before sending; it will not be split.'
     return ''
 
 
@@ -8008,7 +8008,7 @@ def init_db():
         sms_start_keywords TEXT DEFAULT 'START,UNSTOP,SUBSCRIBE',
         sms_marketing_opt_out_notice TEXT DEFAULT 'Reply STOP to opt out.',
         sms_append_opt_out_on_marketing INTEGER DEFAULT 1
-        ,sms_single_message_limit INTEGER DEFAULT 150
+        ,sms_single_message_limit INTEGER DEFAULT 480
     );
     CREATE TABLE IF NOT EXISTS pricing_config (
         id INTEGER PRIMARY KEY CHECK (id=1),
@@ -8731,7 +8731,7 @@ def init_db():
         ("settings", "sms_start_keywords", "TEXT DEFAULT 'START,UNSTOP,SUBSCRIBE'"),
         ("settings", "sms_marketing_opt_out_notice", "TEXT DEFAULT 'Reply STOP to opt out.'"),
         ("settings", "sms_append_opt_out_on_marketing", "INTEGER DEFAULT 1"),
-        ("settings", "sms_single_message_limit", "INTEGER DEFAULT 150"),
+        ("settings", "sms_single_message_limit", "INTEGER DEFAULT 480"),
         ("settings", "mfa_secret_encrypted", "TEXT DEFAULT ''"),
         ("settings", "mfa_enabled", "INTEGER DEFAULT 0"),
         ("settings", "mfa_recovery_hashes", "TEXT DEFAULT '[]'"),
@@ -8884,6 +8884,9 @@ def init_db():
             cur.execute(f"ALTER TABLE {table} ADD COLUMN {col} {decl}")
         except sqlite3.OperationalError:
             pass
+    # Replace the earlier overly restrictive 150-character default. Existing
+    # customer-specific limits other than that default are left untouched.
+    conn.execute("UPDATE settings SET sms_single_message_limit=480 WHERE id=1 AND sms_single_message_limit IN (150, 450)")
     # Older receipt saves treated the displayed total as net and then added VAT
     # again. Correct only rows that still exactly match that old save pattern.
     conn.execute("""UPDATE expenses
@@ -17219,7 +17222,7 @@ def settings_page():
             logo_filename, dashboard_carpet_image, dashboard_upholstery_image,
             request.form.get("email_footer_html"), request.form.get("sms_footer_text"), bg_darkness, bg_palette, bg_color, sidebar_color,
             request.form.get("gmail_address"), request.form.get("gmail_app_password") or s["gmail_app_password"], request.form.get("smtp_from_name"), request.form.get("test_email"),
-            request.form.get("sms_gateway_name"), request.form.get("sms_sender_id"), request.form.get("sms_api_key") or s["sms_api_key"], request.form.get("sms_gateway_url"), max(1, min(int(request.form.get("sms_single_message_limit") or s["sms_single_message_limit"] or 150), 160)), request.form.get("sms_test_number"), request.form.get("sms_account_id"), request.form.get("sms_api_secret") or s["sms_api_secret"], request.form.get("sms_opt_out_message") or s["sms_opt_out_message"],
+            request.form.get("sms_gateway_name"), request.form.get("sms_sender_id"), request.form.get("sms_api_key") or s["sms_api_key"], request.form.get("sms_gateway_url"), max(1, min(int(request.form.get("sms_single_message_limit") or s["sms_single_message_limit"] or 480), 480)), request.form.get("sms_test_number"), request.form.get("sms_account_id"), request.form.get("sms_api_secret") or s["sms_api_secret"], request.form.get("sms_opt_out_message") or s["sms_opt_out_message"],
             request.form.get("sms_stop_keywords") or s["sms_stop_keywords"], request.form.get("sms_start_keywords") or s["sms_start_keywords"], request.form.get("sms_marketing_opt_out_notice") or s["sms_marketing_opt_out_notice"], 1 if request.form.get("sms_append_opt_out_on_marketing") else 0
         ))
         flash("Settings saved.")
