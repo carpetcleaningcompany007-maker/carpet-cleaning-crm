@@ -2049,7 +2049,7 @@ def schedule_enquiry_acknowledgement(lead_id, customer_id=None, data=None, delay
     due_at = datetime.now(ZoneInfo("Europe/London")) + timedelta(minutes=delay_minutes)
     run("""INSERT INTO enquiry_acknowledgement_queue
            (lead_id, customer_id, payload_json, due_at, status, created_at)
-           VALUES (?,?,?,?, 'Queued', datetime('now'))
+           VALUES (?,?,?,?, 'Awaiting approval', datetime('now'))
            ON CONFLICT(lead_id) DO NOTHING""",
         (lead_id, customer_id or row_get(lead, "customer_id"), json.dumps(payload, default=str), due_at.isoformat(timespec="seconds")))
     # Give every enquiry its own wake-up as well as leaving it in the durable
@@ -2071,7 +2071,7 @@ def schedule_enquiry_acknowledgement(lead_id, customer_id=None, data=None, delay
     timer = threading.Timer(max(1, (delay_minutes * 60) + 5), wake_acknowledgement_queue)
     timer.daemon = True
     timer.start()
-    return True, f"Customer acknowledgement queued for about {delay_minutes} minutes after the enquiry."
+    return True, "Customer acknowledgement drafted and waiting for Paul’s approval."
 
 
 def run_due_enquiry_acknowledgements(dry_run=False, lead_id=None):
@@ -2083,7 +2083,7 @@ def run_due_enquiry_acknowledgements(dry_run=False, lead_id=None):
                 WHERE q.sent_at='' AND q.due_at <= ? AND (? IS NULL OR q.lead_id=?)
                   AND IFNULL(s.is_test,0)=0 AND IFNULL(s.ignore_alerts,0)=0
                   AND (
-                    q.status IN ('Queued','Awaiting approval')
+                    q.status IN ('Queued')
                     OR (q.status='Sending' AND datetime(IFNULL(q.updated_at, q.created_at)) <= datetime('now','-5 minutes'))
                   )
                 ORDER BY q.due_at ASC LIMIT 50""", (now.isoformat(timespec="seconds"), lead_id, lead_id))
@@ -2341,7 +2341,7 @@ def run_due_enquiry_follow_up_sms(dry_run=False):
                 LEFT JOIN intake_submissions s ON s.id=q.lead_id
                 WHERE q.sent_at='' AND q.due_at <= ?
                   AND IFNULL(s.is_test,0)=0 AND IFNULL(s.ignore_alerts,0)=0
-                  AND q.status IN ('Queued','Awaiting approval')
+                  AND q.status IN ('Queued')
                   AND q.created_at >= COALESCE((SELECT started_at FROM enquiry_follow_up_settings WHERE id=1), '9999-12-31')
                 ORDER BY q.due_at ASC LIMIT 50""", (now.isoformat(timespec="seconds"),))
     results = []
@@ -8967,6 +8967,12 @@ def init_db():
         conn.execute('UPDATE expenses SET category=? WHERE category=?',(new_category,old_category))
         conn.execute('UPDATE recurring_expenses SET category=? WHERE category=?',(new_category,old_category))
     conn.execute("INSERT OR IGNORE INTO settings (id) VALUES (1)")
+    # First website-enquiry acknowledgements are approval-only. Freeze any legacy
+    # queued acknowledgement that has not been sent, so a deployment cannot send it.
+    try:
+        conn.execute("UPDATE enquiry_acknowledgement_queue SET status='Awaiting approval', updated_at=datetime('now') WHERE status='Queued' AND IFNULL(sent_at,'')=''")
+    except sqlite3.OperationalError:
+        pass
     conn.execute("""CREATE TABLE IF NOT EXISTS card_payment_settings (
         id INTEGER PRIMARY KEY CHECK (id=1), provider TEXT DEFAULT 'Stripe',
         publishable_key TEXT DEFAULT '', secret_key TEXT DEFAULT '', webhook_secret TEXT DEFAULT '',
@@ -10944,7 +10950,7 @@ def dashboard_enquiry_action(lead_id):
             flash('Customer contact hours are 09:30–19:00. The message stays queued for the next permitted time.')
             return redirect(url_for('dashboard'))
         cur = db().execute("""UPDATE enquiry_acknowledgement_queue SET due_at=?, updated_at=datetime('now')
-                              WHERE lead_id=? AND status='Queued' AND sent_at=''""", (now.isoformat(timespec='seconds'),lead_id))
+                              WHERE lead_id=? AND status IN ('Queued','Awaiting approval') AND sent_at=''""", (now.isoformat(timespec='seconds'),lead_id))
         db().commit()
         if cur.rowcount:
             results = run_due_enquiry_acknowledgements(lead_id=lead_id)
@@ -10955,7 +10961,7 @@ def dashboard_enquiry_action(lead_id):
         return redirect(url_for('dashboard'))
     # Only a still-queued message can be cancelled; a worker that already claimed it wins.
     db().execute("""UPDATE enquiry_acknowledgement_queue SET status='Cancelled', message=?, updated_at=datetime('now')
-                    WHERE lead_id=? AND status='Queued' AND sent_at=''""", ('Stopped by Paul from dashboard: '+action,lead_id))
+                    WHERE lead_id=? AND status IN ('Queued','Awaiting approval') AND sent_at=''""", ('Stopped by Paul from dashboard: '+action,lead_id))
     db().commit()
     queued = q('SELECT status FROM enquiry_acknowledgement_queue WHERE lead_id=?',(lead_id,),one=True)
     if row_get(queued,'status') == 'Sending' and not contact_attempt:
