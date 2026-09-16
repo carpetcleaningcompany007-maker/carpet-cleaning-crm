@@ -1735,7 +1735,7 @@ DEFAULT_MESSAGE_TEMPLATES = {
     "website_enquiry_acknowledgement_sms": {
         "name": "Website enquiry automated acknowledgement",
         "subject": "",
-        "body": "Hi {{first_name}}, thank you for your enquiry. I've received your message and I'll be happy to help. Could you provide a little more information about what you need cleaned? For example, a sofa, lounge and two bedrooms. If you have any photos, they would be helpful. If not, please let me know about any stains, including pet stains, that I should be aware of.\n\nThanks,\nPaul\nThe Carpet Cleaning Company",
+        "body": "Hi {{first_name}}, thanks for your enquiry. Please tell me what you need cleaned, any stains or pets. Photos help if you have them. Thanks, Paul",
     },
     "owner_enquiry_alert_email": {
         "name": "Owner enquiry alert email",
@@ -8903,7 +8903,7 @@ def init_db():
             WHERE template_key='website_enquiry_acknowledgement_sms' AND body=?""",
         (
             DEFAULT_MESSAGE_TEMPLATES["website_enquiry_acknowledgement_sms"]["body"],
-            "Hi {{first_name}}, thank you for your enquiry. I've received your message and I'd be happy to help. Could you reply with a little more information about what you would like cleaned? If possible, please send me a few photos as well, as this helps me give you the best advice and an accurate quote.\n\nThanks,\nPaul\nThe Carpet Cleaning Company",
+            "Hi {{first_name}}, thank you for your enquiry. I've received your message and I'll be happy to help. Could you provide a little more information about what you need cleaned? For example, a sofa, lounge and two bedrooms. If you have any photos, they would be helpful. If not, please let me know about any stains, including pet stains, that I should be aware of.\n\nThanks,\nPaul\nThe Carpet Cleaning Company",
         ),
     )
     for rule in AUTOMATION_RULE_DEFAULTS:

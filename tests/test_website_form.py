@@ -367,18 +367,17 @@ class WebsiteFormTests(unittest.TestCase):
 
     def test_acknowledgement_uses_requested_spacing_signature_and_no_hyphens(self):
         message = self.appmod.enquiry_acknowledgement_text({"name": "Paul Nicholas"})
-        self.assertTrue(message.startswith("Hi Paul, thank you for your enquiry."))
-        self.assertIn("I've received your message and I'll be happy to help.", message)
-        self.assertIn("Could you provide a little more information about what you need cleaned?", message)
-        self.assertIn("a sofa, lounge and two bedrooms", message)
-        self.assertIn("including pet stains", message)
+        self.assertTrue(message.startswith("Hi Paul, thanks for your enquiry."))
+        self.assertIn("Please tell me what you need cleaned, any stains or pets.", message)
+        self.assertIn("Photos help if you have them.", message)
         self.assertNotIn("call me on 07802 563213 if you prefer", message)
-        self.assertTrue(message.endswith("Thanks,\nPaul\nThe Carpet Cleaning Company"))
+        self.assertTrue(message.endswith("Thanks, Paul"))
+        self.assertEqual(self.appmod.sms_length_info(message)["parts"], 1)
         self.assertNotIn("-", message)
         self.assertNotIn("—", message)
 
         unnamed_message = self.appmod.enquiry_acknowledgement_text({})
-        self.assertTrue(unnamed_message.startswith("Hi, thank you for your enquiry."))
+        self.assertTrue(unnamed_message.startswith("Hi, thanks for your enquiry."))
 
     def test_temporary_acknowledgement_replaces_permanent_message_until_expiry(self):
         from datetime import datetime, timedelta
