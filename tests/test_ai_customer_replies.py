@@ -113,6 +113,21 @@ class AICustomerReplyTests(unittest.TestCase):
         generate.assert_called_once_with(self.customer_id, self.lead_id, 'SMS', conversation_mode=True)
         notify.assert_called_once_with(generated)
 
+    def test_conversation_prompt_uses_saved_carpet_option_names(self):
+        captured = {}
+
+        def fake_urlopen(req, timeout=0):
+            captured['request'] = json.loads(req.data.decode('utf-8'))
+            return FakeOpenAIResponse(self.fake_payload())
+
+        with mock.patch.object(self.appmod.urllib.request, 'urlopen', side_effect=fake_urlopen):
+            self.appmod.generate_ai_customer_reply(self.customer_id, self.lead_id, 'SMS', conversation_mode=True)
+
+        instructions = captured['request']['instructions']
+        self.assertIn('"Standard Clean" and "Professional Deep Clean"', instructions)
+        self.assertIn('Never call the Standard Clean a "basic refresh"', instructions)
+        self.assertIn('pet stains or heavier staining', instructions)
+
     def test_initial_reply_drops_early_access_and_address_request(self):
         context = {'recent_conversation': []}
         draft = (
