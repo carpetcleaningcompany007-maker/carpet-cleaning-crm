@@ -1981,7 +1981,7 @@ def enquiry_acknowledgement_text(data):
     detail = request_value(data, "message", "notes", "additional_notes", "what_cleaned", "service", "service_required", "cleaning_required", "rooms_areas", "rooms_or_areas", "rooms_or_items", "rooms_items", "items_required")
     detail = re.sub(r"\s+", " ", clean_str(detail)).strip()
     detail_lower = detail.lower()
-    has_specific_job_detail = bool(detail and (re.search(r"\b(room|lounge|bedroom|stairs|landing|hall|sofa|carpet|upholstery|rug|stain|pet)\b", detail_lower) or re.search(r"\d", detail)))
+    has_specific_job_detail = bool(detail and (re.search(r"\b(room|lounge|bedroom|stairs|landing|hall|sofa|upholstery|rug|stain|pet)\b", detail_lower) or re.search(r"\d", detail)))
     greeting = f"Hi {first_name}," if first_name else "Hi,"
     if has_specific_job_detail:
         detail = detail[:220].rstrip(" ,.;")
@@ -8994,6 +8994,14 @@ def init_db():
         (
             DEFAULT_MESSAGE_TEMPLATES["website_enquiry_acknowledgement_sms"]["body"],
             "Hi {{first_name}}, thank you for your enquiry. I've received your message and I'll be happy to help. Could you provide a little more information about what you need cleaned? For example, a sofa, lounge and two bedrooms. If you have any photos, they would be helpful. If not, please let me know about any stains, including pet stains, that I should be aware of.\n\nThanks,\nPaul\nThe Carpet Cleaning Company",
+        ),
+    )
+    conn.execute(
+        """UPDATE message_templates SET body=?, updated_at=datetime('now')
+           WHERE template_key='website_enquiry_acknowledgement_sms' AND body=?""",
+        (
+            DEFAULT_MESSAGE_TEMPLATES["website_enquiry_acknowledgement_sms"]["body"],
+            "Hi {{first_name}}, thank you for your enquiry. I have received your message and will be happy to help. Could you provide a little more information about what you need cleaned? For example, a lounge, bedrooms, hall, stairs or upholstery. If you have any photos, please send them over. If not, please let me know about any stains, pet marks or heavy soiling. Thank you, Paul",
         ),
     )
     conn.execute(
