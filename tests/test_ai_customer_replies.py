@@ -147,13 +147,13 @@ class AICustomerReplyTests(unittest.TestCase):
             draft = self.appmod.generate_ai_customer_reply(self.customer_id, self.lead_id, 'SMS', conversation_mode=True)
         self.assertEqual(draft['channel'], 'SMS')
 
-    def test_long_ai_reply_is_not_split_or_sent(self):
-        body = 'This is a complete sentence for the customer. ' * 12
+    def test_long_ai_reply_is_not_sent_as_multiple_sms_parts(self):
+        body = 'This is a complete sentence for the customer. ' * 5
         with mock.patch.object(self.appmod, 'send_clicksend_env_sms', return_value=(True, 'accepted')) as send:
             ok, message = self.appmod.send_ai_reply_sms('07800111222', body)
         self.assertFalse(ok)
         send.assert_not_called()
-        self.assertIn('too long for one complete text message', message)
+        self.assertIn('too long for one text message', message)
 
     def test_initial_reply_drops_early_access_and_address_request(self):
         context = {'recent_conversation': []}
