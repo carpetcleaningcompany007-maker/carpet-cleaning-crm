@@ -1582,6 +1582,45 @@ def sms_length_error(text):
     return ''
 
 
+def split_sms_for_delivery(text):
+    """Split a long customer reply into complete, conservatively sized SMS texts."""
+    text = strip_html_for_sms(text or '').strip()
+    if sms_length_info(text)['parts'] <= 1:
+        return [text] if text else []
+    gsm = all(c in SMS_GSM_BASIC or c in SMS_GSM_EXTENDED for c in text)
+    # Leave room for "1/4 " labels and provider metadata.
+    safe_units = 140 if gsm else 55
+    words = text.split()
+    chunks, current = [], ''
+    for word in words:
+        candidate = f"{current} {word}".strip()
+        if current and sms_length_info(candidate)['units'] > safe_units:
+            chunks.append(current)
+            current = word
+        else:
+            current = candidate
+    if current:
+        chunks.append(current)
+    if len(chunks) <= 1:
+        return chunks
+    return [f"{index}/{len(chunks)} {chunk}" for index, chunk in enumerate(chunks, start=1)]
+
+
+def send_ai_reply_sms(to_phone, body, customer=None):
+    parts = split_sms_for_delivery(body)
+    if not parts:
+        return False, 'SMS body is empty.'
+    results = []
+    for part in parts:
+        ok, detail = send_clicksend_env_sms(to_phone, part, customer=customer, category='Customer service')
+        results.append((ok, detail))
+        if not ok:
+            return False, f"Only {len(results) - 1} of {len(parts)} text messages were accepted. {detail}"
+    if len(parts) == 1:
+        return results[0]
+    return True, f"{len(parts)} complete text messages accepted by ClickSend."
+
+
 def build_sms_text(body, customer=None):
     main_text = strip_html_for_sms(merge_message_text(body or "", customer))
     footer_text = strip_html_for_sms(merge_message_text(settings()["sms_footer_text"] or "", customer))
@@ -13467,10 +13506,6 @@ BUSINESS KNOWLEDGE:
             response_payload = json.loads(response.read().decode('utf-8'))
         result = json.loads(ai_response_text(response_payload))
         result['body'] = clean_str(result.get('body')) if conversation_mode else ai_polish_conversation_draft(result.get('body'), context)
-        # A detailed explanation split across several SMS parts can arrive incomplete or
-        # out of order. Keep approval drafts to one text; use email for longer replies.
-        if conversation_mode and channel.upper()=='SMS' and sms_length_info(result['body'])['parts'] > 1:
-            channel='EMAIL'
         usage = response_payload.get('usage') or {}
         input_tokens = int(usage.get('input_tokens') or 0)
         output_tokens = int(usage.get('output_tokens') or 0)
@@ -13610,7 +13645,7 @@ def ai_owner_review(token):
                     db().execute("UPDATE ai_drafts SET subject=?,body=?,status='Sent',sent_communication_id=?,updated_at=datetime('now') WHERE id=?", (subject, body, cur.lastrowid, draft_id))
                     db().commit()
             else:
-                ok, message = send_clicksend_env_sms(row_get(customer, 'phone') or '', body, customer=customer, category='Customer service')
+                ok, message = send_ai_reply_sms(row_get(customer, 'phone') or '', body, customer=customer)
                 if ok:
                     cur = db().execute("INSERT INTO communications(customer_id,channel,subject,body,created_at) VALUES (?,?,?,?,datetime('now'))", (row_get(customer, 'id'), 'SMS', 'AI-assisted reply', body))
                     db().execute("UPDATE ai_drafts SET body=?,status='Sent',sent_communication_id=?,updated_at=datetime('now') WHERE id=?", (body, cur.lastrowid, draft_id))
@@ -13979,17 +14014,7 @@ def ai_draft_action(draft_id):
                 db().execute("UPDATE ai_drafts SET subject=?,body=?,status='Sent',sent_communication_id=?,updated_at=datetime('now') WHERE id=?", (subject, body, cur.lastrowid, draft_id))
                 db().commit()
         else:
-            # Use the same Render/ClickSend configuration path as website
-            # enquiry texts. Falling straight through to send_sms_gateway here
-            # incorrectly reported "not configured" when ClickSend was
-            # configured with environment variables rather than the legacy
-            # Settings form.
-            ok, msg = send_clicksend_env_sms(
-                row_get(customer, 'phone') or '',
-                body,
-                customer=customer,
-                category='Customer service',
-            )
+            ok, msg = send_ai_reply_sms(row_get(customer, 'phone') or '', body, customer=customer)
             flash(msg)
             if ok:
                 cur = db().execute("INSERT INTO communications(customer_id,channel,subject,body,created_at) VALUES (?,?,?,?,datetime('now'))", (row_get(customer, 'id'), 'SMS', 'AI-assisted reply', body))
