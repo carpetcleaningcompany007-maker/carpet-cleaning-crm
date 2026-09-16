@@ -1562,6 +1562,14 @@ def strip_html_for_sms(text):
     return text.strip()
 
 
+def sms_safe_text(text):
+    """Keep automated customer texts in GSM characters so the saved single-text limit is reliable."""
+    replacements = str.maketrans({
+        '’': "'", '‘': "'", '“': '"', '”': '"', '–': '-', '—': '-', '…': '...', '\u00a0': ' ',
+    })
+    return re.sub(r'\s{3,}', '  ', str(text or '').translate(replacements)).strip()
+
+
 SMS_GSM_BASIC = set("@£$¥èéùìòÇ\nØø\rÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ !\"#¤%&'()*+,-./0123456789:;<=>?¡ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÑÜ§¿abcdefghijklmnopqrstuvwxyzäöñüà")
 SMS_GSM_EXTENDED = set('^{}\\[~]|€\f')
 
@@ -1575,6 +1583,23 @@ def sms_length_info(text):
     return {'units': units, 'parts': parts, 'limit': multipart * 8, 'too_long': parts > 8}
 
 
+def sms_single_message_limit():
+    """Conservative CRM ceiling for a single customer SMS, including the closing."""
+    s = settings()
+    try:
+        return max(1, min(int(s['sms_single_message_limit'] or 150), 160))
+    except (TypeError, ValueError, IndexError):
+        return 150
+
+
+def sms_single_message_error(text):
+    info = sms_length_info(text)
+    limit = sms_single_message_limit()
+    if info['parts'] > 1 or info['units'] > limit:
+        return f'This text is {info["units"]} SMS characters. The CRM limit is {limit} characters for one complete text, including the closing. Shorten it before sending; it will not be split.'
+    return ''
+
+
 def sms_length_error(text):
     info = sms_length_info(text)
     if info['too_long']:
@@ -1583,11 +1608,12 @@ def sms_length_error(text):
 
 
 def send_ai_reply_sms(to_phone, body, customer=None):
-    body = strip_html_for_sms(body or '').strip()
+    body = sms_safe_text(strip_html_for_sms(body or ''))
     if not body:
         return False, 'SMS body is empty.'
-    if sms_length_info(body)['parts'] > 1:
-        return False, 'This AI reply is too long for one text message. Shorten it before sending; it will not be split or sent in parts.'
+    length_error = sms_single_message_error(body)
+    if length_error:
+        return False, length_error
     return send_clicksend_env_sms(to_phone, body, customer=customer, category='Customer service')
 
 
@@ -7982,6 +8008,7 @@ def init_db():
         sms_start_keywords TEXT DEFAULT 'START,UNSTOP,SUBSCRIBE',
         sms_marketing_opt_out_notice TEXT DEFAULT 'Reply STOP to opt out.',
         sms_append_opt_out_on_marketing INTEGER DEFAULT 1
+        ,sms_single_message_limit INTEGER DEFAULT 150
     );
     CREATE TABLE IF NOT EXISTS pricing_config (
         id INTEGER PRIMARY KEY CHECK (id=1),
@@ -8704,6 +8731,7 @@ def init_db():
         ("settings", "sms_start_keywords", "TEXT DEFAULT 'START,UNSTOP,SUBSCRIBE'"),
         ("settings", "sms_marketing_opt_out_notice", "TEXT DEFAULT 'Reply STOP to opt out.'"),
         ("settings", "sms_append_opt_out_on_marketing", "INTEGER DEFAULT 1"),
+        ("settings", "sms_single_message_limit", "INTEGER DEFAULT 150"),
         ("settings", "mfa_secret_encrypted", "TEXT DEFAULT ''"),
         ("settings", "mfa_enabled", "INTEGER DEFAULT 0"),
         ("settings", "mfa_recovery_hashes", "TEXT DEFAULT '[]'"),
@@ -17183,7 +17211,7 @@ def settings_page():
             flash("New password and confirm password did not match.")
             return redirect(url_for("settings_page"))
         final_password = normalize_password_for_storage(new_password) if new_password else normalize_password_for_storage(s["password"])
-        run("""UPDATE settings SET business_name=?, phone=?, email=?, website=?, address=?, accent=?, review_link=?, username=?, password=?, minimum_charge=?, vat_rate=?, logo_filename=?, dashboard_carpet_image=?, dashboard_upholstery_image=?, email_footer_html=?, sms_footer_text=?, bg_darkness=?, bg_palette=?, bg_color=?, sidebar_color=?, gmail_address=?, gmail_app_password=?, smtp_from_name=?, test_email=?, sms_gateway_name=?, sms_sender_id=?, sms_api_key=?, sms_gateway_url=?, sms_test_number=?, sms_account_id=?, sms_api_secret=?, sms_opt_out_message=?, sms_stop_keywords=?, sms_start_keywords=?, sms_marketing_opt_out_notice=?, sms_append_opt_out_on_marketing=? WHERE id=1""", (
+        run("""UPDATE settings SET business_name=?, phone=?, email=?, website=?, address=?, accent=?, review_link=?, username=?, password=?, minimum_charge=?, vat_rate=?, logo_filename=?, dashboard_carpet_image=?, dashboard_upholstery_image=?, email_footer_html=?, sms_footer_text=?, bg_darkness=?, bg_palette=?, bg_color=?, sidebar_color=?, gmail_address=?, gmail_app_password=?, smtp_from_name=?, test_email=?, sms_gateway_name=?, sms_sender_id=?, sms_api_key=?, sms_gateway_url=?, sms_single_message_limit=?, sms_test_number=?, sms_account_id=?, sms_api_secret=?, sms_opt_out_message=?, sms_stop_keywords=?, sms_start_keywords=?, sms_marketing_opt_out_notice=?, sms_append_opt_out_on_marketing=? WHERE id=1""", (
             request.form.get("business_name"), request.form.get("phone"), request.form.get("email"),
             request.form.get("website"), request.form.get("address"), request.form.get("accent"),
             request.form.get("review_link"), new_username, final_password,
@@ -17191,7 +17219,7 @@ def settings_page():
             logo_filename, dashboard_carpet_image, dashboard_upholstery_image,
             request.form.get("email_footer_html"), request.form.get("sms_footer_text"), bg_darkness, bg_palette, bg_color, sidebar_color,
             request.form.get("gmail_address"), request.form.get("gmail_app_password") or s["gmail_app_password"], request.form.get("smtp_from_name"), request.form.get("test_email"),
-            request.form.get("sms_gateway_name"), request.form.get("sms_sender_id"), request.form.get("sms_api_key") or s["sms_api_key"], request.form.get("sms_gateway_url"), request.form.get("sms_test_number"), request.form.get("sms_account_id"), request.form.get("sms_api_secret") or s["sms_api_secret"], request.form.get("sms_opt_out_message") or s["sms_opt_out_message"],
+            request.form.get("sms_gateway_name"), request.form.get("sms_sender_id"), request.form.get("sms_api_key") or s["sms_api_key"], request.form.get("sms_gateway_url"), max(1, min(int(request.form.get("sms_single_message_limit") or s["sms_single_message_limit"] or 150), 160)), request.form.get("sms_test_number"), request.form.get("sms_account_id"), request.form.get("sms_api_secret") or s["sms_api_secret"], request.form.get("sms_opt_out_message") or s["sms_opt_out_message"],
             request.form.get("sms_stop_keywords") or s["sms_stop_keywords"], request.form.get("sms_start_keywords") or s["sms_start_keywords"], request.form.get("sms_marketing_opt_out_notice") or s["sms_marketing_opt_out_notice"], 1 if request.form.get("sms_append_opt_out_on_marketing") else 0
         ))
         flash("Settings saved.")
