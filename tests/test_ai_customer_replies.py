@@ -129,6 +129,7 @@ class AICustomerReplyTests(unittest.TestCase):
         self.assertIn('Recommend the Professional Deep Clean for every carpet enquiry', instructions)
         self.assertIn('service behind the business\'s five-star reviews', instructions)
         self.assertIn('Use plain text only: never use bold, Markdown', instructions)
+        self.assertIn('Do not use hyphens, en dashes, or em dashes', instructions)
 
     def test_initial_reply_drops_early_access_and_address_request(self):
         context = {'recent_conversation': []}
