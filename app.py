@@ -13739,34 +13739,35 @@ def ensure_ai_draft_for_intake(intake_id, customer_id=None):
 
 
 def notify_owner_ai_draft_ready(draft):
-    """Alert the owner when a draft is generated after the original enquiry alert."""
+    """Alert Paul immediately when a customer SMS reply has produced a review draft."""
     if not draft:
         return {}
-    intake_id = row_get(draft, 'intake_id')
     customer_id = row_get(draft, 'customer_id')
+    customer = q("SELECT first_name,last_name,phone FROM customers WHERE id=?", (customer_id,), one=True) if customer_id else None
+    customer_name = " ".join(part for part in [clean_str(row_value(customer, 'first_name')), clean_str(row_value(customer, 'last_name'))] if part) or clean_str(row_value(customer, 'phone')) or 'a customer'
     review_url = ai_owner_review_url(draft)
     channel = clean_str(row_get(draft, 'channel')) or 'reply'
     preview = clean_str(row_get(draft, 'body'))
-    subject = 'AI reply ready for approval'
-    text_body = (
-        f"A new {channel} draft is ready. Nothing has been sent to the customer.\n\n"
-        f"Draft:\n{preview}\n\n"
-        f"Review, edit, send, rewrite or discard without signing in:\n{review_url}"
-    )
-    html_body = (
-        '<h2>AI reply ready for approval</h2>'
-        '<p>Nothing has been sent to the customer.</p>'
-        f'<p><strong>Draft:</strong><br>{html_lib.escape(preview).replace(chr(10), "<br>")}</p>'
-        f'<p><a href="{html_lib.escape(review_url, quote=True)}" style="display:inline-block;padding:12px 18px;border-radius:8px;background:#1677c8;color:#fff;text-decoration:none;font-weight:700">Review and send</a></p>'
-        '<p style="color:#526579;font-size:13px">The link opens a private approval page. Opening it does not send anything.</p>'
-    )
+    subject = f'Customer reply received: {customer_name}'
+    text_body = (f"{customer_name} has replied. A {channel} draft is ready for your approval. Nothing has been sent to the customer.
+
+"
+                 f"Draft:
+{preview}
+
+Review, edit, send, rewrite or discard:
+{review_url}")
+    html_body = (f'<h2>Customer reply received: {html_lib.escape(customer_name)}</h2>'
+                 '<p>A draft is ready for your approval. Nothing has been sent to the customer.</p>'
+                 f'<p><strong>Draft:</strong><br>{html_lib.escape(preview).replace(chr(10), "<br>")}</p>'
+                 f'<p><a href="{html_lib.escape(review_url, quote=True)}" style="display:inline-block;padding:12px 18px;border-radius:8px;background:#1677c8;color:#fff;text-decoration:none;font-weight:700">Review draft</a></p>')
     results = {}
     owner_email = clean_str(os.environ.get('OWNER_ALERT_EMAIL'))
     if owner_email:
         results['email'] = send_env_email(owner_email, subject, text_body, html_body)
     owner_mobile = clean_str(os.environ.get('OWNER_ALERT_MOBILE'))
     if owner_mobile:
-        sms_body = f"AI {channel} draft ready. Nothing sent.\n\n{preview}\n\nReview, edit, send, rewrite or discard: {review_url}"
+        sms_body = f"Customer reply received from {customer_name}. Draft ready. Nothing sent. Review: {review_url}"
         results['sms'] = send_clicksend_env_sms(owner_mobile, sms_body, customer=None, category='Service')
     return results
 
