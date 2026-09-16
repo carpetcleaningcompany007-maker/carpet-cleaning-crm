@@ -1965,10 +1965,35 @@ def enquiry_follow_up_approval_note():
 
 
 def enquiry_acknowledgement_text(data):
-    full_name = request_value(data or {}, "name", "full_name", "customer_name")
+    """Reply from the actual website enquiry, never make customers repeat details."""
+    data = data or {}
+    full_name = request_value(data, "name", "full_name", "customer_name")
     first_name = clean_str(full_name).split()[0] if clean_str(full_name) else ""
     temporary = active_temporary_message_change("website_enquiry_acknowledgement_sms")
-    body = temporary["body"] if temporary else message_template("website_enquiry_acknowledgement_sms")["body"]
+    if temporary:
+        body = temporary["body"]
+        if not first_name:
+            body = body.replace("Hi {{first_name}},", "Hi,")
+        context = template_context_for_enquiry(data)
+        context["{{first_name}}"] = first_name
+        return render_simple_template(body, context)
+
+    detail = request_value(data, "message", "notes", "additional_notes", "what_cleaned", "service", "service_required", "cleaning_required", "rooms_areas", "rooms_or_areas", "rooms_or_items", "rooms_items", "items_required")
+    detail = re.sub(r"\s+", " ", clean_str(detail)).strip()
+    detail_lower = detail.lower()
+    has_specific_job_detail = bool(detail and (re.search(r"\b(room|lounge|bedroom|stairs|landing|hall|sofa|carpet|upholstery|rug|stain|pet)\b", detail_lower) or re.search(r"\d", detail)))
+    greeting = f"Hi {first_name}," if first_name else "Hi,"
+    if has_specific_job_detail:
+        detail = detail[:220].rstrip(" ,.;")
+        no_photos = bool(re.search(r"\b(no|not|haven't|have not|without)\b.{0,20}\b(photo|photos)\b", detail_lower))
+        photo_line = " No problem about the photos." if no_photos else " If you have any photos, please send them over as well."
+        body = (f"{greeting} thank you for your enquiry. I have received your message and will be happy to help. "
+                f"I can see you need {detail.lower()}.{photo_line} "
+                "We do have a couple of different options depending on what you are looking for. "
+                "Are you looking for the best possible job or the cheapest possible quote? Thank you, Paul")
+        return sms_safe_text(body)[:sms_single_message_limit()]
+
+    body = message_template("website_enquiry_acknowledgement_sms")["body"]
     if not first_name:
         body = body.replace("Hi {{first_name}},", "Hi,")
     context = template_context_for_enquiry(data)
