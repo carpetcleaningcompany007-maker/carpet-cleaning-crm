@@ -368,9 +368,10 @@ class WebsiteFormTests(unittest.TestCase):
     def test_acknowledgement_uses_requested_spacing_signature_and_no_hyphens(self):
         message = self.appmod.enquiry_acknowledgement_text({"name": "Paul Nicholas"})
         self.assertTrue(message.startswith("Hi Paul, thank you for your enquiry."))
-        self.assertIn("I've received your message and I'd be happy to help.", message)
-        self.assertIn("Could you reply with a little more information about what you would like cleaned?", message)
-        self.assertIn("please send me a few photos as well", message)
+        self.assertIn("I've received your message and I'll be happy to help.", message)
+        self.assertIn("Could you provide a little more information about what you need cleaned?", message)
+        self.assertIn("a sofa, lounge and two bedrooms", message)
+        self.assertIn("including pet stains", message)
         self.assertNotIn("call me on 07802 563213 if you prefer", message)
         self.assertTrue(message.endswith("Thanks,\nPaul\nThe Carpet Cleaning Company"))
         self.assertNotIn("-", message)

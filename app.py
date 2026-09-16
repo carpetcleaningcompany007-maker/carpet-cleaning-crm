@@ -1735,7 +1735,7 @@ DEFAULT_MESSAGE_TEMPLATES = {
     "website_enquiry_acknowledgement_sms": {
         "name": "Website enquiry automated acknowledgement",
         "subject": "",
-        "body": "Hi {{first_name}}, thank you for your enquiry. I've received your message and I'd be happy to help. Could you reply with a little more information about what you would like cleaned? If possible, please send me a few photos as well, as this helps me give you the best advice and an accurate quote.\n\nThanks,\nPaul\nThe Carpet Cleaning Company",
+        "body": "Hi {{first_name}}, thank you for your enquiry. I've received your message and I'll be happy to help. Could you provide a little more information about what you need cleaned? For example, a sofa, lounge and two bedrooms. If you have any photos, they would be helpful. If not, please let me know about any stains, including pet stains, that I should be aware of.\n\nThanks,\nPaul\nThe Carpet Cleaning Company",
     },
     "owner_enquiry_alert_email": {
         "name": "Owner enquiry alert email",
@@ -8897,6 +8897,15 @@ def init_db():
             "INSERT OR IGNORE INTO message_templates(template_key, name, subject, body, updated_at) VALUES (?,?,?,?,datetime('now'))",
             (key, template["name"], template["subject"], template["body"]),
         )
+    conn.execute(
+        """UPDATE message_templates
+              SET body=?, updated_at=datetime('now')
+            WHERE template_key='website_enquiry_acknowledgement_sms' AND body=?""",
+        (
+            DEFAULT_MESSAGE_TEMPLATES["website_enquiry_acknowledgement_sms"]["body"],
+            "Hi {{first_name}}, thank you for your enquiry. I've received your message and I'd be happy to help. Could you reply with a little more information about what you would like cleaned? If possible, please send me a few photos as well, as this helps me give you the best advice and an accurate quote.\n\nThanks,\nPaul\nThe Carpet Cleaning Company",
+        ),
+    )
     for rule in AUTOMATION_RULE_DEFAULTS:
         conn.execute(
             """INSERT OR IGNORE INTO communication_automation_settings
@@ -13613,9 +13622,7 @@ def ai_owner_review(token):
 
 
 def prepare_ai_draft_for_inbound_sms(customer_id):
-    """Ongoing AI conversations are deliberately paused while first replies are refined."""
-    return None, "Ongoing AI conversation drafting is paused. Initial enquiry drafts only."
-    """Legacy implementation retained below for audit reference."""
+    """Prepare a private, approval-only reply after a customer replies by SMS."""
     if not customer_id:
         return None, "Inbound SMS was not matched to a customer."
     cfg = ai_settings_row()
@@ -13638,7 +13645,7 @@ def prepare_ai_draft_for_inbound_sms(customer_id):
         (customer_id,),
     )
     try:
-        draft = generate_ai_customer_reply(customer_id, intake_id, 'SMS')
+        draft = generate_ai_customer_reply(customer_id, intake_id, 'SMS', conversation_mode=True)
         notify_owner_ai_draft_ready(draft)
         return draft, "AI reply draft prepared for approval."
     except RuntimeError as exc:

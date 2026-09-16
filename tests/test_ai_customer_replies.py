@@ -103,11 +103,15 @@ class AICustomerReplyTests(unittest.TestCase):
         self.assertEqual(usage['status'], 'Success')
         self.assertGreater(usage['estimated_cost_usd'], 0)
 
-    def test_automatic_inbound_conversation_drafting_is_paused(self):
-        with mock.patch.object(self.appmod, 'generate_ai_customer_reply', side_effect=AssertionError('Ongoing AI must not run')):
+    def test_automatic_inbound_conversation_drafting_prepares_review_only_draft(self):
+        generated = mock.Mock()
+        with mock.patch.object(self.appmod, 'generate_ai_customer_reply', return_value=generated) as generate, \
+             mock.patch.object(self.appmod, 'notify_owner_ai_draft_ready') as notify:
             draft, message = self.appmod.prepare_ai_draft_for_inbound_sms(self.customer_id)
-        self.assertIsNone(draft)
-        self.assertIn('Initial enquiry drafts only', message)
+        self.assertIs(draft, generated)
+        self.assertIn('approval', message.lower())
+        generate.assert_called_once_with(self.customer_id, self.lead_id, 'SMS', conversation_mode=True)
+        notify.assert_called_once_with(generated)
 
     def test_initial_reply_drops_early_access_and_address_request(self):
         context = {'recent_conversation': []}
