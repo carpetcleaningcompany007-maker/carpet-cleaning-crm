@@ -375,7 +375,7 @@ CUSTOMER_QUOTE_OPTIONS_RULE = (
     "Then explain the Professional Deep Clean. It is a targeted pre spray, counter rotating brush machine scrubbing, and hot water extraction at 225 degrees. Say this is a much more thorough process and the option you recommend. State its price, then state the overall price difference and that the clean itself is considerably different. "
     "Use £75 for the first Professional Deep Clean room and £45 for each additional room. Include the hall and landing within the normal quote and charge £45 for the stairs. For the Standard Clean, use three rooms for £99, or £55 for the first room and £30 for each additional room when relevant. "
     "Show the calculated total for both options and the price difference. Explain that the processes are considerably different, but the customer can choose either. Say that Buy Now Pay Later is available, or the cost can be spread over three months with Klarna if required. Never invent room counts or totals. "
-    "For a complete two-option quote, prepare two separate approval-only SMS drafts in sequence: message 1 is the Standard Clean and message 2 is the Professional Deep Clean. Each must be within 480 characters, start with a visible heading of Standard Clean or Professional Deep Clean, and end with Paul. Mark them 1 of 2 and 2 of 2 in the CRM review screen. Do not send either automatically. Use email only if even two clear messages cannot safely contain the required facts."
+    "For a complete two-option quote, prepare two separate approval-only SMS drafts in sequence: message 1 is the Standard Clean and message 2 is the Professional Deep Clean. Each must be within 480 characters and start with a visible heading. End the Standard Clean text with "Professional Deep Clean to follow." Do not sign off the first text. End the Professional Deep Clean text with Paul. Mark them 1 of 2 and 2 of 2 in the CRM review screen. Do not send either automatically. Use email only if even two clear messages cannot safely contain the required facts."
 )
 
 CUSTOMER_COMPACT_QUOTE_SMS_RULE = (
@@ -13524,7 +13524,7 @@ def split_two_part_quote_sms(text, limit=None):
     content = re.sub(r"(?:\s|^)Paul\s*$", "", content, flags=re.I).strip()
     sentences = [part.strip() for part in re.split(r"(?<=[.!?])\s+", content) if part.strip()]
     for index in range(1, len(sentences)):
-        first = "Standard Clean\n" + " ".join(sentences[:index]).strip() + " Paul"
+        first = "Standard Clean\n" + " ".join(sentences[:index]).strip() + " Professional Deep Clean to follow."
         second = "Professional Deep Clean\n" + " ".join(sentences[index:]).strip() + " Paul"
         if ("standard clean" in first.lower() and "professional deep clean" in second.lower()
                 and sms_length_info(first)["units"] <= limit and sms_length_info(second)["units"] <= limit):
