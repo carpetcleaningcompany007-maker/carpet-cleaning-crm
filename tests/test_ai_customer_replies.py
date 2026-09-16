@@ -135,6 +135,18 @@ class AICustomerReplyTests(unittest.TestCase):
         self.assertIn('Use plain text only: never use bold, Markdown', instructions)
         self.assertIn('Do not use hyphens, en dashes, or em dashes', instructions)
 
+    def test_long_conversation_draft_switches_from_sms_to_email(self):
+        payload = self.fake_payload()
+        payload['output_text'] = json.dumps({
+            'subject': '',
+            'body': 'This is a deliberately long customer reply. ' * 8,
+            'needs_manual_response': False,
+            'manual_reason': '',
+        })
+        with mock.patch.object(self.appmod.urllib.request, 'urlopen', return_value=FakeOpenAIResponse(payload)):
+            draft = self.appmod.generate_ai_customer_reply(self.customer_id, self.lead_id, 'SMS', conversation_mode=True)
+        self.assertEqual(draft['channel'], 'EMAIL')
+
     def test_initial_reply_drops_early_access_and_address_request(self):
         context = {'recent_conversation': []}
         draft = (

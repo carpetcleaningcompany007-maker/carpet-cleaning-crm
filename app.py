@@ -13467,7 +13467,9 @@ BUSINESS KNOWLEDGE:
             response_payload = json.loads(response.read().decode('utf-8'))
         result = json.loads(ai_response_text(response_payload))
         result['body'] = clean_str(result.get('body')) if conversation_mode else ai_polish_conversation_draft(result.get('body'), context)
-        if conversation_mode and channel.upper()=='SMS' and sms_length_info(result['body'])['too_long']:
+        # A detailed explanation split across several SMS parts can arrive incomplete or
+        # out of order. Keep approval drafts to one text; use email for longer replies.
+        if conversation_mode and channel.upper()=='SMS' and sms_length_info(result['body'])['parts'] > 1:
             channel='EMAIL'
         usage = response_payload.get('usage') or {}
         input_tokens = int(usage.get('input_tokens') or 0)
