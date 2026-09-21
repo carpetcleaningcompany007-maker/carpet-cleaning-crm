@@ -1,11 +1,5 @@
 {% extends "layout.html" %}
-{% block title %}Review Customer Details<script>
-if (window.location.hash === '#customer-message-approval') {
-  const followUp = document.getElementById('customer-message-approval');
-  if (followUp) followUp.open = true;
-}
-</script>
-{% endblock %}
+{% block title %}Review Customer Details{% endblock %}
 {% block page_title %}Review Customer Details{% endblock %}
 {% block body_content %}
 {% if contact_history %}<section class="panel" id="contact-attempt-history"><div class="panel-head"><h2>Contact attempts &amp; follow-up history</h2></div><div style="padding:20px">{% for event in contact_history %}<article style="border-bottom:1px solid #ddd;padding:15px 0"><strong>{{ event.label }}</strong><p>{{ event.when }} UK time{% if event.follow_up_date %} · Follow up {{ event.follow_up_date }}{% endif %}</p>{% if event.note %}<p>{{ event.note }}</p>{% endif %}</article>{% endfor %}</div></section>{% endif %}
@@ -89,6 +83,7 @@ if (window.location.hash === '#customer-message-approval') {
     {% set received = lead.update_form_status == 'Customer sent updated details' %}
     <ol class="simple-stage-strip" aria-label="Customer journey"><li class="{{ 'current' if not lead.job_id and (lead.status or '') not in ['Accepted','Booked'] else 'done' }}">1 · Quote &amp; agree price</li><li class="{{ 'current' if (lead.job_id or (lead.status or '') in ['Accepted','Booked']) and missing_details else '' }}">2 · Booking details</li><li>3 · Review &amp; Xero</li></ol>
     <section class="simple-next-step">
+    {% include "_first_enquiry_text.html" %}
     {% if not lead.job_id and (lead.status or '') not in ['Accepted','Booked'] %}
       <h4>Next step · Confirm the price and prepare a quote</h4><p>Agree the cleaning package with {{ lead.name }} first. Collect the booking details after the customer accepts.</p><a class="btn primary" href="{{ url_for('ai_assistant',tool='quote',intake_id=lead.id,customer_id=lead.customer_id or '') }}">Prepare quote</a>
       {% if missing_details %}<details><summary>Need more information to quote?</summary><p>Ask only for the information needed to price the work.</p><a class="btn secondary" href="{{ update_form_preview_url }}" target="_blank" rel="noopener">Preview form</a><form method="post" action="{{ url_for('intake_request_missing_details',lead_id=lead.id) }}"><input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><button class="btn secondary" name="channel" value="sms" {% if not lead.phone %}disabled{% endif %}>Send form by text</button><button class="btn secondary" name="channel" value="email" {% if not lead.email %}disabled{% endif %}>Send form by email</button></form></details>{% endif %}
@@ -124,12 +119,18 @@ if (window.location.hash === '#customer-message-approval') {
       {% endif %}
       </div>
     </details>
-    {% if prepared_follow_up %}<details class="lead-progress-details lead-message-details" id="customer-message-approval" {% if prepared_follow_up.status in ['Ready for Paul','Awaiting approval'] %}open{% endif %}>
-      <summary>No customer reply yet — follow-up text ready to review</summary>
+    {% if prepared_follow_up and prepared_follow_up.status in ["Queued","Awaiting approval","Ready to send","Failed","Paused","Held","Scheduled","Sending","Sent"] %}<details class="lead-progress-details lead-message-details" id="customer-message-approval" {% if prepared_follow_up.status in ['Ready to send','Awaiting approval','Sent'] %}open{% endif %}>
+      <summary>Follow-up — {{ prepared_follow_up_status }}</summary>
     <div class="message-approval">
       <div>
+        {% if prepared_follow_up.status == 'Sent' %}
+        <h5>Already sent — duplicate sending is blocked</h5>
+        <p>Sent {{ prepared_follow_up.sent_time }} (UK time). The exact message is saved below.</p>
+        {% if prepared_follow_up.owner_confirmation_status %}<p role="status">{{ prepared_follow_up.owner_confirmation_status }}</p>{% endif %}
+        {% else %}
         <h5>{{ lead.name or 'Customer' }} has not replied</h5>
-        <p>A draft text has been prepared below. It has <strong>not</strong> been sent. Review it, then choose whether to send it or stop it.</p>
+        <p>Review the text below. Save any edits before choosing when to send.</p>
+        {% endif %}
       </div>
       <div class="status-line">
         <div><strong>Customer email</strong>{{ lead.customer_email_status or 'Pending Paul approval' }}</div>
@@ -142,20 +143,86 @@ if (window.location.hash === '#customer-message-approval') {
         <div class="notice danger-notice">Xero is blocked until the customer has a real name and at least one usable phone number or email address.</div>
       {% endif %}
       <div class="message-preview">
-        <strong>Follow-up SMS / Text preview</strong>
+        <strong>{{ "Exact message sent" if prepared_follow_up.status == "Sent" else "Follow-up SMS / Text preview" }}</strong>
         <pre>{{ prepared_follow_up_sms }}</pre>
+      </div>
+      {% if prepared_follow_up.status not in ['Sending','Sent'] %}
+      <details class="follow-up-editor">
+        <summary>Edit this text</summary>
+        <form method="post" id="follow-up-edit-form" action="{{ url_for('intake_customer_message_action', lead_id=lead.id) }}">
+          <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="action" value="save_follow_up_text">
+          <label for="follow-up-body">Message for {{ lead.name or 'this customer' }} only</label>
+          <textarea id="follow-up-body" name="body" rows="10" required maxlength="5000">{{ prepared_follow_up_sms }}</textarea>
+          <p id="follow-up-unsaved" role="status" hidden>Save your edited text before sending or scheduling it.</p>
+          <p>This changes only this enquiry. Editing a scheduled text cancels its schedule.</p>
+          <button class="btn primary" type="submit">Save for this customer only</button>
+        </form>
+      </details>
+      <details class="follow-up-default-editor">
+        <summary>Permanently edit the default text</summary>
+        <form method="post" action="{{ url_for('intake_customer_message_action', lead_id=lead.id) }}">
+          <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="action" value="save_follow_up_default">
+          <label for="follow-up-default">Default for future follow-ups</label>
+          <textarea id="follow-up-default" name="default_body" rows="10" required maxlength="5000">{{ follow_up_default_template }}</textarea>
+          <p>Use {% raw %}<code>{{first_name}}</code>{% endraw %} for each customer's name. This changes future drafts only; existing messages and schedules stay as saved.</p>
+          <button class="btn secondary" type="submit">Save as default for future texts</button>
+        </form>
+        <form method="post" action="{{ url_for('intake_customer_message_action', lead_id=lead.id) }}">
+          <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="action" value="use_follow_up_default">
+          <button class="btn secondary" type="submit">Use the saved default for this text</button>
+        </form>
+      </details>
+      <div class="follow-up-timing" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:16px;margin:16px 0">
+        <form method="post" action="{{ url_for('intake_customer_message_action', lead_id=lead.id) }}">
+          <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="action" value="schedule_follow_up_sms">
+          <input type="hidden" name="reviewed_body" value="{{ prepared_follow_up_sms }}">
+          <label for="follow-up-send-at">Send at… (UK time)</label>
+          <input type="datetime-local" id="follow-up-send-at" name="follow_up_at" required>
+          <p>Send this exact text automatically at your chosen time, unless the customer replies or the enquiry closes.</p>
+          <button class="btn primary" type="submit" {% if not lead.phone %}disabled{% endif %}>Schedule text</button>
+        </form>
+        <form method="post" action="{{ url_for('intake_customer_message_action', lead_id=lead.id) }}">
+          <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="action" value="pause_follow_up">
+          <label for="follow-up-pause-until">Pause until… (UK time)</label>
+          <input type="datetime-local" id="follow-up-pause-until" name="follow_up_at" required>
+          <p>Return to Ready to send at this time. No message will be sent automatically.</p>
+          <button class="btn secondary" type="submit">Pause until this time</button>
+        </form>
+        <div>
+          <form method="post" action="{{ url_for('intake_customer_message_action', lead_id=lead.id) }}">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="action" value="hold_follow_up">
+            <p>Cancel any scheduled send and wait for your manual action.</p>
+            <button class="btn secondary" type="submit">Hold until I send</button>
+          </form>
+          {% if prepared_follow_up.status in ['Paused','Held','Scheduled'] %}
+          <form method="post" action="{{ url_for('intake_customer_message_action', lead_id=lead.id) }}">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="action" value="resume_follow_up">
+            <button class="btn secondary" type="submit">Make ready now — do not send</button>
+          </form>
+          {% endif %}
+        </div>
       </div>
       <div class="lead-action-buttons">
         <form method="post" action="{{ url_for('intake_customer_message_action', lead_id=lead.id) }}">
           <input type="hidden" name="action" value="send_follow_up_sms">
-          <button class="btn primary" type="submit" {% if not lead.phone %}disabled{% endif %}>Send text</button>
+          <input type="hidden" name="reviewed_body" value="{{ prepared_follow_up_sms }}">
+          <button class="btn primary" type="submit" {% if not lead.phone %}disabled{% endif %}>Send now — text</button>
         </form>
         <form method="post" action="{{ url_for('intake_customer_message_action', lead_id=lead.id) }}">
           <input type="hidden" name="action" value="send_follow_up_email">
+          <input type="hidden" name="reviewed_body" value="{{ prepared_follow_up_sms }}">
           <button class="btn secondary" type="submit" {% if not lead.email %}disabled{% endif %}>Send email</button>
         </form>
         <form method="post" action="{{ url_for('intake_customer_message_action', lead_id=lead.id) }}">
           <input type="hidden" name="action" value="send_follow_up_both">
+          <input type="hidden" name="reviewed_body" value="{{ prepared_follow_up_sms }}">
           <button class="btn secondary" type="submit" {% if not lead.phone or not lead.email %}disabled{% endif %}>Send both</button>
         </form>
         <form method="post" action="{{ url_for('intake_customer_message_action', lead_id=lead.id) }}">
@@ -163,6 +230,9 @@ if (window.location.hash === '#customer-message-approval') {
           <button class="btn secondary" type="submit">Do not send follow-up text</button>
         </form>
       </div>
+      {% elif prepared_follow_up.status == 'Sent' %}
+      <button class="btn secondary" type="button" disabled>Already sent — locked</button>
+      {% else %}<p>Sending is in progress. Refresh to check the result before taking another action.</p>{% endif %}
     </div>
     </details>{% endif %}
   </section>
@@ -280,4 +350,5 @@ if (window.location.hash === '#customer-message-approval') {
   </section>
   </details>
 </section>
+<script src="{{ url_for('static', filename='follow-up-editor.js') }}" defer></script>
 {% endblock %}

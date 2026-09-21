@@ -1,0 +1,8 @@
+<section class="stage-first-text" aria-label="First text">
+  <h4>First text</h4>
+  <p><strong>Status:</strong> {{ first_text.status }}</p>
+  <p><strong>Sent time:</strong> {{ first_text.time or 'No send time recorded' }}{% if first_text.time %} (UK time){% endif %}</p>
+  <strong>Exact message recorded</strong>
+  {% if first_text.body %}<pre style="white-space:pre-wrap;overflow-wrap:anywhere;font:inherit">{{ first_text.body }}</pre>
+  {% else %}<p>No exact message recorded.</p>{% endif %}
+</section>

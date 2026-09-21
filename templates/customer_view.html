@@ -374,6 +374,7 @@
         <span class="stage-mini-status">{% if customer_hub.stages[0].complete %}✓ Complete{% else %}{{ customer_hub.stages[0].completed_count }}/{{ customer_hub.stages[0].total_count }} complete{% endif %}</span>
       </summary>
       <div class="workflow-stage-body">
+      {% include "_first_enquiry_text.html" %}
       <details class="workflow-subaccordion">
         <summary>Customer information checklist <span>{{ customer_hub.stages[0].completed_count }}/{{ customer_hub.stages[0].total_count }} complete</span></summary>
       <div class="stage-detail-grid">
