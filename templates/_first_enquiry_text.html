@@ -1,18 +1,28 @@
 <section class="stage-first-text" aria-label="First text">
-  <h4>First message</h4>
+  {% if show_first_text_action|default(false) %}
+  <div class="first-message-heading"><span class="message-heading-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 4h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-8l-6 3v-3a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"/><path d="M7 9h10M7 13h6"/></svg></span><h4>First message</h4></div>
+  {% else %}<h4>First message</h4>{% endif %}
   <p class="message-state first-message-status"><strong>{{ first_text.status }}</strong>{% if first_text.time %}<br>{{ first_text.time }} (UK time){% endif %}</p>
   {% if first_text.can_send and show_first_text_action|default(false) %}
     <p class="first-controls-label">YOUR MESSAGE CONTROLS</p>
     <div class="first-control-grid">
-      <button type="button" data-first-panel="first-edit" aria-expanded="false"><span aria-hidden="true">✎</span>Edit this text<small>This customer only</small></button>
-      <button type="button" data-first-panel="first-default" aria-expanded="false"><span aria-hidden="true">▤</span>Edit default<small>Future enquiries</small></button>
-      <button type="button" data-first-panel="first-schedule" aria-expanded="false"><span aria-hidden="true">◷</span>Send at…<small>Choose a time</small></button>
-      <button type="button" data-first-panel="first-pause" aria-expanded="false"><span aria-hidden="true">Ⅱ</span>Pause until…<small>No automatic send</small></button>
+      <button type="button" data-first-panel="first-edit" aria-expanded="false"><span class="control-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m15 4 5 5M4 20l4-1L20 7a2 2 0 0 0-5-5L3 14l-1 7 7-2"/></svg></span>Edit this text<small>This customer only</small></button>
+      <button type="button" data-first-panel="first-default" aria-expanded="false"><span class="control-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/></svg></span>Edit default<small>Future enquiries</small></button>
+      <button type="button" data-first-panel="first-schedule" aria-expanded="false"><span class="control-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2"/></svg></span>Send at…<small>Choose a time</small></button>
+      <button type="button" data-first-panel="first-pause" aria-expanded="false"><span class="control-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="5" height="16" rx="1"/><rect x="14" y="4" width="5" height="16" rx="1"/></svg></span>Pause until…<small>No automatic send</small></button>
     </div>
   {% endif %}
+  {% if show_first_text_action|default(false) %}
+  <div class="message-paper">
+    <div class="message-paper-header"><span class="message-avatar" aria-hidden="true">{{ (lead.name or 'C')[:1]|upper if lead is defined else 'C' }}</span><div><strong>{{ lead.name or 'Customer' if lead is defined else 'Customer' }}</strong><small>{{ 'Draft text · not sent' if first_text.is_draft else 'Saved text message' }}</small></div><span class="message-channel">SMS</span></div>
+    {% if first_text.body %}<pre class="first-text-body" style="white-space:pre-wrap;overflow-wrap:anywhere;font:inherit">{{ first_text.body }}</pre>
+    {% else %}<p>The original text is not available in the saved record.</p>{% endif %}
+    <div class="message-paper-footer"><span aria-hidden="true">{{ '○' if first_text.is_draft else '✓' }}</span> {{ 'Review your message before sending' if first_text.is_draft else 'Message kept in your enquiry history' }}</div>
+  </div>
+  {% else %}
   <strong>{{ 'Draft — not sent' if first_text.is_draft else 'Exact message sent' }}</strong>
-  {% if first_text.body %}<pre class="first-text-body" style="white-space:pre-wrap;overflow-wrap:anywhere;font:inherit">{{ first_text.body }}</pre>
-  {% else %}<p>The original text is not available in the saved record.</p>{% endif %}
+  {% if first_text.body %}<pre style="white-space:pre-wrap;overflow-wrap:anywhere;font:inherit">{{ first_text.body }}</pre>{% else %}<p>The original text is not available in the saved record.</p>{% endif %}
+  {% endif %}
   {% if first_text.can_send and show_first_text_action|default(false) %}
   <div class="first-message-controls">
     <form method="post" class="first-send-now" action="{{ url_for('intake_send_first_text',lead_id=lead.id) }}">
