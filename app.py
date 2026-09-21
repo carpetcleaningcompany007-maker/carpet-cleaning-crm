@@ -2070,6 +2070,39 @@ def schedule_enquiry_acknowledgement(lead_id, customer_id=None, data=None, delay
     return True, "Customer acknowledgement scheduled for " + friendly_local_datetime(due_at) + " UK time."
 
 
+def reserve_enquiry_acknowledgement_sms(phone, lead_id, now=None):
+    """Reserve one first-enquiry SMS per number in a 15-minute window.
+
+    A duplicate form post creates a second lead ID.  The queue's lead-level
+    uniqueness cannot prevent that, so this recipient-level reservation is
+    taken before ClickSend is called.
+    """
+    recipient = normalize_phone(phone)
+    if not recipient:
+        return True
+    now = now or datetime.now(ZoneInfo("Europe/London"))
+    bucket_minute = (now.minute // 15) * 15
+    time_bucket = now.replace(minute=bucket_minute, second=0, microsecond=0).strftime("%Y%m%d%H%M")
+    cur = db().execute("""INSERT INTO enquiry_acknowledgement_send_locks
+                        (recipient_phone, time_bucket, lead_id, status, created_at, updated_at)
+                        VALUES (?,?,?,?,datetime('now'),datetime('now'))
+                        ON CONFLICT(recipient_phone, time_bucket) DO NOTHING""",
+                     (recipient, time_bucket, lead_id, "Reserved"))
+    db().commit()
+    return cur.rowcount == 1
+
+
+def mark_enquiry_acknowledgement_sms_lock(phone, lead_id, status):
+    recipient = normalize_phone(phone)
+    if not recipient:
+        return
+    run("""UPDATE enquiry_acknowledgement_send_locks
+           SET status=?, sent_at=CASE WHEN ?='Accepted' THEN datetime('now') ELSE sent_at END,
+               updated_at=datetime('now')
+           WHERE recipient_phone=? AND lead_id=?""",
+        (status, status, recipient, lead_id))
+
+
 def run_due_enquiry_acknowledgements(dry_run=False, lead_id=None):
     now = datetime.now(ZoneInfo("Europe/London"))
     if not dry_run:
@@ -2134,7 +2167,21 @@ def run_due_enquiry_acknowledgements(dry_run=False, lead_id=None):
         if dry_run:
             ok, msg = True, f"Dry run: would send delayed acknowledgement by {channel}."
         elif channel == "sms":
+            if not reserve_enquiry_acknowledgement_sms(phone, row_value(row, "lead_id"), now):
+                msg = "Suppressed: this first-enquiry text was already reserved for this number in the last 15 minutes."
+                run("""UPDATE enquiry_acknowledgement_queue
+                       SET status='Duplicate suppressed', channel='sms', message=?, updated_at=datetime('now')
+                       WHERE id=?""", (msg, row_value(row, "id")))
+                update_intake_delivery_status(
+                    row_value(row, "lead_id"),
+                    customer_sms_status="Not sent: duplicate first-enquiry acknowledgement was suppressed.",
+                    customer_email_status="No automatic email sent.",
+                )
+                results.append({"rule": "enquiry_acknowledgement", "lead_id": row_value(row, "lead_id"),
+                                "customer_id": customer_id, "channel": "sms", "status": "Duplicate suppressed", "message": msg})
+                continue
             ok, msg = send_clicksend_env_sms(phone, body, customer=customer, category="Service")
+            mark_enquiry_acknowledgement_sms_lock(phone, row_value(row, "lead_id"), "Accepted" if ok else "Failed")
             if not ok and is_valid_email(email):
                 channel = "email"
                 ok, msg = send_env_email(email, "Thank you for your enquiry", body, customer=customer)
@@ -8669,6 +8716,17 @@ def init_db():
         receipt_checked_at TEXT DEFAULT '',
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS enquiry_acknowledgement_send_locks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        recipient_phone TEXT NOT NULL,
+        time_bucket TEXT NOT NULL,
+        lead_id INTEGER NOT NULL,
+        status TEXT DEFAULT 'Reserved',
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        sent_at TEXT DEFAULT '',
+        UNIQUE(recipient_phone, time_bucket)
     );
     CREATE TABLE IF NOT EXISTS lead_generation_settings (
         id INTEGER PRIMARY KEY CHECK (id=1),
