@@ -568,3 +568,12 @@ class NoReplyWorkflowTests(unittest.TestCase):
         self.assertIn("Waiting for customer",reasons)
         page=self.client.get(f"/intake-forms/{lead}").get_data(as_text=True)
         self.assertIn("marked as a test",page)
+
+    def test_message_status_reads_live_record_and_requires_login(self):
+        lead=self.lead("Awaiting approval")
+        self.mod.run("UPDATE intake_submissions SET is_test=1 WHERE id=?",(lead,))
+        response=self.client.get(f"/intake-forms/{lead}/message-status")
+        self.assertEqual(response.status_code,200)
+        self.assertIn("marked as a test",response.get_data(as_text=True))
+        self.assertIn("no-store",response.headers["Cache-Control"])
+        self.assertEqual(self.mod.app.test_client().get(f"/intake-forms/{lead}/message-status").status_code,302)

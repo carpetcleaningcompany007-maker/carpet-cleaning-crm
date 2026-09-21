@@ -20571,6 +20571,24 @@ def enquiry_first_text(lead_id):
     return result
 
 
+@app.route("/intake-forms/<int:lead_id>/message-status")
+@login_required
+def intake_message_status(lead_id):
+    lead = q("SELECT * FROM intake_submissions WHERE id=?", (lead_id,), one=True)
+    if not lead:
+        abort(404)
+    first = enquiry_first_text(lead_id)
+    lines = ["First-message status for " + (row_get(lead,"name") or "Customer"),
+             "Enquiry: " + str(lead_id), "Status: " + first["status"],
+             "Automatic send: " + (first.get("scheduled_time") or "Not scheduled") + " (UK time)"]
+    lines.extend(first.get("schedule_blockers") or [])
+    lines.append("Server build: " + (os.environ.get("RENDER_GIT_COMMIT") or "local"))
+    response = make_response("\n\n".join(lines))
+    response.headers["Content-Type"] = "text/plain; charset=utf-8"
+    response.headers["Cache-Control"] = "no-store, private"
+    return response
+
+
 @app.route("/intake-forms/<int:lead_id>/first-text", methods=["POST"])
 @login_required
 def intake_send_first_text(lead_id):
