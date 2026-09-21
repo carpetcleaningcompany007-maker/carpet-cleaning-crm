@@ -20493,6 +20493,30 @@ def enquiry_first_text(lead_id):
         "Cancelled": "Not sent — cancelled",
         "Sending": "Sending — not yet confirmed",
     }.get(status, status or "No text send recorded")
+    if status == "Awaiting approval" and not sent_at:
+        pending_lead = q("SELECT * FROM intake_submissions WHERE id=?", (lead_id,), one=True)
+        reasons = []
+        if row_get(pending_lead, "is_test"):
+            reasons.append("This enquiry is marked as a test, so customer messages are disabled.")
+        if row_get(pending_lead, "ignore_alerts"):
+            reasons.append("This enquiry is marked to ignore customer contact.")
+        lead_status = clean_str(row_get(pending_lead, "status"))
+        if lead_status.lower() not in {"new", "reviewed", "waiting for review"}:
+            reasons.append("The enquiry status is “" + (lead_status or "Not set") + "”; automatic recovery did not include this status.")
+        if "pause" in clean_str(row_get(ack, "message")).lower():
+            reasons.append("A previous pause requires your approval before sending resumes.")
+        customer_id = row_get(ack, "customer_id")
+        if customer_id and enquiry_has_reply(customer_id, row_get(ack, "created_at")):
+            reasons.append("An incoming reply is recorded for this customer since this enquiry was created.")
+        previous = q("""SELECT created_at FROM sms_events WHERE customer_id=? AND direction='outbound'
+            AND lower(status) IN ('sent','accepted','delivered','success')
+            AND datetime(created_at)>=datetime(?) ORDER BY created_at DESC LIMIT 1""",
+            (customer_id, row_get(ack, "created_at")), one=True) if customer_id else None
+        if previous:
+            reasons.append("Another sent text is recorded for this customer at " + friendly_local_datetime(previous["created_at"]) + " UK time; recovery stopped to avoid a duplicate.")
+        if not reasons:
+            reasons.append("This older draft still carries the previous approval requirement. It has not been added to the automatic send queue.")
+        result["schedule_blockers"] = reasons
     result["is_sending"] = status == "Sending"
     result["scheduled_time"] = friendly_local_datetime(row_get(ack, "due_at")) if status == "Queued" and not sent_at else ""
     result["pause_time"] = friendly_local_datetime(row_get(ack, "due_at")) if status == "Paused" and not sent_at else ""

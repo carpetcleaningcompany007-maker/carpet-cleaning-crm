@@ -559,3 +559,12 @@ class NoReplyWorkflowTests(unittest.TestCase):
         self.mod.run("UPDATE enquiry_acknowledgement_queue SET status='Held' WHERE lead_id=197")
         self.mod.init_db()
         self.assertEqual(self.mod.q("SELECT status FROM enquiry_acknowledgement_queue WHERE lead_id=197",one=True)["status"],"Held")
+
+    def test_first_text_explains_test_and_status_schedule_blocks(self):
+        lead=self.lead("Awaiting approval")
+        self.mod.run("UPDATE intake_submissions SET is_test=1,status='Waiting for customer' WHERE id=?",(lead,))
+        reasons=" ".join(self.mod.enquiry_first_text(lead)["schedule_blockers"])
+        self.assertIn("marked as a test",reasons)
+        self.assertIn("Waiting for customer",reasons)
+        page=self.client.get(f"/intake-forms/{lead}").get_data(as_text=True)
+        self.assertIn("marked as a test",page)

@@ -9,7 +9,9 @@
     {% elif first_text.scheduled_time %}<span>Scheduled to send automatically</span><strong>{{ first_text.scheduled_time }} <small>UK time</small></strong><p>The page moves to Stage 2 once sending is confirmed.</p>
     {% elif first_text.time %}<span>First message sent</span><strong>{{ first_text.time }} <small>UK time</small></strong>
     {% elif first_text.pause_time %}<span>Paused until {{ first_text.pause_time }} (UK time)</span><strong>No automatic send</strong><p>Returns for your approval when the pause ends.</p>
-    {% else %}<span>Send time</span><strong>No automatic send scheduled</strong><p>Choose “Send at…” to schedule, or “Send now” to approve this message.</p>{% endif %}
+    {% else %}<span>Send time</span><strong>No automatic send scheduled</strong>
+    {% if first_text.schedule_blockers %}{% for reason in first_text.schedule_blockers %}<p>{{ reason }}</p>{% endfor %}
+    {% else %}<p>Choose “Send at…” to schedule, or “Send now” to approve this message.</p>{% endif %}{% endif %}
   </div>
   {% endif %}
   {% if first_text.can_send and show_first_text_action|default(false) %}
