@@ -129,6 +129,7 @@ def uk_today():
 
 @app.after_request
 def add_website_form_cors_headers(response):
+    response.headers["X-CRM-Build"] = os.environ.get("RENDER_GIT_COMMIT") or "enquiry-schedule-diagnostics-20260921"
     if request.path in ("/website-form", "/api/website-form", "/api/customer-contact-form", "/api/website-engagement", "/api/website-analytics"):
         response.headers["Access-Control-Allow-Origin"] = "*"
         response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
