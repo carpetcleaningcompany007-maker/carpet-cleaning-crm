@@ -2,36 +2,36 @@
 /* Enquiry presentation. Behaviour stays in follow-up-editor.js. */
 body.app-page .review-shell{--ink:var(--business-navy,#092b4c);--gold:var(--business-gold,#c79a32);--soft:var(--business-wash,#f5f7f8);gap:16px}
 body.app-page .review-shell .lead-action-panel{background:var(--business-paper,#fff)!important;border:1px solid var(--business-line,#d9e1e6);border-radius:16px!important;box-shadow:0 14px 36px #15354d12!important;padding:22px!important}
-body.app-page .review-shell .review-hero{background:linear-gradient(110deg,#092b4c,#18344d)!important;border-bottom:3px solid var(--gold);box-shadow:0 8px 24px #092d4820!important}
-body.app-page .review-shell .enquiry-step-nav{background:#0c2c44;border:1px solid #21475f;padding:6px;border-radius:16px;box-shadow:0 5px 14px #0c2c441a}
-body.app-page .review-shell .enquiry-step-nav button{color:#d6e4ed!important;background:transparent;min-height:66px}
-body.app-page .review-shell .enquiry-step-nav button span{border-color:#647c8d;color:#dbe7ed}
-body.app-page .review-shell .enquiry-step-nav button[aria-current="step"]{background:linear-gradient(130deg,#efd797,#d6b469)!important;color:#122e42!important;box-shadow:0 3px 10px #0002}
-body.app-page .review-shell .enquiry-step-nav button[aria-current="step"] span{background:#0b3049;color:#f8e9bc;border-color:#0b3049}
+body.app-page .review-shell .review-hero{background:linear-gradient(110deg,#fffdf9,#fff)!important;border-bottom:3px solid var(--gold);box-shadow:0 8px 24px #092d4820!important}
+body.app-page .review-shell .enquiry-step-nav{background:#f8f5ed;border:1px solid #e4dfd4;padding:6px;border-radius:16px;box-shadow:0 5px 14px #0c2c441a}
+body.app-page .review-shell .enquiry-step-nav button{color:#617080!important;background:transparent;min-height:66px}
+body.app-page .review-shell .enquiry-step-nav button span{border-color:#d5d2c9;color:#617080}
+body.app-page .review-shell .enquiry-step-nav button[aria-current="step"]{background:linear-gradient(130deg,#fff3cf,#fbf5e5)!important;color:#122e42!important;box-shadow:0 2px 6px #9b875014}
+body.app-page .review-shell .enquiry-step-nav button[aria-current="step"] span{background:#b99a4c;color:#fff;border-color:#b99a4c}
 body.app-page .review-shell .enquiry-step-nav button:disabled{opacity:.65}
 body.app-page .review-shell .step-eyebrow{display:flex;align-items:center;gap:9px;color:#856529;font-size:10px;letter-spacing:.18em;margin:12px 0}
 body.app-page .review-shell .step-eyebrow:before{content:"";width:23px;height:2px;background:#b39147}
 body.app-page .review-shell .first-message-heading{display:flex;gap:12px;align-items:center;margin:14px 0 8px}
-body.app-page .review-shell .message-heading-icon{display:grid;place-items:center;width:44px;height:44px;flex:0 0 44px;background:linear-gradient(135deg,#123d58,#08283f);border-radius:13px;color:#e0be6a;box-shadow:0 5px 10px #15384e18}
+body.app-page .review-shell .message-heading-icon{display:grid;place-items:center;width:44px;height:44px;flex:0 0 44px;background:#fcf4dc;border-radius:13px;color:#ac8c3f;box-shadow:none}
 body.app-page .review-shell .message-heading-icon svg{width:24px;height:24px}
-body.app-page .review-shell .first-message-heading h4{margin:0!important;font-weight:750!important;font-size:27px!important;letter-spacing:-.7px;color:#103348!important}
+body.app-page .review-shell .first-message-heading h4{margin:0!important;font:400 29px/1.2 Georgia,serif!important;letter-spacing:-.4px;color:#103348!important}
 body.app-page .review-shell .first-message-status{margin:8px 0 8px!important;background:#fff5d9!important;border:1px solid #e4cb8c!important;box-shadow:0 2px 4px #876a1f06;font-size:12px!important;color:#745415!important}
 body.app-page .review-shell .first-controls-label{font-size:10px!important;letter-spacing:.14em;margin:20px 0 10px;color:#526b7c;font-weight:700}
 body.app-page .review-shell .first-control-grid{gap:10px;margin-bottom:22px}
-body.app-page .review-shell .first-control-grid button{display:flex!important;flex-direction:column;align-items:flex-start!important;justify-content:flex-start!important;text-align:left!important;gap:6px!important;min-height:130px!important;padding:15px!important;background:linear-gradient(140deg,#183d5e,#092b4c)!important;color:#fff!important;border:1px solid #2e5971!important;border-radius:12px!important;box-shadow:0 6px 14px #0c304e20!important;position:relative;overflow:hidden;font-weight:650!important;font-size:14px!important}
-body.app-page .review-shell .first-control-grid button:after{content:"↗";position:absolute;right:14px;top:15px;color:#ffffff80;font-size:17px;font-weight:400}
-body.app-page .review-shell .first-control-grid button .control-icon{display:grid!important;place-items:center;width:34px!important;height:34px;flex:none!important;margin-bottom:4px;border:1px solid #eed68f44;background:#ffffff0d;border-radius:10px;color:#efd38f!important}
+body.app-page .review-shell .first-control-grid button{display:flex!important;flex-direction:column;align-items:flex-start!important;justify-content:flex-start!important;text-align:left!important;gap:6px!important;min-height:130px!important;padding:15px!important;background:#fff!important;color:#18344d!important;border:1px solid #dddcd5!important;border-left:3px solid #b99a4c!important;border-radius:12px!important;box-shadow:0 3px 10px #493d2110!important;position:relative;overflow:hidden;font-weight:650!important;font-size:14px!important}
+body.app-page .review-shell .first-control-grid button:after{content:"↗";position:absolute;right:14px;top:15px;color:#8b969b;font-size:17px;font-weight:400}
+body.app-page .review-shell .first-control-grid button .control-icon{display:grid!important;place-items:center;width:34px!important;height:34px;flex:none!important;margin-bottom:4px;border:1px solid #f5edd8;background:#fcf4dc;border-radius:10px;color:#a38332!important}
 body.app-page .review-shell .control-icon svg{width:21px;height:21px}
-body.app-page .review-shell .first-control-grid button small{font-size:11px!important;line-height:1.35;font-weight:400;color:#d3e1e9!important}
+body.app-page .review-shell .first-control-grid button small{font-size:11px!important;line-height:1.35;font-weight:400;color:#727b82!important}
 body.app-page .review-shell .first-control-grid button[aria-expanded="true"]{outline:3px solid #d4af5a;outline-offset:2px}
-body.app-page .review-shell .message-paper{margin-top:12px;background:white;border:1px solid #cfdee7;border-radius:14px;box-shadow:0 9px 26px #183d5310;overflow:hidden}
-body.app-page .review-shell .message-paper-header{display:flex;gap:11px;align-items:center;padding:15px 17px;background:linear-gradient(110deg,#edf3f7,#f8fafc);border-bottom:1px solid #e0e9ef}
-body.app-page .review-shell .message-avatar{display:grid;place-items:center;flex:0 0 36px;height:36px;border-radius:50%;background:#123e59;color:#f1d68d;font-weight:700;font-size:15px}
+body.app-page .review-shell .message-paper{margin-top:12px;background:white;border:1px solid #dedbd2;border-radius:14px;box-shadow:0 9px 26px #183d5310;overflow:hidden}
+body.app-page .review-shell .message-paper-header{display:flex;gap:11px;align-items:center;padding:15px 17px;background:#fbf8f0;border-bottom:1px solid #e0e9ef}
+body.app-page .review-shell .message-avatar{display:grid;place-items:center;flex:0 0 36px;height:36px;border-radius:50%;background:#fcf0cf;color:#947629;font-weight:700;font-size:15px}
 body.app-page .review-shell .message-paper-header strong{display:block;font-size:15px;color:#183b50}
 body.app-page .review-shell .message-paper-header small{display:block;font-size:11px;color:#637e8e;margin-top:3px}
 body.app-page .review-shell .message-channel{margin-left:auto;font-size:9px;letter-spacing:.1em;color:#365970;border:1px solid #cbdbe5;padding:4px 7px;border-radius:5px;font-weight:700}
 body.app-page .review-shell .stage-first-text .message-paper pre{background:#fff!important;border:0!important;border-radius:0!important;box-shadow:none!important;margin:0!important;padding:20px!important;font-size:16px!important;line-height:1.65!important;color:#17384e!important}
-body.app-page .review-shell .message-paper-footer{display:flex;gap:8px;align-items:center;border-top:1px solid #edf1f4;padding:12px 17px;font-size:11px;color:#697e8b;background:#fafcfd}
+body.app-page .review-shell .message-paper-footer{display:flex;gap:8px;align-items:center;border-top:1px solid #edf1f4;padding:12px 17px;font-size:11px;color:#697e8b;background:#fffdf8}
 body.app-page .review-shell .message-paper-footer>span{color:#a98534}
 body.app-page .review-shell .first-send-now .btn{background:var(--business-navy,#092b4c)!important;color:#fff!important;border:1px solid var(--business-navy,#092b4c)!important;box-shadow:0 5px 14px #092b4c20!important;font-weight:750!important;min-height:54px}
 body.app-page .review-shell .first-hold .btn{background:#fff!important;border:1px solid #c4d4df;color:#21465d;border-radius:12px}
@@ -49,3 +49,14 @@ body.app-page .review-shell .enquiry-step-nav{scroll-margin-top:115px}
 
 body.app-page .main .review-shell{width:100%!important;max-width:1040px!important;min-width:0!important;box-sizing:border-box;grid-template-columns:minmax(0,1fr)}
 body.app-page .review-shell .lead-action-panel,body.app-page .review-shell .enquiry-step,body.app-page .review-shell .stage-first-text{min-width:0;max-width:100%;box-sizing:border-box}
+
+/* Match the dashboard's cream canvas, white cards and editorial headings. */
+body.app-page:has(.review-shell),body.app-page .main:has(.review-shell){background:#f6f1e7!important}
+body.app-page .review-shell .review-hero{border:1px solid #dedbd3!important;border-left:4px solid #b99a4c!important;border-radius:16px!important;box-shadow:0 6px 20px #493d2109!important}
+body.app-page .review-shell .review-hero h3{font:400 30px/1.2 Georgia,serif!important;color:#102c40!important}
+body.app-page .review-shell .review-hero p{color:#737d85!important}
+body.app-page .review-shell .lead-action-panel{border-color:#dedbd3!important;box-shadow:0 6px 22px #493d2108!important}
+body.app-page .review-shell .enquiry-step-nav{box-shadow:none}
+body.app-page .review-shell .step-title{font:400 29px/1.2 Georgia,serif!important}
+body.app-page .review-shell .first-control-grid button:hover{background:#fffaf0!important;border-color:#b99a4c!important}
+body.app-page .review-shell .message-paper{box-shadow:0 4px 16px #493d2108}
