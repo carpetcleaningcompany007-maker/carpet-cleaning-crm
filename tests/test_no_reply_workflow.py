@@ -546,3 +546,16 @@ class NoReplyWorkflowTests(unittest.TestCase):
         self.assertEqual(statuses[fresh],"Queued")
         self.assertEqual(statuses[edited],"Awaiting approval")
         self.assertEqual(statuses[old],"Awaiting approval")
+
+    def test_specific_chris_repair_recovers_old_reviewed_record_once(self):
+        lead=self.lead("Awaiting approval")
+        self.mod.run("UPDATE intake_submissions SET id=197,name='Chris',status='Reviewed' WHERE id=?",(lead,))
+        self.mod.run("UPDATE enquiry_acknowledgement_queue SET lead_id=197,created_at='2026-09-01',message='Legacy acknowledgement awaiting approval' WHERE lead_id=?",(lead,))
+        self.mod.run("DELETE FROM enquiry_data_repairs")
+        self.mod.init_db()
+        row=self.mod.q("SELECT * FROM enquiry_acknowledgement_queue WHERE lead_id=197",one=True)
+        self.assertEqual(row["status"],"Queued")
+        self.assertTrue(self.mod.customer_sms_hours_open(self.mod.datetime.fromisoformat(row["due_at"])))
+        self.mod.run("UPDATE enquiry_acknowledgement_queue SET status='Held' WHERE lead_id=197")
+        self.mod.init_db()
+        self.assertEqual(self.mod.q("SELECT status FROM enquiry_acknowledgement_queue WHERE lead_id=197",one=True)["status"],"Held")
