@@ -9266,7 +9266,7 @@ def init_db():
     # Explicit recovery requested for the Chris enquiry shown at /intake-forms/197.
     # A one-time repair must never override a later hold or pause.
     conn.execute("CREATE TABLE IF NOT EXISTS enquiry_data_repairs (repair_key TEXT PRIMARY KEY, applied_at TEXT DEFAULT CURRENT_TIMESTAMP)")
-    repair_key = "restore-chris-197-first-ack-20260921"
+    repair_key = "restore-chris-197-missing-details-first-ack-20260921-v2"
     if not conn.execute("SELECT 1 FROM enquiry_data_repairs WHERE repair_key=?", (repair_key,)).fetchone():
         repair_due = datetime.now(ZoneInfo("Europe/London")) + timedelta(minutes=5)
         if not customer_sms_hours_open(repair_due):
@@ -9276,7 +9276,7 @@ def init_db():
             WHERE lead_id=197 AND status='Awaiting approval' AND IFNULL(sent_at,'')=''
             AND lower(IFNULL(message,'')) NOT LIKE '%pause%'
             AND lead_id IN (SELECT id FROM intake_submissions WHERE id=197 AND lower(trim(name))='chris'
-                AND lower(IFNULL(status,'new')) IN ('new','reviewed','waiting for review')
+                AND lower(IFNULL(status,'new')) IN ('new','reviewed','waiting for review','needs missing details')
                 AND IFNULL(is_test,0)=0 AND IFNULL(ignore_alerts,0)=0)
             AND NOT EXISTS (SELECT 1 FROM sms_events e WHERE e.customer_id=enquiry_acknowledgement_queue.customer_id
                 AND datetime(e.created_at)>=datetime(enquiry_acknowledgement_queue.created_at)
@@ -9296,7 +9296,7 @@ def init_db():
         SET status='Queued',due_at=?,message='Automatic first acknowledgement restored for customer contact hours',updated_at=datetime('now')
         WHERE status='Awaiting approval' AND IFNULL(sent_at,'')='' AND IFNULL(message,'')=''
         AND datetime(created_at)>=datetime('now','-24 hours')
-        AND lead_id IN (SELECT id FROM intake_submissions WHERE lower(status)='new'
+        AND lead_id IN (SELECT id FROM intake_submissions WHERE lower(status) IN ('new','reviewed','waiting for review','needs missing details')
             AND IFNULL(is_test,0)=0 AND IFNULL(ignore_alerts,0)=0)
         AND NOT EXISTS (SELECT 1 FROM sms_events e WHERE e.customer_id=enquiry_acknowledgement_queue.customer_id
             AND e.direction='inbound' AND datetime(e.created_at)>=datetime(enquiry_acknowledgement_queue.created_at))
@@ -20502,7 +20502,7 @@ def enquiry_first_text(lead_id):
         if row_get(pending_lead, "ignore_alerts"):
             reasons.append("This enquiry is marked to ignore customer contact.")
         lead_status = clean_str(row_get(pending_lead, "status"))
-        if lead_status.lower() not in {"new", "reviewed", "waiting for review"}:
+        if lead_status.lower() not in {"new", "reviewed", "waiting for review", "needs missing details"}:
             reasons.append("The enquiry status is “" + (lead_status or "Not set") + "”; automatic recovery did not include this status.")
         if "pause" in clean_str(row_get(ack, "message")).lower():
             reasons.append("A previous pause requires your approval before sending resumes.")

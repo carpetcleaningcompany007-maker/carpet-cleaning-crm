@@ -577,3 +577,25 @@ class NoReplyWorkflowTests(unittest.TestCase):
         self.assertIn("marked as a test",response.get_data(as_text=True))
         self.assertIn("no-store",response.headers["Cache-Control"])
         self.assertEqual(self.mod.app.test_client().get(f"/intake-forms/{lead}/message-status").status_code,302)
+
+    def test_chris_missing_details_retries_previous_noop_repair_at_0930(self):
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+        class Night(datetime):
+            @classmethod
+            def now(cls,tz=None):return cls(2026,9,21,4,33,tzinfo=ZoneInfo("Europe/London"))
+        lead=self.lead("Awaiting approval")
+        self.mod.run("UPDATE intake_submissions SET id=197,name='Chris',status='Needs missing details' WHERE id=?",(lead,))
+        self.mod.run("UPDATE enquiry_acknowledgement_queue SET lead_id=197,created_at='2026-09-01',message='Legacy acknowledgement awaiting approval' WHERE lead_id=?",(lead,))
+        self.mod.run("DELETE FROM enquiry_data_repairs")
+        self.mod.run("INSERT INTO enquiry_data_repairs(repair_key) VALUES ('restore-chris-197-first-ack-20260921')")
+        with patch.object(self.mod,"datetime",Night):self.mod.init_db()
+        row=self.mod.q("SELECT * FROM enquiry_acknowledgement_queue WHERE lead_id=197",one=True)
+        self.assertEqual(row["status"],"Queued")
+        self.assertEqual(row["due_at"],"2026-09-21T09:30:00+01:00")
+        page=self.client.get('/intake-forms/197/message-status').get_data(as_text=True)
+        self.assertIn('09:30',page)
+        self.assertNotIn('Not scheduled',page)
+        self.mod.run("UPDATE enquiry_acknowledgement_queue SET status='Held' WHERE lead_id=197")
+        self.mod.init_db()
+        self.assertEqual(self.mod.q("SELECT status FROM enquiry_acknowledgement_queue WHERE lead_id=197",one=True)["status"],"Held")
