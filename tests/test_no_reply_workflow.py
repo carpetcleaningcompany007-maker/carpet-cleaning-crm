@@ -16,7 +16,11 @@ class NoReplyWorkflowTests(unittest.TestCase):
         self.addCleanup(owner.stop)
     tearDown = fixture.CustomerConversationTests.tearDown
 
-    def lead(self, ack_status="Queued", channel="", sent_at="", body=""):
+    def lead(self, ack_status="Accepted", channel="", sent_at=None, body=""):
+        if sent_at is None:
+            sent_at = "2026-01-01 10:00:00" if ack_status == "Accepted" else ""
+        if ack_status == "Accepted" and not channel:
+            channel = "sms"
         lead = self.mod.run("""INSERT INTO intake_submissions(name,phone,email,customer_id,status)
             VALUES ('Workflow customer','07700900123','test@example.invalid',?,'New')""", (self.customer,))
         self.mod.run("""INSERT INTO enquiry_acknowledgement_queue
@@ -100,7 +104,7 @@ class NoReplyWorkflowTests(unittest.TestCase):
             self.assertEqual(first["time"],"")
 
     def test_send_saves_original_body_despite_template_changes(self):
-        lead = self.lead()
+        lead = self.lead("Queued")
         with patch.object(self.mod,"customer_sms_hours_open",return_value=True), patch.object(self.mod,"enquiry_acknowledgement_text",return_value="Exact original text"), patch.object(self.mod,"send_clicksend_env_sms",return_value=(True,"Message ID: test123")):
             self.mod.run_due_enquiry_acknowledgements(lead_id=lead)
         with patch.object(self.mod,"enquiry_acknowledgement_text",return_value="Changed template"):
@@ -403,7 +407,7 @@ class NoReplyWorkflowTests(unittest.TestCase):
             self.assertIn("Hi Workflow",first["body"])
             page=self.client.get(f"/intake-forms/{lead}").data
             self.assertIn(b"Draft",page)
-            self.assertIn(b"Send first text",page)
+            self.assertIn(b"Send now",page)
             self.assertIn(b'data-enquiry-step="1"',page)
             self.assertIn(b'data-enquiry-step="2" id="enquiry-step-2" hidden',page)
             sms.assert_not_called()
@@ -424,3 +428,66 @@ class NoReplyWorkflowTests(unittest.TestCase):
             self.mod.schedule_enquiry_acknowledgement(lead,self.customer,{"name":"Chris","phone":"07700900123"})
         with patch.object(self.mod,"enquiry_acknowledgement_text",return_value="Changed template"):
             self.assertEqual(self.mod.enquiry_first_text(lead)["body"],"Original first draft")
+
+    def first_control(self, lead, action, **fields):
+        return self.client.post(f"/intake-forms/{lead}/first-text",data={"action":action,**fields})
+
+    def test_first_message_uses_saved_template_not_carpet_options(self):
+        self.mod.run("UPDATE message_templates SET body=? WHERE template_key='website_enquiry_acknowledgement_sms'",("Hi {{first_name}}, thank you. Please send a photo. Paul",))
+        body=self.mod.enquiry_acknowledgement_text({"name":"Chris","what_cleaned":"Upholstery cleaning"})
+        self.assertEqual(body,"Hi Chris, thank you. Please send a photo. Paul")
+        self.assertNotIn("different options",body)
+        self.assertNotIn("cheapest",body)
+
+    def test_first_text_edit_hold_pause_and_schedule(self):
+        lead=self.lead("Awaiting approval")
+        body=self.mod.enquiry_first_text(lead)["body"]
+        self.first_control(lead,"schedule",reviewed_body=body,first_text_at="2099-01-15T11:30")
+        self.assertEqual(self.mod.q("SELECT status FROM enquiry_acknowledgement_queue WHERE lead_id=?",(lead,),one=True)["status"],"Queued")
+        self.first_control(lead,"save_text",body="Hi Chris, this is your edited text.")
+        self.assertEqual(self.mod.enquiry_first_text(lead)["body"],"Hi Chris, this is your edited text.")
+        self.assertIn("hold",self.mod.enquiry_first_text(lead)["status"].lower())
+        self.first_control(lead,"pause",first_text_at="2099-01-15T11:30")
+        self.mod.run("UPDATE enquiry_acknowledgement_queue SET due_at='2000-01-01' WHERE lead_id=?",(lead,))
+        with patch.object(self.mod,"send_clicksend_env_sms") as sms:
+            self.mod.run_due_enquiry_acknowledgements()
+            sms.assert_not_called()
+        self.assertEqual(self.mod.q("SELECT status FROM enquiry_acknowledgement_queue WHERE lead_id=?",(lead,),one=True)["status"],"Awaiting approval")
+
+    def test_no_follow_up_send_or_schedule_before_first_message(self):
+        lead=self.lead("Awaiting approval");self.follow_up(lead)
+        with patch.object(self.mod,"send_clicksend_env_sms") as sms:
+            for action in ("send_follow_up_sms","send_follow_up_email","send_follow_up_both","schedule_follow_up_sms"):
+                response=self.control(lead,action)
+                self.assertNotIn("#customer-message-approval",response.location)
+            sms.assert_not_called()
+        self.assertFalse(self.mod.enquiry_first_contact_sent(lead))
+        self.assertEqual(self.queue(lead)["status"],"Queued")
+
+    def test_old_scheduled_follow_up_is_held_if_first_text_not_sent(self):
+        lead=self.lead("Awaiting approval");self.follow_up(lead,"Scheduled")
+        self.mod.run("UPDATE enquiry_follow_up_queue SET schedule_approved_at=datetime('now'),scheduled_send_at='2000-01-01' WHERE lead_id=?",(lead,))
+        with patch.object(self.mod,"send_clicksend_env_sms") as sms:
+            self.mod.run_due_scheduled_enquiry_texts()
+            sms.assert_not_called()
+        self.assertEqual(self.queue(lead)["status"],"Held")
+
+    def test_first_text_confirmation_is_email_only_and_once(self):
+        lead=self.lead("Awaiting approval")
+        body=self.mod.enquiry_first_text(lead)["body"]
+        with patch.object(self.mod,"customer_sms_hours_open",return_value=True),patch.object(self.mod,"send_clicksend_env_sms",return_value=(True,"Message ID: ack-email")) as sms,patch.object(self.mod,"send_env_email",return_value=(True,"Email sent")) as email:
+            self.first_control(lead,"send_now",reviewed_body=body)
+            self.first_control(lead,"send_now",reviewed_body=body)
+            sms.assert_called_once();email.assert_called_once()
+            self.assertEqual(email.call_args.args[0],"owner@example.invalid")
+            self.assertIn(body,email.call_args.args[2])
+        self.assertEqual(self.mod.enquiry_first_text(lead)["confirmation"],"Confirmation email sent")
+
+    def test_first_delivery_receipt_does_not_send_owner_sms(self):
+        lead=self.lead(body="Exact first text")
+        self.mod.run("UPDATE enquiry_acknowledgement_queue SET external_id='first-receipt' WHERE lead_id=?",(lead,))
+        with patch.object(self.mod,"send_clicksend_env_sms") as sms,patch.object(self.mod,"send_env_email",return_value=(True,"Sent")) as email:
+            self.mod.process_acknowledgement_delivery_receipt("first-receipt","DELIVERED")
+            self.mod.process_acknowledgement_delivery_receipt("first-receipt","DELIVERED")
+            sms.assert_not_called()
+            email.assert_called_once()

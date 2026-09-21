@@ -1,16 +1,57 @@
 <section class="stage-first-text" aria-label="First text">
   <h4>First message</h4>
-  <p class="message-state"><strong>{{ first_text.status }}</strong>{% if first_text.time %}<br>{{ first_text.time }} (UK time){% endif %}</p>
+  <p class="message-state first-message-status"><strong>{{ first_text.status }}</strong>{% if first_text.time %}<br>{{ first_text.time }} (UK time){% endif %}</p>
+  {% if first_text.can_send and show_first_text_action|default(false) %}
+    <p class="first-controls-label">YOUR MESSAGE CONTROLS</p>
+    <div class="first-control-grid">
+      <button type="button" data-first-panel="first-edit" aria-expanded="false"><span aria-hidden="true">✎</span>Edit this text<small>This customer only</small></button>
+      <button type="button" data-first-panel="first-default" aria-expanded="false"><span aria-hidden="true">▤</span>Edit default<small>Future enquiries</small></button>
+      <button type="button" data-first-panel="first-schedule" aria-expanded="false"><span aria-hidden="true">◷</span>Send at…<small>Choose a time</small></button>
+      <button type="button" data-first-panel="first-pause" aria-expanded="false"><span aria-hidden="true">Ⅱ</span>Pause until…<small>No automatic send</small></button>
+    </div>
+  {% endif %}
   <strong>{{ 'Draft — not sent' if first_text.is_draft else 'Exact message sent' }}</strong>
   {% if first_text.body %}<pre class="first-text-body" style="white-space:pre-wrap;overflow-wrap:anywhere;font:inherit">{{ first_text.body }}</pre>
   {% else %}<p>The original text is not available in the saved record.</p>{% endif %}
   {% if first_text.can_send and show_first_text_action|default(false) %}
-  <form method="post" action="{{ url_for('intake_send_first_text',lead_id=lead.id) }}">
-    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-    <input type="hidden" name="reviewed_body" value="{{ first_text.body }}">
-    <button class="btn primary" type="submit">Send first text</button>
-  </form>
-  <p class="stage-helper-note">Sends once during customer contact hours (09:30–19:00).</p>
+  <div class="first-message-controls">
+    <form method="post" class="first-send-now" action="{{ url_for('intake_send_first_text',lead_id=lead.id) }}">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="action" value="send_now">
+      <input type="hidden" name="reviewed_body" value="{{ first_text.body }}">
+      <button class="btn primary" type="submit">Send now <span aria-hidden="true">↗</span></button>
+    </form>
+    <form method="post" class="first-hold" action="{{ url_for('intake_send_first_text',lead_id=lead.id) }}">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+      <button class="btn secondary" name="action" value="hold">Hold until I send</button>
+    </form>
+    <form method="post" class="first-control-panel" id="first-edit" hidden action="{{ url_for('intake_send_first_text',lead_id=lead.id) }}">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="save_text">
+      <label for="first-body">Edit this customer's message</label>
+      <textarea id="first-body" name="body" rows="9" maxlength="5000" required>{{ first_text.body }}</textarea>
+      <p id="first-unsaved" hidden role="status">Save your edits before sending.</p>
+      <button class="btn primary">Save for this customer only</button>
+    </form>
+    <form method="post" class="first-control-panel" id="first-default" hidden action="{{ url_for('intake_send_first_text',lead_id=lead.id) }}">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="save_default">
+      <label for="first-default-body">Default first message for future enquiries</label>
+      <textarea id="first-default-body" name="default_body" rows="9" maxlength="5000" required>{{ first_text_default }}</textarea>
+      <p>Keep {% raw %}{{first_name}}{% endraw %} for each customer's name. This changes future drafts only.</p>
+      <button class="btn primary">Save permanent default</button>
+    </form>
+    {% for kind,label,action in [('schedule','Send at','schedule'),('pause','Pause until','pause')] %}
+    <form method="post" class="first-control-panel" id="first-{{ kind }}" hidden action="{{ url_for('intake_send_first_text',lead_id=lead.id) }}">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="{{ action }}">
+      <input type="hidden" name="reviewed_body" value="{{ first_text.body }}">
+      <label for="first-{{ kind }}-time">{{ label }} (UK time)</label>
+      <input type="datetime-local" id="first-{{ kind }}-time" name="first_text_at" required>
+      <p>{{ 'Sends this saved text at your chosen time, between 09:30 and 19:00.' if kind == 'schedule' else 'Returns for your approval at this time. Nothing sends automatically.' }}</p>
+      <button class="btn primary">{{ 'Schedule first text' if kind == 'schedule' else 'Pause first text' }}</button>
+    </form>
+    {% endfor %}
+    <p class="stage-helper-note">Customer contact hours: 09:30–19:00 UK time.</p>
+  </div>
   {% endif %}
+  {% if first_text.confirmation %}<p class="stage-helper-note">{{ first_text.confirmation }}</p>{% endif %}
   {% if lead is defined and lead.customer_id %}<a href="{{ url_for('customer_conversation',customer_id=lead.customer_id,channel='Text') }}#message-history">Open full text history</a>{% endif %}
 </section>

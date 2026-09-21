@@ -2002,21 +2002,6 @@ def enquiry_acknowledgement_text(data):
         context["{{first_name}}"] = first_name
         return render_simple_template(body, context)
 
-    detail = request_value(data, "message", "notes", "additional_notes", "what_cleaned", "service", "service_required", "cleaning_required", "rooms_areas", "rooms_or_areas", "rooms_or_items", "rooms_items", "items_required")
-    detail = re.sub(r"\s+", " ", clean_str(detail)).strip()
-    detail_lower = detail.lower()
-    has_specific_job_detail = bool(detail and (re.search(r"\b(room|lounge|bedroom|stairs|landing|hall|sofa|upholstery|rug|stain|pet)\b", detail_lower) or re.search(r"\d", detail)))
-    greeting = f"Hi {first_name}," if first_name else "Hi,"
-    if has_specific_job_detail:
-        detail = detail[:220].rstrip(" ,.;")
-        no_photos = bool(re.search(r"\b(no|not|haven't|have not|without)\b.{0,20}\b(photo|photos)\b", detail_lower))
-        photo_line = " No problem about the photos." if no_photos else " If you have any photos, please send them over as well."
-        body = (f"{greeting} thank you for your enquiry. I have received your message and will be happy to help. "
-                f"I can see you need: {detail}.{photo_line} "
-                "We do have a couple of different options depending on what you are looking for. "
-                "Are you looking for the best possible job or the cheapest possible quote?\nPaul")
-        return sms_safe_text(body)[:sms_single_message_limit()]
-
     body = message_template("website_enquiry_acknowledgement_sms")["body"]
     if not first_name:
         body = body.replace("Hi {{first_name}},", "Hi,")
@@ -2084,6 +2069,10 @@ def schedule_enquiry_acknowledgement(lead_id, customer_id=None, data=None, delay
 
 def run_due_enquiry_acknowledgements(dry_run=False, lead_id=None):
     now = datetime.now(ZoneInfo("Europe/London"))
+    if not dry_run:
+        run("""UPDATE enquiry_acknowledgement_queue SET status='Awaiting approval',message='Pause ended. Ready for approval; nothing sent.',
+               updated_at=datetime('now') WHERE status='Paused' AND IFNULL(sent_at,'')=''
+               AND datetime(due_at)<=datetime(?)""", (now.isoformat(timespec="seconds"),))
     rows = q("""SELECT q.*, s.is_test, s.ignore_alerts, s.phone AS lead_phone, s.email AS lead_email,
                        s.customer_id AS lead_customer_id
                 FROM enquiry_acknowledgement_queue q
@@ -2099,8 +2088,8 @@ def run_due_enquiry_acknowledgements(dry_run=False, lead_id=None):
     for row in rows:
         if not dry_run:
             cur = db().execute("""UPDATE enquiry_acknowledgement_queue SET status='Sending', updated_at=datetime('now')
-                                WHERE id=? AND sent_at='' AND status=? AND updated_at IS ?""",
-                                (row_value(row, "id"), row_value(row, "status"), row_value(row, "updated_at")))
+                                WHERE id=? AND sent_at='' AND status=? AND updated_at IS ? AND due_at IS ? AND body IS ?""",
+                                (row_value(row, "id"), row_value(row, "status"), row_value(row, "updated_at"), row_value(row,"due_at"), row_value(row,"body")))
             db().commit()
             if cur.rowcount != 1:
                 continue
@@ -2161,6 +2150,8 @@ def run_due_enquiry_acknowledgements(dry_run=False, lead_id=None):
                        sent_at=CASE WHEN ? IN ('Sent','Accepted') THEN datetime('now') ELSE sent_at END,
                         updated_at=datetime('now') WHERE id=?""",
                 (status, channel, clean_str(msg), external_id, body, status, row_value(row, "id")))
+            if channel == "sms" and ok:
+                email_follow_up_sent_confirmation(row_value(row,"lead_id"), phone, first_text=True)
             if channel == "sms":
                 sms_status = f"Accepted, awaiting delivery receipt: {clean_str(msg)}" if ok else status_text(False, msg)
                 update_intake_delivery_status(row_value(row, "lead_id"), customer_sms_status=sms_status,
@@ -2209,11 +2200,8 @@ def process_acknowledgement_delivery_receipt(external_id, status, payload=None, 
             data = json.loads(row_value(row, "payload_json") or "{}")
         except (TypeError, ValueError):
             data = {}
-        _owner_email, owner_mobile = owner_contact_form_recipients()
-        if owner_mobile:
-            customer_name = request_value(data, "name", "full_name", "customer_name") or "the customer"
-            confirmation = f"Customer enquiry text delivered to {customer_name}. Enquiry #{row_value(row, 'lead_id')}."
-            send_clicksend_env_sms(owner_mobile, confirmation, customer=None, category="Customer Message Confirmation")
+        email_follow_up_sent_confirmation(row_value(row,"lead_id"),
+            request_value(data,"phone","phone_number","telephone","tel"), first_text=True)
         return
     if state != "failed" or clean_str(row_value(row, "fallback_sent_at")):
         return
@@ -8782,6 +8770,7 @@ def init_db():
         ("enquiry_follow_up_queue", "owner_confirmation_status", "TEXT DEFAULT ''"),
         ("enquiry_follow_up_queue", "scheduled_send_at", "TEXT DEFAULT ''"),
         ("enquiry_follow_up_queue", "schedule_approved_at", "TEXT DEFAULT ''"),
+        ("enquiry_acknowledgement_queue", "owner_confirmation_status", "TEXT DEFAULT ''"),
         ("enquiry_acknowledgement_queue", "body", "TEXT DEFAULT ''"),
         ("enquiry_acknowledgement_queue", "external_id", "TEXT DEFAULT ''"),
         ("enquiry_acknowledgement_queue", "delivered_at", "TEXT DEFAULT ''"),
@@ -20239,6 +20228,8 @@ def intake_form_view(lead_id):
         "intake_form_view.html", contact_history=enquiry_contact_history(lead_id),
         lead=lead,
         first_text=enquiry_first_text(lead_id),
+        first_contact_sent=enquiry_first_contact_sent(lead_id),
+        first_text_default=message_template("website_enquiry_acknowledgement_sms")["body"],
         display_job_notes=clean_intake_job_notes(lead),
         xero_configured=xero_is_configured(),
         xero_connected=bool(xero_token_row()),
@@ -20360,30 +20351,31 @@ def send_enquiry_follow_up_text(customer_id, customer, recipient, body):
     return ok, msg
 
 
-def email_follow_up_sent_confirmation(lead_id, recipient):
-    row = q("SELECT * FROM enquiry_follow_up_queue WHERE lead_id=?", (lead_id,), one=True)
-    if not row or row["status"] != "Sent" or not row["sent_at"]:
+def email_follow_up_sent_confirmation(lead_id, recipient, first_text=False):
+    table = "enquiry_acknowledgement_queue" if first_text else "enquiry_follow_up_queue"
+    row = q(f"SELECT * FROM {table} WHERE lead_id=?", (lead_id,), one=True)
+    if not row or row["status"] not in ({"Accepted","Delivered","Sent"} if first_text else {"Sent"}) or not row["sent_at"]:
         return
-    cur = db().execute("""UPDATE enquiry_follow_up_queue SET owner_confirmation_status='Sending confirmation'
-        WHERE id=? AND status='Sent' AND IFNULL(owner_confirmation_status,'')=''""", (row["id"],))
+    cur = db().execute(f"""UPDATE {table} SET owner_confirmation_status='Sending confirmation'
+        WHERE id=? AND status IN ('Sent','Accepted','Delivered') AND IFNULL(owner_confirmation_status,'')=''""", (row["id"],))
     db().commit()
     if cur.rowcount != 1:
         return
     lead = q("SELECT * FROM intake_submissions WHERE id=?", (lead_id,), one=True)
     owner_email, _mobile = owner_contact_form_recipients()
     name = clean_str(row_get(lead,"name")) or "Customer"
-    text = ("Your follow-up text has been sent.\n"
+    text = (("Your first text has been sent.\n" if first_text else "Your follow-up text has been sent.\n") +
             "Customer: " + name + "\nMobile: " + recipient +
             "\nSent: " + friendly_local_datetime(row["sent_at"]) + " UK time" +
             "\n\nExact message:\n" + row["body"] +
             "\n\nThe messaging provider accepted this text; delivery confirmation is separate."
-            "\nThis follow-up is locked to prevent a duplicate send.")
+            "\nThis message is locked to prevent a duplicate send.")
     try:
         ok, message = send_env_email(owner_email, "Text sent — " + name, text,
                                     record_customer_event=False) if owner_email else (False,"No owner email configured.")
     except Exception:
         ok, message = False, "Could not send the owner confirmation email."
-    run("UPDATE enquiry_follow_up_queue SET owner_confirmation_status=? WHERE id=?",
+    run(f"UPDATE {table} SET owner_confirmation_status=? WHERE id=?",
         ("Confirmation email sent" if ok else "Confirmation email not sent: " + clean_str(message),row["id"]))
 
 
@@ -20397,6 +20389,12 @@ def run_due_scheduled_enquiry_texts(dry_run=False):
     for row in rows:
         lead = q("SELECT * FROM intake_submissions WHERE id=?", (row["lead_id"],), one=True)
         current = enquiry_follow_up_display(row)
+        if not enquiry_first_contact_sent(row["lead_id"]):
+            if not dry_run:
+                run("""UPDATE enquiry_follow_up_queue SET status='Held',schedule_approved_at='',scheduled_send_at='',
+                    message='Send the first message in Stage 1 before following up.',updated_at=datetime('now')
+                    WHERE id=? AND status='Scheduled' AND updated_at IS ?""",(row["id"],row["updated_at"]))
+            continue
         if not lead or current["status"] != "Scheduled":
             if not dry_run:
                 run("""UPDATE enquiry_follow_up_queue SET status=?, schedule_approved_at='',
@@ -20450,12 +20448,15 @@ def enquiry_first_text(lead_id):
         "Email fallback sent": "Sent — separate email fallback recorded",
         "Sent": "Sent",
         "Failed": "Not sent — failed",
-        "Queued": "Not sent — scheduled",
+        "Queued": "Not sent — scheduled for " + friendly_local_datetime(row_get(ack,"due_at")) + " UK time",
+        "Paused": "Paused until " + friendly_local_datetime(row_get(ack,"due_at")) + " UK time",
+        "Held": "On hold — waiting for you",
         "Awaiting approval": "Not sent — awaiting approval",
         "Cancelled": "Not sent — cancelled",
         "Sending": "Sending — not yet confirmed",
     }.get(status, status or "No text send recorded")
     result["time"] = friendly_local_datetime(sent_at) if sent_at else ""
+    result["confirmation"] = row_get(ack,"owner_confirmation_status") or ""
     result["body"] = row_get(ack, "body") or ""
     # Older queues did not store the body. Only use a uniquely linked audit record.
     if not result["body"] and row_get(ack, "external_id"):
@@ -20469,9 +20470,12 @@ def enquiry_first_text(lead_id):
                    (row_get(ack, "customer_id"), sent_at))
         if len(events) == 1:
             result["body"] = events[0]["body"]
-    result["is_draft"] = not sent_at and status in {"Queued","Awaiting approval","Cancelled","Failed"}
+    result["is_draft"] = not sent_at and status in {"Queued","Awaiting approval","Cancelled","Failed","Paused","Held"}
     result["can_send"] = result["is_draft"] and status != "Cancelled"
-    if result["is_draft"] and not result["body"]:
+    legacy_options = (status == "Awaiting approval" and
+                      "We do have a couple of different options depending on what you are looking for." in result["body"] and
+                      "I can see you need:" in result["body"])
+    if result["is_draft"] and (not result["body"] or legacy_options):
         try:
             payload = json.loads(row_get(ack, "payload_json") or "{}")
         except (TypeError, ValueError):
@@ -20507,27 +20511,82 @@ def intake_send_first_text(lead_id):
     lead = q("SELECT * FROM intake_submissions WHERE id=?", (lead_id,), one=True)
     ack = q("SELECT * FROM enquiry_acknowledgement_queue WHERE lead_id=?", (lead_id,), one=True)
     first = enquiry_first_text(lead_id)
+    action = request.form.get("action","send_now")
+    back = url_for("intake_form_view",lead_id=lead_id)
     if not lead or not ack or not first["can_send"] or row_get(lead,"is_test") or row_get(lead,"ignore_alerts") or clean_str(row_get(lead,"status")).lower() in {"closed","closed - no reply","booked"}:
-        flash("This first message cannot be sent again. Check its recorded status.")
-        return redirect(url_for("intake_form_view",lead_id=lead_id))
-    if request.form.get("reviewed_body","").replace("\r\n","\n") != first["body"].replace("\r\n","\n"):
-        flash("The draft changed. Review the first text before sending.")
-        return redirect(url_for("intake_form_view",lead_id=lead_id))
+        flash("This first message cannot be sent or edited again. Check its recorded status.")
+        return redirect(back)
+    if action not in {"send_now","schedule","pause","hold","resume","save_text","save_default"}:
+        abort(400)
+    if action == "save_default":
+        body = request.form.get("default_body","")
+        if not body.strip() or len(body)>5000:
+            flash("Enter a default message between 1 and 5,000 characters.")
+            return redirect(back)
+        run("""INSERT INTO message_templates(template_key,name,subject,body,updated_at)
+               VALUES ('website_enquiry_acknowledgement_sms','Website enquiry acknowledgement','',?,datetime('now'))
+               ON CONFLICT(template_key) DO UPDATE SET body=excluded.body,updated_at=datetime('now')""",(body,))
+        run("UPDATE temporary_message_changes SET active=0 WHERE template_key='website_enquiry_acknowledgement_sms'")
+        flash("First-message default saved for future enquiries. This customer's draft is unchanged.")
+        return redirect(back)
+    body = first["body"]
+    status = ack["status"]
+    due = ack["due_at"]
     now = datetime.now(ZoneInfo("Europe/London"))
-    due = now if customer_sms_hours_open(now) else next_customer_sms_window_open(now)
-    cur = db().execute("""UPDATE enquiry_acknowledgement_queue SET status='Queued',body=?,due_at=?,updated_at=datetime('now')
-        WHERE id=? AND status=? AND updated_at IS ? AND IFNULL(sent_at,'')=''""",
-        (first["body"],due.isoformat(timespec="seconds"),ack["id"],ack["status"],ack["updated_at"]))
+    if action == "save_text":
+        body = request.form.get("body","")
+        if not body.strip() or len(body)>5000:
+            flash("Enter a message between 1 and 5,000 characters.")
+            return redirect(back)
+        status = "Held" if ack["status"]=="Queued" else ack["status"]
+        message = "Saved for this customer only. Any scheduled send is cancelled."
+    elif action in {"schedule","pause"}:
+        if action=="schedule" and request.form.get("reviewed_body","").replace("\r\n","\n") != first["body"].replace("\r\n","\n"):
+            flash("The draft changed. Review it before scheduling.")
+            return redirect(back)
+        try:
+            due = follow_up_chosen_time(request.form.get("first_text_at"))
+        except ValueError as error:
+            flash(str(error))
+            return redirect(back)
+        chosen = datetime.fromisoformat(due)
+        if action=="schedule" and not customer_sms_hours_open(chosen):
+            flash("Choose a send time between 09:30 and 19:00 UK time.")
+            return redirect(back)
+        status = "Queued" if action=="schedule" else "Paused"
+        message = ("First text scheduled for " if action=="schedule" else "Paused until ") + friendly_local_datetime(due) + " UK time."
+        if action=="pause":
+            message += " It will return for approval, without sending."
+    elif action in {"hold","resume"}:
+        status = "Held" if action=="hold" else "Awaiting approval"
+        message = "Held until you send. Nothing sent." if action=="hold" else "Ready for approval. Nothing sent."
+    else:
+        if request.form.get("reviewed_body","").replace("\r\n","\n") != first["body"].replace("\r\n","\n"):
+            flash("The draft changed. Review the first text before sending.")
+            return redirect(back)
+        due_time = now if customer_sms_hours_open(now) else next_customer_sms_window_open(now)
+        due = due_time.isoformat(timespec="seconds")
+        status = "Queued"
+        message = "First text approved for " + friendly_local_datetime(due) + " UK time."
+    cur = db().execute("""UPDATE enquiry_acknowledgement_queue SET status=?,body=?,due_at=?,message=?,updated_at=datetime('now')
+        WHERE id=? AND status=? AND updated_at IS ? AND body IS ? AND due_at IS ? AND IFNULL(sent_at,'')=''""",
+        (status,body,due,message,ack["id"],ack["status"],ack["updated_at"],ack["body"],ack["due_at"]))
     db().commit()
     if cur.rowcount:
-        if customer_sms_hours_open(now):
+        if action=="send_now" and customer_sms_hours_open(now):
             run_due_enquiry_acknowledgements(lead_id=lead_id)
             flash("First message processed. Check the status below.")
         else:
-            flash("First text approved for " + friendly_local_datetime(due.isoformat()) + " UK time, when contact hours open.")
+            flash(message)
     else:
-        flash("The first message is already being processed. Nothing else was sent.")
-    return redirect(url_for("intake_form_view",lead_id=lead_id))
+        flash("The first message changed or is already being processed. Refresh to check it.")
+    return redirect(back)
+
+
+def enquiry_first_contact_sent(lead_id):
+    ack = q("SELECT * FROM enquiry_acknowledgement_queue WHERE lead_id=?", (lead_id,), one=True)
+    return bool(row_get(ack,"sent_at") and row_get(ack,"status") in
+                {"Accepted","Sent","Delivered","Delivery unconfirmed","Email fallback sent"})
 
 
 def enquiry_has_reply(customer_id, since):
@@ -20609,6 +20668,9 @@ def intake_customer_message_action(lead_id):
         flash("Intake form not found.")
         return redirect(url_for("intake_forms"))
     action = clean_str(request.form.get("action")).lower()
+    if action in {"send_follow_up_sms","send_follow_up_email","send_follow_up_both","schedule_follow_up_sms"} and not enquiry_first_contact_sent(lead_id):
+        flash("Send the first message in Stage 1 before sending or scheduling a follow-up.")
+        return redirect(url_for("intake_form_view",lead_id=lead_id))
     customer_id = row_get(lead, "customer_id") or create_customer_from_intake(lead)
     customer = q("SELECT * FROM customers WHERE id=?", (customer_id,), one=True)
     if customer_id and not row_get(lead, "customer_id"):
