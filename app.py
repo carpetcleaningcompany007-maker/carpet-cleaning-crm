@@ -2040,9 +2040,11 @@ def schedule_enquiry_acknowledgement(lead_id, customer_id=None, data=None, delay
         for key in lead.keys():
             payload.setdefault(key, lead[key])
     due_at = datetime.now(ZoneInfo("Europe/London")) + timedelta(minutes=delay_minutes)
+    if not customer_sms_hours_open(due_at):
+        due_at = next_customer_sms_window_open(due_at)
     run("""INSERT INTO enquiry_acknowledgement_queue
            (lead_id, customer_id, payload_json, due_at, body, status, created_at)
-           VALUES (?,?,?,?,?, 'Awaiting approval', datetime('now'))
+           VALUES (?,?,?,?,?, 'Queued', datetime('now'))
            ON CONFLICT(lead_id) DO NOTHING""",
         (lead_id, customer_id or row_get(lead, "customer_id"), json.dumps(payload, default=str), due_at.isoformat(timespec="seconds"), enquiry_acknowledgement_text(payload)))
     # Give every enquiry its own wake-up as well as leaving it in the durable
@@ -2061,10 +2063,10 @@ def schedule_enquiry_acknowledgement(lead_id, customer_id=None, data=None, delay
         except Exception:
             logger.exception("Scheduled enquiry acknowledgement wake-up failed")
 
-    timer = threading.Timer(max(1, (delay_minutes * 60) + 5), wake_acknowledgement_queue)
+    timer = threading.Timer(max(1, (due_at - datetime.now(ZoneInfo("Europe/London"))).total_seconds() + 5), wake_acknowledgement_queue)
     timer.daemon = True
     timer.start()
-    return True, "Customer acknowledgement drafted and waiting for Paul’s approval."
+    return True, "Customer acknowledgement scheduled for " + friendly_local_datetime(due_at) + " UK time."
 
 
 def run_due_enquiry_acknowledgements(dry_run=False, lead_id=None):
@@ -8975,12 +8977,6 @@ def init_db():
         conn.execute('UPDATE expenses SET category=? WHERE category=?',(new_category,old_category))
         conn.execute('UPDATE recurring_expenses SET category=? WHERE category=?',(new_category,old_category))
     conn.execute("INSERT OR IGNORE INTO settings (id) VALUES (1)")
-    # First website-enquiry acknowledgements are approval-only. Freeze any legacy
-    # queued acknowledgement that has not been sent, so a deployment cannot send it.
-    try:
-        conn.execute("UPDATE enquiry_acknowledgement_queue SET status='Awaiting approval', updated_at=datetime('now') WHERE status='Queued' AND IFNULL(sent_at,'')=''")
-    except sqlite3.OperationalError:
-        pass
     conn.execute("""CREATE TABLE IF NOT EXISTS card_payment_settings (
         id INTEGER PRIMARY KEY CHECK (id=1), provider TEXT DEFAULT 'Stripe',
         publishable_key TEXT DEFAULT '', secret_key TEXT DEFAULT '', webhook_secret TEXT DEFAULT '',
@@ -9266,6 +9262,24 @@ def init_db():
         last_error TEXT DEFAULT ''
     )""")
     conn.execute("INSERT OR IGNORE INTO inbound_email_poll_state(id) VALUES (1)")
+    # Restore recent untouched drafts held by the former approval-only rule.
+    # Never release manual holds, pauses, edits, failures or an old backlog.
+    opening = datetime.now(ZoneInfo("Europe/London")) + timedelta(minutes=5)
+    if not customer_sms_hours_open(opening):
+        opening = next_customer_sms_window_open(opening)
+    conn.execute("""UPDATE enquiry_acknowledgement_queue
+        SET status='Queued',due_at=?,message='Automatic first acknowledgement restored for customer contact hours',updated_at=datetime('now')
+        WHERE status='Awaiting approval' AND IFNULL(sent_at,'')='' AND IFNULL(message,'')=''
+        AND datetime(created_at)>=datetime('now','-24 hours')
+        AND lead_id IN (SELECT id FROM intake_submissions WHERE lower(status)='new'
+            AND IFNULL(is_test,0)=0 AND IFNULL(ignore_alerts,0)=0)
+        AND NOT EXISTS (SELECT 1 FROM sms_events e WHERE e.customer_id=enquiry_acknowledgement_queue.customer_id
+            AND e.direction='inbound' AND datetime(e.created_at)>=datetime(enquiry_acknowledgement_queue.created_at))
+        AND NOT EXISTS (SELECT 1 FROM communications c WHERE c.customer_id=enquiry_acknowledgement_queue.customer_id
+            AND c.subject LIKE 'Inbound%' AND datetime(c.created_at)>=datetime(enquiry_acknowledgement_queue.created_at))
+        AND NOT EXISTS (SELECT 1 FROM inbound_customer_emails e WHERE e.customer_id=enquiry_acknowledgement_queue.customer_id
+            AND datetime(e.received_at)>=datetime(enquiry_acknowledgement_queue.created_at))
+        """,(opening.isoformat(timespec="seconds"),))
     conn.commit()
     conn.close()
     try:

@@ -509,3 +509,40 @@ class NoReplyWorkflowTests(unittest.TestCase):
         self.assertIn('data-current-step="2"',page())
         self.mod.run("UPDATE enquiry_follow_up_queue SET status='Sent' WHERE lead_id=?",(lead,))
         self.assertIn('data-current-step="3"',page())
+
+    def test_new_first_ack_is_automatic_at_next_opening(self):
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+        class Night(datetime):
+            @classmethod
+            def now(cls,tz=None):return cls(2026,9,21,3,0,tzinfo=ZoneInfo("Europe/London"))
+        lead=self.lead("Awaiting approval")
+        self.mod.run("DELETE FROM enquiry_acknowledgement_queue WHERE lead_id=?",(lead,))
+        with patch.object(self.mod,"datetime",Night),patch.object(self.mod.threading,"Timer"):
+            self.mod.schedule_enquiry_acknowledgement(lead,self.customer,{"name":"Chris"})
+        row=self.mod.q("SELECT * FROM enquiry_acknowledgement_queue WHERE lead_id=?",(lead,),one=True)
+        self.assertEqual(row["status"],"Queued")
+        self.assertEqual(row["due_at"],"2026-09-21T09:30:00+01:00")
+
+    def test_startup_preserves_scheduled_and_held_first_messages(self):
+        lead=self.lead("Queued")
+        self.mod.run("UPDATE enquiry_acknowledgement_queue SET due_at='2099-01-15T11:30:00+00:00' WHERE lead_id=?",(lead,))
+        self.mod.init_db()
+        row=self.mod.q("SELECT * FROM enquiry_acknowledgement_queue WHERE lead_id=?",(lead,),one=True)
+        self.assertEqual(row["status"],"Queued")
+        self.assertEqual(row["due_at"],"2099-01-15T11:30:00+00:00")
+        self.mod.run("UPDATE enquiry_acknowledgement_queue SET status='Held' WHERE lead_id=?",(lead,))
+        self.mod.init_db()
+        self.assertEqual(self.mod.q("SELECT status FROM enquiry_acknowledgement_queue WHERE lead_id=?",(lead,),one=True)["status"],"Held")
+
+    def test_restore_only_recent_untouched_first_drafts(self):
+        fresh=self.lead("Awaiting approval")
+        edited=self.lead("Awaiting approval")
+        old=self.lead("Awaiting approval")
+        self.mod.run("UPDATE enquiry_acknowledgement_queue SET message='Saved for this customer only' WHERE lead_id=?",(edited,))
+        self.mod.run("UPDATE enquiry_acknowledgement_queue SET created_at='2000-01-01' WHERE lead_id=?",(old,))
+        self.mod.init_db()
+        statuses={row["lead_id"]:row["status"] for row in self.mod.q("SELECT lead_id,status FROM enquiry_acknowledgement_queue")}
+        self.assertEqual(statuses[fresh],"Queued")
+        self.assertEqual(statuses[edited],"Awaiting approval")
+        self.assertEqual(statuses[old],"Awaiting approval")
