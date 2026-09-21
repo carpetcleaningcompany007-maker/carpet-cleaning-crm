@@ -2032,6 +2032,9 @@ def next_customer_sms_window_open(now=None):
 def schedule_enquiry_acknowledgement(lead_id, customer_id=None, data=None, delay_minutes=5):
     if not lead_id:
         return False, "No enquiry ID to schedule."
+    # Owner has explicitly stopped all further automated contact for Chris.
+    if int(lead_id) == 197:
+        return False, "Automatic acknowledgement is permanently paused for this enquiry."
     existing = q("SELECT status FROM enquiry_acknowledgement_queue WHERE lead_id=?", (lead_id,), one=True)
     if existing:
         return False, f"Customer acknowledgement already {clean_str(row_get(existing, 'status')).lower() or 'queued'}."
