@@ -1,8 +1,16 @@
 <section class="stage-first-text" aria-label="First text">
-  <h4>First text</h4>
-  <p><strong>Status:</strong> {{ first_text.status }}</p>
-  <p><strong>Sent time:</strong> {{ first_text.time or 'No send time recorded' }}{% if first_text.time %} (UK time){% endif %}</p>
-  <strong>Exact message recorded</strong>
-  {% if first_text.body %}<pre style="white-space:pre-wrap;overflow-wrap:anywhere;font:inherit">{{ first_text.body }}</pre>
-  {% else %}<p>No exact message recorded.</p>{% endif %}
+  <h4>First message</h4>
+  <p class="message-state"><strong>{{ first_text.status }}</strong>{% if first_text.time %}<br>{{ first_text.time }} (UK time){% endif %}</p>
+  <strong>{{ 'Draft — not sent' if first_text.is_draft else 'Exact message sent' }}</strong>
+  {% if first_text.body %}<pre class="first-text-body" style="white-space:pre-wrap;overflow-wrap:anywhere;font:inherit">{{ first_text.body }}</pre>
+  {% else %}<p>The original text is not available in the saved record.</p>{% endif %}
+  {% if first_text.can_send and show_first_text_action|default(false) %}
+  <form method="post" action="{{ url_for('intake_send_first_text',lead_id=lead.id) }}">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="reviewed_body" value="{{ first_text.body }}">
+    <button class="btn primary" type="submit">Send first text</button>
+  </form>
+  <p class="stage-helper-note">Sends once during customer contact hours (09:30–19:00).</p>
+  {% endif %}
+  {% if lead is defined and lead.customer_id %}<a href="{{ url_for('customer_conversation',customer_id=lead.customer_id,channel='Text') }}#message-history">Open full text history</a>{% endif %}
 </section>

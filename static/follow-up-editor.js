@@ -1,7 +1,18 @@
 (function () {
   'use strict';
-  const followUp = document.getElementById('customer-message-approval');
-  if (followUp && location.hash === '#customer-message-approval') followUp.open = true;
+  const steps = Array.from(document.querySelectorAll('[data-enquiry-step]'));
+  function showStep(number, scroll) {
+    steps.forEach(step => { step.hidden = step.dataset.enquiryStep !== number; });
+    document.querySelectorAll('.enquiry-step-nav [data-show-step]').forEach(button => {
+      if (button.dataset.showStep === number) button.setAttribute('aria-current', 'step');
+      else button.removeAttribute('aria-current');
+    });
+    if (scroll) document.querySelector('.enquiry-step-nav')?.scrollIntoView({behavior:'smooth',block:'start'});
+  }
+  document.querySelectorAll('[data-show-step]').forEach(button => {
+    button.addEventListener('click', () => showStep(button.dataset.showStep, true));
+  });
+  if (steps.length) showStep(location.hash === '#customer-message-approval' ? '2' : location.hash === '#edit-intake-details' ? '3' : '1', false);
   const editor = document.getElementById('follow-up-body');
   if (!editor) return;
   const saved = editor.value;

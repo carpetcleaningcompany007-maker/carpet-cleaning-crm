@@ -2056,10 +2056,10 @@ def schedule_enquiry_acknowledgement(lead_id, customer_id=None, data=None, delay
             payload.setdefault(key, lead[key])
     due_at = datetime.now(ZoneInfo("Europe/London")) + timedelta(minutes=delay_minutes)
     run("""INSERT INTO enquiry_acknowledgement_queue
-           (lead_id, customer_id, payload_json, due_at, status, created_at)
-           VALUES (?,?,?,?, 'Awaiting approval', datetime('now'))
+           (lead_id, customer_id, payload_json, due_at, body, status, created_at)
+           VALUES (?,?,?,?,?, 'Awaiting approval', datetime('now'))
            ON CONFLICT(lead_id) DO NOTHING""",
-        (lead_id, customer_id or row_get(lead, "customer_id"), json.dumps(payload, default=str), due_at.isoformat(timespec="seconds")))
+        (lead_id, customer_id or row_get(lead, "customer_id"), json.dumps(payload, default=str), due_at.isoformat(timespec="seconds"), enquiry_acknowledgement_text(payload)))
     # Give every enquiry its own wake-up as well as leaving it in the durable
     # queue. This covers deployments where the general background loop is
     # temporarily asleep or disabled; the queue still prevents duplicate sends.
@@ -2112,7 +2112,7 @@ def run_due_enquiry_acknowledgements(dry_run=False, lead_id=None):
         customer = q("SELECT * FROM customers WHERE id=?", (customer_id,), one=True) if customer_id else None
         phone = request_value(payload, "phone", "phone_number", "telephone", "tel") or row_value(row, "lead_phone")
         email = request_value(payload, "email", "email_address") or row_value(row, "lead_email")
-        body = enquiry_acknowledgement_text(payload)
+        body = row_value(row, "body") or enquiry_acknowledgement_text(payload)
         phone_valid = is_valid_uk_phone(phone)
         # Automated customer acknowledgements are restricted to Paul's chosen
         # daytime window, whether the preferred route is SMS or email.
@@ -10979,7 +10979,7 @@ def dashboard_enquiry_action(lead_id):
         if not customer_sms_hours_open(now):
             flash('Customer contact hours are 09:30–19:00. The message stays queued for the next permitted time.')
             return redirect(url_for('dashboard'))
-        cur = db().execute("""UPDATE enquiry_acknowledgement_queue SET due_at=?, updated_at=datetime('now')
+        cur = db().execute("""UPDATE enquiry_acknowledgement_queue SET status='Queued', due_at=?, updated_at=datetime('now')
                               WHERE lead_id=? AND status IN ('Queued','Awaiting approval') AND sent_at=''""", (now.isoformat(timespec='seconds'),lead_id))
         db().commit()
         if cur.rowcount:
@@ -20433,7 +20433,7 @@ def run_due_scheduled_enquiry_texts(dry_run=False):
 def enquiry_first_text(lead_id):
     """Use the enquiry's stored send record, never today's message template."""
     ack = q("SELECT * FROM enquiry_acknowledgement_queue WHERE lead_id=?", (lead_id,), one=True) if lead_id else None
-    result = {"status": "No text send recorded", "time": "", "body": ""}
+    result = {"status": "No text send recorded", "time": "", "body": "", "is_draft": False, "can_send": False}
     if not ack:
         return result
     status = clean_str(row_get(ack, "status"))
@@ -20469,7 +20469,65 @@ def enquiry_first_text(lead_id):
                    (row_get(ack, "customer_id"), sent_at))
         if len(events) == 1:
             result["body"] = events[0]["body"]
+    result["is_draft"] = not sent_at and status in {"Queued","Awaiting approval","Cancelled","Failed"}
+    result["can_send"] = result["is_draft"] and status != "Cancelled"
+    if result["is_draft"] and not result["body"]:
+        try:
+            payload = json.loads(row_get(ack, "payload_json") or "{}")
+        except (TypeError, ValueError):
+            payload = {}
+        lead = q("SELECT * FROM intake_submissions WHERE id=?", (lead_id,), one=True)
+        data = dict(lead or {})
+        data.update(payload if isinstance(payload,dict) else {})
+        result["body"] = enquiry_acknowledgement_text(data)
+    # An older queue may still say pending after a separately recorded acknowledgement.
+    if not sent_at and row_get(ack,"customer_id"):
+        events = q("""SELECT body,created_at FROM communications
+            WHERE customer_id=? AND upper(channel)='SMS'
+              AND subject='Delayed website enquiry acknowledgement'
+              AND datetime(created_at)>=datetime(?)
+              AND datetime(created_at)<COALESCE((SELECT MIN(datetime(created_at)) FROM intake_submissions
+                  WHERE customer_id=? AND id<>? AND datetime(created_at)>datetime(?)), '9999-12-31')
+            ORDER BY created_at""",
+            (row_get(ack,"customer_id"),row_get(ack,"created_at"),row_get(ack,"customer_id"),lead_id,row_get(ack,"created_at")))
+        # The communications table also contains failed attempts: do not infer delivery from it alone.
+        if len(events)==1:
+            matched = q("""SELECT * FROM sms_events WHERE customer_id=? AND direction='outbound' AND body=?
+                AND datetime(created_at)>=datetime(?) AND lower(status) IN ('sent','accepted','delivered','success')
+                ORDER BY id LIMIT 1""", (row_get(ack,"customer_id"),events[0]["body"],row_get(ack,"created_at")), one=True)
+            if matched:
+                result.update(status="Sent — recorded in message history",time=friendly_local_datetime(matched["created_at"]),
+                              body=matched["body"],is_draft=False,can_send=False)
     return result
+
+
+@app.route("/intake-forms/<int:lead_id>/first-text", methods=["POST"])
+@login_required
+def intake_send_first_text(lead_id):
+    lead = q("SELECT * FROM intake_submissions WHERE id=?", (lead_id,), one=True)
+    ack = q("SELECT * FROM enquiry_acknowledgement_queue WHERE lead_id=?", (lead_id,), one=True)
+    first = enquiry_first_text(lead_id)
+    if not lead or not ack or not first["can_send"] or row_get(lead,"is_test") or row_get(lead,"ignore_alerts") or clean_str(row_get(lead,"status")).lower() in {"closed","closed - no reply","booked"}:
+        flash("This first message cannot be sent again. Check its recorded status.")
+        return redirect(url_for("intake_form_view",lead_id=lead_id))
+    if request.form.get("reviewed_body","").replace("\r\n","\n") != first["body"].replace("\r\n","\n"):
+        flash("The draft changed. Review the first text before sending.")
+        return redirect(url_for("intake_form_view",lead_id=lead_id))
+    now = datetime.now(ZoneInfo("Europe/London"))
+    due = now if customer_sms_hours_open(now) else next_customer_sms_window_open(now)
+    cur = db().execute("""UPDATE enquiry_acknowledgement_queue SET status='Queued',body=?,due_at=?,updated_at=datetime('now')
+        WHERE id=? AND status=? AND updated_at IS ? AND IFNULL(sent_at,'')=''""",
+        (first["body"],due.isoformat(timespec="seconds"),ack["id"],ack["status"],ack["updated_at"]))
+    db().commit()
+    if cur.rowcount:
+        if customer_sms_hours_open(now):
+            run_due_enquiry_acknowledgements(lead_id=lead_id)
+            flash("First message processed. Check the status below.")
+        else:
+            flash("First text approved for " + friendly_local_datetime(due.isoformat()) + " UK time, when contact hours open.")
+    else:
+        flash("The first message is already being processed. Nothing else was sent.")
+    return redirect(url_for("intake_form_view",lead_id=lead_id))
 
 
 def enquiry_has_reply(customer_id, since):

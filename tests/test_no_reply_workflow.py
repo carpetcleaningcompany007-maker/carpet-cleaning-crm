@@ -92,7 +92,11 @@ class NoReplyWorkflowTests(unittest.TestCase):
             lead = self.lead(status,channel)
             first = self.mod.enquiry_first_text(lead)
             self.assertIn(expected,first["status"])
-            self.assertEqual(first["body"],"")
+            if channel == "email":
+                self.assertEqual(first["body"],"")
+            else:
+                self.assertTrue(first["is_draft"])
+                self.assertIn("Hi Workflow",first["body"])
             self.assertEqual(first["time"],"")
 
     def test_send_saves_original_body_despite_template_changes(self):
@@ -390,3 +394,33 @@ class NoReplyWorkflowTests(unittest.TestCase):
         self.assertNotIn("follow-up-editor.js",page.split("</title>")[0])
         self.assertIn("follow-up-editor.js",page)
         self.assertIn("&lt;script&gt;unsafe()&lt;/script&gt;",page)
+
+    def test_pending_first_message_displays_full_draft_without_sending(self):
+        lead=self.lead("Awaiting approval")
+        with patch.object(self.mod,"send_clicksend_env_sms") as sms:
+            first=self.mod.enquiry_first_text(lead)
+            self.assertTrue(first["is_draft"])
+            self.assertIn("Hi Workflow",first["body"])
+            page=self.client.get(f"/intake-forms/{lead}").data
+            self.assertIn(b"Draft",page)
+            self.assertIn(b"Send first text",page)
+            self.assertIn(b'data-enquiry-step="1"',page)
+            self.assertIn(b'data-enquiry-step="2" id="enquiry-step-2" hidden',page)
+            sms.assert_not_called()
+
+    def test_approve_pending_first_text_sends_reviewed_draft_once(self):
+        lead=self.lead("Awaiting approval")
+        body=self.mod.enquiry_first_text(lead)["body"]
+        with patch.object(self.mod,"customer_sms_hours_open",return_value=True),patch.object(self.mod,"send_clicksend_env_sms",return_value=(True,"Message ID: first-one")) as sms:
+            self.client.post(f"/intake-forms/{lead}/first-text",data={"reviewed_body":body})
+            self.client.post(f"/intake-forms/{lead}/first-text",data={"reviewed_body":body})
+            sms.assert_called_once()
+            self.assertEqual(sms.call_args.args[1],body)
+        self.assertEqual(self.mod.enquiry_first_text(lead)["body"],body)
+
+    def test_new_first_draft_is_saved_before_send_and_survives_template_change(self):
+        lead=self.mod.run("INSERT INTO intake_submissions(name,phone,customer_id,status) VALUES ('Chris','07700900123',?,'New')",(self.customer,))
+        with patch.object(self.mod.threading,"Timer"),patch.object(self.mod,"enquiry_acknowledgement_text",return_value="Original first draft"):
+            self.mod.schedule_enquiry_acknowledgement(lead,self.customer,{"name":"Chris","phone":"07700900123"})
+        with patch.object(self.mod,"enquiry_acknowledgement_text",return_value="Changed template"):
+            self.assertEqual(self.mod.enquiry_first_text(lead)["body"],"Original first draft")
