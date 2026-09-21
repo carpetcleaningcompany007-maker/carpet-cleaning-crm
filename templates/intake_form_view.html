@@ -133,13 +133,14 @@
   .first-control-grid button>span{grid-column:1;grid-row:1/3;font-size:21px}
   .first-control-grid button small{grid-column:2;font-size:10px}
 </style>
-<link rel="stylesheet" href="{{ url_for('static',filename='enquiry-premium.css') }}?v=3">
+<link rel="stylesheet" href="{{ url_for('static',filename='enquiry-premium.css') }}?v=4">
 
-<section class="review-shell" data-first-contact-sent="{{ 'yes' if first_contact_sent else 'no' }}">
+{% set current_step = '1' if not first_contact_sent else ('3' if prepared_follow_up and prepared_follow_up.status == 'Sent' else '2') %}
+<section class="review-shell" data-current-step="{{ current_step }}" data-watch-send="{{ 'yes' if first_text.scheduled_time or first_text.is_sending or (prepared_follow_up and prepared_follow_up.status in ['Scheduled','Sending']) else 'no' }}" data-first-contact-sent="{{ 'yes' if first_contact_sent else 'no' }}">
   <div class="review-hero">
     <div>
       <h3>{{ lead.name or 'Customer details form' }}</h3>
-      <p>One step at a time. Start with the first message.</p>
+      <p>{{ "First message · Review and choose when to send" if current_step == "1" else ("Follow-up · First message sent" if current_step == "2" else "Quote · Follow-up sent") }}</p>
     </div>
     
   </div>
@@ -436,5 +437,5 @@
     </section>
   </section>
 </section>
-<script src="{{ url_for('static', filename='follow-up-editor.js') }}?v=steps-3" defer></script>
+<script src="{{ url_for('static', filename='follow-up-editor.js') }}?v=steps-4" defer></script>
 {% endblock %}

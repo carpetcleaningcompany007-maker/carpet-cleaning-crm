@@ -3,6 +3,15 @@
   <div class="first-message-heading"><span class="message-heading-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 4h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-8l-6 3v-3a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"/><path d="M7 9h10M7 13h6"/></svg></span><h4>First message</h4></div>
   {% else %}<h4>First message</h4>{% endif %}
   <p class="message-state first-message-status"><strong>{{ first_text.status }}</strong>{% if first_text.time %}<br>{{ first_text.time }} (UK time){% endif %}</p>
+  {% if show_first_text_action|default(false) %}
+  <div class="first-send-summary" role="status">
+    {% if first_text.is_sending %}<span>Sending now</span><strong>Waiting for send confirmation</strong><p>Stage 2 opens once sending is confirmed.</p>
+    {% elif first_text.scheduled_time %}<span>Scheduled to send automatically</span><strong>{{ first_text.scheduled_time }} <small>UK time</small></strong><p>The page moves to Stage 2 once sending is confirmed.</p>
+    {% elif first_text.time %}<span>First message sent</span><strong>{{ first_text.time }} <small>UK time</small></strong>
+    {% elif first_text.pause_time %}<span>Paused until {{ first_text.pause_time }} (UK time)</span><strong>No automatic send</strong><p>Returns for your approval when the pause ends.</p>
+    {% else %}<span>Send time</span><strong>No automatic send scheduled</strong><p>Choose “Send at…” to schedule, or “Send now” to approve this message.</p>{% endif %}
+  </div>
+  {% endif %}
   {% if first_text.can_send and show_first_text_action|default(false) %}
     <p class="first-controls-label">YOUR MESSAGE CONTROLS</p>
     <div class="first-control-grid">

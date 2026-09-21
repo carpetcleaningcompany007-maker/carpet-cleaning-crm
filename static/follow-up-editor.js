@@ -1,6 +1,7 @@
 (function () {
   'use strict';
   const steps = Array.from(document.querySelectorAll('[data-enquiry-step]'));
+  const shell = document.querySelector('[data-current-step]');
   const firstContactSent = document.querySelector('[data-first-contact-sent]')?.dataset.firstContactSent !== 'no';
   function showStep(number, scroll) {
     if (!firstContactSent && number !== '1') number = '1';
@@ -14,7 +15,26 @@
   document.querySelectorAll('[data-show-step]').forEach(button => {
     button.addEventListener('click', () => showStep(button.dataset.showStep, true));
   });
-  if (steps.length) showStep(location.hash === '#customer-message-approval' ? '2' : location.hash === '#edit-intake-details' ? '3' : '1', false);
+  if (steps.length) showStep(location.hash === '#customer-message-approval' ? (shell?.dataset.currentStep === '3' ? '3' : '2') : location.hash === '#edit-intake-details' ? '3' : (shell?.dataset.currentStep || '1'), false);
+  let edited = false;
+  document.addEventListener('input', () => { edited = true; });
+  if (shell?.dataset.watchSend === 'yes') {
+    let checking = false;
+    setInterval(async () => {
+      if (checking || edited || document.hidden) return;
+      checking = true;
+      try {
+        const response = await fetch(location.pathname, {cache:'no-store'});
+        if (!response.ok) return;
+        const doc = new DOMParser().parseFromString(await response.text(), 'text/html');
+        const next = doc.querySelector('[data-current-step]');
+        if (next && !edited && (next.dataset.currentStep !== shell.dataset.currentStep || next.dataset.watchSend !== 'yes')) {
+          location.replace(location.pathname);
+        }
+      } catch (_) { /* Retry on the next check. */ }
+      finally { checking = false; }
+    }, 15000);
+  }
   const firstBody = document.getElementById('first-body');
   const firstSaved = firstBody?.value;
   function openFirstPanel(id) {

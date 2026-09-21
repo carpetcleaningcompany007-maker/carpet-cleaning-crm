@@ -491,3 +491,21 @@ class NoReplyWorkflowTests(unittest.TestCase):
             self.mod.process_acknowledgement_delivery_receipt("first-receipt","DELIVERED")
             sms.assert_not_called()
             email.assert_called_once()
+
+    def test_schedule_summary_only_displays_an_authorised_send(self):
+        lead=self.lead("Awaiting approval")
+        self.assertEqual(self.mod.enquiry_first_text(lead)["scheduled_time"],"")
+        body=self.mod.enquiry_first_text(lead)["body"]
+        self.first_control(lead,"schedule",reviewed_body=body,first_text_at="2099-01-15T11:30")
+        self.assertIn("11:30",self.mod.enquiry_first_text(lead)["scheduled_time"])
+        self.first_control(lead,"hold")
+        self.assertEqual(self.mod.enquiry_first_text(lead)["scheduled_time"],"")
+
+    def test_default_stage_tracks_confirmed_sends(self):
+        lead=self.lead("Awaiting approval");self.follow_up(lead)
+        def page():return self.client.get(f"/intake-forms/{lead}").get_data(as_text=True)
+        self.assertIn('data-current-step="1"',page())
+        self.mod.run("UPDATE enquiry_acknowledgement_queue SET status='Accepted',sent_at='2026-01-01 10:00:00' WHERE lead_id=?",(lead,))
+        self.assertIn('data-current-step="2"',page())
+        self.mod.run("UPDATE enquiry_follow_up_queue SET status='Sent' WHERE lead_id=?",(lead,))
+        self.assertIn('data-current-step="3"',page())

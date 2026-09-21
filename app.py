@@ -20455,6 +20455,9 @@ def enquiry_first_text(lead_id):
         "Cancelled": "Not sent — cancelled",
         "Sending": "Sending — not yet confirmed",
     }.get(status, status or "No text send recorded")
+    result["is_sending"] = status == "Sending"
+    result["scheduled_time"] = friendly_local_datetime(row_get(ack, "due_at")) if status == "Queued" and not sent_at else ""
+    result["pause_time"] = friendly_local_datetime(row_get(ack, "due_at")) if status == "Paused" and not sent_at else ""
     result["time"] = friendly_local_datetime(sent_at) if sent_at else ""
     result["confirmation"] = row_get(ack,"owner_confirmation_status") or ""
     result["body"] = row_get(ack, "body") or ""
