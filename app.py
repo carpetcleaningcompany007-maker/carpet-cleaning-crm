@@ -3656,13 +3656,6 @@ def run_website_enquiry_automation(lead_id, customer_id, data):
         body=enquiry_follow_up_sms_text(data),
         status="Awaiting approval",
     )
-    # The CRM and owner alerts remain available if the additional archive fails.
-    formspree_ok, formspree_message = forward_website_form_to_formspree(
-        data, lead_id=lead_id, customer_id=customer_id
-    )
-    results["formspree"] = (formspree_ok, formspree_message)
-    run("INSERT INTO customer_timeline(customer_id, note_text, created_at) VALUES (?,?,datetime('now'))",
-        (customer_id, "Formspree enquiry copy: " + formspree_message))
     return results
 
 
