@@ -2939,7 +2939,8 @@ def owner_enquiry_alert_text(data, customer_id=None, lead_id=None):
     message = request_value(data, "message", "notes", "additional_notes")
     source = website_enquiry_source_label(data)
     lines = [
-        f"NEW LEAD - {source}",
+        "YOU HAVE A NEW WEB ENQUIRY",
+        f"Source: {source}",
         "",
         f"Name: {name}",
         f"Telephone: {phone}",
@@ -3011,7 +3012,7 @@ def owner_enquiry_alert_html(data, customer_id=None, lead_id=None):
         links.append(f"<a href='{html_lib.escape(customer_url)}' style='display:inline-block;margin:6px 8px 0 0;padding:10px 14px;border-radius:6px;background:#243270;color:#fff;text-decoration:none;font-weight:700'>Open CRM record</a>")
     return (
         "<div style='max-width:620px;margin:auto;border:1px solid #dbe2e5;border-radius:10px;overflow:hidden;font-family:Arial,sans-serif'>"
-        f"<div style='padding:18px 22px;background:#243270;color:#fff'><div style='font-size:12px;letter-spacing:.08em;text-transform:uppercase'>New lead</div><h2 style='margin:5px 0 0;font-size:22px'>{html_lib.escape(source)}</h2></div>"
+        f"<div style='padding:18px 22px;background:#243270;color:#fff'><h2 style='margin:0;font-size:24px;font-weight:800'><strong>YOU HAVE A NEW WEB ENQUIRY</strong></h2><div style='margin-top:8px;font-size:14px'>{html_lib.escape(source)}</div></div>"
         f"<div style='padding:20px 22px'><table style='width:100%;border-collapse:collapse'>{row_html}</table>{notes_html}"
         "<div style='margin-top:18px;padding:15px 16px;border-radius:7px;background:#f4f6f8;color:#202329;line-height:1.9'>"
         "<strong>Diary details</strong><br>Price: £________<br>Time: ____________<br>what3words: ____________________</div>"
@@ -3594,7 +3595,7 @@ def run_website_enquiry_automation(lead_id, customer_id, data):
         if subject.strip().lower() == "new website enquiry received":
             lead_name = request_value(data, "name", "full_name", "customer_name") or "New customer"
             lead_postcode = request_value(data, "postcode", "post_code", "zip")
-            subject_bits = ["New lead", lead_name, lead_postcode, website_enquiry_source_label(data)]
+            subject_bits = ["YOU HAVE A NEW WEB ENQUIRY", lead_name, lead_postcode, website_enquiry_source_label(data)]
             subject = " | ".join(bit for bit in subject_bits if bit)
         alert_html = owner_enquiry_alert_html(data, customer_id=customer_id, lead_id=lead_id)
         email_ok, email_msg = send_env_email(owner_email, subject, alert_body, alert_html)
@@ -3615,10 +3616,10 @@ def run_website_enquiry_automation(lead_id, customer_id, data):
         send_now_url = crm_external_url("intake_form_view", lead_id=lead_id) + "#customer-message-approval"
         if outside_customer_hours:
             next_opening = next_customer_sms_window_open()
-            heading = f"AFTER-HOURS WEBSITE ENQUIRY #{lead_id}"
+            heading = f"YOU HAVE A NEW WEB ENQUIRY\nEnquiry #{lead_id} - after hours"
             customer_timing = f"Customer {preferred_route} held until {next_opening.strftime('%H:%M')}."
         else:
-            heading = f"NEW WEBSITE ENQUIRY #{lead_id}"
+            heading = f"YOU HAVE A NEW WEB ENQUIRY\nEnquiry #{lead_id}"
             customer_timing = f"Customer {preferred_route} due in about 5 minutes."
         notice_lines = [
             heading,
