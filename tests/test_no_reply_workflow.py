@@ -159,36 +159,30 @@ class NoReplyWorkflowTests(unittest.TestCase):
         return self.mod.q("SELECT * FROM enquiry_follow_up_queue WHERE lead_id=?",(lead,),one=True)
 
     def due_schedule(self, lead):
-        self.control(lead,"schedule_follow_up_sms")
-        self.mod.run("UPDATE enquiry_follow_up_queue SET scheduled_send_at='2000-01-01T10:00:00+00:00' WHERE lead_id=?",(lead,))
+        # Existing schedules from before the review-only policy.
+        self.mod.run("""UPDATE enquiry_follow_up_queue SET status='Scheduled',
+            scheduled_send_at='2000-01-01T10:00:00+00:00',schedule_approved_at=datetime('now') WHERE lead_id=?""",(lead,))
 
-    def test_timing_controls_visible_and_schedule_never_sends_immediately(self):
-        lead = self.lead()
-        self.follow_up(lead)
+    def test_follow_up_schedule_is_rejected_and_both_drafts_are_visible(self):
+        lead = self.lead(); self.follow_up(lead)
         with patch.object(self.mod,"send_clicksend_env_sms") as sms, patch.object(self.mod,"send_env_email") as email:
             page = self.client.get(f"/intake-forms/{lead}").data
-            for label in ("Send now","Send at","Pause until","Hold until I send"):
+            for label in ("Follow-up ready to send","Follow-up SMS / Text draft","Follow-up email draft",self.mod.ENQUIRY_FOLLOW_UP_EMAIL_SUBJECT):
                 self.assertIn(label.encode(),page)
+            self.assertNotIn(b'Schedule text',page)
             self.control(lead,"schedule_follow_up_sms")
-            row=self.queue(lead)
-            self.assertEqual(row["status"],"Scheduled")
-            self.assertTrue(row["schedule_approved_at"])
-            self.assertEqual(row["scheduled_send_at"],"2099-01-15T11:30:00+00:00")
-            self.assertEqual(self.mod.run_due_scheduled_enquiry_texts(),[])
+            self.assertEqual(self.queue(lead)["status"],"Queued")
+            self.assertFalse(self.queue(lead)["schedule_approved_at"])
             sms.assert_not_called(); email.assert_not_called()
 
-    def test_explicit_schedule_sends_saved_text_exactly_once(self):
-        lead=self.lead(); self.follow_up(lead)
-        self.due_schedule(lead)
-        with patch.object(self.mod,"send_clicksend_env_sms",return_value=(True,"Accepted")) as sms, patch.object(self.mod,"send_env_email") as email:
+    def test_legacy_schedule_becomes_ready_without_sending(self):
+        lead=self.lead(); self.follow_up(lead); self.due_schedule(lead)
+        with patch.object(self.mod,"send_clicksend_env_sms") as sms, patch.object(self.mod,"send_env_email") as email:
             self.mod.run_due_enquiry_follow_up_sms()
             self.mod.run_due_enquiry_follow_up_sms()
-            sms.assert_called_once()
-            self.assertEqual(sms.call_args.args[:2],("07700900123","Follow-up draft"))
-            email.assert_called_once()
-            self.assertEqual(email.call_args.args[0],"owner@example.invalid")
-        self.assertEqual(self.queue(lead)["status"],"Sent")
-        self.assertTrue(self.queue(lead)["sent_at"])
+            sms.assert_not_called(); email.assert_not_called()
+        self.assertEqual(self.queue(lead)["status"],"Ready to send")
+        self.assertFalse(self.queue(lead)["sent_at"])
         self.assertFalse(self.queue(lead)["schedule_approved_at"])
 
     def test_pause_expiry_is_ready_without_sending_and_cancels_schedule(self):
@@ -245,23 +239,13 @@ class NoReplyWorkflowTests(unittest.TestCase):
             self.assertEqual(self.queue(lead)["status"],"Held")
         self.assertFalse(self.queue(lead)["schedule_approved_at"])
 
-    def test_failed_scheduled_send_is_not_retried(self):
-        lead=self.lead();self.follow_up(lead);self.due_schedule(lead)
-        with patch.object(self.mod,"send_clicksend_env_sms",side_effect=TimeoutError) as sms:
-            self.mod.run_due_scheduled_enquiry_texts()
-            self.mod.run_due_scheduled_enquiry_texts()
-            sms.assert_called_once()
-        self.assertEqual(self.queue(lead)["status"],"Failed")
-        self.assertFalse(self.queue(lead)["schedule_approved_at"])
-
-    def test_unapproved_scheduled_status_cannot_send_and_dry_run_is_read_only(self):
+    def test_legacy_schedule_dry_run_is_read_only_even_without_approval(self):
         lead=self.lead();self.follow_up(lead,"Scheduled")
         self.mod.run("UPDATE enquiry_follow_up_queue SET scheduled_send_at='2000-01-01' WHERE lead_id=?",(lead,))
-        with patch.object(self.mod,"send_clicksend_env_sms") as sms:
-            self.assertEqual(self.mod.run_due_scheduled_enquiry_texts(),[])
-            self.due_schedule(lead)
-            self.mod.run_due_scheduled_enquiry_texts(dry_run=True)
-            sms.assert_not_called()
+        with patch.object(self.mod,"send_clicksend_env_sms") as sms, patch.object(self.mod,"send_env_email") as email:
+            result=self.mod.run_due_scheduled_enquiry_texts(dry_run=True)
+            self.assertEqual(result[0]["status"],"Ready to send")
+            sms.assert_not_called();email.assert_not_called()
         self.assertEqual(self.queue(lead)["status"],"Scheduled")
 
     def test_stale_worker_cannot_send_after_hold_or_reschedule(self):
@@ -271,7 +255,7 @@ class NoReplyWorkflowTests(unittest.TestCase):
         self.assertFalse(self.mod.claim_enquiry_follow_up(stale))
         self.due_schedule(lead)
         stale=self.queue(lead)
-        self.control(lead,"schedule_follow_up_sms","2099-02-15T11:30")
+        self.control(lead,"pause_follow_up","2099-02-15T11:30")
         self.assertFalse(self.mod.claim_enquiry_follow_up(stale))
 
     def test_sms_opt_out_before_due_prevents_scheduled_send(self):
@@ -279,11 +263,11 @@ class NoReplyWorkflowTests(unittest.TestCase):
         with patch.object(self.mod,"is_customer_sms_opted_out",return_value=True), patch.object(self.mod,"send_clicksend_env_sms") as sms:
             self.mod.run_due_scheduled_enquiry_texts()
             sms.assert_not_called()
-        self.assertEqual(self.queue(lead)["status"],"Failed")
+        self.assertEqual(self.queue(lead)["status"],"Ready to send")
 
     def test_paused_and_held_dashboard_do_not_claim_ready(self):
         lead=self.lead();self.follow_up(lead)
-        for action,expected in (("hold_follow_up","Hold until I send"),("pause_follow_up","Paused until"),("schedule_follow_up_sms","Text scheduled to send at")):
+        for action,expected in (("hold_follow_up","Hold until I send"),("pause_follow_up","Paused until")):
             self.control(lead,action)
             with self.mod.app.test_request_context("/dashboard"):
                 journey=self.mod.dashboard_enquiry_journey()
@@ -535,7 +519,7 @@ class NoReplyWorkflowTests(unittest.TestCase):
         self.mod.init_db()
         self.assertEqual(self.mod.q("SELECT status FROM enquiry_acknowledgement_queue WHERE lead_id=?",(lead,),one=True)["status"],"Held")
 
-    def test_restore_only_recent_untouched_first_drafts(self):
+    def test_startup_does_not_release_unapproved_first_drafts(self):
         fresh=self.lead("Awaiting approval")
         edited=self.lead("Awaiting approval")
         old=self.lead("Awaiting approval")
@@ -543,22 +527,19 @@ class NoReplyWorkflowTests(unittest.TestCase):
         self.mod.run("UPDATE enquiry_acknowledgement_queue SET created_at='2000-01-01' WHERE lead_id=?",(old,))
         self.mod.init_db()
         statuses={row["lead_id"]:row["status"] for row in self.mod.q("SELECT lead_id,status FROM enquiry_acknowledgement_queue")}
-        self.assertEqual(statuses[fresh],"Queued")
+        self.assertEqual(statuses[fresh],"Awaiting approval")
         self.assertEqual(statuses[edited],"Awaiting approval")
         self.assertEqual(statuses[old],"Awaiting approval")
 
-    def test_specific_chris_repair_recovers_old_reviewed_record_once(self):
+    def test_chris_owner_stop_survives_restart(self):
         lead=self.lead("Awaiting approval")
-        self.mod.run("UPDATE intake_submissions SET id=197,name='Chris',status='Reviewed' WHERE id=?",(lead,))
-        self.mod.run("UPDATE enquiry_acknowledgement_queue SET lead_id=197,created_at='2026-09-01',message='Legacy acknowledgement awaiting approval' WHERE lead_id=?",(lead,))
-        self.mod.run("DELETE FROM enquiry_data_repairs")
+        self.mod.run("UPDATE intake_submissions SET id=197,name='Chris' WHERE id=?",(lead,))
+        self.mod.run("UPDATE enquiry_acknowledgement_queue SET lead_id=197 WHERE lead_id=?",(lead,))
+        self.mod.init_db()
         self.mod.init_db()
         row=self.mod.q("SELECT * FROM enquiry_acknowledgement_queue WHERE lead_id=197",one=True)
-        self.assertEqual(row["status"],"Queued")
-        self.assertTrue(self.mod.customer_sms_hours_open(self.mod.datetime.fromisoformat(row["due_at"])))
-        self.mod.run("UPDATE enquiry_acknowledgement_queue SET status='Held' WHERE lead_id=197")
-        self.mod.init_db()
-        self.assertEqual(self.mod.q("SELECT status FROM enquiry_acknowledgement_queue WHERE lead_id=197",one=True)["status"],"Held")
+        self.assertEqual(row["status"],"Cancelled by owner")
+        self.assertFalse(self.mod.enquiry_first_text(197)["can_send"])
 
     def test_first_text_explains_test_and_status_schedule_blocks(self):
         lead=self.lead("Awaiting approval")
@@ -578,24 +559,56 @@ class NoReplyWorkflowTests(unittest.TestCase):
         self.assertIn("no-store",response.headers["Cache-Control"])
         self.assertEqual(self.mod.app.test_client().get(f"/intake-forms/{lead}/message-status").status_code,302)
 
-    def test_chris_missing_details_retries_previous_noop_repair_at_0930(self):
-        from datetime import datetime
-        from zoneinfo import ZoneInfo
-        class Night(datetime):
-            @classmethod
-            def now(cls,tz=None):return cls(2026,9,21,4,33,tzinfo=ZoneInfo("Europe/London"))
+    def test_chris_cannot_be_rescheduled(self):
         lead=self.lead("Awaiting approval")
-        self.mod.run("UPDATE intake_submissions SET id=197,name='Chris',status='Needs missing details' WHERE id=?",(lead,))
-        self.mod.run("UPDATE enquiry_acknowledgement_queue SET lead_id=197,created_at='2026-09-01',message='Legacy acknowledgement awaiting approval' WHERE lead_id=?",(lead,))
-        self.mod.run("DELETE FROM enquiry_data_repairs")
-        self.mod.run("INSERT INTO enquiry_data_repairs(repair_key) VALUES ('restore-chris-197-first-ack-20260921')")
-        with patch.object(self.mod,"datetime",Night):self.mod.init_db()
-        row=self.mod.q("SELECT * FROM enquiry_acknowledgement_queue WHERE lead_id=197",one=True)
-        self.assertEqual(row["status"],"Queued")
-        self.assertEqual(row["due_at"],"2026-09-21T09:30:00+01:00")
-        page=self.client.get('/intake-forms/197/message-status').get_data(as_text=True)
-        self.assertIn('09:30',page)
-        self.assertNotIn('Not scheduled',page)
-        self.mod.run("UPDATE enquiry_acknowledgement_queue SET status='Held' WHERE lead_id=197")
-        self.mod.init_db()
-        self.assertEqual(self.mod.q("SELECT status FROM enquiry_acknowledgement_queue WHERE lead_id=197",one=True)["status"],"Held")
+        self.mod.run("UPDATE intake_submissions SET id=197,name='Chris' WHERE id=?",(lead,))
+        self.mod.run("UPDATE enquiry_acknowledgement_queue SET lead_id=197 WHERE lead_id=?",(lead,))
+        ok, _ = self.mod.schedule_enquiry_acknowledgement(197,self.customer,{"name":"Chris"})
+        self.assertFalse(ok)
+
+    def test_missing_task_repaired_once_with_settings_unchanged_and_no_send(self):
+        lead=self.lead(body="First message exact")
+        before=[dict(r) for r in self.mod.q("SELECT * FROM enquiry_follow_up_settings")]
+        with patch.object(self.mod,"send_clicksend_env_sms") as sms, patch.object(self.mod,"send_env_email") as email:
+            for path in ('/dashboard','/workflow','/intake-forms',f'/intake-forms/{lead}'):
+                page=self.client.get(path)
+                self.assertEqual(page.status_code,200)
+                self.assertIn(b'Follow-up ready to send',page.data)
+            self.assertEqual(len(self.mod.q("SELECT * FROM enquiry_follow_up_queue WHERE lead_id=?",(lead,))),1)
+            sms.assert_not_called();email.assert_not_called()
+        self.assertEqual(before,[dict(r) for r in self.mod.q("SELECT * FROM enquiry_follow_up_settings")])
+        self.assertFalse(self.queue(lead)['sent_at'])
+
+    def test_missing_task_not_repaired_for_reply_closed_test_or_unsent(self):
+        for state in ('replied','form_returned','closed','test','unsent'):
+            lead=self.lead("Awaiting approval" if state=='unsent' else "Accepted")
+            if state=='replied':
+                self.mod.log_sms_event(self.customer,None,'Test','inbound','','','Yes',direction='inbound')
+            if state=='form_returned':
+                self.mod.run("UPDATE intake_submissions SET update_form_status='Customer sent updated details' WHERE id=?",(lead,))
+            if state=='closed':self.mod.run("UPDATE intake_submissions SET status='Closed' WHERE id=?",(lead,))
+            if state=='test':self.mod.run("UPDATE intake_submissions SET is_test=1 WHERE id=?",(lead,))
+            self.mod.ensure_no_reply_tasks(lead)
+            self.assertIsNone(self.queue(lead),state)
+            self.mod.run("DELETE FROM sms_events")
+
+    def test_replied_newest_task_does_not_hide_unanswered_tasks(self):
+        unanswered=self.lead();self.follow_up(unanswered)
+        replied=self.lead();self.follow_up(replied)
+        self.mod.run("UPDATE intake_submissions SET update_form_status='Customer sent updated details' WHERE id=?",(replied,))
+        self.assertEqual([r['lead_id'] for r in self.mod.no_reply_ready_tasks()],[unanswered])
+        page=self.client.get(f'/intake-forms/{replied}').get_data(as_text=True)
+        self.assertIn('Customer replied',page)
+        with patch.object(self.mod,'send_clicksend_env_sms') as sms, patch.object(self.mod,'send_env_email') as email:
+            self.control(replied,'send_follow_up_both')
+            sms.assert_not_called();email.assert_not_called()
+
+    def test_no_reply_followup_email_sends_exact_reviewed_draft_only_on_manual_action(self):
+        lead=self.lead();self.follow_up(lead)
+        with patch.object(self.mod,'send_clicksend_env_sms') as sms, patch.object(self.mod,'send_env_email',return_value=(True,'Accepted')) as email, patch.object(self.mod,'send_owner_customer_message_copy'):
+            self.client.get(f'/intake-forms/{lead}')
+            email.assert_not_called()
+            self.control(lead,'send_follow_up_email')
+            self.assertEqual(email.call_args.args[:3],('test@example.invalid',self.mod.ENQUIRY_FOLLOW_UP_EMAIL_SUBJECT,'Follow-up draft'))
+            self.control(lead,'send_follow_up_email')
+            email.assert_called_once();sms.assert_not_called()

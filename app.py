@@ -1954,6 +1954,9 @@ def enquiry_follow_up_default_template():
 
 
 
+ENQUIRY_FOLLOW_UP_EMAIL_SUBJECT = "Still looking for carpet or upholstery cleaning?"
+
+
 def enquiry_follow_up_sms_text(data):
     name = request_value(data, "name", "full_name", "customer_name", "fullname")
     first_name = split_customer_name(name)[0] if name else "there"
@@ -2383,7 +2386,9 @@ def schedule_enquiry_follow_up_sms(lead_id, customer_id=None, data=None, delay_m
 
 
 def run_due_enquiry_follow_up_sms(dry_run=False):
-    """Make overdue drafts ready; send only separately approved scheduled texts."""
+    """Prepare review tasks only. Customer follow-ups always require Send now."""
+    if not dry_run:
+        ensure_no_reply_tasks()
     now = datetime.now(ZoneInfo("Europe/London"))
     rows = q("""SELECT q.*, s.customer_id AS lead_customer_id, s.name AS lead_name
                 FROM enquiry_follow_up_queue q
@@ -2391,13 +2396,18 @@ def run_due_enquiry_follow_up_sms(dry_run=False):
                 WHERE IFNULL(q.sent_at,'')='' AND datetime(q.due_at) <= datetime(?)
                   AND IFNULL(s.is_test,0)=0 AND IFNULL(s.ignore_alerts,0)=0
                   AND q.status IN ('Queued', 'Awaiting approval', 'Paused')
+                  AND EXISTS (SELECT 1 FROM enquiry_acknowledgement_queue a WHERE a.lead_id=q.lead_id
+                    AND IFNULL(a.sent_at,'')<>'' AND a.status IN
+                    ('Accepted','Sent','Delivered','Delivery unconfirmed','Email fallback sent'))
                   AND lower(IFNULL(s.status,'')) NOT IN ('booked','closed','closed - no reply')
-                  AND q.created_at >= COALESCE((SELECT started_at FROM enquiry_follow_up_settings WHERE id=1), '9999-12-31')
                 ORDER BY q.due_at ASC LIMIT 50""", (now.isoformat(timespec="seconds"),))
     results = []
     for row in rows:
+        if not enquiry_first_contact_sent(row["lead_id"]):
+            continue
         customer_id = row_value(row, "customer_id") or row_value(row, "lead_customer_id")
-        reply = enquiry_has_reply(customer_id, row_value(row, "created_at"))
+        lead = q("SELECT * FROM intake_submissions WHERE id=?", (row["lead_id"],), one=True)
+        reply = not no_reply_task_eligible(lead)
         if reply:
             if not dry_run:
                 run("UPDATE enquiry_follow_up_queue SET status='Cancelled - customer replied', message='Customer replied before the follow-up was sent.', updated_at=datetime('now') WHERE id=?", (row_value(row, "id"),))
@@ -10765,16 +10775,8 @@ def dashboard():
                          WHERE IFNULL(future_reminders.status,'Open')='Open'
                            AND COALESCE(future_reminders.reminder_date,'9999-12-31')<=?
                          ORDER BY future_reminders.reminder_date, future_reminders.id LIMIT 1""", (today.isoformat(),), one=True)
-    dashboard_follow_up_ready = q("""SELECT enquiry_follow_up_queue.*, intake_submissions.name AS customer_name
-                                     FROM enquiry_follow_up_queue
-                                     LEFT JOIN intake_submissions ON intake_submissions.id=enquiry_follow_up_queue.lead_id
-                                     WHERE (enquiry_follow_up_queue.status IN ('Ready for Paul','Ready to send') OR (enquiry_follow_up_queue.status IN ('Queued','Awaiting approval','Paused') AND datetime(enquiry_follow_up_queue.due_at)<=datetime('now')))
-                                       AND enquiry_follow_up_queue.created_at >= COALESCE((SELECT started_at FROM enquiry_follow_up_settings WHERE id=1), '9999-12-31')
-                                     ORDER BY enquiry_follow_up_queue.updated_at DESC, enquiry_follow_up_queue.id DESC
-                                     LIMIT 1""", one=True)
-    dashboard_follow_up_ready = enquiry_follow_up_display(dashboard_follow_up_ready)
-    if dashboard_follow_up_ready and dashboard_follow_up_ready["status"] != "Ready to send":
-        dashboard_follow_up_ready = None
+    follow_up_tasks = no_reply_ready_tasks()
+    dashboard_follow_up_ready = follow_up_tasks[0] if follow_up_tasks else None
     if quote_ready:
         dashboard_next = {"eyebrow": "Customer replied — quote ready", "title": clean_str(quote_ready["customer_name"]) or "Customer",
                           "detail": f"Draft quote for £{float(quote_ready['total'] or 0):.0f} is ready to check before sending.",
@@ -10817,7 +10819,7 @@ def dashboard():
                            intake_waiting=intake_waiting["c"] if intake_waiting else 0,
                            recent_enquiries=recent_enquiries, dashboard_schedule=dashboard_schedule,
                            dashboard_next=dashboard_next, dashboard_quote_ready=quote_ready,
-                           dashboard_follow_up_ready=dashboard_follow_up_ready, dashboard_enquiry_progress=dashboard_enquiry_progress, dashboard_greeting=dashboard_greeting,
+                           follow_up_tasks=follow_up_tasks, dashboard_follow_up_ready=dashboard_follow_up_ready, dashboard_enquiry_progress=dashboard_enquiry_progress, dashboard_greeting=dashboard_greeting,
                            dashboard_date=f"{today.strftime('%A')}, {today.day} {today.strftime('%B')}")
 
 
@@ -11347,7 +11349,7 @@ def workflow():
                             FROM future_reminders LEFT JOIN customers ON customers.id = future_reminders.customer_id
                             WHERE IFNULL(future_reminders.status,'Open')='Open'
                             ORDER BY COALESCE(reminder_date,'9999-12-31') ASC, future_reminders.id DESC LIMIT 12""")
-    return render_template("workflow.html", data=data, reminders=recent_reminders, workflow_columns=workflow_dashboard_data())
+    return render_template("workflow.html", follow_up_tasks=no_reply_ready_tasks(), data=data, reminders=recent_reminders, workflow_columns=workflow_dashboard_data())
 
 
 @app.route("/today-run")
@@ -20234,7 +20236,7 @@ def website_analytics_dashboard():
 def intake_forms():
     rows = q("SELECT * FROM intake_submissions ORDER BY id DESC")
     token = xero_token_row()
-    return render_template("intake_forms.html", leads=rows, xero_connected=bool(token and token["access_token"]), xero_configured=xero_is_configured())
+    return render_template("intake_forms.html", follow_up_tasks=no_reply_ready_tasks(), leads=rows, xero_connected=bool(token and token["access_token"]), xero_configured=xero_is_configured())
 
 
 @app.route("/intake-forms/cleanup-tests", methods=["POST"])
@@ -20305,6 +20307,7 @@ def intake_form_view(lead_id):
         update_form_preview_url=intake_update_short_url(lead_id),
         prepared_follow_up=prepared_enquiry_follow_up_row(lead_id),
         prepared_follow_up_sms=prepared_enquiry_follow_up_sms(lead),
+        follow_up_email_subject=ENQUIRY_FOLLOW_UP_EMAIL_SUBJECT,
         follow_up_default_template=enquiry_follow_up_default_template(),
         prepared_follow_up_status=prepared_enquiry_follow_up_status(lead_id),
         ai_draft=ai_draft,
@@ -20395,7 +20398,7 @@ def follow_up_chosen_time(value):
 
 
 def claim_enquiry_follow_up(row):
-    """A manual send and the scheduler must never both send the same draft."""
+    """Concurrent manual sends must never send the same draft twice."""
     cur = db().execute("""UPDATE enquiry_follow_up_queue SET status='Sending', updated_at=datetime('now')
         WHERE id=? AND status=? AND updated_at IS ? AND IFNULL(sent_at,'')=''
           AND scheduled_send_at IS ? AND due_at IS ? AND body IS ?""",
@@ -20446,52 +20449,22 @@ def email_follow_up_sent_confirmation(lead_id, recipient, first_text=False):
 
 
 def run_due_scheduled_enquiry_texts(dry_run=False):
-    """Only an explicit Send at action authorises this path."""
+    """Legacy schedules become review tasks; this worker cannot send messages."""
     rows = q("""SELECT * FROM enquiry_follow_up_queue
         WHERE status='Scheduled' AND IFNULL(sent_at,'')=''
-          AND IFNULL(schedule_approved_at,'')<>'' AND datetime(scheduled_send_at)<=datetime('now')
-        ORDER BY datetime(scheduled_send_at), id LIMIT 50""")
+          AND datetime(COALESCE(NULLIF(scheduled_send_at,''),due_at))<=datetime('now')""")
     results = []
     for row in rows:
-        lead = q("SELECT * FROM intake_submissions WHERE id=?", (row["lead_id"],), one=True)
-        current = enquiry_follow_up_display(row)
-        if not enquiry_first_contact_sent(row["lead_id"]):
-            if not dry_run:
-                run("""UPDATE enquiry_follow_up_queue SET status='Held',schedule_approved_at='',scheduled_send_at='',
-                    message='Send the first message in Stage 1 before following up.',updated_at=datetime('now')
-                    WHERE id=? AND status='Scheduled' AND updated_at IS ?""",(row["id"],row["updated_at"]))
-            continue
-        if not lead or current["status"] != "Scheduled":
-            if not dry_run:
-                run("""UPDATE enquiry_follow_up_queue SET status=?, schedule_approved_at='',
-                    scheduled_send_at='', message='Scheduled text stopped because the enquiry is no longer awaiting a reply.',
-                    updated_at=datetime('now') WHERE id=? AND status='Scheduled' AND updated_at IS ?""",
-                    (current["status"] if lead else "Cancelled", row["id"], row["updated_at"]))
-            continue
-        if dry_run:
-            results.append({"rule":"enquiry_follow_up_sms", "lead_id":row["lead_id"], "status":"Scheduled", "message":"Dry run: approved text due to send."})
-            continue
-        if not claim_enquiry_follow_up(row):
-            continue
-        customer_id = row["customer_id"] or row_get(lead, "customer_id")
-        customer = q("SELECT * FROM customers WHERE id=?", (customer_id,), one=True) if customer_id else None
-        try:
-            ok, msg = send_enquiry_follow_up_text(customer_id, customer, row["phone"], row["body"])
-        except Exception:
-            # A provider timeout may have accepted the message. Never retry it automatically.
-            ok, msg = False, "Could not confirm the scheduled text. Check message history before sending again."
-        status = "Sent" if ok else "Failed"
-        run("""UPDATE enquiry_follow_up_queue SET status=?, message=?, schedule_approved_at='', scheduled_send_at='',
-            sent_at=CASE WHEN ? THEN datetime('now') ELSE sent_at END, updated_at=datetime('now')
-            WHERE id=? AND status='Sending'""", (status, msg, int(ok), row["id"]))
-        if ok:
-            email_follow_up_sent_confirmation(row["lead_id"], row["phone"])
-        update_intake_delivery_status(row["lead_id"], follow_up_status="Follow-up sent - waiting for reply" if ok else "Scheduled follow-up needs attention")
-        if customer_id:
-            run("INSERT INTO customer_timeline(customer_id,note_text,created_at) VALUES (?,?,datetime('now'))",
-                (customer_id, "Scheduled follow-up text: " + status + ". " + clean_str(msg)))
-        results.append({"rule":"enquiry_follow_up_sms", "lead_id":row["lead_id"], "status":status, "message":msg})
+        display = enquiry_follow_up_display(row)
+        status = display["status"]
+        if not dry_run:
+            run("""UPDATE enquiry_follow_up_queue SET status=?,schedule_approved_at='',scheduled_send_at='',
+                message='Review the SMS and email drafts. Nothing was sent automatically.',updated_at=datetime('now')
+                WHERE id=? AND status='Scheduled' AND updated_at IS ?""", (status,row["id"],row["updated_at"]))
+        results.append({"rule":"enquiry_follow_up_sms","lead_id":row["lead_id"],"status":status,
+                        "message":"Follow-up drafts require manual review and send."})
     return results
+
 
 
 def enquiry_first_text(lead_id):
@@ -20711,6 +20684,53 @@ def enquiry_has_reply(customer_id, since):
         (customer_id, customer_id, customer_id, since), one=True))
 
 
+def no_reply_task_eligible(lead):
+    if not lead or row_get(lead, "is_test") or row_get(lead, "ignore_alerts"):
+        return False
+    if clean_str(row_get(lead, "status")).lower() in {
+        "booked", "closed", "closed - no reply", "form returned - ready to quote", "test"
+    } or row_get(lead, "job_id") or row_get(lead, "update_form_status") == "Customer sent updated details":
+        return False
+    return not enquiry_has_reply(row_get(lead, "customer_id"), row_get(lead, "created_at"))
+
+
+def ensure_no_reply_tasks(lead_id=None):
+    """Repair missing draft tasks, without changing settings or contacting anyone."""
+    rows = q("""SELECT s.*, a.sent_at AS first_sent_at FROM intake_submissions s
+        JOIN enquiry_acknowledgement_queue a ON a.lead_id=s.id
+        LEFT JOIN enquiry_follow_up_queue f ON f.lead_id=s.id
+        WHERE f.id IS NULL AND IFNULL(a.sent_at,'')<>''
+          AND a.status IN ('Accepted','Sent','Delivered','Delivery unconfirmed','Email fallback sent')
+          AND (? IS NULL OR s.id=?)""", (lead_id, lead_id))
+    rule = enquiry_follow_up_settings_row()
+    for lead in rows:
+        if not no_reply_task_eligible(lead):
+            continue
+        try:
+            sent = datetime.fromisoformat(lead["first_sent_at"].replace("Z", "+00:00"))
+            if sent.tzinfo is None:
+                sent = sent.replace(tzinfo=timezone.utc)
+            due = sent.astimezone(ZoneInfo("Europe/London")) + timedelta(hours=max(1, int(row_get(rule, "delay_hours") or 24)))
+        except (TypeError, ValueError):
+            continue
+        run("""INSERT INTO enquiry_follow_up_queue
+            (lead_id,customer_id,phone,body,due_at,status,message,created_at)
+            VALUES (?,?,?,?,?,'Awaiting approval','Drafts only. Send manually after review.',?)
+            ON CONFLICT(lead_id) DO NOTHING""",
+            (lead["id"], lead["customer_id"], lead["phone"], enquiry_follow_up_sms_text(dict(lead)),
+             due.isoformat(timespec="seconds"), lead["created_at"]))
+
+
+def no_reply_ready_tasks():
+    ensure_no_reply_tasks()
+    rows = q("""SELECT f.*, s.name AS customer_name FROM enquiry_follow_up_queue f
+        JOIN intake_submissions s ON s.id=f.lead_id
+        WHERE IFNULL(f.sent_at,'')='' AND f.status IN
+            ('Queued','Awaiting approval','Ready for Paul','Ready to send','Paused','Scheduled')
+        ORDER BY datetime(f.due_at),f.id""")
+    return [item for row in rows if (item := enquiry_follow_up_display(row))["status"] == "Ready to send"]
+
+
 def enquiry_follow_up_display(row):
     """Calculate readiness on read, without sending or running the worker."""
     if not row:
@@ -20728,6 +20748,16 @@ def enquiry_follow_up_display(row):
     if reply:
         item["status"] = "Cancelled - customer replied"
         return item
+    if not no_reply_task_eligible(lead):
+        item["status"] = "Cancelled - customer replied or enquiry progressed"
+        return item
+    if not enquiry_first_contact_sent(item["lead_id"]):
+        item["status"] = "Held"
+        return item
+    if item["status"] == "Scheduled":
+        # Legacy scheduled sends are review tasks now, never send authorisations.
+        item["due_at"] = item.get("scheduled_send_at") or item.get("due_at")
+        item["status"] = "Paused"
     try:
         due = datetime.fromisoformat((item.get("due_at") or "").replace("Z", "+00:00"))
         if due.tzinfo is None:
@@ -20741,6 +20771,7 @@ def enquiry_follow_up_display(row):
 
 
 def prepared_enquiry_follow_up_row(lead_id):
+    ensure_no_reply_tasks(lead_id)
     return enquiry_follow_up_display(q("""SELECT * FROM enquiry_follow_up_queue
                 WHERE lead_id=?
                 ORDER BY id DESC
@@ -20782,6 +20813,9 @@ def intake_customer_message_action(lead_id):
     if action in {"send_follow_up_sms","send_follow_up_email","send_follow_up_both","schedule_follow_up_sms"} and not enquiry_first_contact_sent(lead_id):
         flash("Send the first message in Stage 1 before sending or scheduling a follow-up.")
         return redirect(url_for("intake_form_view",lead_id=lead_id))
+    if action == "schedule_follow_up_sms":
+        flash("Follow-ups cannot send automatically. Review the drafts and choose Send now, or pause the task.")
+        return redirect(url_for("intake_form_view", lead_id=lead_id) + "#customer-message-approval")
     customer_id = row_get(lead, "customer_id") or create_customer_from_intake(lead)
     customer = q("SELECT * FROM customers WHERE id=?", (customer_id,), one=True)
     if customer_id and not row_get(lead, "customer_id"):
@@ -20825,7 +20859,7 @@ def intake_customer_message_action(lead_id):
             else:
                 flash("The follow-up changed while you were editing. Refresh to check the saved message.")
         return redirect(url_for("intake_form_view", lead_id=lead_id) + "#customer-message-approval")
-    if action in {"schedule_follow_up_sms", "pause_follow_up", "hold_follow_up", "resume_follow_up"}:
+    if action in {"pause_follow_up", "hold_follow_up", "resume_follow_up"}:
         queued = q("SELECT * FROM enquiry_follow_up_queue WHERE lead_id=?", (lead_id,), one=True)
         if not queued or row_get(queued, "status") in {"Sent", "Sending"} or row_get(queued, "sent_at"):
             flash("This follow-up has already been sent, is sending, or has no draft.")
@@ -20835,18 +20869,13 @@ def intake_customer_message_action(lead_id):
             flash("This enquiry is no longer awaiting a reply. Nothing was scheduled.")
             return redirect(url_for("intake_form_view", lead_id=lead_id) + "#customer-message-approval")
         chosen = ""
-        if action in {"schedule_follow_up_sms", "pause_follow_up"}:
+        if action == "pause_follow_up":
             try:
                 chosen = follow_up_chosen_time(request.form.get("follow_up_at"))
             except ValueError as error:
                 flash(str(error))
                 return redirect(url_for("intake_form_view", lead_id=lead_id) + "#customer-message-approval")
-        if action == "schedule_follow_up_sms":
-            if not is_valid_uk_phone(row_get(lead, "phone")) or is_customer_sms_opted_out(customer):
-                flash("A valid mobile number and SMS permission are needed to schedule this text.")
-                return redirect(url_for("intake_form_view", lead_id=lead_id) + "#customer-message-approval")
-            status, message = "Scheduled", "You approved this exact text to send at " + friendly_local_datetime(chosen) + " UK time."
-        elif action == "pause_follow_up":
+        if action == "pause_follow_up":
             status, message = "Paused", "Paused until " + friendly_local_datetime(chosen) + " UK time. It will become Ready to send; nothing will send automatically."
         elif action == "hold_follow_up":
             status, message = "Held", "Hold until I send. Nothing will send automatically."
@@ -20872,6 +20901,9 @@ def intake_customer_message_action(lead_id):
             VALUES (?,?,?,?,datetime('now'),'Ready to send') ON CONFLICT(lead_id) DO NOTHING""",
             (lead_id,customer_id,row_get(lead,"phone"),enquiry_follow_up_sms_text(data)))
         queued = q("SELECT * FROM enquiry_follow_up_queue WHERE lead_id=?", (lead_id,), one=True)
+        if not no_reply_task_eligible(lead):
+            flash("This enquiry has a reply or is no longer open. Nothing was sent.")
+            return redirect(url_for("intake_form_view", lead_id=lead_id) + "#customer-message-approval")
         if queued and (row_get(queued, "status") in {"Sent", "Sending"} or row_get(queued, "sent_at") or not claim_enquiry_follow_up(queued)):
             flash("This follow-up is already sent or being sent. Nothing else was sent.")
             return redirect(url_for("intake_form_view", lead_id=lead_id) + "#customer-message-approval")
@@ -20896,7 +20928,7 @@ def intake_customer_message_action(lead_id):
             if not is_valid_email(recipient):
                 outcomes.append((False, "Email not sent: this enquiry does not have a valid email address."))
             else:
-                subject = "Still looking for carpet or upholstery cleaning?"
+                subject = ENQUIRY_FOLLOW_UP_EMAIL_SUBJECT
                 ok, msg = send_env_email(recipient, subject, body, customer=customer)
                 if ok:
                     send_owner_customer_message_copy("email", recipient, subject, body, customer=customer, context="Approved enquiry follow-up email")

@@ -1,0 +1,12 @@
+{% if follow_up_tasks %}
+<section class="panel" aria-label="Follow-up ready to send">
+  <h2>Follow-up ready to send</h2>
+  <p>These customers have not replied. SMS and email drafts are ready for review. Nothing sends automatically.</p>
+  {% for task in follow_up_tasks %}
+  <article style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;justify-content:space-between;padding:16px 0;border-top:1px solid #d7e1e8">
+    <strong>{{ task.customer_name or 'Customer' }}</strong>
+    <a class="btn secondary" href="{{ url_for('intake_form_view',lead_id=task.lead_id) }}#customer-message-approval">Review SMS and email drafts →</a>
+  </article>
+  {% endfor %}
+</section>
+{% endif %}

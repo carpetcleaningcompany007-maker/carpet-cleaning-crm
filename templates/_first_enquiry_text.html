@@ -25,13 +25,13 @@
   {% endif %}
   {% if show_first_text_action|default(false) %}
   <div class="message-paper">
-    <div class="message-paper-header"><span class="message-avatar" aria-hidden="true">{{ (lead.name or 'C')[:1]|upper if lead is defined else 'C' }}</span><div><strong>{{ lead.name or 'Customer' if lead is defined else 'Customer' }}</strong><small>{{ 'Draft text · not sent' if first_text.is_draft else 'Saved text message' }}</small></div><span class="message-channel">SMS</span></div>
+    <div class="message-paper-header"><span class="message-avatar" aria-hidden="true">{{ (lead.name or 'C')[:1]|upper if lead is defined else 'C' }}</span><div><strong>{{ lead.name or 'Customer' if lead is defined else 'Customer' }}</strong><small>{{ 'Exact message sent' if first_text.time else ('Draft text · not sent' if first_text.is_draft else 'Saved text record · send not confirmed') }}</small></div><span class="message-channel">SMS</span></div>
     {% if first_text.body %}<pre class="first-text-body" style="white-space:pre-wrap;overflow-wrap:anywhere;font:inherit">{{ first_text.body }}</pre>
     {% else %}<p>The original text is not available in the saved record.</p>{% endif %}
-    <div class="message-paper-footer"><span aria-hidden="true">{{ '○' if first_text.is_draft else '✓' }}</span> {{ 'Review your message before sending' if first_text.is_draft else 'Message kept in your enquiry history' }}</div>
+    <div class="message-paper-footer"><span aria-hidden="true">{{ '✓' if first_text.time else '○' }}</span> {{ 'Review your message before sending' if first_text.is_draft else 'Message kept in your enquiry history' }}</div>
   </div>
   {% else %}
-  <strong>{{ 'Draft — not sent' if first_text.is_draft else 'Exact message sent' }}</strong>
+  <strong>{{ 'Exact message sent' if first_text.time else ('Draft — not sent' if first_text.is_draft else 'No confirmed text send') }}</strong>
   {% if first_text.body %}<pre style="white-space:pre-wrap;overflow-wrap:anywhere;font:inherit">{{ first_text.body }}</pre>{% else %}<p>The original text is not available in the saved record.</p>{% endif %}
   {% endif %}
   {% if first_text.can_send and show_first_text_action|default(false) %}
