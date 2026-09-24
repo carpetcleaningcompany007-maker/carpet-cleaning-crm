@@ -104,6 +104,11 @@ class OwnerReplyAlertTests(unittest.TestCase):
             self.mod.notify_owner_customer_reply(self.customer,'Hello')
         self.email.assert_called_once()
 
+    def test_business_sender_included_when_reply_sync_uses_personal_inbox(self):
+        with patch.object(self.mod,'inbound_email_config',return_value=('personal@example.invalid','')):
+            emails,_=self.mod.owner_contact_form_recipients()
+        self.assertEqual(self.mod.parse_email_list(emails),['personal@example.invalid','business@example.invalid'])
+
     def test_unknown_sms_still_alerts_owner(self):
         self.mod.notify_owner_customer_reply(None,'Unknown customer reply',sender='07700900456')
         self.assertEqual(self.email.call_count,2)

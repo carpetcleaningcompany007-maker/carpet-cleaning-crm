@@ -3045,7 +3045,10 @@ def owner_contact_form_recipients():
     )
     # Owner alerts belong in both the owner inbox and the connected business inbox.
     # Use the existing addresses; this does not write any CRM or hosting settings.
-    business_email, _ = inbound_email_config()
+    inbox_email, _ = inbound_email_config()
+    business_email = next((email.utils.parseaddr(value)[1] for value in (
+        os.environ.get("SMTP_FROM", ""), os.environ.get("SMTP_USER", ""), inbox_email)
+        if is_valid_email(email.utils.parseaddr(value)[1])), "")
     recipients = list(dict.fromkeys(address.lower() for address in
         parse_email_list(owner_email) + parse_email_list(business_email)
         if is_valid_email(address)))
