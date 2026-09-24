@@ -2396,6 +2396,7 @@ def run_due_enquiry_follow_up_sms(dry_run=False):
                 WHERE IFNULL(q.sent_at,'')='' AND datetime(q.due_at) <= datetime(?)
                   AND IFNULL(s.is_test,0)=0 AND IFNULL(s.ignore_alerts,0)=0
                   AND q.status IN ('Queued', 'Awaiting approval', 'Paused')
+                  AND q.created_at >= COALESCE((SELECT started_at FROM enquiry_follow_up_settings WHERE id=1), '9999-12-31')
                   AND EXISTS (SELECT 1 FROM enquiry_acknowledgement_queue a WHERE a.lead_id=q.lead_id
                     AND IFNULL(a.sent_at,'')<>'' AND a.status IN
                     ('Accepted','Sent','Delivered','Delivery unconfirmed','Email fallback sent'))
@@ -10634,7 +10635,12 @@ def dashboard_enquiry_journey():
     missed = []
     eyebrow, detail, label = 'Waiting for customer reply', 'The first message has been sent. Keep this enquiry open until the customer replies or you send the follow-up.', 'Open enquiry'
     url = url_for('intake_form_view', lead_id=lead_id)
-    if queue_status in {'Queued', 'Awaiting approval', 'Ready for Paul', 'Ready to send'}:
+    if enquiry_has_reply(customer_id, row_get(lead, 'created_at')) or row_get(lead, 'update_form_status') == 'Customer sent updated details':
+        current, eyebrow = 2, 'Customer replied'
+        detail, label = 'A reply is recorded. Read the conversation before deciding the next step.', 'Read customer reply'
+        if customer_id:
+            url = url_for('customer_conversation', customer_id=customer_id) + '#message-history'
+    elif queue_status in {'Queued', 'Awaiting approval', 'Ready for Paul', 'Ready to send'}:
         stages = ['Enquiry received', 'First message sent', 'Customer reply', 'Follow-up message', 'Quote prepared', 'Quote sent', 'Booked']
         current = 3
         missed = [2]
@@ -20700,6 +20706,7 @@ def ensure_no_reply_tasks(lead_id=None):
         JOIN enquiry_acknowledgement_queue a ON a.lead_id=s.id
         LEFT JOIN enquiry_follow_up_queue f ON f.lead_id=s.id
         WHERE f.id IS NULL AND IFNULL(a.sent_at,'')<>''
+          AND s.created_at >= COALESCE((SELECT started_at FROM enquiry_follow_up_settings WHERE id=1), '9999-12-31')
           AND a.status IN ('Accepted','Sent','Delivered','Delivery unconfirmed','Email fallback sent')
           AND (? IS NULL OR s.id=?)""", (lead_id, lead_id))
     rule = enquiry_follow_up_settings_row()
@@ -20725,7 +20732,9 @@ def no_reply_ready_tasks():
     ensure_no_reply_tasks()
     rows = q("""SELECT f.*, s.name AS customer_name FROM enquiry_follow_up_queue f
         JOIN intake_submissions s ON s.id=f.lead_id
-        WHERE IFNULL(f.sent_at,'')='' AND f.status IN
+        WHERE IFNULL(f.sent_at,'')=''
+          AND f.created_at >= COALESCE((SELECT started_at FROM enquiry_follow_up_settings WHERE id=1), '9999-12-31')
+          AND f.status IN
             ('Queued','Awaiting approval','Ready for Paul','Ready to send','Paused','Scheduled')
         ORDER BY datetime(f.due_at),f.id""")
     return [item for row in rows if (item := enquiry_follow_up_display(row))["status"] == "Ready to send"]

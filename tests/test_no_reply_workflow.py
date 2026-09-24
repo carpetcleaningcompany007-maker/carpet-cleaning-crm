@@ -612,3 +612,19 @@ class NoReplyWorkflowTests(unittest.TestCase):
             self.assertEqual(email.call_args.args[:3],('test@example.invalid',self.mod.ENQUIRY_FOLLOW_UP_EMAIL_SUBJECT,'Follow-up draft'))
             self.control(lead,'send_follow_up_email')
             email.assert_called_once();sms.assert_not_called()
+
+    def test_historical_cutoff_preserved_for_task_repair_and_list(self):
+        old=self.lead();self.follow_up(old)
+        missing=self.lead()
+        self.mod.run("UPDATE intake_submissions SET created_at='2000-01-01' WHERE id IN (?,?)",(old,missing))
+        self.mod.run("UPDATE enquiry_follow_up_queue SET created_at='2000-01-01' WHERE lead_id=?",(old,))
+        self.assertEqual(self.mod.no_reply_ready_tasks(),[])
+        self.assertIsNone(self.queue(missing))
+
+    def test_dashboard_journey_shows_recorded_customer_reply(self):
+        lead=self.lead();self.follow_up(lead)
+        self.mod.log_sms_event(self.customer,None,'Test','inbound','','','Yes',direction='inbound')
+        with self.mod.app.test_request_context('/dashboard'):
+            journey=self.mod.dashboard_enquiry_journey()
+        self.assertEqual(journey['eyebrow'],'Customer replied')
+        self.assertIn('/conversation',journey['url'])
