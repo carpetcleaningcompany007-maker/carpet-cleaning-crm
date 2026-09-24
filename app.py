@@ -1722,11 +1722,14 @@ def forward_website_form_to_formspree(data, lead_id=None, customer_id=None):
     if not endpoint:
         return False, "Formspree forwarding is disabled."
     try:
-        http_post_form(endpoint, website_form_email_payload(data, lead_id=lead_id, customer_id=customer_id), headers={
+        response = http_post_form(endpoint, website_form_email_payload(data, lead_id=lead_id, customer_id=customer_id), headers={
             "Accept": "application/json",
             "User-Agent": "Mozilla/5.0 Website Form Forwarder",
         })
-        return True, "Formspree email copy sent."
+        result = json.loads(response)
+        if not isinstance(result, dict) or not result.get("ok"):
+            raise ValueError("Formspree did not confirm acceptance of the enquiry.")
+        return True, "Formspree accepted the enquiry copy; inbox delivery is not confirmed."
     except Exception as exc:
         logger.warning("Website form saved to CRM but Formspree forwarding failed: %s", exc)
         return False, f"Saved to CRM, but Formspree email failed: {exc}"
@@ -3652,6 +3655,13 @@ def run_website_enquiry_automation(lead_id, customer_id, data):
         body=enquiry_follow_up_sms_text(data),
         status="Awaiting approval",
     )
+    # The CRM and owner alerts remain available if the additional archive fails.
+    formspree_ok, formspree_message = forward_website_form_to_formspree(
+        data, lead_id=lead_id, customer_id=customer_id
+    )
+    results["formspree"] = (formspree_ok, formspree_message)
+    run("INSERT INTO customer_timeline(customer_id, note_text, created_at) VALUES (?,?,datetime('now'))",
+        (customer_id, "Formspree enquiry copy: " + formspree_message))
     return results
 
 
