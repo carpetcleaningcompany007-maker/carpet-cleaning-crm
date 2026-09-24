@@ -111,7 +111,7 @@ class AICustomerReplyTests(unittest.TestCase):
         self.assertIs(draft, generated)
         self.assertIn('approval', message.lower())
         generate.assert_called_once_with(self.customer_id, self.lead_id, 'SMS', conversation_mode=True)
-        notify.assert_called_once_with(generated)
+        notify.assert_not_called()  # The inbound event alerts independently of AI drafting.
 
     def test_conversation_prompt_uses_saved_carpet_option_names(self):
         captured = {}

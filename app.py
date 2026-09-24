@@ -3043,7 +3043,13 @@ def owner_contact_form_recipients():
         or clean_str(row_value(s, "sms_test_number"))
         or clean_str(row_value(s, "phone"))
     )
-    return owner_email, owner_mobile
+    # Owner alerts belong in both the owner inbox and the connected business inbox.
+    # Use the existing addresses; this does not write any CRM or hosting settings.
+    business_email, _ = inbound_email_config()
+    recipients = list(dict.fromkeys(address.lower() for address in
+        parse_email_list(owner_email) + parse_email_list(business_email)
+        if is_valid_email(address)))
+    return ", ".join(recipients), owner_mobile
 
 
 def owner_copy_text_header(context, recipient, customer=None):
@@ -3062,7 +3068,9 @@ def send_owner_customer_email_copy(original_to, subject, text_body, html_body=""
     if not owner_email:
         return False, "No owner email configured."
     original_recipients = {email.lower() for email in parse_email_list(original_to)}
-    if owner_email.lower() in original_recipients:
+    owner_email = ", ".join(address for address in parse_email_list(owner_email)
+                            if address.lower() not in original_recipients)
+    if not owner_email:
         return True, "Owner already included in email recipient list."
     copy_subject = f"COPY - {subject or context}"
     copy_text = owner_copy_text_header(context, ", ".join(parse_email_list(original_to)) or original_to, customer) + (text_body or "")
@@ -4390,6 +4398,7 @@ def sms_reply_text(message):
     if marker in text:
         text = text.split(":", 1)[-1]
         text = text.split("Original Message", 1)[0]
+        text = re.sub(r"\n\s*[-_]{5,}\s*$", "", text)
     return clean_str(text)
 
 
@@ -4495,6 +4504,12 @@ def ingest_inbound_message(raw_message, mailbox_uid=""):
                       decode_email_header(message.get("Subject")), safe_email_body(message), received_at, customer_id,
                       enquiry["id"] if enquiry else None, job["id"] if job else None, "matched" if customer_id else "unmatched"))
     attachments = save_inbound_attachments(message, email_id)
+    if customer_id or sms_reply_phone:
+        notify_owner_customer_reply(customer_id,
+            sms_reply_text(message) if sms_reply_phone else safe_email_body(message),
+            channel="SMS" if sms_reply_phone else "Email",
+            sender=sms_reply_phone or sender_email, email_id=email_id,
+            source="sms_email_relay" if sms_reply_phone else "email")
     if customer_id and sms_reply_phone:
         body = safe_email_body(message)
         run("""INSERT INTO sms_events(customer_id,provider,event_type,to_phone,from_phone,body,status,direction,payload_json,created_at,updated_at)
@@ -9335,6 +9350,12 @@ def init_db():
         last_error TEXT DEFAULT ''
     )""")
     conn.execute("INSERT OR IGNORE INTO inbound_email_poll_state(id) VALUES (1)")
+    conn.execute("""CREATE TABLE IF NOT EXISTS owner_reply_alert_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, message_key TEXT NOT NULL,
+        customer_id INTEGER, channel TEXT NOT NULL, source TEXT NOT NULL, results_json TEXT DEFAULT '{}',
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )""")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_owner_reply_alert_key ON owner_reply_alert_log(message_key,created_at)")
     # Owner instruction: Chris's enquiry must never be re-queued or sent again.
     # This only cancels unsent records; it cannot retract the two texts already accepted by ClickSend.
     conn.execute("""UPDATE enquiry_acknowledgement_queue
@@ -13831,6 +13852,67 @@ def ensure_ai_draft_for_intake(intake_id, customer_id=None):
         return None, clean_str(exc)
 
 
+def notify_owner_customer_reply(customer_id, body, channel="SMS", sender="", email_id=None, source="sms_webhook"):
+    """Alert the owner independently of AI; never reply to the customer."""
+    body = str(body or "(No message text)").replace("\r\n", "\n").strip()
+    # SMS webhooks and their email relay can report the same reply a few minutes apart.
+    key = hashlib.sha256(f"{customer_id or sender}|{channel}|{' '.join(body.split())}".encode()).hexdigest()
+    cur = db().execute("""INSERT INTO owner_reply_alert_log(message_key,customer_id,channel,source)
+        SELECT ?,?,?,? WHERE NOT EXISTS (SELECT 1 FROM owner_reply_alert_log
+            WHERE message_key=? AND ?='sms_email_relay' AND source='sms_webhook'
+                AND created_at>=datetime('now','-10 minutes'))""",
+        (key,customer_id,channel,source,key,source))
+    db().commit()
+    if not cur.rowcount:
+        return {"duplicate": True}
+    alert_id = cur.lastrowid
+    customer = q("SELECT * FROM customers WHERE id=?", (customer_id,), one=True) if customer_id else None
+    name = customer_full_name(customer) if customer else (sender or "Unknown customer")
+    link = (crm_external_url("customer_conversation", customer_id=customer_id) if customer_id else
+            crm_external_url("inbound_email_view", email_id=email_id) if email_id else crm_external_url("sms_history"))
+    received = datetime.now(ZoneInfo("Europe/London")).strftime("%d %B %Y at %H:%M UK time")
+    subject = f"CUSTOMER REPLY - action needed | {name}"
+    text_body = (f"Customer: {name}\nFrom: {sender}\nChannel: {channel}\nRecorded: {received}\n\n"
+                 f"CUSTOMER'S ACTUAL MESSAGE:\n{body}\n\n"
+                 f"Action needed: read the customer's message and respond. No reply has been sent automatically.\nOpen conversation: {link}")
+    html_body = "<div style='font-family:Arial,sans-serif;white-space:pre-wrap'>" + html_lib.escape(text_body) + "</div>"
+    emails, mobile = owner_contact_form_recipients()
+    results = {}
+    # Separate sends mean a failure at one inbox cannot prevent the second attempt.
+    for recipient in parse_email_list(emails):
+        try:
+            ok, detail = send_env_email(recipient, subject, text_body, html_body, record_customer_event=False)
+        except Exception:
+            logger.exception("Owner reply email failed")
+            ok, detail = False, "Could not confirm sending; check the sending service."
+        results[recipient] = {"accepted": bool(ok), "detail": detail}
+    if mobile:
+        preview = body if len(body) <= 600 else body[:600] + "… Full message in CRM."
+        try:
+            ok, detail = send_clicksend_env_sms(mobile, f"CUSTOMER REPLY: {name}\n{preview}\nRead and respond: {link}", customer=None, category="Customer Reply Alert")
+        except Exception:
+            logger.exception("Owner reply SMS failed")
+            ok, detail = False, "Could not confirm sending; check the sending service."
+        results[mobile] = {"accepted": bool(ok), "detail": detail}
+    run("UPDATE owner_reply_alert_log SET results_json=? WHERE id=?", (json.dumps(results),alert_id))
+    if customer_id:
+        summary = "; ".join(f"{recipient}: {'accepted by sending service (delivery not confirmed)' if result['accepted'] else 'FAILED - ' + str(result['detail'])}" for recipient,result in results.items())
+        run("INSERT INTO customer_timeline(customer_id,note_text,created_at) VALUES (?,?,datetime('now'))",
+            (customer_id,"Customer reply owner alert: " + (summary or "No owner destinations configured.")))
+    return results
+
+
+@app.route('/automation/owner-reply-alerts')
+@login_required
+def owner_reply_alert_status():
+    emails, mobile = owner_contact_form_recipients()
+    response = jsonify(emails=parse_email_list(emails), sms_mobile=mobile,
+        includes_actual_customer_message=True, independent_of_ai=True,
+        sends_customer_reply=False, build=os.environ.get('RENDER_GIT_COMMIT') or 'local')
+    response.headers['Cache-Control'] = 'no-store, private'
+    return response
+
+
 def notify_owner_ai_draft_ready(draft):
     """Alert Paul immediately when a customer SMS reply has produced a review draft."""
     if not draft:
@@ -13849,10 +13931,9 @@ def notify_owner_ai_draft_ready(draft):
                  f'<p><strong>Draft:</strong><br>{html_lib.escape(preview).replace(chr(10), "<br>")}</p>'
                  f'<p><a href="{html_lib.escape(review_url, quote=True)}" style="display:inline-block;padding:12px 18px;border-radius:8px;background:#1677c8;color:#fff;text-decoration:none;font-weight:700">Review draft</a></p>')
     results = {}
-    owner_email = clean_str(os.environ.get('OWNER_ALERT_EMAIL'))
+    owner_email, owner_mobile = owner_contact_form_recipients()
     if owner_email:
         results['email'] = send_env_email(owner_email, subject, text_body, html_body)
-    owner_mobile = clean_str(os.environ.get('OWNER_ALERT_MOBILE'))
     if owner_mobile:
         sms_body = f"Customer reply received from {customer_name}. Draft ready. Nothing sent. Review: {review_url}"
         results['sms'] = send_clicksend_env_sms(owner_mobile, sms_body, customer=None, category='Service')
@@ -13949,7 +14030,6 @@ def prepare_ai_draft_for_inbound_sms(customer_id):
     )
     try:
         draft = generate_ai_customer_reply(customer_id, intake_id, 'SMS', conversation_mode=True)
-        notify_owner_ai_draft_ready(draft)
         return draft, "AI reply draft prepared for approval."
     except RuntimeError as exc:
         logger.warning("Inbound SMS AI draft failed for customer %s: %s", customer_id, exc)
@@ -17163,6 +17243,7 @@ def sms_inbound_twilio():
         set_customer_sms_opt_out(customer_id, False, source='Inbound SMS')
     db().execute("INSERT INTO communications (customer_id, channel, subject, body, created_at) VALUES (?,?,?,?,datetime('now'))", (customer_id, 'SMS', 'Inbound SMS', body))
     db().commit()
+    notify_owner_customer_reply(customer_id, body, channel='SMS', sender=from_phone)
     if customer_id and action not in ('stop', 'start'):
         prepare_ai_draft_for_inbound_sms(customer_id)
     return ("ok", 200)
@@ -17213,6 +17294,7 @@ def sms_inbound_clicksend():
         set_customer_sms_opt_out(customer_id, False, source='Inbound SMS')
     db().execute("INSERT INTO communications (customer_id, channel, subject, body, created_at) VALUES (?,?,?,?,datetime('now'))", (customer_id, 'SMS', 'Inbound SMS', body))
     db().commit()
+    notify_owner_customer_reply(customer_id, body, channel='SMS', sender=from_phone)
     if customer_id and action not in ('stop', 'start'):
         prepare_ai_draft_for_inbound_sms(customer_id)
     return ("ok", 200)
