@@ -18,6 +18,22 @@ class PublicLeadTests(unittest.TestCase):
         self.ctx = self.app.app_context()
         self.ctx.push()
         self.appmod.init_db()
+        # Existing tests cover the notification features when explicitly resumed.
+        notifications = mock.patch.object(self.appmod, "WEBSITE_VISITOR_ALERTS_PAUSED", False)
+        notifications.start()
+        self.addCleanup(notifications.stop)
+
+    def test_owner_pause_blocks_all_visitor_notifications(self):
+        with mock.patch.object(self.appmod, "WEBSITE_VISITOR_ALERTS_PAUSED", True), \
+             mock.patch.object(self.appmod, "send_env_email") as email, \
+             mock.patch.object(self.appmod, "send_clicksend_env_sms") as sms:
+            response = self.app.test_client().post("/api/website-engagement", json={})
+            self.assertEqual(response.status_code, 200)
+            self.assertIn("paused", response.get_json()["ignored"])
+            self.appmod.send_landing_page_visit_alert("Ludlow", "homepage", "Direct", False, "Desktop")
+            self.assertEqual(self.appmod.send_due_website_visit_summaries(), [])
+            email.assert_not_called()
+            sms.assert_not_called()
 
     def tearDown(self):
         self.ctx.pop()

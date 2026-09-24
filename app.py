@@ -19850,6 +19850,8 @@ def website_engagement_alert():
     """Email the owner once when a real browsing session becomes meaningfully engaged."""
     if request.method == "OPTIONS":
         return ("", 204)
+    if WEBSITE_VISITOR_ALERTS_PAUSED:
+        return {"ok": True, "ignored": "Visitor notifications paused by owner"}
     data = request.get_json(silent=True) if request.is_json else request.form
     data = data or {}
     if clean_str(data.get("company_website")):
@@ -19980,8 +19982,14 @@ def ensure_website_analytics_table():
                AND page_variant='shrewsbury-new-landing-2026-08-10'""")
 
 
+# Owner requested a pause on browsing notifications, while enquiry alerts stay on.
+WEBSITE_VISITOR_ALERTS_PAUSED = True
+
+
 def send_landing_page_visit_alert(area, landing_page, traffic_source, click_id_present, device_type):
     """Email and text the owner when an anonymous landing-page visit is recorded."""
+    if WEBSITE_VISITOR_ALERTS_PAUSED:
+        return False, "Visitor notifications paused by owner"
     owner_email, owner_mobile = owner_contact_form_recipients()
     if not owner_email and not owner_mobile:
         return False, "Owner email and mobile are not configured"
@@ -20039,6 +20047,8 @@ def send_landing_page_visit_alert(area, landing_page, traffic_source, click_id_p
 
 def send_due_website_visit_summaries(dry_run=False):
     """Email one activity summary five minutes after a landing-page visit goes quiet."""
+    if WEBSITE_VISITOR_ALERTS_PAUSED:
+        return []
     ensure_website_analytics_table()
     due_rows = q("""SELECT session_id FROM website_analytics_summary_queue
                      WHERE sent_at='' AND attempts<3 AND due_at<=datetime('now')
