@@ -467,6 +467,37 @@ class WebsiteFormTests(unittest.TestCase):
         sms_send.assert_not_called()
         email_send.assert_called_once()
 
+    def test_landlines_never_reach_either_sms_provider(self):
+        for phone in ("01584 876 570", "+441527541391", "02079460000", "07012345678", "07612345678"):
+            with self.subTest(phone=phone), mock.patch.object(self.appmod, "http_post_basic_json") as post, mock.patch.object(self.appmod, "clicksend_reply_number") as lookup:
+                self.assertTrue(self.appmod.is_valid_uk_phone(phone))
+                self.assertFalse(self.appmod.is_valid_uk_mobile(phone))
+                self.assertFalse(self.appmod.send_clicksend_env_sms(phone, "Test")[0])
+                self.assertFalse(self.appmod.send_sms_gateway(phone, "Test")[0])
+                post.assert_not_called()
+                lookup.assert_not_called()
+        for phone in ("07802 563213", "+447700900123", "00447700900123"):
+            self.assertTrue(self.appmod.is_valid_uk_mobile(phone))
+
+    def test_landline_acknowledgement_uses_email_or_reports_no_route(self):
+        for email in ("email@example.com", ""):
+            with self.subTest(email=email):
+                lead_id = self.appmod.run("""INSERT INTO intake_submissions
+                    (name, phone, email, status) VALUES (?,?,?,?)""",
+                    ("Landline Customer", "01584 876570", email, "Waiting for review"))
+                self.appmod.schedule_enquiry_acknowledgement(
+                    lead_id, data={"name": "Landline Customer", "phone": "01584 876570", "email": email}, delay_minutes=-1)
+                with mock.patch.object(self.appmod, "customer_sms_hours_open", return_value=True), mock.patch.object(self.appmod, "send_clicksend_env_sms") as sms, mock.patch.object(self.appmod, "send_env_email", return_value=(True, "Email sent")) as mail:
+                    result = self.appmod.run_due_enquiry_acknowledgements()
+                sms.assert_not_called()
+                if email:
+                    mail.assert_called_once()
+                    self.assertEqual(result[0]["status"], "Sent")
+                else:
+                    mail.assert_not_called()
+                    self.assertEqual(result[0]["status"], "Failed")
+                    self.assertIn("Call the customer", result[0]["message"])
+
     def test_outside_hours_acknowledgement_waits_for_sms_window(self):
         lead_id = self.appmod.run("""INSERT INTO intake_submissions
             (name, phone, email, status) VALUES (?,?,?,?)""",

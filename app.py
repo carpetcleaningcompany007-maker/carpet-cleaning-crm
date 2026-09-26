@@ -648,6 +648,13 @@ def is_valid_uk_phone(value):
     return national.startswith(("01", "02", "03", "07", "08"))
 
 
+def is_valid_uk_mobile(value):
+    """Only UK mobile ranges can receive outbound texts; keep landlines as contacts."""
+    phone = normalize_phone(value)
+    return bool(re.fullmatch(r"\+447(?:[1-5]|[7-9])\d{8}", phone)
+                or re.fullmatch(r"\+447624\d{6}", phone))
+
+
 def website_enquiry_spam_reason(data):
     values = []
     for key in (
@@ -2147,7 +2154,7 @@ def run_due_enquiry_acknowledgements(dry_run=False, lead_id=None):
         phone = request_value(payload, "phone", "phone_number", "telephone", "tel") or row_value(row, "lead_phone")
         email = request_value(payload, "email", "email_address") or row_value(row, "lead_email")
         body = row_value(row, "body") or enquiry_acknowledgement_text(payload)
-        phone_valid = is_valid_uk_phone(phone)
+        phone_valid = is_valid_uk_mobile(phone)
         # Automated customer acknowledgements are restricted to Paul's chosen
         # daytime window, whether the preferred route is SMS or email.
         if not customer_sms_hours_open(now):
@@ -2165,8 +2172,9 @@ def run_due_enquiry_acknowledgements(dry_run=False, lead_id=None):
                 else:
                     update_intake_delivery_status(
                         row_value(row, "lead_id"),
-                        customer_sms_status="Skipped: phone number is missing or invalid.",
-                        customer_email_status=f"Queued: customer email due after {next_opening.strftime('%H:%M')}.",
+                        customer_sms_status="Skipped: phone number is missing, invalid or a landline.",
+                        customer_email_status=(f"Queued: customer email due after {next_opening.strftime('%H:%M')}."
+                                               if is_valid_email(email) else "Not sent: no valid email address. Call the customer."),
                     )
             results.append({"rule": "enquiry_acknowledgement", "lead_id": row_value(row, "lead_id"),
                             "customer_id": customer_id, "channel": "sms" if phone_valid else "email", "status": "Queued",
@@ -2197,7 +2205,7 @@ def run_due_enquiry_acknowledgements(dry_run=False, lead_id=None):
         elif is_valid_email(email):
             ok, msg = send_env_email(email, "Thank you for your enquiry", body, customer=customer)
         else:
-            ok, msg = False, "No valid phone number or email address supplied."
+            ok, msg = False, "No mobile number or valid email address supplied. Call the customer using their contact number."
         external_id = ""
         if channel == "sms" and ok:
             match = re.search(r"Message ID:\s*([^\.\s]+)", clean_str(msg), re.I)
@@ -2214,11 +2222,11 @@ def run_due_enquiry_acknowledgements(dry_run=False, lead_id=None):
             if channel == "sms":
                 sms_status = f"Accepted, awaiting delivery receipt: {clean_str(msg)}" if ok else status_text(False, msg)
                 update_intake_delivery_status(row_value(row, "lead_id"), customer_sms_status=sms_status,
-                                              customer_email_status="Skipped: Valid phone used for acknowledgement")
+                                              customer_email_status="Skipped: Valid mobile used for acknowledgement")
             else:
                 update_intake_delivery_status(row_value(row, "lead_id"), customer_email_status=status_text(ok, msg),
                                               customer_sms_status=(
-                                                  "Skipped: Phone invalid or text unavailable; email used"
+                                                  "Skipped: No valid mobile number or text unavailable"
                                               ))
             if customer_id:
                 run("INSERT INTO communications(customer_id, channel, subject, body, created_at) VALUES (?,?,?,?,datetime('now'))",
@@ -2805,6 +2813,8 @@ def clicksend_reply_number(username=None, api_key=None):
 
 
 def _raw_send_clicksend_env_sms(to_phone, body, customer=None, category="Website Enquiry"):
+    if not is_valid_uk_mobile(to_phone):
+        return False, "SMS not sent: a valid UK mobile number is required. Landlines cannot be texted."
     username = os.environ.get("CLICKSEND_USERNAME", "").strip()
     api_key = os.environ.get("CLICKSEND_API_KEY", "").strip()
     from_name = clicksend_reply_number(username, api_key) or os.environ.get("CLICKSEND_FROM_NAME", "").strip()
@@ -3571,7 +3581,7 @@ def run_website_enquiry_automation(lead_id, customer_id, data):
         lead_id, customer_id, data, delay_minutes=5
     )
     customer_phone = request_value(data, "phone", "phone_number", "telephone", "tel")
-    if is_valid_uk_phone(customer_phone):
+    if is_valid_uk_mobile(customer_phone):
         update_intake_delivery_status(
             lead_id,
             customer_sms_status="Queued: acknowledgement text due in about 5 minutes",
@@ -3580,8 +3590,10 @@ def run_website_enquiry_automation(lead_id, customer_id, data):
     else:
         update_intake_delivery_status(
             lead_id,
-            customer_sms_status="Skipped: phone number is missing or invalid",
-            customer_email_status="Queued: acknowledgement email due in about 5 minutes",
+            customer_sms_status="Skipped: phone number is missing, invalid or a landline",
+            customer_email_status=("Queued: acknowledgement email due in about 5 minutes"
+                                   if is_valid_email(request_value(data, "email", "email_address"))
+                                   else "Not sent: no mobile number or valid email address. Call the customer."),
         )
 
     owner_email, _ = owner_contact_form_recipients()
@@ -3612,7 +3624,7 @@ def run_website_enquiry_automation(lead_id, customer_id, data):
         lead_email = request_value(data, "email", "email_address") or "Not supplied"
         lead_postcode = request_value(data, "postcode", "post_code", "zip") or "Not supplied"
         lead_service = request_value(data, "service", "what_cleaned", "cleaning_type") or "Not supplied"
-        preferred_route = "text" if is_valid_uk_phone(customer_phone) else "email"
+        preferred_route = "text" if is_valid_uk_mobile(customer_phone) else "email"
         send_now_url = crm_external_url("intake_form_view", lead_id=lead_id) + "#customer-message-approval"
         if outside_customer_hours:
             next_opening = next_customer_sms_window_open()
@@ -3621,6 +3633,8 @@ def run_website_enquiry_automation(lead_id, customer_id, data):
         else:
             heading = f"YOU HAVE A NEW WEB ENQUIRY\nEnquiry #{lead_id}"
             customer_timing = f"Customer {preferred_route} due in about 5 minutes."
+        if not is_valid_uk_mobile(customer_phone) and not is_valid_email(lead_email):
+            customer_timing = "No customer text or email can be sent. Call the customer."
         notice_lines = [
             heading,
             f"Name: {lead_name}",
@@ -3665,6 +3679,8 @@ def send_sms_gateway(*args, **kwargs):
 
 
 def _raw_send_sms_gateway(to_phone, body, customer=None, communication_id=None, message_category=''):
+    if not is_valid_uk_mobile(to_phone):
+        return False, 'SMS not sent: a valid UK mobile number is required. Landlines cannot be texted.'
     phone = normalize_phone(to_phone)
     if not phone:
         return False, 'No recipient phone number was provided.'
@@ -13851,7 +13867,7 @@ def ensure_ai_draft_for_intake(intake_id, customer_id=None):
     if not lead:
         return None, "Enquiry was not found."
     resolved_customer_id = customer_id or row_get(lead, 'customer_id') or None
-    channel = 'SMS' if is_valid_uk_phone(row_get(lead, 'phone')) else 'Email'
+    channel = 'SMS' if is_valid_uk_mobile(row_get(lead, 'phone')) else 'Email'
     try:
         return generate_ai_customer_reply(resolved_customer_id, intake_id, channel), "AI draft prepared for approval."
     except RuntimeError as exc:
@@ -20514,7 +20530,7 @@ def claim_enquiry_follow_up(row):
 
 
 def send_enquiry_follow_up_text(customer_id, customer, recipient, body):
-    if not is_valid_uk_phone(recipient):
+    if not is_valid_uk_mobile(recipient):
         return False, "Text not sent: this enquiry does not have a valid customer mobile number."
     if is_customer_sms_opted_out(customer):
         return False, "Text not sent: this customer is opted out of SMS."
@@ -21020,7 +21036,7 @@ def intake_customer_message_action(lead_id):
         text_sent = False
         if action in {"send_follow_up_sms", "send_follow_up_both"}:
             recipient = clean_str(row_get(lead, "phone"))
-            if not recipient or not is_valid_uk_phone(recipient):
+            if not recipient or not is_valid_uk_mobile(recipient):
                 outcomes.append((False, "Text not sent: this enquiry does not have a valid customer mobile number."))
             elif is_customer_sms_opted_out(customer):
                 outcomes.append((False, "Text not sent: this customer is opted out of SMS."))
