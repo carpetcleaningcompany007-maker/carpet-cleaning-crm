@@ -1,36 +1,25 @@
 {% extends "layout.html" %}
-{% block title %}Login{% endblock %}
+{% block title %}Sign in{% endblock %}
 {% block public_content %}
-<div class="login-wrap website-login-wrap">
-  <section class="login-hero-panel">
-    <div class="login-copy">
-      <img class="login-site-logo" src="{{ url_for('static', filename='site/logo.webp') }}" alt="The Carpet Cleaning Company">
-      <span class="auth-kicker">Private business workspace</span>
-      <h1>Everything your business needs. Beautifully organised.</h1>
-      <p>From the first enquiry to the final review, your customers and daily work stay together in one calm, secure place.</p>
-      <div class="login-feature-row">
-        <span>Enquiries</span><span>Customers</span><span>Jobs</span><span>Payments</span>
-      </div>
+<style>
+.modern-login{min-height:100svh;display:grid;place-items:center;padding:clamp(18px,4vw,52px);background:radial-gradient(circle at 82% 8%,rgba(229,184,75,.24),transparent 28%),linear-gradient(125deg,#061a2d,#0c3555 58%,#0a2942);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.modern-login-shell{width:min(1120px,100%);display:grid;grid-template-columns:1.15fr .85fr;overflow:hidden;border-radius:24px;background:rgba(255,255,255,.98);box-shadow:0 32px 90px rgba(0,0,0,.32)}.modern-login-intro{position:relative;display:flex;flex-direction:column;justify-content:space-between;min-height:590px;padding:clamp(34px,5vw,68px);overflow:hidden;background:linear-gradient(135deg,rgba(4,25,43,.94),rgba(13,65,92,.84)),url('{{ url_for("static", filename="site/hero-carpet-cleaning.webp") }}') center/cover}.modern-login-intro:after{content:"";position:absolute;right:-58px;bottom:-62px;width:260px;height:260px;border-radius:50%;border:1px solid rgba(239,198,90,.35);box-shadow:0 0 0 38px rgba(239,198,90,.07),0 0 0 76px rgba(239,198,90,.045)}.modern-login-brand{position:relative;z-index:1;display:flex;align-items:center;gap:14px;color:#fff}.modern-login-brand img{width:58px;height:58px;object-fit:contain;background:#fff;border-radius:14px;padding:4px}.modern-login-brand strong{display:block;font-size:17px;line-height:1.1}.modern-login-brand small{display:block;margin-top:5px;color:#efc65a;font-weight:800;letter-spacing:.13em;font-size:10px}.modern-login-copy{position:relative;z-index:1}.modern-login-copy span{color:#efc65a;font-size:11px;font-weight:800;letter-spacing:.16em}.modern-login-copy h1{max-width:520px;margin:14px 0 18px;color:#fff;font-size:clamp(38px,5vw,60px);letter-spacing:-.05em;line-height:1.02}.modern-login-copy p{max-width:480px;margin:0;color:#d4e3ee;font-size:17px;line-height:1.6}.modern-login-points{position:relative;z-index:1;display:flex;gap:8px;flex-wrap:wrap}.modern-login-points b{padding:8px 11px;border:1px solid rgba(255,255,255,.22);border-radius:999px;color:#f6fbff;font-size:12px}.modern-login-card{align-self:center;padding:clamp(34px,5vw,58px)!important;background:#fff!important;border:0!important;border-radius:0!important;box-shadow:none!important}.modern-login-card .login-label{display:block;color:#967125;font-size:11px;font-weight:850;letter-spacing:.14em}.modern-login-card h2{margin:11px 0 9px!important;color:#102d47!important;font-family:Inter,ui-sans-serif,system-ui,sans-serif!important;font-size:34px!important;letter-spacing:-.04em!important}.modern-login-card>p{margin:0 0 28px!important;color:#64778a!important;font-size:15px!important;line-height:1.55!important}.modern-login-card label{display:grid!important;gap:8px;margin:0 0 17px!important;color:#173852!important;font-size:13px!important;font-weight:750!important}.modern-login-card input{height:54px!important;border:1px solid #cbd9e3!important;border-radius:10px!important;background:#f9fbfc!important;box-shadow:none!important}.modern-login-card input:focus{border-color:#bd9134!important;box-shadow:0 0 0 3px rgba(205,162,60,.18)!important}.modern-login-card button{width:100%!important;min-height:54px!important;margin-top:6px!important;border:0!important;border-radius:10px!important;background:linear-gradient(135deg,#e8bd51,#c78d23)!important;color:#112a42!important;font-weight:850!important;box-shadow:0 10px 20px rgba(186,128,29,.2)!important}.modern-login-security{margin:20px 0 0!important;color:#788a99!important;font-size:12px!important;text-align:center}.modern-login-security:before{content:"✓";display:inline-grid;place-items:center;width:17px;height:17px;margin-right:7px;border-radius:50%;background:#e9f6ee;color:#26724d;font-weight:900}@media(max-width:760px){.modern-login{padding:0;background:#08223a}.modern-login-shell{min-height:100svh;border-radius:0;grid-template-columns:1fr}.modern-login-intro{min-height:290px;padding:28px 24px;background:linear-gradient(135deg,rgba(4,25,43,.92),rgba(13,65,92,.83)),url('{{ url_for("static", filename="site/hero-carpet-cleaning.webp") }}') center/cover}.modern-login-intro:after{width:155px;height:155px;right:-46px;bottom:-60px}.modern-login-copy h1{margin:20px 0 8px;font-size:34px}.modern-login-copy p{font-size:14px}.modern-login-points{display:none}.modern-login-card{padding:32px 24px 38px!important}.modern-login-card h2{font-size:29px!important}}
+</style>
+<section class="modern-login">
+  <div class="modern-login-shell">
+    <div class="modern-login-intro">
+      <div class="modern-login-brand"><img src="{{ url_for('static', filename='site/carpet-cleaning-manager-logo.png') }}" alt=""><div><strong>Carpet Cleaning</strong><small>BUSINESS MANAGER</small></div></div>
+      <div class="modern-login-copy"><span>PRIVATE BUSINESS WORKSPACE</span><h1>Your business, clearly in hand.</h1><p>Enquiries, customers, quotes, jobs and messages — one place for the work that matters today.</p></div>
+      <div class="modern-login-points"><b>Enquiries</b><b>Quotes</b><b>Jobs</b><b>Customer history</b></div>
     </div>
-    <form method="post" class="login-card simple-login-card">
-      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-      <input type="hidden" name="next" value="{{ next_url or '' }}">
-      <div class="auth-card-mark">Secure CRM</div>
-      <span class="section-kicker">Welcome back</span>
-      <h2>Sign in to your workspace</h2>
-      <p>Enter your private administrator details to continue.</p>
+    <form method="post" class="login-card modern-login-card">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="next" value="{{ next_url or '' }}">
+      <span class="login-label">WELCOME BACK</span><h2>Sign in</h2><p>Use your private administrator details to open the CRM.</p>
       {% if login_error %}<div class="notice">{{ login_error }}</div>{% endif %}
-      <label>
-        <span>Username</span>
-        <input name="username" placeholder="Your username" autocomplete="username" autofocus required>
-      </label>
-      <label>
-        <span>Password</span>
-        <input name="password" type="password" placeholder="Your password" autocomplete="current-password" required>
-      </label>
-      <button class="btn primary big-action">Continue Securely</button>
-      <p class="auth-reassurance"><span aria-hidden="true">◆</span> Protected by encrypted HTTPS and secure sessions</p>
+      <label>Username<input name="username" placeholder="Your username" autocomplete="username" autofocus required></label>
+      <label>Password<input name="password" type="password" placeholder="Your password" autocomplete="current-password" required></label>
+      <button class="btn primary" type="submit">Open my workspace</button>
+      <p class="modern-login-security">Secure, encrypted sign-in</p>
     </form>
-  </section>
-</div>
+  </div>
+</section>
 {% endblock %}
