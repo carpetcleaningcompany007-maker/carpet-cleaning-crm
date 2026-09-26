@@ -10910,6 +10910,7 @@ def dashboard_enquiry_alerts():
                   AND IFNULL(d.action,'') NOT IN ('accepted','declined')
                   AND lower(IFNULL(s.name,'')) NOT LIKE 'paul test%'
                   AND lower(IFNULL(s.name,'')) NOT LIKE 'codex %test%'
+                  AND lower(IFNULL(s.name,'')) <> 'smexunconse'
                 ORDER BY s.id DESC""")
     alerts = []
     now = datetime.now(ZoneInfo("Europe/London"))
