@@ -10980,6 +10980,25 @@ def dashboard_enquiry_alerts():
             if event: item['latest_email'] = dict(event)
         failure_text = ' '.join([status,item['sms_detail'],item['email_detail'],clean_str((item['latest_email'] or {}).get('status'))]).lower()
         item['delivery_problem'] = any(word in failure_text for word in ('failed','failure','bounced','bounce','returned','rejected','undeliver'))
+        no_mobile_or_email = not is_valid_uk_mobile(item.get('phone')) and not is_valid_email(item.get('email'))
+        if no_mobile_or_email and status not in {'Accepted', 'Sent', 'Delivered', 'Email fallback sent'}:
+            item['delivery_problem'] = True
+        if item['delivery_problem']:
+            if no_mobile_or_email:
+                item['dashboard_status_title'] = 'Message could not be sent'
+                item['dashboard_status_detail'] = 'The saved number is not a mobile number and there is no email address. Add a mobile number or contact them by phone.'
+            else:
+                item['dashboard_status_title'] = 'Message needs attention'
+                item['dashboard_status_detail'] = 'Check the message history before trying again.'
+        elif item['no_reply_follow_up']:
+            item['dashboard_status_title'] = 'No reply yet'
+            item['dashboard_status_detail'] = 'The first message was sent. A follow-up is ready for you to review.'
+        elif status in {'Accepted', 'Sent', 'Delivered', 'Email fallback sent'}:
+            item['dashboard_status_title'] = 'Waiting for a reply'
+            item['dashboard_status_detail'] = 'The first message has been sent. Open the enquiry when the customer replies.'
+        else:
+            item['dashboard_status_title'] = 'New enquiry to review'
+            item['dashboard_status_detail'] = item['next_step']
         item['owner_step'] = {'call':'You chose to call this customer. The call is not yet marked complete.','message':'You chose to message personally. Check the conversation and record the next step.','stop':'You stopped the automatic acknowledgement. Choose a manual next step.'}.get(item.get('owner_action'),'You have not chosen a manual next step yet.')
         if item['form_waiting']:
             item['next_step'] = 'Customer form sent. Waiting for their reply.'
@@ -11015,7 +11034,7 @@ def dashboard_enquiry_alerts():
             item['workflow_next'] = 'Follow up with the customer on '+item['followup_reminder']['reminder_date']+'.'
         item['preview'] = enquiry_acknowledgement_text(item)
         alerts.append(item)
-    alerts.sort(key=lambda item: (not item['delivery_problem'], not item['followup_overdue']))
+    alerts.sort(key=lambda item: (0 if item['delivery_problem'] else 1 if item['no_reply_follow_up'] else 2, not item['followup_overdue'], -item['id']))
     return alerts
 
 

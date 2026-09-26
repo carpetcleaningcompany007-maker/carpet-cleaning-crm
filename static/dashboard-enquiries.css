@@ -248,3 +248,12 @@
 .enquiry-follow-up-next strong { display:block; margin:1px 0; color:#17314a; font:600 15px/1.25 system-ui,sans-serif; }
 .enquiry-follow-up-next a { flex:0 0 auto; color:#17314a; font:600 14px/1.2 system-ui,sans-serif; text-decoration:none; white-space:nowrap; }
 @media (max-width:1023px) { #dashboard-enquiry-alerts .enquiry-follow-up-next { margin:0 0 6px; padding:9px 10px; gap:9px; } #dashboard-enquiry-alerts .enquiry-follow-up-next strong { font-size:14px; } #dashboard-enquiry-alerts .enquiry-follow-up-next a { font-size:13px; } }
+
+/* One clear home-screen priority list. */
+#dashboard-enquiry-alerts .enquiry-schedule-panel > header{align-items:flex-start!important}
+#dashboard-enquiry-alerts .enquiry-panel-help{margin:5px 0 0;color:#637889;font-size:13px;line-height:1.4}
+#dashboard-enquiry-alerts .enquiry-follow-up-urgent{border-left:4px solid #d2a13a!important;background:#fffdf7!important}
+#dashboard-enquiry-alerts .enquiry-step-caption strong{display:block;color:#243b4d;font-size:14px;font-weight:750;line-height:1.35}
+#dashboard-enquiry-alerts .enquiry-step-caption span{display:block;margin-top:2px;color:#5c7282;font-size:12px;line-height:1.4}
+#dashboard-enquiry-alerts .enquiry-delivery-problem .enquiry-step-caption strong{color:#983c32}
+@media(max-width:1023px){#dashboard-enquiry-alerts .enquiry-panel-help{font-size:14px}#dashboard-enquiry-alerts .enquiry-step-caption strong{font-size:16px}#dashboard-enquiry-alerts .enquiry-step-caption span{font-size:14px;line-height:1.38}}
