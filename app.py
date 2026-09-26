@@ -1797,6 +1797,8 @@ def public_static_or_live_url(filename):
 
 
 CUSTOMER_FORM_SENDING_PAUSED = False
+# Owner-requested temporary stop: no CRM text is sent to a customer until this is switched back on.
+CUSTOMER_SMS_SENDING_PAUSED = True
 CUSTOMER_SMS_START_HOUR = 10
 CUSTOMER_SMS_END_HOUR = 20
 
@@ -2813,6 +2815,8 @@ def clicksend_reply_number(username=None, api_key=None):
 
 
 def _raw_send_clicksend_env_sms(to_phone, body, customer=None, category="Website Enquiry"):
+    if CUSTOMER_SMS_SENDING_PAUSED and customer is not None:
+        return False, "Customer text sending is paused by the owner. No SMS was sent."
     if not is_valid_uk_mobile(to_phone):
         return False, "SMS not sent: a valid UK mobile number is required. Landlines cannot be texted."
     username = os.environ.get("CLICKSEND_USERNAME", "").strip()
@@ -3686,6 +3690,8 @@ def _raw_send_sms_gateway(to_phone, body, customer=None, communication_id=None, 
         return False, 'No recipient phone number was provided.'
     if customer is None:
         customer = find_customer_by_phone(phone)
+    if CUSTOMER_SMS_SENDING_PAUSED and customer is not None:
+        return False, 'Customer text sending is paused by the owner. No SMS was sent.'
     if is_customer_sms_opted_out(customer):
         return False, 'This customer has opted out of SMS. Reply START from their phone to opt back in, or remove the opt out on their customer profile.'
     body = add_sms_compliance_text(body, message_category=message_category)
