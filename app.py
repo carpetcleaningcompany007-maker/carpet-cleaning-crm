@@ -4001,7 +4001,7 @@ def pwa_manifest():
 
 @app.route("/service-worker.js")
 def pwa_service_worker():
-    source = """const CACHE='carpet-clean-pro-v45';
+    source = """const CACHE='carpet-clean-pro-v46';
 	const SHELL=['/offline','/static/app-theme.css?v=20260906-44','/static/dashboard-exact.css?v=20260910-8','/static/customer-record-premium.css?v=20260906-3','/static/app.js?v=price-book-20260909-2','/static/site/site-icon-512.png'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim())));
