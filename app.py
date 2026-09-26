@@ -10908,6 +10908,8 @@ def dashboard_enquiry_alerts():
                 WHERE IFNULL(s.is_test,0)=0 AND IFNULL(s.ignore_alerts,0)=0
                   AND lower(IFNULL(s.status,'New')) NOT IN ('accepted','booked','going ahead','closed - no reply','declined','rejected','archived','cancelled','completed','form returned - ready to quote')
                   AND IFNULL(d.action,'') NOT IN ('accepted','declined')
+                  AND lower(IFNULL(s.name,'')) NOT LIKE 'paul test%'
+                  AND lower(IFNULL(s.name,'')) NOT LIKE 'codex %test%'
                 ORDER BY s.id DESC""")
     alerts = []
     now = datetime.now(ZoneInfo("Europe/London"))
@@ -21830,7 +21832,8 @@ def start_background_automation_runner():
     thread.start()
 
 
-init_db()
+with app.app_context():
+    init_db()
 start_background_automation_runner()
 
 
