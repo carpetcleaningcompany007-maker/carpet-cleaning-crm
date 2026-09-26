@@ -10906,7 +10906,7 @@ def dashboard_enquiry_alerts():
                 LEFT JOIN enquiry_follow_up_queue f ON f.lead_id=s.id
                 LEFT JOIN dashboard_enquiry_decisions d ON d.lead_id=s.id
                 WHERE IFNULL(s.is_test,0)=0 AND IFNULL(s.ignore_alerts,0)=0
-                  AND lower(IFNULL(s.status,'New')) NOT IN ('accepted','booked','declined','rejected','archived','cancelled','completed','form returned - ready to quote')
+                  AND lower(IFNULL(s.status,'New')) NOT IN ('accepted','booked','going ahead','closed - no reply','declined','rejected','archived','cancelled','completed','form returned - ready to quote')
                   AND IFNULL(d.action,'') NOT IN ('accepted','declined')
                 ORDER BY s.id DESC""")
     alerts = []
@@ -21147,7 +21147,7 @@ def intake_form_quick_action(lead_id):
                WHERE id=?""", (lead_id,))
         flash("Test flag removed. Normal response alerts are active again.")
         return redirect(url_for("intake_form_view", lead_id=lead_id) + "#lead-action-panel")
-    if action in {"open_customer", "override_missing", "contacted", "waiting_customer", "quoted", "booked", "lost", "send_unable_email", "send_unable_sms"}:
+    if action in {"open_customer", "override_missing", "contacted", "waiting_customer", "quoted", "going_ahead", "booked", "lost", "send_unable_email", "send_unable_sms"}:
         customer_id = customer_id or create_customer_from_intake(lead)
         run("UPDATE intake_submissions SET customer_id=?, updated_at=datetime('now') WHERE id=?", (customer_id, lead_id))
     if action == "override_missing":
@@ -21172,8 +21172,9 @@ def intake_form_quick_action(lead_id):
         "contacted": ("Contacted", "Contact attempted - waiting for customer response", "Contact attempted from intake form."),
         "waiting_customer": ("Waiting for customer", "Waiting for customer response", "Waiting for customer response after enquiry."),
         "quoted": ("Quoted", "Quote discussed - awaiting decision", "Quote discussed from intake form."),
+        "going_ahead": ("Going ahead", "Customer said yes — add booking details", "Customer contacted and is going ahead. Booking details still need adding."),
         "booked": ("Booked", "Booked - create or open job", "Customer marked as booked from intake form."),
-        "lost": ("Closed - no reply", "Closed - no reply", "Lead closed as no reply."),
+        "lost": ("Closed - no reply", "Closed - not going ahead", "Lead closed: customer is not going ahead."),
     }
     if action == "open_customer":
         return redirect(url_for("customer_view", customer_id=customer_id))
@@ -21183,6 +21184,8 @@ def intake_form_quick_action(lead_id):
                SET status=?, follow_up_status=?, updated_at=datetime('now')
                WHERE id=?""", (status, follow_up, lead_id))
         run("UPDATE customers SET next_action=?, last_updated=datetime('now') WHERE id=?", (follow_up, customer_id))
+        if action in {"going_ahead", "lost", "booked"}:
+            run("UPDATE enquiry_follow_up_queue SET status='Skipped', message=?, updated_at=datetime('now') WHERE lead_id=? AND status NOT IN ('Sent','Skipped')", ("Stopped: " + follow_up, lead_id))
         run("INSERT INTO customer_timeline(customer_id, note_text, created_at) VALUES (?,?,datetime('now'))", (customer_id, timeline))
         flash(f"Lead updated: {status}.")
         return redirect(url_for("intake_form_view", lead_id=lead_id) + "#lead-action-panel")

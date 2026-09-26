@@ -132,6 +132,7 @@
   body.app-page .first-control-grid button{display:grid;grid-template-columns:22px 1fr;grid-template-rows:auto auto;column-gap:9px;row-gap:3px;align-items:center;padding:12px 10px!important;min-height:66px;font-size:13px!important}
   .first-control-grid button>span{grid-column:1;grid-row:1/3;font-size:21px}
   .first-control-grid button small{grid-column:2;font-size:10px}
+.lead-decision{display:grid;grid-template-columns:minmax(0,1fr) minmax(390px,.9fr);gap:18px;align-items:center;padding:17px;border:1px solid #c9dbe8;border-radius:16px;background:#f4f9fd}.lead-decision h4{margin:2px 0 5px;color:#092642;font-size:20px}.lead-decision p{margin:0;color:#587084}.lead-decision-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}.lead-decision-actions form{display:grid;gap:7px}.lead-decision-actions .btn{min-height:49px;justify-content:center}.lead-decision-actions small{color:#587084;font-size:11px;line-height:1.3}.follow-up-send-choices{grid-template-columns:repeat(2,minmax(0,1fr))!important}.follow-up-choice-help{grid-column:1/-1;margin:0;color:#496171;font-size:14px}.follow-up-send-choices form:last-child{grid-column:1/-1}@media(max-width:650px){.lead-decision{grid-template-columns:1fr}.lead-decision-actions,.follow-up-send-choices{grid-template-columns:1fr!important}.follow-up-send-choices form:last-child{grid-column:auto}}
 </style>
 <link rel="stylesheet" href="{{ url_for('static',filename='enquiry-premium.css') }}?v=4">
 
@@ -152,6 +153,13 @@
       <button type="button" data-show-step="2" {% if not first_contact_sent %}disabled aria-label="Follow-up locked until first message is sent"{% endif %}><span>2</span>Follow-up</button>
       <button type="button" data-show-step="3" {% if not first_contact_sent %}disabled{% endif %}><span>3</span>Quote</button>
     </nav>
+    <section class="lead-decision" aria-label="Quick enquiry decision">
+      <div><span class="step-eyebrow">QUICK DECISION</span><h4>Have you spoken to {{ lead.name or 'the customer' }}?</h4><p>Choose one result. This clears the no-reply task and records what happened.</p></div>
+      <div class="lead-decision-actions">
+        <form method="post" action="{{ url_for('intake_form_quick_action', lead_id=lead.id) }}"><input type="hidden" name="action" value="going_ahead"><button class="btn primary" type="submit">✓ Yes — going ahead</button><small>Stop follow-ups and move to booking.</small></form>
+        <form method="post" action="{{ url_for('intake_form_quick_action', lead_id=lead.id) }}"><input type="hidden" name="action" value="lost"><button class="btn danger" type="submit">✕ No — close enquiry</button><small>Stop follow-ups and remove it from open enquiries.</small></form>
+      </div>
+    </section>
 
     <section class="enquiry-step" data-enquiry-step="1" id="enquiry-step-1">
       <div class="step-eyebrow">STEP 1 OF 3</div>
@@ -190,28 +198,12 @@
         <p><strong>Subject:</strong> {{ follow_up_email_subject }}</p>
         <pre>{{ prepared_follow_up_sms }}</pre>
       </div>
-      <div class="lead-action-buttons">
-        <form method="post" action="{{ url_for('intake_customer_message_action', lead_id=lead.id) }}">
-          <input type="hidden" name="action" value="send_follow_up_sms">
-          <input type="hidden" name="reviewed_body" value="{{ prepared_follow_up_sms }}">
-          <button class="btn primary" type="submit" {% if not lead.phone %}disabled{% endif %}>Send now — text</button>
-        </form>
-        <details class="follow-up-other-send"><summary>Send email or stop this follow-up</summary>
-        <form method="post" action="{{ url_for('intake_customer_message_action', lead_id=lead.id) }}">
-          <input type="hidden" name="action" value="send_follow_up_email">
-          <input type="hidden" name="reviewed_body" value="{{ prepared_follow_up_sms }}">
-          <button class="btn secondary" type="submit" {% if not lead.email %}disabled{% endif %}>Send now — email</button>
-        </form>
-        <form method="post" action="{{ url_for('intake_customer_message_action', lead_id=lead.id) }}">
-          <input type="hidden" name="action" value="send_follow_up_both">
-          <input type="hidden" name="reviewed_body" value="{{ prepared_follow_up_sms }}">
-          <button class="btn secondary" type="submit" {% if not lead.phone or not lead.email %}disabled{% endif %}>Send both</button>
-        </form>
-        <form method="post" action="{{ url_for('intake_customer_message_action', lead_id=lead.id) }}">
-          <input type="hidden" name="action" value="skip_follow_up_sms">
-          <button class="btn secondary" type="submit">Do not send follow-up text</button>
-        </form>
-        </details>
+      <div class="lead-action-buttons follow-up-send-choices">
+        <p class="follow-up-choice-help">Choose exactly what you want to send. Nothing is sent until you press one of these buttons.</p>
+        <form method="post" action="{{ url_for('intake_customer_message_action', lead_id=lead.id) }}"><input type="hidden" name="action" value="send_follow_up_sms"><input type="hidden" name="reviewed_body" value="{{ prepared_follow_up_sms }}"><button class="btn primary" type="submit" {% if not lead.phone %}disabled{% endif %}>Send text only</button></form>
+        <form method="post" action="{{ url_for('intake_customer_message_action', lead_id=lead.id) }}"><input type="hidden" name="action" value="send_follow_up_email"><input type="hidden" name="reviewed_body" value="{{ prepared_follow_up_sms }}"><button class="btn secondary" type="submit" {% if not lead.email %}disabled{% endif %}>Send email only</button></form>
+        <form method="post" action="{{ url_for('intake_customer_message_action', lead_id=lead.id) }}"><input type="hidden" name="action" value="send_follow_up_both"><input type="hidden" name="reviewed_body" value="{{ prepared_follow_up_sms }}"><button class="btn secondary" type="submit" {% if not lead.phone or not lead.email %}disabled{% endif %}>Send both</button></form>
+        <form method="post" action="{{ url_for('intake_customer_message_action', lead_id=lead.id) }}"><input type="hidden" name="action" value="skip_follow_up_sms"><button class="btn secondary" type="submit">Do not send — I have dealt with it</button></form>
       </div>
       <details class="follow-up-editor">
         <summary>Edit these follow-up drafts</summary>
