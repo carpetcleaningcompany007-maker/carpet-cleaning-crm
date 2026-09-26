@@ -12100,6 +12100,13 @@ def company_branding():
     return render_template('company_branding.html',error=error)
 
 
+@app.route('/system-status')
+@login_required
+def system_status():
+    clicksend = clicksend_account_snapshot()
+    return render_template('system_status.html', clicksend=clicksend)
+
+
 @app.route('/customer-messages')
 @login_required
 def customer_messages():
@@ -12138,6 +12145,38 @@ def clicksend_history_credentials():
     if 'clicksend' in clean_str(row_value(config, 'sms_gateway_name')).lower():
         return clean_str(row_value(config, 'sms_account_id')), clean_str(row_value(config, 'sms_api_key'))
     return '', ''
+
+
+def clicksend_account_snapshot():
+    """Read the current ClickSend account state without exposing credentials."""
+    username, key = clicksend_history_credentials()
+    if not username or not key:
+        return {"state": "needs attention", "message": "ClickSend is not connected. Add the account details in Settings.", "balance": "—", "currency": ""}
+    try:
+        request = urllib.request.Request('https://rest.clicksend.com/v3/account')
+        request.add_header('Authorization', 'Basic ' + base64.b64encode((username + ':' + key).encode()).decode())
+        with urllib.request.urlopen(request, timeout=12) as response:
+            payload = json.load(response)
+        data = payload.get('data') or {}
+        if isinstance(data, list):
+            data = data[0] if data else {}
+        balance = data.get('balance')
+        currency_data = data.get('_currency') or {}
+        currency = clean_str(currency_data.get('currency_name_short') or data.get('currency') or '')
+        amount = float(balance) if balance not in (None, '') else None
+        low_credit = float(data.get('low_credit_amount') or 0)
+        if amount is None:
+            return {"state": "needs attention", "message": "ClickSend connected, but it did not return a usable balance.", "balance": "—", "currency": currency}
+        threshold = max(low_credit, 10.0)
+        state = "needs attention" if amount <= threshold else "working"
+        message = ("Credit is low — top up ClickSend before sending more messages." if state == "needs attention"
+                   else "ClickSend is connected and ready to send messages.")
+        return {"state": state, "message": message, "balance": f"{amount:,.2f}", "currency": currency, "low_credit": f"{threshold:,.2f}"}
+    except urllib.error.HTTPError as exc:
+        return {"state": "needs attention", "message": f"ClickSend could not be checked (HTTP {exc.code}).", "balance": "—", "currency": ""}
+    except Exception:
+        logger.exception("Could not check ClickSend account balance")
+        return {"state": "needs attention", "message": "ClickSend could not be checked just now. Try again shortly.", "balance": "—", "currency": ""}
 
 
 def clicksend_history_page(channel, start, end, page):

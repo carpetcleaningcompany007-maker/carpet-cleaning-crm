@@ -1,0 +1,16 @@
+{% extends "layout.html" %}
+{% block title %}System status{% endblock %}
+{% block page_title %}System status{% endblock %}
+{% block body_content %}
+<style>
+.status-page{max-width:820px;margin:0 auto;padding:8px 0 36px}.status-intro{color:#617889;line-height:1.6;max-width:650px}.status-card{margin-top:22px;border:1px solid #d7e2ea;border-radius:18px;background:#fff;padding:22px;box-shadow:0 8px 28px rgba(12,43,70,.06)}.status-card-head{display:flex;justify-content:space-between;gap:16px;align-items:start}.status-card h3{margin:0;color:#0b304e;font-size:22px}.status-card p{margin:7px 0 0;color:#5b7183}.status-badge{border-radius:999px;padding:7px 11px;font-size:12px;font-weight:800;white-space:nowrap}.status-badge.working{background:#e9f8f0;color:#216845}.status-badge.needs-attention{background:#fff1d8;color:#83500a}.credit-value{margin:24px 0 8px;font-size:42px;font-weight:800;letter-spacing:-.04em;color:#102f49}.credit-value small{font-size:17px;letter-spacing:0;color:#617889;margin-left:6px}.status-help{padding-top:16px;border-top:1px solid #e5edf2;font-size:14px;line-height:1.55;color:#526b7d}@media(max-width:560px){.status-card{padding:18px}.status-card-head{display:block}.status-badge{display:inline-block;margin-top:12px}.credit-value{font-size:36px}}
+</style>
+<section class="status-page">
+  <p class="status-intro">A simple check of the services that keep customer messages moving. If something needs attention, it appears here before you try to send a message.</p>
+  <article class="status-card">
+    <div class="status-card-head"><div><h3>ClickSend messages</h3><p>{{ clicksend.message }}</p></div><span class="status-badge {{ clicksend.state }}">{{ 'Working' if clicksend.state == 'working' else 'Needs attention' }}</span></div>
+    <div class="credit-value">{{ clicksend.balance }}<small>{{ clicksend.currency }}</small></div>
+    <div class="status-help">The balance is checked live when you open this page. A warning appears when the balance reaches ClickSend’s own low-credit level, or £10 if no level is set.</div>
+  </article>
+</section>
+{% endblock %}
