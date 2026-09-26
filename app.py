@@ -1799,6 +1799,8 @@ def public_static_or_live_url(filename):
 CUSTOMER_FORM_SENDING_PAUSED = False
 # Owner-requested temporary stop: no CRM text is sent to a customer until this is switched back on.
 CUSTOMER_SMS_SENDING_PAUSED = True
+# All automated customer contact becomes a draft for Paul to review; a manual Send button is still an explicit approval.
+CUSTOMER_OUTBOUND_APPROVAL_REQUIRED = True
 CUSTOMER_SMS_START_HOUR = 10
 CUSTOMER_SMS_END_HOUR = 20
 
@@ -2063,7 +2065,7 @@ def schedule_enquiry_acknowledgement(lead_id, customer_id=None, data=None, delay
         due_at = next_customer_sms_window_open(due_at)
     run("""INSERT INTO enquiry_acknowledgement_queue
            (lead_id, customer_id, payload_json, due_at, body, status, created_at)
-           VALUES (?,?,?,?,?, 'Queued', datetime('now'))
+           VALUES (?,?,?,?,?, 'Awaiting approval', datetime('now'))
            ON CONFLICT(lead_id) DO NOTHING""",
         (lead_id, customer_id or row_get(lead, "customer_id"), json.dumps(payload, default=str), due_at.isoformat(timespec="seconds"), enquiry_acknowledgement_text(payload)))
     # Give every enquiry its own wake-up as well as leaving it in the durable
@@ -2085,7 +2087,7 @@ def schedule_enquiry_acknowledgement(lead_id, customer_id=None, data=None, delay
     timer = threading.Timer(max(1, (due_at - datetime.now(ZoneInfo("Europe/London"))).total_seconds() + 5), wake_acknowledgement_queue)
     timer.daemon = True
     timer.start()
-    return True, "Customer acknowledgement scheduled for " + friendly_local_datetime(due_at) + " UK time."
+    return True, "Customer acknowledgement draft is ready for your approval. Nothing has been sent."
 
 
 def reserve_enquiry_acknowledgement_sms(phone, lead_id, now=None):
@@ -2123,6 +2125,11 @@ def mark_enquiry_acknowledgement_sms_lock(phone, lead_id, status):
 
 def run_due_enquiry_acknowledgements(dry_run=False, lead_id=None):
     now = datetime.now(ZoneInfo("Europe/London"))
+    if CUSTOMER_OUTBOUND_APPROVAL_REQUIRED and not dry_run:
+        run("""UPDATE enquiry_acknowledgement_queue
+               SET status='Awaiting approval', message='Draft ready for approval. Nothing has been sent.', updated_at=datetime('now')
+               WHERE status IN ('Queued','Sending') AND IFNULL(sent_at,'')=''""")
+        return []
     if not dry_run:
         run("""UPDATE enquiry_acknowledgement_queue SET status='Awaiting approval',message='Pause ended. Ready for approval; nothing sent.',
                updated_at=datetime('now') WHERE status='Paused' AND IFNULL(sent_at,'')=''
@@ -5734,6 +5741,8 @@ def automation_send_for_rule(rule, job, dry_run=False):
 
 
 def run_due_communication_automations(dry_run=False):
+    if CUSTOMER_OUTBOUND_APPROVAL_REQUIRED and not dry_run:
+        return []
     sent = []
     sent.extend(run_due_enquiry_acknowledgements(dry_run=dry_run))
     if not dry_run:
