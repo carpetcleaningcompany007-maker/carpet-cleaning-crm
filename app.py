@@ -6582,7 +6582,7 @@ def calc_from_payload(payload):
     urine_treatment = max(0, round(float(payload.get('urine_treatment') or 0), 2))
     adjusted_total = subtotal - discount + uplift + urine_treatment + vat
     raw_total = round(adjusted_total, 2)
-    minimum = max(0, round(float(settings().get('minimum_charge') or 0), 2))
+    minimum = max(0, round(float(row_value(settings(), 'minimum_charge', 0) or 0), 2))
     total = max(raw_total, minimum)
     return {'lines': lines, 'subtotal': subtotal, 'vat': vat, 'total': total, 'raw_total': raw_total, 'minimum': minimum,
             'discount': discount, 'uplift': uplift, 'urine_treatment': urine_treatment}
@@ -21872,3 +21872,4 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", "5000"))
     debug = os.environ.get("FLASK_DEBUG", "").lower() in {"1", "true", "yes", "on"}
     app.run(host="0.0.0.0", port=port, debug=debug)
+
