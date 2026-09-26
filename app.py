@@ -6581,9 +6581,10 @@ def calc_from_payload(payload):
     uplift = max(0, round(float(payload.get('difficulty_uplift') or 0), 2))
     urine_treatment = max(0, round(float(payload.get('urine_treatment') or 0), 2))
     adjusted_total = subtotal - discount + uplift + urine_treatment + vat
-    total = round(float(payload.get('total') or adjusted_total), 2)
-    raw_total = round(float(payload.get('raw_total') or total), 2)
-    return {'lines': lines, 'subtotal': subtotal, 'vat': vat, 'total': total, 'raw_total': raw_total, 'minimum': 0,
+    raw_total = round(adjusted_total, 2)
+    minimum = max(0, round(float(settings().get('minimum_charge') or 0), 2))
+    total = max(raw_total, minimum)
+    return {'lines': lines, 'subtotal': subtotal, 'vat': vat, 'total': total, 'raw_total': raw_total, 'minimum': minimum,
             'discount': discount, 'uplift': uplift, 'urine_treatment': urine_treatment}
 
 
