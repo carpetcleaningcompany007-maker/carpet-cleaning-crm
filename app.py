@@ -20933,18 +20933,31 @@ def intake_customer_message_action(lead_id):
         flash("Intake form not found.")
         return redirect(url_for("intake_forms"))
     action = clean_str(request.form.get("action")).lower()
-    if action in {"send_follow_up_sms","send_follow_up_email","send_follow_up_both","schedule_follow_up_sms"} and not enquiry_first_contact_sent(lead_id):
+    if action in {"send_follow_up_sms","send_follow_up_email","send_follow_up_both","send_follow_up_selected","schedule_follow_up_sms"} and not enquiry_first_contact_sent(lead_id):
         flash("Send the first message in Stage 1 before sending or scheduling a follow-up.")
         return redirect(url_for("intake_form_view",lead_id=lead_id))
     if action == "schedule_follow_up_sms":
         flash("Follow-ups cannot send automatically. Review the drafts and choose Send now, or pause the task.")
+        return redirect(url_for("intake_form_view", lead_id=lead_id) + "#customer-message-approval")
+    if action == "check_follow_up_reply":
+        customer_id = row_get(lead, "customer_id")
+        has_reply = enquiry_has_reply(customer_id, row_get(lead, "created_at"))
+        if has_reply:
+            run("""UPDATE enquiry_follow_up_queue
+                   SET status='Cancelled - customer replied', message='Customer reply found in CRM. Follow-up stopped.',
+                       scheduled_send_at='', schedule_approved_at='', updated_at=datetime('now')
+                   WHERE lead_id=? AND status NOT IN ('Sent','Sending') AND IFNULL(sent_at,'')=''""", (lead_id,))
+            update_intake_delivery_status(lead_id, follow_up_status="Customer replied — follow-up stopped")
+            flash("Customer reply found in the CRM. The follow-up has been stopped; nothing was sent.")
+        else:
+            flash("No customer reply is recorded in the CRM since this enquiry. You can now choose Text message, Email, or both.")
         return redirect(url_for("intake_form_view", lead_id=lead_id) + "#customer-message-approval")
     customer_id = row_get(lead, "customer_id") or create_customer_from_intake(lead)
     customer = q("SELECT * FROM customers WHERE id=?", (customer_id,), one=True)
     if customer_id and not row_get(lead, "customer_id"):
         run("UPDATE intake_submissions SET customer_id=?, updated_at=datetime('now') WHERE id=?", (customer_id, lead_id))
     data = dict(lead)
-    if action in {"send_follow_up_sms","send_follow_up_email","send_follow_up_both","schedule_follow_up_sms"} and "reviewed_body" in request.form:
+    if action in {"send_follow_up_sms","send_follow_up_email","send_follow_up_both","send_follow_up_selected","schedule_follow_up_sms"} and "reviewed_body" in request.form:
         saved = q("SELECT body FROM enquiry_follow_up_queue WHERE lead_id=?", (lead_id,), one=True)
         if saved and request.form["reviewed_body"].replace("\r\n","\n") != saved["body"].replace("\r\n","\n"):
             flash("The text has changed since you reviewed it. Check the saved message before sending or scheduling.")
@@ -21019,7 +21032,14 @@ def intake_customer_message_action(lead_id):
         else:
             flash("The follow-up changed while you were reviewing it. Refresh to check its status.")
         return redirect(url_for("intake_form_view", lead_id=lead_id) + "#customer-message-approval")
-    if action in {"send_follow_up_sms", "send_follow_up_email", "send_follow_up_both"}:
+    if action in {"send_follow_up_sms", "send_follow_up_email", "send_follow_up_both", "send_follow_up_selected"}:
+        selected_channels = set(request.form.getlist("channels")) if action == "send_follow_up_selected" else set()
+        if action == "send_follow_up_selected" and not selected_channels:
+            flash("Tick Text message, Email, or both before sending.")
+            return redirect(url_for("intake_form_view", lead_id=lead_id) + "#customer-message-approval")
+        if action == "send_follow_up_selected" and not selected_channels.issubset({"sms", "email"}):
+            flash("Choose Text message, Email, or both before sending.")
+            return redirect(url_for("intake_form_view", lead_id=lead_id) + "#customer-message-approval")
         run("""INSERT INTO enquiry_follow_up_queue(lead_id,customer_id,phone,body,due_at,status)
             VALUES (?,?,?,?,datetime('now'),'Ready to send') ON CONFLICT(lead_id) DO NOTHING""",
             (lead_id,customer_id,row_get(lead,"phone"),enquiry_follow_up_sms_text(data)))
@@ -21033,7 +21053,7 @@ def intake_customer_message_action(lead_id):
         body = row_get(queued, "body") if queued else enquiry_follow_up_sms_text(data)
         outcomes = []
         text_sent = False
-        if action in {"send_follow_up_sms", "send_follow_up_both"}:
+        if action in {"send_follow_up_sms", "send_follow_up_both"} or (action == "send_follow_up_selected" and "sms" in selected_channels):
             recipient = clean_str(row_get(lead, "phone"))
             if not recipient or not is_valid_uk_mobile(recipient):
                 outcomes.append((False, "Text not sent: this enquiry does not have a valid customer mobile number."))
@@ -21046,7 +21066,7 @@ def intake_customer_message_action(lead_id):
                     run("INSERT INTO communications(customer_id, channel, subject, body, created_at) VALUES (?,?,?,?,datetime('now'))", (customer_id, "SMS", "Enquiry follow-up SMS / Text", body))
                     run("INSERT INTO customer_timeline(customer_id,note_text,created_at) VALUES (?,?,datetime('now'))", (customer_id, "Paul approved and sent the enquiry follow-up SMS / Text."))
                 outcomes.append((ok, ("Text: " + msg)))
-        if action in {"send_follow_up_email", "send_follow_up_both"}:
+        if action in {"send_follow_up_email", "send_follow_up_both"} or (action == "send_follow_up_selected" and "email" in selected_channels):
             recipient = clean_str(row_get(lead, "email"))
             if not is_valid_email(recipient):
                 outcomes.append((False, "Email not sent: this enquiry does not have a valid email address."))

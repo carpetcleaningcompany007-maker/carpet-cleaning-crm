@@ -133,6 +133,7 @@
   .first-control-grid button>span{grid-column:1;grid-row:1/3;font-size:21px}
   .first-control-grid button small{grid-column:2;font-size:10px}
 .lead-decision{display:grid;grid-template-columns:minmax(0,1fr) minmax(390px,.9fr);gap:18px;align-items:center;padding:17px;border:1px solid #c9dbe8;border-radius:16px;background:#f4f9fd}.lead-decision h4{margin:2px 0 5px;color:#092642;font-size:20px}.lead-decision p{margin:0;color:#587084}.lead-decision-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}.lead-decision-actions form{display:grid;gap:7px}.lead-decision-actions .btn{min-height:49px;justify-content:center}.lead-decision-actions small{color:#587084;font-size:11px;line-height:1.3}.follow-up-send-choices{grid-template-columns:repeat(2,minmax(0,1fr))!important}.follow-up-choice-help{grid-column:1/-1;margin:0;color:#496171;font-size:14px}.follow-up-send-choices form:last-child{grid-column:1/-1}@media(max-width:650px){.lead-decision{grid-template-columns:1fr}.lead-decision-actions,.follow-up-send-choices{grid-template-columns:1fr!important}.follow-up-send-choices form:last-child{grid-column:auto}}
+.follow-up-check-form{display:grid;grid-template-columns:auto 1fr;gap:10px 14px;align-items:center;padding:14px 0;border-top:1px solid #dce6ee}.follow-up-check-form .btn{width:auto!important;min-height:44px!important}.follow-up-check-form p{font-size:13px!important;line-height:1.45}.follow-up-channel-form{display:grid;gap:10px;padding:16px;border:1px solid #c9dbe8;border-radius:16px;background:#f5f9fc}.follow-up-channel-option{display:flex;align-items:center;gap:12px;padding:13px;border:1px solid #cbdbe7;border-radius:12px;background:#fff;cursor:pointer}.follow-up-channel-option:has(input:checked){border-color:#0b304e;background:#edf6fb;box-shadow:inset 0 0 0 1px #0b304e}.follow-up-channel-option input{width:20px!important;height:20px;margin:0;flex:0 0 auto}.follow-up-channel-option span{display:grid;gap:2px}.follow-up-channel-option small{color:#617889;font-size:12px}.follow-up-channel-option.unavailable{opacity:.58;cursor:not-allowed;background:#f2f4f6}.follow-up-channel-form .btn{margin-top:4px!important}.follow-up-skip-form{margin-top:12px}.follow-up-skip-form .btn{width:100%!important}.follow-up-channel-form .follow-up-choice-help{margin:0!important}@media(max-width:560px){.follow-up-check-form{grid-template-columns:1fr}.follow-up-check-form .btn{width:100%!important}}
 </style>
 <link rel="stylesheet" href="{{ url_for('static',filename='enquiry-premium.css') }}?v=4">
 
@@ -198,13 +199,26 @@
         <p><strong>Subject:</strong> {{ follow_up_email_subject }}</p>
         <pre>{{ prepared_follow_up_sms }}</pre>
       </div>
-      <div class="lead-action-buttons follow-up-send-choices">
-        <p class="follow-up-choice-help">Choose exactly what you want to send. Nothing is sent until you press one of these buttons.</p>
-        <form method="post" action="{{ url_for('intake_customer_message_action', lead_id=lead.id) }}"><input type="hidden" name="action" value="send_follow_up_sms"><input type="hidden" name="reviewed_body" value="{{ prepared_follow_up_sms }}"><button class="btn primary" type="submit" {% if not lead.phone %}disabled{% endif %}>Send text only</button></form>
-        <form method="post" action="{{ url_for('intake_customer_message_action', lead_id=lead.id) }}"><input type="hidden" name="action" value="send_follow_up_email"><input type="hidden" name="reviewed_body" value="{{ prepared_follow_up_sms }}"><button class="btn secondary" type="submit" {% if not lead.email %}disabled{% endif %}>Send email only</button></form>
-        <form method="post" action="{{ url_for('intake_customer_message_action', lead_id=lead.id) }}"><input type="hidden" name="action" value="send_follow_up_both"><input type="hidden" name="reviewed_body" value="{{ prepared_follow_up_sms }}"><button class="btn secondary" type="submit" {% if not lead.phone or not lead.email %}disabled{% endif %}>Send both</button></form>
-        <form method="post" action="{{ url_for('intake_customer_message_action', lead_id=lead.id) }}"><input type="hidden" name="action" value="skip_follow_up_sms"><button class="btn secondary" type="submit">Do not send — I have dealt with it</button></form>
-      </div>
+      <form class="follow-up-check-form" method="post" action="{{ url_for('intake_customer_message_action', lead_id=lead.id) }}">
+        <input type="hidden" name="action" value="check_follow_up_reply">
+        <button class="btn secondary" type="submit">Check for a new customer reply</button>
+        <p>This checks the customer’s saved text and email history in the CRM. If a reply is found, the follow-up is stopped.</p>
+      </form>
+      <form class="follow-up-channel-form" method="post" action="{{ url_for('intake_customer_message_action', lead_id=lead.id) }}">
+        <input type="hidden" name="action" value="send_follow_up_selected">
+        <input type="hidden" name="reviewed_body" value="{{ prepared_follow_up_sms }}">
+        <p class="follow-up-choice-help"><strong>Choose what to send</strong><br>Tick one option or both, then press Send selected. Nothing is sent until you press that button.</p>
+        <label class="follow-up-channel-option {% if not lead.phone %}unavailable{% endif %}">
+          <input type="checkbox" name="channels" value="sms" {% if not lead.phone %}disabled{% endif %}>
+          <span><strong>Text message</strong><small>{% if lead.phone %}Send to {{ lead.phone }}{% else %}No mobile number saved{% endif %}</small></span>
+        </label>
+        <label class="follow-up-channel-option {% if not lead.email %}unavailable{% endif %}">
+          <input type="checkbox" name="channels" value="email" {% if not lead.email %}disabled{% endif %}>
+          <span><strong>Email</strong><small>{% if lead.email %}Send to {{ lead.email }}{% else %}No email address saved{% endif %}</small></span>
+        </label>
+        <button class="btn primary" type="submit" {% if not lead.phone and not lead.email %}disabled{% endif %}>Send selected</button>
+      </form>
+      <form class="follow-up-skip-form" method="post" action="{{ url_for('intake_customer_message_action', lead_id=lead.id) }}"><input type="hidden" name="action" value="skip_follow_up_sms"><button class="btn secondary" type="submit">Do not send — I have dealt with it</button></form>
       <details class="follow-up-editor">
         <summary>Edit these follow-up drafts</summary>
         <form method="post" id="follow-up-edit-form" action="{{ url_for('intake_customer_message_action', lead_id=lead.id) }}">
