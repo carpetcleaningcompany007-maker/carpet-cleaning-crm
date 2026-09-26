@@ -17,7 +17,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='beautiful.css') }}?v=proper-redesign-20260606-1">
   <link rel="stylesheet" href="{{ url_for('static', filename='crm-redesign.css', v='app-shell-20260905-9') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='dashboard-reference.css', v='20260905-2') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='app-theme.css', v='20260910-7') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='app-theme.css', v='simple-nav-20260926-1') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='dashboard-exact.css', v='20260910-8') }}">
   <link rel="stylesheet" media="(min-width: 1024px)" href="{{ url_for('static', filename='customer-record-premium.css', v='20260906-3') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='businesslike.css', v='20260910-4') }}">
@@ -53,33 +53,28 @@
 
     <nav class="nav nav-tabler redesigned-nav simple-main-nav expanded-nav" aria-label="Main navigation">
       <a class="nav-link {% if ep=='dashboard' %}active{% endif %}" href="{{ url_for('dashboard') }}"><span>Today</span></a>
-      <a class="nav-link ai-nav-link {% if ep=='ai_assistant' %}active{% endif %}" href="{{ url_for('ai_assistant') }}"><span>✨ AI Assistant</span></a>
-      <a class="nav-link {% if ep=='customers' %}active{% endif %}" href="{{ url_for('customers') }}"><span>Customers</span></a>
-      <a class="nav-link {% if ep=='jobs' %}active{% endif %}" href="{{ url_for('jobs') }}"><span>Jobs</span></a>
-      <a class="nav-link {% if ep=='full_calendar' %}active{% endif %}" href="{{ url_for('full_calendar') }}"><span>Calendar</span></a>
       <a class="nav-link {% if ep=='intake_forms' %}active{% endif %}" href="{{ url_for('intake_forms') }}"><span>Enquiries</span></a>
-      <a class="nav-link {% if ep=='invoices' %}active{% endif %}" href="{{ url_for('invoices') }}"><span>Invoices</span></a>
-      <a class="nav-link {% if ep=='quotes' %}active{% endif %}" href="{{ url_for('quotes') }}"><span>Quotes</span></a>
-      <a class="nav-link {% if ep=='send_contact_form' %}active{% endif %}" href="{{ url_for('send_contact_form') }}"><span>Send customer form</span></a>
-      <a class="nav-link {% if ep=='customer_messages' %}active{% endif %}" href="{{ url_for('customer_messages') }}"><span>Messages & history</span></a>
-      <a class="nav-link {% if ep=='receipts' %}active{% endif %}" href="{{ url_for('receipts') }}"><span>Receipts & purchases</span></a>
-      <a class="nav-link {% if ep=='expenses' %}active{% endif %}" href="{{ url_for('expenses') }}"><span>Expenses</span></a>
-      <a class="nav-link {% if ep=='social_studio' %}active{% endif %}" href="{{ url_for('social_studio') }}"><span>Social Post Studio</span></a>
-      <a class="nav-link {% if ep=='today_run' %}active{% endif %}" href="{{ url_for('today_run') }}"><span>Today Run</span></a>
-      <a class="nav-link {% if ep=='calculator' %}active{% endif %}" href="{{ url_for('calculator') }}"><span>Create a quote</span></a>
-      <a class="nav-link {% if ep=='new_leads' %}active{% endif %}" href="{{ url_for('new_leads') }}"><span>New leads</span></a>
-      <a class="nav-link {% if ep=='inbound_email_inbox' %}active{% endif %}" href="{{ url_for('inbound_email_inbox') }}"><span>Customer email inbox</span></a>
-      <a class="nav-link {% if ep=='workflow' %}active{% endif %}" href="{{ url_for('workflow') }}"><span>Workflow</span></a>
-      <a class="nav-link {% if ep=='google_calendar_dashboard' %}active{% endif %}" href="{{ url_for('google_calendar_dashboard') }}"><span>Google Calendar</span></a>
-      <a class="nav-link {% if ep=='business_goals' %}active{% endif %}" href="{{ url_for('business_goals') }}"><span>Business goals</span></a>
-      <a class="nav-link {% if ep=='website_analytics_dashboard' %}active{% endif %}" href="{{ url_for('website_analytics_dashboard') }}"><span>Site analytics</span></a>
-      <a class="nav-link {% if ep=='message_settings' %}active{% endif %}" href="{{ url_for('message_settings') }}"><span>Message settings</span></a>
-      <a class="nav-link {% if ep=='system_status' %}active{% endif %}" href="{{ url_for('system_status') }}"><span>System status</span></a>
-      <a class="nav-link {% if ep=='communication_automation_settings' %}active{% endif %}" href="{{ url_for('communication_automation_settings') }}"><span>Automation</span></a>
-      <a class="nav-link {% if ep=='ai_settings_page' %}active{% endif %}" href="{{ url_for('ai_settings_page') }}"><span>AI replies</span></a>
-      <a class="nav-link" href="{{ url_for('pricing_settings') }}"><span>Price book</span></a>
-      <a class="nav-link {% if ep=='settings_page' %}active{% endif %}" href="{{ url_for('settings_page') }}"><span>Settings</span></a>
-      <a class="nav-link" href="{{ url_for('send_contact_form',action_type='review') }}">Send review request</a>
+      <a class="nav-link {% if ep in ['customers','customer_view','customer_edit'] %}active{% endif %}" href="{{ url_for('customers') }}"><span>Customers</span></a>
+      <a class="nav-link {% if ep in ['quotes','quote_view'] %}active{% endif %}" href="{{ url_for('quotes') }}"><span>Quotes</span></a>
+      <a class="nav-link {% if ep in ['jobs','job_view','jobs_new'] %}active{% endif %}" href="{{ url_for('jobs') }}"><span>Jobs</span></a>
+      <a class="nav-link {% if ep=='full_calendar' %}active{% endif %}" href="{{ url_for('full_calendar') }}"><span>Calendar</span></a>
+      <details class="nav-more-tools" {% if ep in ['ai_assistant','customer_messages','invoices','receipts','expenses','social_studio','today_run','calculator','new_leads','inbound_email_inbox','workflow','google_calendar_dashboard','business_goals','website_analytics_dashboard','message_settings','system_status','communication_automation_settings','ai_settings_page','settings_page','pricing_settings','send_contact_form'] %}open{% endif %}>
+        <summary>More tools</summary>
+        <div>
+          <a class="nav-link ai-nav-link {% if ep=='ai_assistant' %}active{% endif %}" href="{{ url_for('ai_assistant') }}"><span>AI Assistant</span></a>
+          <a class="nav-link {% if ep=='customer_messages' %}active{% endif %}" href="{{ url_for('customer_messages') }}"><span>Messages &amp; history</span></a>
+          <a class="nav-link {% if ep=='invoices' %}active{% endif %}" href="{{ url_for('invoices') }}"><span>Invoices</span></a>
+          <a class="nav-link {% if ep=='today_run' %}active{% endif %}" href="{{ url_for('today_run') }}"><span>Today Run</span></a>
+          <a class="nav-link {% if ep=='calculator' %}active{% endif %}" href="{{ url_for('calculator') }}"><span>Create a quote</span></a>
+          <a class="nav-link {% if ep=='inbound_email_inbox' %}active{% endif %}" href="{{ url_for('inbound_email_inbox') }}"><span>Customer email inbox</span></a>
+          <a class="nav-link {% if ep=='workflow' %}active{% endif %}" href="{{ url_for('workflow') }}"><span>Workflow</span></a>
+          <a class="nav-link {% if ep=='google_calendar_dashboard' %}active{% endif %}" href="{{ url_for('google_calendar_dashboard') }}"><span>Google Calendar</span></a>
+          <a class="nav-link" href="{{ url_for('pricing_settings') }}"><span>Price book</span></a>
+          <a class="nav-link {% if ep=='communication_automation_settings' %}active{% endif %}" href="{{ url_for('communication_automation_settings') }}"><span>Automation</span></a>
+          <a class="nav-link {% if ep=='system_status' %}active{% endif %}" href="{{ url_for('system_status') }}"><span>System status</span></a>
+          <a class="nav-link {% if ep=='settings_page' %}active{% endif %}" href="{{ url_for('settings_page') }}"><span>Settings</span></a>
+        </div>
+      </details>
     </nav>
 
     <div class="side-note side-note-tabler">
