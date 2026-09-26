@@ -60,6 +60,24 @@
   </div>
 </section>
 
+{# One plain-English route: this is intentionally above the detailed workflow. #}
+{% set latest_quote = quotes[0] if quotes else none %}
+{% set latest_job = jobs[0] if jobs else none %}
+<section class="customer-plain-route" aria-label="Customer progress">
+  <div class="customer-plain-route-head">
+    <span class="section-kicker">Simple customer journey</span>
+    <h2>What has happened — and what to do next</h2>
+    <p>Use this row first. The detailed sections below are there only when you need them.</p>
+  </div>
+  <ol class="customer-route-steps">
+    <li class="is-done"><span>1</span><strong>Enquiry received</strong><small>Customer record created</small></li>
+    <li class="{% if first_text.sent_at %}is-done{% else %}is-current{% endif %}"><span>2</span><strong>First message</strong><small>{% if first_text.sent_at %}Sent{% else %}Needs sending{% endif %}</small></li>
+    <li class="{% if latest_quote %}is-done{% else %}is-current{% endif %}"><span>3</span><strong>Quote</strong><small>{% if latest_quote %}Draft £{{ '%.2f'|format(latest_quote.total or 0) }} — check it{% else %}Prepare a quote{% endif %}</small>{% if latest_quote %}<a href="{{ url_for('quote_view', quote_id=latest_quote.id) }}">Open quote</a>{% endif %}</li>
+    <li class="{% if latest_job %}is-done{% else %}is-current{% endif %}"><span>4</span><strong>Book the job</strong><small>{% if latest_job %}{{ latest_job.job_date or 'Date to check' }} at {{ latest_job.job_time or 'time to check' }}{% else %}Not booked yet{% endif %}</small>{% if not latest_job %}<a href="#customer-stage-1">Add date, time and price</a>{% endif %}</li>
+    <li><span>5</span><strong>Confirm &amp; follow up</strong><small>Booking, job-day and review messages</small></li>
+  </ol>
+</section>
+
 <section class="customer-due-next {% if not customer_due_next.has_action %}is-clear{% endif %}" aria-labelledby="customer-due-next-title">
   <div class="due-next-marker"><span>{% if not customer_due_next.has_action %}✓{% endif %}</span><small>{% if customer_due_next.has_action %}Due next{% else %}All complete{% endif %}</small></div>
   <div class="due-next-copy">
@@ -257,6 +275,8 @@
   .customer-record-links a{color:#1c5d8d;font-size:14px;font-weight:650;text-decoration:none}.customer-record-links a:hover{text-decoration:underline}
   @media(max-width:700px){.customer-record-header{margin:0 0 14px;padding:18px 16px;border-radius:0;border-left:0;border-right:0;box-shadow:none}.customer-record-titlebar{display:grid;gap:11px}.customer-record-titlebar h1{font-size:31px}.customer-record-titlebar p{font-size:15px}.customer-record-status{justify-self:start;margin:0}.customer-record-grid{grid-template-columns:1fr;gap:14px}.customer-record-grid label.wide{grid-column:auto}.customer-record-footer{display:grid;grid-template-columns:1fr}.customer-record-contact-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}.customer-record-contact-actions .btn{min-width:0;padding:10px 6px}.customer-record-footer .btn.primary{width:100%;font-size:17px}.customer-record-links{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}.customer-record-links a{font-size:14px}}
 
+.customer-plain-route{max-width:1180px;margin:18px auto;padding:22px;border:1px solid #d7e2eb;border-radius:18px;background:#fff;box-shadow:0 10px 28px rgba(16,39,68,.06)}
+.customer-plain-route-head h2{margin:5px 0 7px;color:#092642;font-size:25px}.customer-plain-route-head p{margin:0;color:#617083}.customer-route-steps{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;list-style:none;padding:0;margin:19px 0 0}.customer-route-steps li{display:grid;gap:4px;min-width:0;padding:13px;border:1px solid #dbe5ed;border-radius:13px;background:#fbfdff}.customer-route-steps li>span{width:26px;height:26px;display:grid;place-items:center;border-radius:50%;background:#e7edf2;color:#385268;font-weight:900}.customer-route-steps strong{color:#102b43;font-size:14px}.customer-route-steps small{color:#617083;font-size:12px;line-height:1.35}.customer-route-steps a{margin-top:4px;color:#075ea7;font-size:12px;font-weight:900;text-decoration:none}.customer-route-steps .is-done{border-color:#b9decf;background:#f2fbf7}.customer-route-steps .is-done>span{background:#168565;color:#fff}.customer-route-steps .is-current{border:2px solid #d6aa3c;background:#fffaf0}.customer-route-steps .is-current>span{background:#d6aa3c;color:#102b43}@media(max-width:720px){.customer-plain-route{margin:12px 0;padding:16px}.customer-plain-route-head h2{font-size:21px}.customer-route-steps{grid-template-columns:1fr;gap:8px}.customer-route-steps li{grid-template-columns:28px minmax(0,1fr);align-items:center}.customer-route-steps li>span{grid-row:1/3}.customer-route-steps a{grid-column:2}}
 </style>
 
 {% macro stage_template_buttons(item) %}
