@@ -159,7 +159,7 @@
       <div><span class="step-eyebrow">QUICK DECISION</span><h4>Have you spoken to {{ lead.name or 'the customer' }}?</h4><p>Record the outcome and the follow-up task will be cleared.</p></div>
       <div class="lead-decision-actions">
         <form method="post" action="{{ url_for('intake_form_quick_action', lead_id=lead.id) }}"><input type="hidden" name="action" value="going_ahead"><button class="btn lead-decision-yes" type="submit">✓ Going ahead</button></form>
-        <form method="post" action="{{ url_for('intake_form_quick_action', lead_id=lead.id) }}"><input type="hidden" name="action" value="lost"><button class="btn lead-decision-no" type="submit">Close enquiry</button></form>
+        <form method="post" action="{{ url_for('intake_form_quick_action', lead_id=lead.id) }}"><input type="hidden" name="action" value="no_reply_later"><button class="btn lead-decision-no" type="submit">No reply — follow up in 6 months</button></form>
       </div>
     </section>
 

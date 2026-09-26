@@ -1,5 +1,6 @@
 {% extends "layout.html" %}
-{% block page_title %}Job{% endblock %}
+{% block page_title %}Job<script>document.addEventListener('click',async e=>{const b=e.target.closest('[data-copy-booking-brief]');if(!b)return;const text=b.parentElement.querySelector('[data-booking-brief]').value;try{await navigator.clipboard.writeText(text);b.querySelector('span').textContent='Copied';setTimeout(()=>b.querySelector('span').textContent='Copy',1800)}catch(_){window.prompt('Copy this booking brief:',text)}});</script>
+{% endblock %}
 {% block body_content %}
 {% if is_archived %}
 <section class="archive-banner panel compact-panel">
@@ -50,7 +51,8 @@
   {% else %}
   <div class="job-late-message job-late-unavailable"><strong>Running late?</strong><span>Add the customer's mobile number or email below first, then you can send a polite late update.</span><a href="#add-customer-location">Add customer details ›</a></div>
   {% endif %}
-  {% if job.customer_id %}<a class="job-open-customer customer-link" href="{{ url_for('customer_view', customer_id=job.customer_id) }}"><i aria-hidden="true">◉</i> Customer details <small>Phone, address &amp; history</small><span>›</span></a>{% elif is_dashboard_sample %}<a class="job-open-customer is-sample" href="#job-edit-details"><i aria-hidden="true">✦</i> Sample job details <small>View or change this example</small><span>›</span></a>{% else %}<a class="job-open-customer" href="#job-edit-details"><i aria-hidden="true">＋</i> Add customer details <small>Link this job to a customer</small><span>›</span></a>{% endif %}
+  {% if job.customer_id %}<a class="job-open-customer customer-link" href="{{ url_for('customer_view', customer_id=job.customer_id) }}"><i aria-hidden="true">◉</i> Customer details <small>Phone, address &amp; history</small><span>›</span></a>
+  <button type="button" class="job-open-customer customer-link job-copy-brief" data-copy-booking-brief><i aria-hidden="true">▤</i> Copy booking brief <small>Address, What3words, date, time and job notes</small><span>Copy</span></button><textarea data-booking-brief hidden>{{ calendar_note }}</textarea>{% elif is_dashboard_sample %}<a class="job-open-customer is-sample" href="#job-edit-details"><i aria-hidden="true">✦</i> Sample job details <small>View or change this example</small><span>›</span></a>{% else %}<a class="job-open-customer" href="#job-edit-details"><i aria-hidden="true">＋</i> Add customer details <small>Link this job to a customer</small><span>›</span></a>{% endif %}
 </section>
 
 {% if not is_dashboard_sample %}
@@ -390,4 +392,5 @@
   form.addEventListener('input',()=>{clearTimeout(timer);timer=setTimeout(refresh,250)});refresh();
 })();
 </script>
+<script>document.addEventListener('click',async e=>{const b=e.target.closest('[data-copy-booking-brief]');if(!b)return;const text=b.parentElement.querySelector('[data-booking-brief]').value;try{await navigator.clipboard.writeText(text);b.querySelector('span').textContent='Copied';setTimeout(()=>b.querySelector('span').textContent='Copy',1800)}catch(_){window.prompt('Copy this booking brief:',text)}});</script>
 {% endblock %}

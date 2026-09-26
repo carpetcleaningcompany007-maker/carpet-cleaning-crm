@@ -13,9 +13,14 @@
 <link rel="stylesheet" href="{{ url_for('static',filename='dashboard-enquiries.css',v='mobile-reading-24') }}">
 <div id="dashboard-enquiry-alerts" data-refresh-url="{{ url_for('dashboard_enquiry_alerts_fragment') }}">{% include '_dashboard_enquiry_alerts.html' %}</div>
 <p class="enquiry-live-notice" role="status" aria-live="polite" id="enquiry-live-notice"></p>
-<script src="{{ url_for('static',filename='dashboard-enquiries.js',v='desktop-reading-17') }}" defer></script>
+<script src="{{ url_for('static',filename='dashboard-enquiries.js',v='today-focus-18') }}" defer></script>
 <div class="mobile-route-dashboard">
   <header class="mobile-route-welcome"><h1>{{ dashboard_greeting }}, Paul</h1><p>{{ dashboard_date }}</p></header>
+  <section class="mobile-focus-card" data-home-priority data-priority-key="{{ dashboard_next.url }}" aria-label="Your next action">
+    <div><span>YOUR NEXT ACTION</span><strong>{{ dashboard_next.title }}</strong><p>{{ dashboard_next.detail }}</p></div>
+    <a href="{{ dashboard_next.url }}">Open <b aria-hidden="true">›</b></a>
+    <button type="button" class="mobile-focus-hide" aria-label="Hide this item from Today until tomorrow">Not now</button>
+  </section>
   <section class="mobile-route-card" aria-labelledby="mobile-route-title">
     <a class="mobile-route-heading" href="{{ url_for('today_run') }}"><span aria-hidden="true">⌖</span><h2 id="mobile-route-title">Today’s route</h2><b aria-hidden="true">›</b></a>
     <div class="mobile-route-list">

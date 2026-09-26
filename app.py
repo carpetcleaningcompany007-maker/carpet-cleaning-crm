@@ -4937,6 +4937,9 @@ def job_calendar_note_text(job):
         "ADDRESS",
         customer_address_text(job) or "Not supplied",
         "",
+        "WHAT3WORDS",
+        ("///" + clean_str(row_value(job, "what3words")).lstrip("/")) if clean_str(row_value(job, "what3words")) else "Not supplied",
+        "",
         "JOB NOTES",
         row_value(job, "notes") or "Not supplied",
         "",
@@ -21228,7 +21231,7 @@ def intake_form_quick_action(lead_id):
                WHERE id=?""", (lead_id,))
         flash("Test flag removed. Normal response alerts are active again.")
         return redirect(url_for("intake_form_view", lead_id=lead_id) + "#lead-action-panel")
-    if action in {"open_customer", "override_missing", "contacted", "waiting_customer", "quoted", "going_ahead", "booked", "lost", "send_unable_email", "send_unable_sms"}:
+    if action in {"open_customer", "override_missing", "contacted", "waiting_customer", "quoted", "going_ahead", "booked", "lost", "no_reply_later", "send_unable_email", "send_unable_sms"}:
         customer_id = customer_id or create_customer_from_intake(lead)
         run("UPDATE intake_submissions SET customer_id=?, updated_at=datetime('now') WHERE id=?", (customer_id, lead_id))
     if action == "override_missing":
@@ -21256,6 +21259,7 @@ def intake_form_quick_action(lead_id):
         "going_ahead": ("Going ahead", "Customer said yes — add booking details", "Customer contacted and is going ahead. Booking details still need adding."),
         "booked": ("Booked", "Booked - create or open job", "Customer marked as booked from intake form."),
         "lost": ("Closed - no reply", "Closed - not going ahead", "Lead closed: customer is not going ahead."),
+        "no_reply_later": ("Closed - no reply", "No reply — follow up in six months", "Lead closed: no reply received. A six-month reactivation reminder is saved."),
     }
     if action == "open_customer":
         return redirect(url_for("customer_view", customer_id=customer_id))
@@ -21265,9 +21269,19 @@ def intake_form_quick_action(lead_id):
                SET status=?, follow_up_status=?, updated_at=datetime('now')
                WHERE id=?""", (status, follow_up, lead_id))
         run("UPDATE customers SET next_action=?, last_updated=datetime('now') WHERE id=?", (follow_up, customer_id))
-        if action in {"going_ahead", "lost", "booked"}:
+        if action in {"going_ahead", "lost", "no_reply_later", "booked"}:
             run("UPDATE enquiry_follow_up_queue SET status='Skipped', message=?, updated_at=datetime('now') WHERE lead_id=? AND status NOT IN ('Sent','Skipped')", ("Stopped: " + follow_up, lead_id))
         run("INSERT INTO customer_timeline(customer_id, note_text, created_at) VALUES (?,?,datetime('now'))", (customer_id, timeline))
+        if action == "no_reply_later":
+            reminder_date = (uk_today() + timedelta(days=183)).isoformat()
+            reminder_type = "No reply reactivation #" + str(lead_id)
+            title = f"Reconnect with {clean_str(row_get(lead, 'name')) or 'customer'}"
+            notes = "No reply after enquiry. Keep the customer record; review a helpful six-month carpet-cleaning reminder before sending anything."
+            existing = q("SELECT id FROM future_reminders WHERE reminder_type=? AND status='Open' ORDER BY id DESC LIMIT 1", (reminder_type,), one=True)
+            if existing:
+                run("UPDATE future_reminders SET reminder_date=?, title=?, notes=? WHERE id=?", (reminder_date, title, notes, existing['id']))
+            else:
+                run("INSERT INTO future_reminders(customer_id, reminder_date, title, notes, reminder_type, status) VALUES (?,?,?,?,?, 'Open')", (customer_id, reminder_date, title, notes, reminder_type))
         flash(f"Lead updated: {status}.")
         return redirect(url_for("intake_form_view", lead_id=lead_id) + "#lead-action-panel")
     if action in {"send_unable_email", "send_unable_sms"}:
