@@ -1,0 +1,27 @@
+{% extends "layout.html" %}
+{% block title %}Your details{% endblock %}
+{% block public_content %}
+<style>
+.details-simple{box-sizing:border-box;max-width:560px;margin:24px auto;padding:24px;background:#fff;color:#16334b;border-radius:16px;font:16px/1.5 system-ui,sans-serif}
+.details-simple *{box-sizing:border-box}.details-simple h1{font-size:28px;line-height:1.2;margin:12px 0}.details-simple label{display:block;margin:20px 0 6px;font-weight:600}.details-simple input:not([type=checkbox]),.details-simple textarea{display:block;width:100%;min-width:0;padding:12px;border:1px solid #8193a2;border-radius:8px;font:16px/1.5 system-ui;background:#fff;color:#16334b}.details-simple small{display:block;color:#4b5d6c;margin:6px 0}.details-simple .privacy{display:flex;gap:10px;font-size:13px;font-weight:400;align-items:flex-start}.details-simple .privacy input{appearance:auto!important;width:18px!important;height:18px!important;min-height:18px!important;min-width:18px!important;flex:0 0 18px;margin:3px 0!important;padding:0!important}.details-simple .privacy span{font-weight:400!important;font-size:13px!important}.details-simple button{width:100%;padding:14px;border:0;border-radius:8px;background:#16334b;color:#fff;font:600 17px system-ui;margin-top:18px;min-height:48px}.details-simple :focus-visible{outline:3px solid #257bad;outline-offset:2px}.details-simple .error{color:#8e2020}.details-simple .brand{font-size:14px;font-weight:600}@media(max-width:600px){.details-simple{margin:12px;padding:20px}}
+</style>
+<main class="details-simple">
+<p class="brand">{{ biz.business_name or 'The Carpet Cleaning Company' }}</p>
+{% if complete %}
+<h1>Thank you</h1><p>Your details have been saved. They’ll help us prepare for your visit.</p>
+{% else %}
+<h1>Your details</h1><p>Please check your details and add anything useful for the day.</p>
+{% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+<form method="post">
+<input type="hidden" name="details_token" value="{{ details_token }}">
+<input type="hidden" name="update_token" value="{{ update_token }}">
+<label for="customer-name">Your name</label><input id="customer-name" name="name" autocomplete="name" value="{{ values.name }}" maxlength="200">
+<label for="property-address">Property address</label><textarea id="property-address" name="full_address" autocomplete="street-address" rows="3" maxlength="2000">{{ values.full_address }}</textarea>
+<label for="location">what3words location (optional)</label><input id="location" name="what3words" value="{{ values.what3words }}" placeholder="///three.words.here" maxlength="200" autocapitalize="none">
+<label for="access-notes">Anything else we should know? (optional)</label><small id="access-help">For example: parking, access, gates, pets or anything that will help on the day.</small><textarea id="access-notes" name="access_info" rows="3" maxlength="5000" aria-describedby="access-help">{{ values.access_info }}</textarea>
+<label class="privacy"><input type="checkbox" name="privacy_acknowledgement" value="1" required><span>I understand these details will be used to arrange my cleaning.</span></label>
+{% if can_submit %}<button type="submit">Send details</button>{% else %}<p>This is a preview. Please use the personal link Paul sent you to send your details.</p><button type="submit" disabled>Send details</button>{% endif %}
+</form>
+{% endif %}
+</main>
+{% endblock %}

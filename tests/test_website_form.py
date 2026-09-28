@@ -640,26 +640,19 @@ class WebsiteFormTests(unittest.TestCase):
             form_response = client.get(redirect_response.headers["Location"])
         page = form_response.get_data(as_text=True)
         self.assertIn("Short Link Customer", page)
-        self.assertIn("short@example.com", page)
+        self.assertNotIn("short@example.com", page)
 
-    def test_customer_form_uses_six_stages_without_losing_existing_fields(self):
+    def test_customer_details_form_has_only_basic_fields(self):
         with self.app.test_client() as client:
-            response = client.get("/booking-form?name=Accordion%20Customer&email=accordion%40real.test")
+            response = client.get("/booking-form")
         self.assertEqual(response.status_code, 200)
         page = response.get_data(as_text=True)
-        self.assertEqual(page.count('data-stage="'), 6)
-        self.assertIn("Property and address", page)
-        self.assertIn("Preferences, notes and photos", page)
-        self.assertIn("Review and send", page)
-        self.assertIn("Save progress &amp; next stage", page)
-        self.assertIn("Missing information", page)
-        for field_name in (
-            "name", "phone", "email", "full_address", "postcode", "what3words",
-            "parking_issues", "steps_access", "property_access", "access_info",
-            "job_notes", "rooms_areas", "stains", "additional_notes", "photos",
-            "privacy_acknowledgement", "marketing_consent", "what_cleaned",
-        ):
-            self.assertIn(f'name="{field_name}"', page)
+        for name in ("name", "full_address", "what3words", "access_info"):
+            self.assertIn(f'name="{name}"', page)
+        for name in ("phone", "email", "photos", "agreed_quote_price", "marketing_consent"):
+            self.assertNotIn(f'name="{name}"', page)
+        self.assertNotIn('data-stage=', page)
+        self.assertIn("This is a preview", page)
 
     def test_successful_automation_texts_owner_confirmation(self):
         rule = {"rule_key": "review_request_after_completion", "label": "Review request after completion"}
