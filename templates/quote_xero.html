@@ -1,0 +1,34 @@
+{% extends "layout.html" %}
+{% block page_title %}Xero draft quote{% endblock %}
+{% block body_content %}
+<div class="card" style="max-width:900px;margin:24px auto;padding:24px">
+<h1>Xero draft quote</h1>
+<p>Review the customer, work and total before creating an unsent draft in Xero. Sending is a separate action in Xero.</p>
+<a href="{{ url_for('quote_view', quote_id=quote_id) }}">Back to CRM quote</a>
+{% if error %}<p role="alert" style="color:#a21c22">{{ error }}</p>{% endif %}
+{% if source %}<h2>{{ source.name }}</h2><p>{{ source.email }}<br>{{ source.address }}, {{ source.town }} {{ source.county }} {{ source.postcode }}</p>
+<p>Issue date: {{ source.date }} · Expiry: {{ source.expiry }}</p>
+<pre style="white-space:pre-wrap;font:inherit">{{ source.description }}</pre>
+<p><strong>Total including any tax: £{{ '%.2f'|format(source.total) }}</strong></p>{% endif %}
+{% if export and export.xero_quote_id %}
+<h2>{{ export.xero_quote_number }} · {{ export.xero_status }}</h2><p>Saved Xero total: £{{ '%.2f'|format(export.xero_total or 0) }}</p>
+<a class="btn primary" href="https://go.xero.com/Accounts/Receivable/Quotes/View/{{ export.xero_quote_id }}" target="_blank" rel="noopener">Review saved quote in Xero</a>
+<p>This CRM quote is already linked. Changes here will not overwrite the Xero quote or create another copy.</p>
+{% elif export and export.state != 'Prepared' %}
+<p>{{ export.error or 'Creation is in progress. Check Xero for the saved result.' }}</p>
+<p>A second create request is blocked. Checking only looks for the original quote.</p>
+<form method="post"><input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><button name="action" value="check">Check Xero</button></form>
+{% else %}
+{% if accounts and taxes and source %}
+<form method="post" class="form">
+<input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="fingerprint" value="{{ fingerprint }}">
+<label>Sales account<select name="account" required><option value="">Choose account</option>{% for a in accounts %}<option value="{{ a.Code }}" {% if (payload and payload.LineItems[0].AccountCode == a.Code) or (not payload and default_account == a.Code) %}selected{% endif %}>{{ a.Code }} — {{ a.Name }}</option>{% endfor %}</select></label>
+<label>Tax rate<select name="tax" required><option value="">Choose the tax treatment</option>{% for t in taxes %}<option value="{{ t.TaxType }}" {% if payload and payload.LineItems[0].TaxType == t.TaxType %}selected{% endif %}>{{ t.Name }} ({{ t.EffectiveRate }}%)</option>{% endfor %}</select></label>
+<p>The agreed total stays fixed. Xero will calculate the tax within that amount. Confirm the correct tax treatment before continuing.</p>
+<button name="action" value="prepare">Save review choices</button></form>{% endif %}
+{% if payload %}<hr><h2>Ready to create</h2><p>Account {{ payload.LineItems[0].AccountCode }} · Tax {{ payload.LineItems[0].TaxType }} · Total £{{ '%.2f'|format(payload.LineItems[0].UnitAmount) }}</p>
+<p>Work is exported as one agreed-price line containing the full cleaning list, including any adjustments in the agreed total.</p>
+<form method="post"><input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><button name="action" value="create">Create unsent Xero draft</button></form>{% endif %}
+{% endif %}
+</div>
+{% endblock %}

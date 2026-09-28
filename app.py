@@ -8287,6 +8287,21 @@ def init_db():
         reminder_count INTEGER DEFAULT 0,
         last_reminder_sent_at TEXT
     );
+    CREATE TABLE IF NOT EXISTS xero_quote_exports (
+        quote_id INTEGER PRIMARY KEY,
+        tenant_id TEXT NOT NULL,
+        reference TEXT NOT NULL UNIQUE,
+        state TEXT NOT NULL DEFAULT 'Prepared',
+        fingerprint TEXT NOT NULL,
+        payload_json TEXT NOT NULL,
+        contact_id TEXT DEFAULT '',
+        xero_quote_id TEXT DEFAULT '',
+        xero_quote_number TEXT DEFAULT '',
+        xero_status TEXT DEFAULT '',
+        xero_total REAL,
+        error TEXT DEFAULT '',
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
     CREATE TABLE IF NOT EXISTS xero_sync_log (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         local_type TEXT,
@@ -14609,6 +14624,180 @@ def quote_view(quote_id):
     recent_contacts = recent_customer_contacts(quote["customer_id"] if quote else None, 6)
     contact_summary = customer_contact_summary(quote["customer_id"] if quote else None, 30)
     return render_template("quote_view.html", quote=quote, lines=lines, quote_adjustments=quote_adjustments, deposit=deposit, is_archived=((quote["status"] or "") == "Archived"), existing_job_id=(existing_job["id"] if existing_job else None), recent_contacts=recent_contacts, contact_summary=contact_summary)
+
+
+XERO_QUOTES_URL = "https://api.xero.com/api.xro/2.0/Quotes"
+
+
+def xero_quote_source(quote_id):
+    """Freeze only quote/contact fields that affect the reviewed export."""
+    quote = q("SELECT * FROM quotes WHERE id=?", (quote_id,), one=True)
+    if not quote or not row_get(quote, 'customer_id'):
+        raise RuntimeError("Save a quote with a linked customer first.")
+    if clean_str(quote['status']).lower() != 'draft':
+        raise RuntimeError("Only draft CRM quotes can be created in Xero. Review this quote's status first.")
+    customer = q("SELECT * FROM customers WHERE id=?", (quote['customer_id'],), one=True)
+    if not customer:
+        raise RuntimeError("The linked customer could not be found.")
+    lines = q("SELECT item_name, quantity, method FROM quote_lines WHERE quote_id=? ORDER BY id", (quote_id,))
+    from decimal import Decimal, InvalidOperation
+    try:
+        total = Decimal(str(quote['total'])).quantize(Decimal('.01'))
+        if not total.is_finite() or total <= 0:
+            raise ValueError()
+    except (InvalidOperation, ValueError):
+        raise RuntimeError("The quote needs a positive, valid total.")
+    issued = date.fromisoformat(quote['quote_date'])
+    expires = date.fromisoformat(quote['valid_until']) if quote['valid_until'] else issued + timedelta(days=30)
+    if expires < issued:
+        raise RuntimeError("Quote expiry cannot be before its issue date.")
+    description = '\n'.join(f"{clean_str(l['item_name'])} (quantity {l['quantity']:g})" +
+                            (f" — {clean_str(l['method'])}" if clean_str(l['method']) else '') for l in lines)
+    description = description or clean_str(quote['title'])
+    if not description:
+        raise RuntimeError("Add a description of the work before creating a quote.")
+    source = dict(customer_id=quote['customer_id'], name=customer_full_name(customer),
+                  email=clean_str(customer['email']), address=clean_str(customer['address']),
+                  postcode=clean_str(customer['postcode']), town=clean_str(customer['town']),
+                  county=clean_str(row_get(customer, 'county')), title=clean_str(quote['title']),
+                  total=float(total), description=description, date=issued.isoformat(), expiry=expires.isoformat())
+    return source, hashlib.sha256(json.dumps(source, sort_keys=True).encode()).hexdigest()
+
+
+def xero_quote_choices():
+    # Use live Xero choices, never copy the invoice integration's tax fallback.
+    accounts = xero_api_request('https://api.xero.com/api.xro/2.0/Accounts').get('Accounts', [])
+    taxes = xero_api_request('https://api.xero.com/api.xro/2.0/TaxRates').get('TaxRates', [])
+    accounts = [a for a in accounts if a.get('Status') == 'ACTIVE' and a.get('Type') in ('REVENUE', 'SALES', 'OTHERINCOME') and a.get('Code')]
+    taxes = [t for t in taxes if t.get('Status') == 'ACTIVE' and t.get('CanApplyToRevenue')]
+    return accounts, taxes
+
+
+def xero_quote_result(export, remote):
+    """Persist a verified identity even if Xero's returned amounts need attention."""
+    if not remote.get('QuoteID') or remote.get('HasErrors'):
+        raise RuntimeError("Xero did not return a saved quote. Check Xero before trying again.")
+    payload = json.loads(export['payload_json'])
+    valid = (remote.get('Contact', {}).get('ContactID') == export['contact_id'] and
+             abs(float(remote.get('Total', -1)) - payload['LineItems'][0]['UnitAmount']) < .005 and
+             remote.get('CurrencyCode') == 'GBP' and remote.get('Status') == 'DRAFT')
+    error = '' if valid else 'Xero returned a different total, currency, contact or status. Review the saved quote in Xero; no second quote will be created.'
+    run("""UPDATE xero_quote_exports SET state=?, xero_quote_id=?, xero_quote_number=?,
+           xero_status=?, xero_total=?, error=?, updated_at=datetime('now') WHERE quote_id=?""",
+        ('Created' if valid else 'Review required', remote['QuoteID'], remote.get('QuoteNumber', ''),
+         remote.get('Status', ''), remote.get('Total'), error, export['quote_id']))
+    if error:
+        raise RuntimeError(error)
+
+
+def reconcile_xero_quote(export):
+    """An uncertain request is read-only forever, including beyond Xero's 6-minute key lifetime."""
+    if not export['contact_id']:
+        raise RuntimeError('Contact creation was interrupted. Check the Xero contact before retrying; no quote was submitted.')
+    for page in range(1, 101):
+        url = XERO_QUOTES_URL + '?' + urllib.parse.urlencode({'ContactID': export['contact_id'], 'page': page})
+        rows = xero_api_request(url).get('Quotes', [])
+        matches = [r for r in rows if r.get('Reference') == export['reference']]
+        if len(matches) == 1:
+            xero_quote_result(export, matches[0])
+            return
+        if len(matches) > 1:
+            raise RuntimeError('Multiple Xero quotes match this reference. Review them in Xero; no new quote was created.')
+        if len(rows) < 100:
+            break
+    raise RuntimeError('No matching Xero quote is visible yet. The previous attempt remains locked to prevent a duplicate. Check Xero or try Check Xero again later.')
+
+
+def create_xero_draft_quote(quote_id):
+    export = q('SELECT * FROM xero_quote_exports WHERE quote_id=?', (quote_id,), one=True)
+    if not export:
+        raise RuntimeError('Review the Xero quote first.')
+    _access, tenant_id = refresh_xero_token_if_needed()
+    if tenant_id != export['tenant_id']:
+        raise RuntimeError('The connected Xero organisation changed. No quote was created.')
+    if export['xero_quote_id']:
+        return
+    if export['state'] != 'Prepared':
+        return reconcile_xero_quote(export)
+    source, fingerprint = xero_quote_source(quote_id)
+    if fingerprint != export['fingerprint']:
+        raise RuntimeError('The quote or customer changed. Review the latest details before creating the Xero draft.')
+    # Check quote permission before modifying a contact. OAuth scopes are unchanged.
+    xero_api_request(XERO_QUOTES_URL + '?page=1')
+    claimed = db().execute("UPDATE xero_quote_exports SET state='Creating', updated_at=datetime('now') WHERE quote_id=? AND state='Prepared' AND fingerprint=? AND payload_json=?", (quote_id, export['fingerprint'], export['payload_json'])).rowcount
+    db().commit()
+    if not claimed:
+        raise RuntimeError('This quote is already being created. Check its status shortly.')
+    try:
+        contact_id = ensure_xero_contact_for_customer(source['customer_id'], allow_incomplete=True)
+        run('UPDATE xero_quote_exports SET contact_id=? WHERE quote_id=?', (contact_id, quote_id))
+        payload = json.loads(export['payload_json'])
+        payload['Contact'] = {'ContactID': contact_id}
+        result = xero_api_request(XERO_QUOTES_URL, method='POST', payload={'Quotes': [payload]},
+                                  idempotency_key=export['reference'])
+        rows = result.get('Quotes', [])
+        if len(rows) != 1:
+            raise RuntimeError('Xero did not return one saved quote. Check Xero to resolve this attempt.')
+        export = q('SELECT * FROM xero_quote_exports WHERE quote_id=?', (quote_id,), one=True)
+        xero_quote_result(export, rows[0])
+    except Exception:
+        run("UPDATE xero_quote_exports SET state='Check required', error='Creation could not be confirmed. Check Xero before any retry.', updated_at=datetime('now') WHERE quote_id=? AND xero_quote_id=''", (quote_id,))
+        raise
+
+
+@app.route('/quotes/<int:quote_id>/xero', methods=['GET', 'POST'])
+@login_required
+def quote_xero_review(quote_id):
+    error, source, accounts, taxes = '', None, [], []
+    export = q('SELECT * FROM xero_quote_exports WHERE quote_id=?', (quote_id,), one=True)
+    try:
+        if request.method == 'POST' and request.form.get('action') in ('create', 'check'):
+            if request.form.get('action') == 'check':
+                if not export or export['state'] == 'Prepared':
+                    raise RuntimeError('No creation attempt to check. Review and create the draft first.')
+                _access, tenant_id = refresh_xero_token_if_needed()
+                if tenant_id != export['tenant_id']:
+                    raise RuntimeError('The connected Xero organisation changed.')
+                reconcile_xero_quote(export)
+            else:
+                create_xero_draft_quote(quote_id)
+            flash('Xero quote checked. Nothing was emailed or sent to the customer.')
+            return redirect(url_for('quote_xero_review', quote_id=quote_id))
+        source, fingerprint = xero_quote_source(quote_id)
+        if not export or export['state'] == 'Prepared':
+            accounts, taxes = xero_quote_choices()
+            if request.method == 'POST':
+                if request.form.get('action') != 'prepare':
+                    raise RuntimeError('Choose a quote action from this page.')
+                account = next((a for a in accounts if a['Code'] == request.form.get('account')), None)
+                tax = next((t for t in taxes if t['TaxType'] == request.form.get('tax')), None)
+                if not account or not tax:
+                    raise RuntimeError('Choose a valid Xero sales account and tax rate for this quote.')
+                if request.form.get('fingerprint') != fingerprint:
+                    raise RuntimeError('Details changed while this page was open. Review the updated quote.')
+                _access, tenant_id = refresh_xero_token_if_needed()
+                if not tenant_id:
+                    raise RuntimeError('Select a Xero organisation by reconnecting Xero first.')
+                reference = export['reference'] if export else 'crm-quote-' + uuid.uuid4().hex
+                payload = {'Date': source['date'], 'ExpiryDate': source['expiry'], 'Status': 'DRAFT',
+                           'CurrencyCode': 'GBP', 'LineAmountTypes': 'Inclusive', 'Reference': reference,
+                           'Title': source['title'], 'LineItems': [{'Description': source['description'],
+                           'Quantity': 1, 'UnitAmount': source['total'], 'AccountCode': account['Code'], 'TaxType': tax['TaxType']}]}
+                db().execute("""INSERT INTO xero_quote_exports(quote_id,tenant_id,reference,fingerprint,payload_json)
+                    VALUES (?,?,?,?,?) ON CONFLICT(quote_id) DO UPDATE SET tenant_id=excluded.tenant_id,
+                    fingerprint=excluded.fingerprint,payload_json=excluded.payload_json
+                    WHERE xero_quote_exports.state='Prepared'""", (quote_id, tenant_id, reference, fingerprint, json.dumps(payload)))
+                db().commit()
+                return redirect(url_for('quote_xero_review', quote_id=quote_id))
+    except Exception as exc:
+        error = friendly_xero_error(exc)
+        if 'scope' in str(exc).lower() or '403' in str(exc):
+            error = 'Xero quote access is not authorised. Reconnect Xero and review its requested permissions. Nothing was sent.'
+    export = q('SELECT * FROM xero_quote_exports WHERE quote_id=?', (quote_id,), one=True)
+    payload = json.loads(export['payload_json']) if export else None
+    return render_template('quote_xero.html', quote_id=quote_id, source=source, fingerprint=locals().get('fingerprint', ''),
+                           accounts=accounts, taxes=taxes, export=export, payload=payload, error=error,
+                           default_account=xero_sales_account_code())
 
 def quote_email_draft_content(quote):
     first_name = clean_str(row_value(quote, "first_name")) or "there"
