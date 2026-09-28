@@ -436,3 +436,23 @@ body.app-page .voice-dock [hidden] { display: none !important; }
 
 /* Everyday navigation: only the six places needed for a normal working day are shown first. */
 .nav-more-tools{margin:9px 0 0;border-top:1px solid rgba(255,255,255,.14);padding-top:8px}.nav-more-tools summary{padding:10px 14px;color:rgba(255,255,255,.76);font-size:13px;font-weight:700;cursor:pointer;list-style:none}.nav-more-tools summary::-webkit-details-marker{display:none}.nav-more-tools summary::after{content:'+';float:right;font-size:18px;font-weight:400}.nav-more-tools[open] summary::after{content:'−'}.nav-more-tools>div{display:grid;gap:1px;padding-bottom:4px}.nav-more-tools .nav-link{padding-left:23px!important;font-size:13px!important;opacity:.84}.nav-more-tools .nav-link.active{opacity:1}
+
+/* More tools is a light panel: do not inherit pale links from the navy sidebar. */
+body.app-page #mainSidebar .nav-more-tools > div { background:#fff!important; }
+body.app-page #mainSidebar .nav-more-tools .nav-link {
+  color:#16334b!important;background:#fff!important;opacity:1!important;
+}
+body.app-page #mainSidebar .nav-more-tools .nav-link:hover {
+  color:#10243b!important;background:#e6eef5!important;
+}
+body.app-page #mainSidebar .nav-more-tools .nav-link.active {
+  color:#10243b!important;background:#f4df9c!important;
+  box-shadow:inset 3px 0 0 #856000!important;
+}
+body.app-page #mainSidebar .nav-more-tools .nav-link:focus-visible {
+  outline:2px solid #176397!important;outline-offset:-2px;
+}
+body.app-page #mainSidebar .nav-more-tools .nav-link[aria-disabled="true"],
+body.app-page #mainSidebar .nav-more-tools .nav-link.disabled {
+  color:#68717b!important;background:#f3f4f5!important;cursor:not-allowed;
+}
