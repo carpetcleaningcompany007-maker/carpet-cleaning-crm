@@ -1797,8 +1797,9 @@ def public_static_or_live_url(filename):
 
 
 CUSTOMER_FORM_SENDING_PAUSED = False
-# Owner-requested temporary stop: no CRM text is sent to a customer until this is switched back on.
-CUSTOMER_SMS_SENDING_PAUSED = True
+# Manual sends remain available; background customer contact still requires approval.
+AUTOMATED_CUSTOMER_MESSAGES_PAUSED = True
+CUSTOMER_SMS_SENDING_PAUSED = False  # Emergency manual stop, independent of automation.
 # All automated customer contact becomes a draft for Paul to review; a manual Send button is still an explicit approval.
 CUSTOMER_OUTBOUND_APPROVAL_REQUIRED = True
 CUSTOMER_SMS_START_HOUR = 10
@@ -1855,8 +1856,8 @@ DEFAULT_MESSAGE_TEMPLATES = {
     },
     "appointment_reminder_sms": {"name": "Appointment reminder SMS", "subject": "", "body": "Hi {{name}}, just a quick reminder that your carpet clean is booked in for {{date}} at {{time}}. Thanks, Paul."},
     "thank_you_message": {"name": "Thank you message", "subject": "Thank you", "body": "Hi {{name}},\n\nThank you for choosing The Carpet Cleaning Company today. I hope you are happy with the clean.\n\nIf you notice anything you are unsure about, please message me and I will be happy to help.\n\nThanks\nPaul"},
-    "review_request_message": {"name": "Review request message", "subject": "A small favour, {{first_name}}", "body": "Hi {{first_name}},\n\nThank you for choosing me to clean your carpets. I really appreciate your custom.\n\nIf you are happy with the work, would you mind leaving me a quick Google review? It only takes a minute, and it genuinely helps my small local business.\n\nPlease click the button below to leave your review.\n\nThank you again,\nPaul\nThe Carpet Cleaning Company"},
-    "review_request_sms": {"name": "Review request SMS", "subject": "", "body": "Hi {{first_name}}, thank you for choosing me to clean your carpets. I really appreciate your custom. If you are happy with the work, would you mind leaving me a quick Google review? It genuinely helps my small local business: {{review_link}} Thanks again, Paul"},
+    'review_request_message': {'name': 'Review request message', 'subject': 'Thank you, {{first_name}}', 'body': 'Hi {{first_name}},\n\nThank you for choosing The Carpet Cleaning Company. I really appreciate your business.\n\nIf you have a moment, I would really appreciate a Google review.\n\nThank you,\nPaul\nThe Carpet Cleaning Company'},
+    'review_request_sms': {'name': 'Review request SMS', 'subject': '', 'body': 'Hi {{first_name}}, thank you for choosing The Carpet Cleaning Company. I really appreciate your business. If you have a moment, please leave a Google review: {{review_link}} Thanks, Paul'},
     "payment_received_email": {"name": "Payment received email", "subject": "Thank you for your payment", "body": "Hi {{name}},\n\nThank you very much for your payment. It's greatly appreciated.\n\nThank you for choosing The Carpet Cleaning Company. We really appreciate your business and your continued support.\n\nIf you were happy with the service, we'd be very grateful if you could leave us a Google review. You can also follow us on Facebook to see our latest work, videos and cleaning tips.\n\nGoogle Reviews:\n{{review_link}}\n\nFacebook:\n{{facebook}}\n\nThanks\nPaul\n{{business_name}}"},
     "payment_received_sms": {"name": "Payment received SMS", "subject": "", "body": "Hi {{name}}, thank you very much for your payment. It's greatly appreciated. If you were happy with the service, a Google review would really help: {{review_link}} Thanks, Paul - {{business_name}}"},
     "unable_to_reach_email": {"name": "Unable to reach customer email", "subject": "I tried to contact you", "body": "Hi {{name}},\n\nThank you very much for your enquiry. I really appreciate you getting in touch with The Carpet Cleaning Company.\n\nI have tried to contact you so we can discuss your carpet or upholstery cleaning requirements, but I have not been able to get hold of you yet. I did not want you to think your message had been missed.\n\nIf you would still like a quote or would like to talk through the best cleaning options, please reply to this email or call/text me on 07802 563213. I will be happy to help.\n\nIf it is easier, you can also send over a few photos of the areas you would like cleaned, along with your address and any useful parking or access details. That helps me give better advice and a more accurate quote.\n\nYou can also see recent cleans, videos and before-and-after photos on Facebook:\n{{facebook}}\n\nGoogle reviews:\n{{review_link}}\n\nThanks again for contacting us.\n\nPaul\nThe Carpet Cleaning Company\n07802 563213"},
@@ -2068,6 +2069,8 @@ def schedule_enquiry_acknowledgement(lead_id, customer_id=None, data=None, delay
            VALUES (?,?,?,?,?, 'Awaiting approval', datetime('now'))
            ON CONFLICT(lead_id) DO NOTHING""",
         (lead_id, customer_id or row_get(lead, "customer_id"), json.dumps(payload, default=str), due_at.isoformat(timespec="seconds"), enquiry_acknowledgement_text(payload)))
+    if AUTOMATED_CUSTOMER_MESSAGES_PAUSED or CUSTOMER_OUTBOUND_APPROVAL_REQUIRED:
+        return True, "Customer acknowledgement draft is ready for your approval. Nothing has been sent."
     # Give every enquiry its own wake-up as well as leaving it in the durable
     # queue. This covers deployments where the general background loop is
     # temporarily asleep or disabled; the queue still prevents duplicate sends.
@@ -2125,7 +2128,7 @@ def mark_enquiry_acknowledgement_sms_lock(phone, lead_id, status):
 
 def run_due_enquiry_acknowledgements(dry_run=False, lead_id=None):
     now = datetime.now(ZoneInfo("Europe/London"))
-    if CUSTOMER_OUTBOUND_APPROVAL_REQUIRED and not dry_run:
+    if (AUTOMATED_CUSTOMER_MESSAGES_PAUSED or CUSTOMER_OUTBOUND_APPROVAL_REQUIRED) and not dry_run:
         run("""UPDATE enquiry_acknowledgement_queue
                SET status='Awaiting approval', message='Draft ready for approval. Nothing has been sent.', updated_at=datetime('now')
                WHERE status IN ('Queued','Sending') AND IFNULL(sent_at,'')=''""")
@@ -2821,11 +2824,18 @@ def clicksend_reply_number(username=None, api_key=None):
     return ""
 
 
-def _raw_send_clicksend_env_sms(to_phone, body, customer=None, category="Website Enquiry"):
-    if CUSTOMER_SMS_SENDING_PAUSED and customer is not None:
-        return False, "Customer text sending is paused by the owner. No SMS was sent."
+def manual_customer_message_request():
+    return has_request_context() and request.method == 'POST' and bool(session.get('logged_in'))
+
+
+def _raw_send_clicksend_env_sms(to_phone, body, customer=None, category="Website Enquiry", allow_gateway_fallback=True):
+    if customer is not None and (CUSTOMER_SMS_SENDING_PAUSED or
+            (AUTOMATED_CUSTOMER_MESSAGES_PAUSED and not manual_customer_message_request())):
+        return False, "Customer text sending requires a manual Send action. No SMS was sent."
     if not is_valid_uk_mobile(to_phone):
         return False, "SMS not sent: a valid UK mobile number is required. Landlines cannot be texted."
+    if customer is not None and is_customer_sms_opted_out(customer):
+        return False, "This customer has opted out of SMS. Nothing sent."
     username = os.environ.get("CLICKSEND_USERNAME", "").strip()
     api_key = os.environ.get("CLICKSEND_API_KEY", "").strip()
     from_name = clicksend_reply_number(username, api_key) or os.environ.get("CLICKSEND_FROM_NAME", "").strip()
@@ -2833,6 +2843,8 @@ def _raw_send_clicksend_env_sms(to_phone, body, customer=None, category="Website
     if not phone:
         return False, "No recipient mobile number was supplied."
     if not username or not api_key:
+        if not allow_gateway_fallback:
+            return False, "Text connection is not configured. Nothing sent. Check ClickSend in Settings."
         return send_sms_gateway(phone, body, customer=customer, message_category=category)
     length_error = sms_length_error(body)
     if length_error:
@@ -3580,9 +3592,7 @@ def run_website_enquiry_automation(lead_id, customer_id, data):
         return {}
     results = {}
 
-    # The fixed delayed acknowledgement is the only automatic customer reply.
-    # AI remains available from the enquiry screen when Paul explicitly asks
-    # for a draft, but a second draft or approval alert is not created here.
+    # Enquiries are queued as drafts. Automated customer sends stay disabled.
     ai_draft = None
     results["ai_draft"] = (False, "Skipped: use the fixed acknowledgement only. Generate an AI draft manually if needed.")
 
@@ -3595,14 +3605,14 @@ def run_website_enquiry_automation(lead_id, customer_id, data):
     if is_valid_uk_mobile(customer_phone):
         update_intake_delivery_status(
             lead_id,
-            customer_sms_status="Queued: acknowledgement text due in about 5 minutes",
-            customer_email_status="Queued fallback: email only if text cannot be sent",
+            customer_sms_status="Draft ready for manual approval. Nothing sent automatically.",
+            customer_email_status="Email draft available for manual review.",
         )
     else:
         update_intake_delivery_status(
             lead_id,
             customer_sms_status="Skipped: phone number is missing, invalid or a landline",
-            customer_email_status=("Queued: acknowledgement email due in about 5 minutes"
+            customer_email_status=("Email draft available for manual review. Nothing sent automatically."
                                    if is_valid_email(request_value(data, "email", "email_address"))
                                    else "Not sent: no mobile number or valid email address. Call the customer."),
         )
@@ -3697,8 +3707,9 @@ def _raw_send_sms_gateway(to_phone, body, customer=None, communication_id=None, 
         return False, 'No recipient phone number was provided.'
     if customer is None:
         customer = find_customer_by_phone(phone)
-    if CUSTOMER_SMS_SENDING_PAUSED and customer is not None:
-        return False, 'Customer text sending is paused by the owner. No SMS was sent.'
+    if customer is not None and (CUSTOMER_SMS_SENDING_PAUSED or
+            (AUTOMATED_CUSTOMER_MESSAGES_PAUSED and not manual_customer_message_request())):
+        return False, 'Customer text sending requires a manual Send action. No SMS was sent.'
     if is_customer_sms_opted_out(customer):
         return False, 'This customer has opted out of SMS. Reply START from their phone to opt back in, or remove the opt out on their customer profile.'
     body = add_sms_compliance_text(body, message_category=message_category)
@@ -4969,6 +4980,8 @@ def communication_matches(rows, *patterns):
     if not lowered:
         return False
     for row in rows or []:
+        if clean_str(row_value(row, 'channel')).lower() in ('test blocked', 'review failed', 'review test'):
+            continue
         haystack = " ".join([
             clean_str(row_value(row, "channel")),
             clean_str(row_value(row, "subject")),
@@ -5671,6 +5684,8 @@ def automation_job_rows():
 
 
 def automation_send_for_rule(rule, job, dry_run=False):
+    if (AUTOMATED_CUSTOMER_MESSAGES_PAUSED or CUSTOMER_OUTBOUND_APPROVAL_REQUIRED) and not dry_run:
+        return []
     now = datetime.now(ZoneInfo("Europe/London"))
     due_at = automation_due_datetime(rule, job)
     if not automation_recent_enough(rule, due_at, now):
@@ -5741,7 +5756,7 @@ def automation_send_for_rule(rule, job, dry_run=False):
 
 
 def run_due_communication_automations(dry_run=False):
-    if CUSTOMER_OUTBOUND_APPROVAL_REQUIRED and not dry_run:
+    if (AUTOMATED_CUSTOMER_MESSAGES_PAUSED or CUSTOMER_OUTBOUND_APPROVAL_REQUIRED) and not dry_run:
         return []
     sent = []
     sent.extend(run_due_enquiry_acknowledgements(dry_run=dry_run))
@@ -5796,6 +5811,8 @@ def day_run_message(kind, job):
 
 
 def day_run_email_html(kind, job, plain_body):
+    if kind == "review":
+        return review_email_html(job, plain_body)
     name = customer_first_name(row_value(job, "first_name"))
     business = settings()["business_name"] or "The Carpet Cleaning Company"
     logo_url = crm_email_logo_url()
@@ -8287,6 +8304,11 @@ def init_db():
         reminder_count INTEGER DEFAULT 0,
         last_reminder_sent_at TEXT
     );
+    CREATE TABLE IF NOT EXISTS review_send_attempts (
+        nonce TEXT PRIMARY KEY, customer_id INTEGER, is_test INTEGER NOT NULL,
+        channel TEXT NOT NULL, recipient TEXT NOT NULL, status TEXT NOT NULL,
+        detail TEXT DEFAULT '', created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
     CREATE TABLE IF NOT EXISTS xero_quote_exports (
         quote_id INTEGER PRIMARY KEY,
         tenant_id TEXT NOT NULL,
@@ -9304,6 +9326,16 @@ def init_db():
                 WHERE template_key=? AND body LIKE ?""",
             (template["subject"], template["body"], template_key, legacy_phrase),
         )
+    # Upgrade only the shipped review wording; preserve user-edited templates.
+    conn.execute("UPDATE message_templates SET subject=?, body=?, updated_at=datetime('now') WHERE template_key=? AND body=?", (DEFAULT_MESSAGE_TEMPLATES['review_request_message']["subject"], DEFAULT_MESSAGE_TEMPLATES['review_request_message']["body"], 'review_request_message', 'Hi {{first_name}},\n\nThank you for choosing me to clean your carpets. I really appreciate your custom.\n\nIf you are happy with the work, would you mind leaving me a quick Google review? It only takes a minute, and it genuinely helps my small local business.\n\nPlease click the button below to leave your review.\n\nThank you again,\nPaul\nThe Carpet Cleaning Company'))
+    conn.execute("UPDATE message_templates SET subject=?, body=?, updated_at=datetime('now') WHERE template_key=? AND body=?", (DEFAULT_MESSAGE_TEMPLATES['review_request_sms']["subject"], DEFAULT_MESSAGE_TEMPLATES['review_request_sms']["body"], 'review_request_sms', 'Hi {{first_name}}, thank you for choosing me to clean your carpets. I really appreciate your custom. If you are happy with the work, would you mind leaving me a quick Google review? It genuinely helps my small local business: {{review_link}} Thanks again, Paul'))
+    # Audited 28 Sep owner test: paused before provider call, but old route logged it as customer SMS.
+    # Preserve the original text as an audit note, not evidence of a customer send.
+    conn.execute("""UPDATE communications SET channel='Test blocked', subject='Owner test blocked - no SMS sent'
+        WHERE id=384 AND customer_id=747 AND channel='SMS' AND subject='Google review request'
+          AND date(created_at)='2026-09-28' AND body LIKE 'Hi Ruby,%'
+          AND EXISTS (SELECT 1 FROM customers WHERE id=747 AND first_name='Ruby' AND last_name='Reseigh')
+          AND NOT EXISTS (SELECT 1 FROM sms_events WHERE customer_id=747 AND date(created_at)='2026-09-28')""")
     template_refresh_rules = {
         "today_run_coming_email": "%I am on my way to your carpet cleaning appointment now%",
         "today_run_coming_sms": "%I am on my way to your carpet cleaning appointment now%",
@@ -11217,9 +11249,122 @@ def dashboard_add_sample_route():
     return redirect(url_for("dashboard"))
 
 
+def review_email_html(customer, body):
+    """Use the booking email's cream, navy and gold card styling, with one review CTA."""
+    business = settings()['business_name'] or 'The Carpet Cleaning Company'
+    link = clean_str(settings()['review_link']) or 'https://share.google/XHQjHHLwpmlugHP0c'
+    return app.jinja_env.get_template('review_email.html').render(business=business, logo=crm_email_logo_url(),
+                           body=body, review_link=link)
+
+
+def review_preview_data(customer, channel, is_test=False):
+    s = settings()
+    job = latest_customer_job(customer['id']) if row_value(customer, 'id') else None
+    context = customer_message_replacements(customer, job)
+    key = 'review_request_sms' if channel == 'sms' else 'review_request_message'
+    template = message_template(key)
+    override = customer_template_override(customer['id'], key, channel) if row_value(customer, 'id') else None
+    subject = render_simple_template((override['subject'] if override else template.get('subject')) or '', context)
+    body = render_simple_template((override['body'] if override else template.get('body')) or '', context)
+    body = re.sub(r'<br\s*/?>', '\n', body, flags=re.IGNORECASE)
+    if channel == 'sms':
+        body = sms_safe_text(body)
+    recipient = clean_str(row_value(s, 'sms_test_number' if channel == 'sms' else 'test_email')) if is_test else clean_str(row_value(customer, 'phone' if channel == 'sms' else 'email'))
+    if is_test:
+        if channel == 'sms':
+            body = 'TEST - ' + body
+        else:
+            subject = 'TEST - ' + subject
+    html = review_email_html(customer, body) if channel == 'email' else ''
+    # Plain-text email alternative includes the same destination as the HTML button.
+    text_body = body
+    if channel == 'email':
+        link = clean_str(s['review_link']) or 'https://share.google/XHQjHHLwpmlugHP0c'
+        text_body += '\n\nLeave a Google review: ' + link
+    return dict(customer_id=row_value(customer, 'id'), channel=channel, is_test=bool(is_test),
+                recipient=recipient, subject=subject, body=body, text_body=text_body, html=html)
+
+
+def review_preview_fingerprint(data):
+    return hashlib.sha256(json.dumps(data, sort_keys=True).encode()).hexdigest()
+
+
+def review_request_page():
+    # Saved customer details are authoritative. Ignore legacy recipient query strings.
+    customer_id = clean_str(request.values.get('customer_id'))
+    customer = q('SELECT * FROM customers WHERE id=?', (int(customer_id),), one=True) if customer_id.isdigit() else None
+    channel = clean_str(request.values.get('review_channel')) or 'email'
+    is_test = request.values.get('target') == 'test'
+    error = ''
+    if channel not in ('email', 'sms'):
+        channel, error = 'email', 'Choose Email or Text and review the message first.'
+    data = review_preview_data(customer, channel, is_test) if customer else None
+    blocked = ''
+    if data:
+        if not data['recipient']:
+            blocked = 'No test recipient is configured in Settings.' if is_test else 'This customer has no saved contact for this channel.'
+        elif channel == 'sms' and not is_valid_uk_mobile(data['recipient']):
+            blocked = 'A UK mobile number is required. Landlines cannot receive these texts.'
+        elif channel == 'sms' and not is_test and CUSTOMER_SMS_SENDING_PAUSED:
+            blocked = 'Customer texting is currently paused. You can preview this text or choose Email.'
+        elif channel == 'sms' and not is_test and row_value(customer, 'sms_opt_out'):
+            blocked = 'This customer has opted out of texts.'
+        elif channel == 'sms':
+            blocked = sms_length_error(data['body'])
+    if request.method == 'POST':
+        try:
+            if request.form.get('review_action') != 'send' or not data or error:
+                raise ValueError('Nothing sent. Choose a customer and preview the message first.')
+            if blocked:
+                raise ValueError(blocked)
+            signed = URLSafeTimedSerializer(app.config['SECRET_KEY'], salt='review-preview').loads(request.form.get('preview_token', ''), max_age=1800)
+            if signed['fingerprint'] != review_preview_fingerprint(data):
+                raise ValueError('Details changed since the preview. Check the updated recipient and message before sending.')
+            claimed = db().execute("INSERT OR IGNORE INTO review_send_attempts(nonce,customer_id,is_test,channel,recipient,status) VALUES (?,?,?,?,?,'Checking')",
+                                   (signed['nonce'], customer['id'], int(is_test), channel, data['recipient'])).rowcount
+            db().commit()
+            if not claimed:
+                raise ValueError('This send was already attempted. Check the result below before sending again.')
+            # Tests have no customer association and never generate owner copies or customer history.
+            target_customer = None if is_test else customer
+            try:
+                if channel == 'sms':
+                    ok, detail = _raw_send_clicksend_env_sms(data['recipient'], data['body'], customer=target_customer,
+                                                            category='Owner review test' if is_test else 'Review Request', allow_gateway_fallback=False)
+                else:
+                    ok, detail = send_env_email(data['recipient'], data['subject'], data['text_body'], data['html'],
+                                                customer=target_customer, append_footer=False, record_customer_event=not is_test)
+                if 'demo' in str(detail).lower():
+                    ok, detail = False, 'Demo mode only. No real message was sent.'
+                status = 'Accepted - delivery unconfirmed' if ok else 'Not sent'
+            except Exception:
+                ok, status, detail = False, 'Unconfirmed - check history', 'The connection was interrupted. Check message history before another attempt.'
+            run('UPDATE review_send_attempts SET status=?, detail=? WHERE nonce=?', (status, str(detail), signed['nonce']))
+            if ok and not is_test:
+                run("INSERT INTO communications(customer_id,channel,subject,body) VALUES (?,?,?,?)",
+                    (customer['id'], 'SMS' if channel == 'sms' else 'Email', 'Google review request - provider accepted', data['text_body']))
+                run("UPDATE customers SET review_request_sent_at=datetime('now') WHERE id=?", (customer['id'],))
+            return redirect(url_for('send_contact_form', action_type='review', customer_id=customer['id'],
+                                    review_channel=channel, target='test' if is_test else 'customer', result=signed['nonce']))
+        except (BadSignature, SignatureExpired, KeyError):
+            error = 'The preview expired or could not be verified. Nothing sent. Review it again.'
+        except ValueError as exc:
+            error = str(exc)
+    result = q('SELECT * FROM review_send_attempts WHERE nonce=? AND customer_id=?',
+               (clean_str(request.args.get('result')), row_value(customer, 'id')), one=True)
+    token = URLSafeTimedSerializer(app.config['SECRET_KEY'], salt='review-preview').dumps(
+        {'fingerprint': review_preview_fingerprint(data), 'nonce': uuid.uuid4().hex}) if data else ''
+    return render_template('review_request.html', customer=customer, data=data, channel=channel, is_test=is_test,
+        blocked=blocked, error=error, result=result, preview_token=token,
+        sms_info=sms_length_info(data['body']) if data and channel=='sms' else None,
+        customers=q("SELECT id,first_name,last_name FROM customers WHERE IFNULL(archived_at,'')='' ORDER BY first_name COLLATE NOCASE,last_name COLLATE NOCASE"))
+
+
 @app.route("/send-contact-form", methods=["GET", "POST"])
 @login_required
 def send_contact_form():
+    if clean_str(request.values.get("action_type")).lower() == "review":
+        return review_request_page()
     s = settings()
     action_type = clean_str(request.values.get("action_type")).lower() or "form"
     if action_type not in {"form", "review"}:
@@ -11426,9 +11571,8 @@ def standalone_review_email_preview():
             "id": None, "name": preview_name, "first_name": preview_name, "last_name": "",
             "email": "", "phone": "", "address": "", "town": "", "postcode": "", "sms_opt_out": 0,
         }
-    template = message_template("review_request_message")
-    body = render_simple_template(template.get("body") or "", customer_message_replacements(customer, latest_job))
-    return Response(visual_customer_email_html("review_request_message", customer, latest_job, body), mimetype="text/html")
+    data = review_preview_data(customer, 'email')
+    return Response(data['html'], mimetype='text/html')
 
 
 

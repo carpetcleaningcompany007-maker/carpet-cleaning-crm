@@ -31,7 +31,7 @@ class ReviewRequestPersonalisationTests(unittest.TestCase):
         rendered = self.appmod.render_simple_template(template["body"], replacements)
 
         self.assertTrue(rendered.startswith("Hi Sarah,"))
-        self.assertIn("thank you for choosing me", rendered)
+        self.assertIn("thank you for choosing The Carpet Cleaning Company", rendered)
         self.assertNotIn("Sarah Jones", rendered)
 
     def test_imported_zero_never_appears_as_customer_name(self):
@@ -79,14 +79,14 @@ class ReviewRequestPersonalisationTests(unittest.TestCase):
         rendered = self.appmod.day_run_email_html(
             "review",
             job,
-            "Hi Mark, thank you for choosing me to clean your carpets.",
+            "Hi Mark, thank you for choosing The Carpet Cleaning Company to clean your carpets.",
         )
 
         self.assertIn("Hi Mark,", rendered)
         self.assertNotIn("Mark Cooksey", rendered)
         self.assertNotIn("site/email-logo.png", rendered)
-        self.assertNotIn('width="104"', rendered)
-        self.assertIn("Please click here to leave us a Google review", rendered)
+        self.assertIn('max-width:640px', rendered)
+        self.assertIn("Leave a Google review", rendered)
         self.assertIn("background-color:#071524", rendered)
 
 

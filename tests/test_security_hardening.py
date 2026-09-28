@@ -386,31 +386,21 @@ class SecurityHardeningTests(unittest.TestCase):
         self.assertEqual(self.mod.q("SELECT COUNT(*) AS c FROM social_posts", one=True)["c"], 1)
         self.assertEqual(self.mod.q("SELECT status FROM social_posts", one=True)["status"], "Ready for approval")
 
-    def test_review_sender_has_guided_customer_channels_preview_and_safe_tests(self):
+    def test_review_sender_legacy_post_cannot_bypass_preview(self):
         self.login()
         customer_id = self.mod.run("INSERT INTO customers(first_name,last_name,email,phone) VALUES(?,?,?,?)",
                                    ("Real", "Customer", "real@example.test", "07123456789"))
         page = self.client.get(f"/send-contact-form?action_type=review&customer_id={customer_id}")
         self.assertEqual(page.status_code, 200)
-        for text in (b"Send a review request", b"Choose a customer", b"Choose how to ask",
-                     b"Email & text ready", b"Refresh from Xero", b"Preview email",
-                     b"Preview text", b"Test email to me", b"Test SMS to me",
-                     b"Preview & send request", b"More options"):
+        for text in (b"Ask for a Google review", b"Exact email preview", b"Send email to Real", b"Preview test email"):
             self.assertIn(text, page.data)
-        self.assertIn(b"Real Customer", page.data)
-        token = self.csrf()
-        self.mod.run("UPDATE settings SET test_email=?,sms_test_number=? WHERE id=1",
-                     ("owner@example.test", "07999999999"))
-        with mock.patch.object(self.mod, "send_env_email", return_value=(True, "test sent")) as send_email, \
-             mock.patch.object(self.mod, "send_owner_customer_message_copy", return_value=(True, "copied")):
+        with mock.patch.object(self.mod, "send_env_email") as send_email:
             response = self.client.post("/send-contact-form", data={
-                "_csrf_token": token, "action_type": "review", "customer_id": customer_id,
-                "name": "Real Customer", "email": "real@example.test", "phone": "07123456789",
+                "_csrf_token": self.csrf(), "action_type": "review", "customer_id": customer_id,
                 "review_channel": "email", "use_test_details": "1",
             })
-        self.assertEqual(response.status_code, 302)
-        self.assertEqual(send_email.call_args.args[0], "owner@example.test")
-        self.assertNotEqual(send_email.call_args.args[0], "real@example.test")
+        send_email.assert_not_called()
+        self.assertIn(b"Nothing sent", response.data)
 
 
 if __name__ == "__main__":

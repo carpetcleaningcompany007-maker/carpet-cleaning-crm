@@ -1,0 +1,16 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Thank you</title></head>
+<body style="margin:0;background:#edf5f2;font-family:Arial,Helvetica,sans-serif;color:#0b1f33">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#edf5f2"><tr><td align="center" style="padding:24px 12px">
+<table role="presentation" width="640" cellspacing="0" cellpadding="0" style="width:100%;max-width:640px;background:#fff;border:1px solid #d7e5df;border-radius:24px;overflow:hidden">
+<tr><td style="height:8px;background:#0d5c4e;font-size:0">&nbsp;</td></tr>
+<tr><td align="center" style="background:#fff8ec;padding:26px 24px;border-bottom:1px solid #eadfcb">
+{% if logo %}<img src="{{ logo }}" alt="{{ business }}" width="104" style="display:block;width:104px;max-width:100%;height:auto;border:0;margin:0 auto 14px">{% endif %}
+<div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#967024;font-weight:bold">{{ business }}</div>
+<h1 style="margin:12px 0 0;font-size:30px;line-height:1.2;color:#071524">Thank you for choosing us</h1></td></tr>
+<tr><td style="padding:28px 26px 12px;font-size:17px;line-height:1.7;color:#26384d">
+{% set parts=body.rsplit('\n\nThank you,',1) %}{% for paragraph in parts[0].split('\n\n') %}<p style="margin:0 0 18px;white-space:pre-line">{{ paragraph }}</p>{% endfor %}
+</td></tr>
+<tr><td align="center" style="padding:2px 24px 32px"><a href="{{ review_link }}" style="display:inline-block;background-color:#071524;color:#fff;text-decoration:none;border-radius:12px;border:1px solid #d8af55;padding:17px 25px;font-size:17px;font-weight:bold">Leave a Google review</a></td></tr>
+{% if parts|length>1 %}<tr><td style="padding:0 26px 26px;font-size:17px;line-height:1.7;white-space:pre-line">Thank you,{{ parts[1] }}</td></tr>{% endif %}
+</table></td></tr></table></body></html>
