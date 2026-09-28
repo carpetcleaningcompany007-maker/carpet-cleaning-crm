@@ -2,15 +2,37 @@
 {% block title %}Your details{% endblock %}
 {% block public_content %}
 <style>
-.details-simple{box-sizing:border-box;max-width:560px;margin:24px auto;padding:24px;background:#fff;color:#16334b;border-radius:16px;font:16px/1.5 system-ui,sans-serif}
-.details-simple *{box-sizing:border-box}.details-simple h1{font-size:28px;line-height:1.2;margin:12px 0}.details-simple label{display:block;margin:20px 0 6px;font-weight:600}.details-simple input:not([type=checkbox]),.details-simple textarea{display:block;width:100%;min-width:0;padding:12px;border:1px solid #8193a2;border-radius:8px;font:16px/1.5 system-ui;background:#fff;color:#16334b}.details-simple small{display:block;color:#4b5d6c;margin:6px 0}.details-simple .privacy{display:flex;gap:10px;font-size:13px;font-weight:400;align-items:flex-start}.details-simple .privacy input{appearance:auto!important;width:18px!important;height:18px!important;min-height:18px!important;min-width:18px!important;flex:0 0 18px;margin:3px 0!important;padding:0!important}.details-simple .privacy span{font-weight:400!important;font-size:13px!important}.details-simple button{width:100%;padding:14px;border:0;border-radius:8px;background:#16334b;color:#fff;font:600 17px system-ui;margin-top:18px;min-height:48px}.details-simple :focus-visible{outline:3px solid #257bad;outline-offset:2px}.details-simple .error{color:#8e2020}.details-simple .brand{font-size:14px;font-weight:600}@media(max-width:600px){.details-simple{margin:12px;padding:20px}}
+.details-simple{box-sizing:border-box;max-width:620px;margin:32px auto;background:#fffdf9;color:#18334b;border:1px solid #e3dfd5;border-radius:20px;overflow:hidden;box-shadow:0 14px 42px #16334b12;font:16px/1.5 system-ui,sans-serif}
+.details-simple *{box-sizing:border-box}
+.details-simple .details-header{padding:28px 32px;background:#12334a;border-top:4px solid #d7b66b}
+.details-simple .details-brand{margin:0 0 18px;color:#e9cd91!important;font-size:12px!important;font-weight:650!important;letter-spacing:.07em;text-transform:uppercase}
+.details-simple h1{font:650 32px/1.2 system-ui,sans-serif!important;letter-spacing:-.6px;margin:0 0 10px!important;color:#fff!important;-webkit-text-fill-color:#fff!important}
+.details-simple .details-intro{margin:0;color:#e0e9ee!important;font-size:15px!important;line-height:1.6;max-width:440px}
+.details-simple form{padding:8px 32px 30px}
+.details-simple label{display:block;margin:20px 0 7px;color:#18334b!important;font-size:14px!important;font-weight:600!important;line-height:1.5}
+.details-simple input:not([type=checkbox]),.details-simple textarea{display:block;width:100%;min-width:0;padding:12px 14px!important;border:1px solid #bcc9cf!important;border-radius:9px!important;font:16px/1.5 system-ui,sans-serif!important;background:#fff!important;color:#18334b!important;box-shadow:inset 0 1px 2px #12334a04!important;transition:border-color .15s,box-shadow .15s}
+.details-simple input:not([type=checkbox]):focus,.details-simple textarea:focus{border-color:#376b80!important;box-shadow:0 0 0 3px #376b801c!important}
+.details-simple input::placeholder{color:#687d89!important;opacity:1}
+.details-simple small{display:block;color:#526675;margin:0 0 9px;font-size:13px;line-height:1.6}
+.details-simple .privacy{display:flex;gap:10px;align-items:flex-start;margin-top:24px;padding-top:18px;border-top:1px solid #e5e8e7;font-weight:400!important}
+.details-simple .privacy input{appearance:auto!important;accent-color:#12334a;width:18px!important;height:18px!important;min-height:18px!important;min-width:18px!important;flex:0 0 18px;margin:3px 0!important;padding:0!important}
+.details-simple .privacy span{font-weight:400!important;font-size:13px!important;color:#526675;line-height:1.6}
+.details-simple button{width:100%;padding:14px!important;border:1px solid #12334a!important;border-radius:10px!important;background:#12334a!important;color:#fff!important;font:600 16px system-ui!important;margin-top:18px;min-height:50px;box-shadow:0 4px 10px #12334a14!important}
+.details-simple button:hover:not(:disabled){background:#20516a!important}
+.details-simple button:disabled{background:#e5e9eb!important;border-color:#d5dde1!important;color:#526675!important;box-shadow:none!important;cursor:default;opacity:1!important}
+.details-simple :focus-visible{outline:3px solid #397b99;outline-offset:3px}
+.details-simple .error{margin:20px 32px 0;padding:12px;background:#fff0ec;border-radius:8px;color:#8e2020}
+.details-simple .preview-note{color:#526675;font-size:13px;line-height:1.6;margin:18px 0 0}
+.details-simple .details-thanks{padding:26px 32px;color:#526675}
+@media(max-width:600px){.details-simple{margin:16px 12px;border-radius:16px}.details-simple .details-header{padding:24px}.details-simple h1{font-size:28px!important}.details-simple form{padding:4px 22px 24px}.details-simple .details-brand{font-size:11px!important;letter-spacing:.045em}.details-simple .error{margin-inline:22px}}
 </style>
 <main class="details-simple">
-<p class="brand">{{ biz.business_name or 'The Carpet Cleaning Company' }}</p>
+<header class="details-header">
+<p class="details-brand">{{ biz.business_name or 'The Carpet Cleaning Company' }}</p>
 {% if complete %}
-<h1>Thank you</h1><p>Your details have been saved. They’ll help us prepare for your visit.</p>
+<h1>Thank you</h1></header><p class="details-thanks">Your details have been saved. They’ll help us prepare for your visit.</p>
 {% else %}
-<h1>Your details</h1><p>Please check your details and add anything useful for the day.</p>
+<h1>Let’s get ready for your visit</h1><p class="details-intro">Please check your details and add anything useful for the day.</p></header>
 {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
 <form method="post">
 <input type="hidden" name="details_token" value="{{ details_token }}">
@@ -22,7 +44,7 @@
 <label for="location">what3words location (optional)</label><input id="location" name="what3words" value="{{ values.what3words }}" placeholder="///three.words.here" maxlength="200" autocapitalize="none">
 <label for="access-notes">Anything else we should know? (optional)</label><small id="access-help">For example: parking, access, gates, pets or anything that will help on the day.</small><textarea id="access-notes" name="access_info" rows="3" maxlength="5000" aria-describedby="access-help">{{ values.access_info }}</textarea>
 <label class="privacy"><input type="checkbox" name="privacy_acknowledgement" value="1" required><span>I understand these details will be used to arrange my cleaning.</span></label>
-{% if can_submit %}<button type="submit">Send details</button>{% else %}<p>This is a preview. Please use the personal link Paul sent you to send your details.</p><button type="submit" disabled>Send details</button>{% endif %}
+{% if can_submit %}<button type="submit">Send details</button>{% else %}<p class="preview-note">This is a preview. Please use the personal link Paul sent you to send your details.</p><button type="submit" disabled>Send details</button>{% endif %}
 </form>
 {% endif %}
 </main>
