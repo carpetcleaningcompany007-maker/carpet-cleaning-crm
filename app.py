@@ -2696,13 +2696,13 @@ def friendly_delivery_result(ok, detail, channel):
     return False, f'We couldn’t confirm your {channel} was sent. {reason}'
 
 
-def send_env_email(to_email, subject, text_body, html_body="", customer=None, append_footer=True, record_customer_event=True):
+def send_env_email(to_email, subject, text_body, html_body="", customer=None, append_footer=True, record_customer_event=True, return_detail=False):
     ok, message = _send_env_email(to_email, subject, text_body, html_body, customer, append_footer)
     if record_customer_event and row_value(customer, "id"):
         external = re.search(r"Message ID: ([A-Za-z0-9-]+)", message or "")
         run("INSERT INTO customer_email_events(customer_id,recipient,subject,body,status,external_id) VALUES (?,?,?,?,?,?)",
             (row_value(customer, "id"), str(to_email or ""), subject, text_body, "Sent" if ok else "Failed", external.group(1) if external else ""))
-    return friendly_delivery_result(ok, message, 'email')
+    return (ok, message) if return_detail else friendly_delivery_result(ok, message, 'email')
 
 
 def _send_env_email(to_email, subject, text_body, html_body="", customer=None, append_footer=True):
@@ -11289,6 +11289,28 @@ def review_preview_fingerprint(data):
     return hashlib.sha256(json.dumps(data, sort_keys=True).encode()).hexdigest()
 
 
+def review_email_result_detail(ok, detail):
+    """Explain provider failures without exposing SMTP credentials or raw payloads."""
+    if ok:
+        return 'Accepted by the email service. Inbox delivery has not been confirmed.'
+    value = str(detail or '').lower()
+    if 'demo' in value:
+        return 'Demo mode only. No real email was sent.'
+    if any(term in value for term in ('535', 'authentication', 'password', 'credentials', '401')):
+        return 'The email service rejected the sign-in. Check the sender account and app password in Email settings. No email was sent.'
+    if any(term in value for term in ('verify', 'verified', 'sender identity', '403')):
+        return 'The email provider has not authorised this sender. Verify the sender address in the email provider settings.'
+    if any(term in value for term in ('credit', 'quota', 'limit exceeded')):
+        return 'The email provider rejected the request because its balance or sending limit needs attention.'
+    if any(term in value for term in ('recipient', 'invalid email', '550', 'mailbox')):
+        return 'The email service rejected the recipient address. Check the test email address in Settings.'
+    if any(term in value for term in ('timeout', 'timed out', 'connection', 'network')):
+        return 'The email service could not confirm the request. Check message history before trying again.'
+    if any(term in value for term in ('missing', 'configured', 'settings')):
+        return 'The email connection is incomplete. Check the sender and email connection in Settings.'
+    return 'The email service did not confirm this request. Check the email connection and provider logs before trying again.'
+
+
 def review_request_page():
     # Saved customer details are authoritative. Ignore legacy recipient query strings.
     customer_id = clean_str(request.values.get('customer_id'))
@@ -11333,7 +11355,10 @@ def review_request_page():
                                                             category='Owner review test' if is_test else 'Review Request', allow_gateway_fallback=False)
                 else:
                     ok, detail = send_env_email(data['recipient'], data['subject'], data['text_body'], data['html'],
-                                                customer=target_customer, append_footer=False, record_customer_event=not is_test)
+                                                customer=target_customer, append_footer=False, record_customer_event=not is_test, return_detail=True)
+                    if 'demo' in str(detail).lower():
+                        ok = False
+                    detail = review_email_result_detail(ok, detail)
                 if 'demo' in str(detail).lower():
                     ok, detail = False, 'Demo mode only. No real message was sent.'
                 status = 'Accepted - delivery unconfirmed' if ok else 'Not sent'
@@ -11352,6 +11377,8 @@ def review_request_page():
             error = str(exc)
     result = q('SELECT * FROM review_send_attempts WHERE nonce=? AND customer_id=?',
                (clean_str(request.args.get('result')), row_value(customer, 'id')), one=True)
+    if not result and customer:
+        result = q('SELECT * FROM review_send_attempts WHERE customer_id=? AND is_test=? AND channel=? ORDER BY created_at DESC, rowid DESC LIMIT 1', (customer['id'], int(is_test), channel), one=True)
     token = URLSafeTimedSerializer(app.config['SECRET_KEY'], salt='review-preview').dumps(
         {'fingerprint': review_preview_fingerprint(data), 'nonce': uuid.uuid4().hex}) if data else ''
     return render_template('review_request.html', customer=customer, data=data, channel=channel, is_test=is_test,

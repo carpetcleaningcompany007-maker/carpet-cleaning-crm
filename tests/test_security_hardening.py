@@ -392,7 +392,7 @@ class SecurityHardeningTests(unittest.TestCase):
                                    ("Real", "Customer", "real@example.test", "07123456789"))
         page = self.client.get(f"/send-contact-form?action_type=review&customer_id={customer_id}")
         self.assertEqual(page.status_code, 200)
-        for text in (b"Ask for a Google review", b"Exact email preview", b"Send email to Real", b"Preview test email"):
+        for text in (b"Ask for a Google review", b"Exact email preview", b"Send email to Real", b"Test to me"):
             self.assertIn(text, page.data)
         with mock.patch.object(self.mod, "send_env_email") as send_email:
             response = self.client.post("/send-contact-form", data={

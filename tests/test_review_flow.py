@@ -176,4 +176,29 @@ class ReviewFlowTests(unittest.TestCase):
             self.assertFalse(event['customer_id'])
             self.assertEqual(event['to_phone'],'+447999999999')
 
+    def test_customer_sms_action_is_visible_and_test_switch_is_explicit(self):
+        page=self.client.get(self.url+'&review_channel=sms').get_data(as_text=True)
+        self.assertIn('Send text to Alice',page)
+        self.assertIn('To customer: Alice',page)
+        self.assertIn('07802563213',page)
+        self.assertIn('Test to me',page)
+        self.assertIn('position:fixed',page)
+        self.assertIn('name="target" value="customer"',page)
+        test=self.client.get(self.url+'&review_channel=sms&target=test').get_data(as_text=True)
+        self.assertIn('Send test text to me',test)
+        self.assertIn('To customer: Alice',test)
+        self.assertIn('07999999999',test)
+        self.assertNotIn('Back to customer preview',test)
+
+    def test_email_auth_failure_is_actionable_and_persistent(self):
+        data=self.form(test=True)
+        with mock.patch.object(self.mod,'send_env_email',return_value=(False,'535 Username and Password not accepted; secret-debug')):
+            response=self.client.post('/send-contact-form',data=data,follow_redirects=True)
+        self.assertIn(b'rejected the sign-in',response.data)
+        self.assertNotIn(b'secret-debug',response.data)
+        later=self.client.get(self.url+'&target=test')
+        self.assertIn(b'rejected the sign-in',later.data)
+        self.assertIn(b'Test: Not sent',later.data)
+        self.assertEqual(self.count(),0)
+
 if __name__=='__main__': unittest.main()
