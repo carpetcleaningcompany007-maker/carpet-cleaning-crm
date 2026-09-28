@@ -640,16 +640,16 @@ class WebsiteFormTests(unittest.TestCase):
             form_response = client.get(redirect_response.headers["Location"])
         page = form_response.get_data(as_text=True)
         self.assertIn("Short Link Customer", page)
-        self.assertNotIn("short@example.com", page)
+        self.assertIn("short@example.com", page)
 
     def test_customer_details_form_has_only_basic_fields(self):
         with self.app.test_client() as client:
             response = client.get("/booking-form")
         self.assertEqual(response.status_code, 200)
         page = response.get_data(as_text=True)
-        for name in ("name", "full_address", "what3words", "access_info"):
+        for name in ("name", "phone", "email", "full_address", "what3words", "access_info"):
             self.assertIn(f'name="{name}"', page)
-        for name in ("phone", "email", "photos", "agreed_quote_price", "marketing_consent"):
+        for name in ("photos", "agreed_quote_price", "marketing_consent"):
             self.assertNotIn(f'name="{name}"', page)
         self.assertNotIn('data-stage=', page)
         self.assertIn("This is a preview", page)

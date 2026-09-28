@@ -16,6 +16,8 @@
 <input type="hidden" name="details_token" value="{{ details_token }}">
 <input type="hidden" name="update_token" value="{{ update_token }}">
 <label for="customer-name">Your name</label><input id="customer-name" name="name" autocomplete="name" value="{{ values.name }}" maxlength="200">
+<label for="telephone">Telephone</label><input id="telephone" name="phone" type="tel" autocomplete="tel" value="{{ values.phone }}" maxlength="80" {% if required_contacts.phone %}required{% endif %}>
+<label for="email">Email</label><input id="email" name="email" type="email" autocomplete="email" value="{{ values.email }}" maxlength="254" {% if required_contacts.email %}required{% endif %}>
 <label for="property-address">Property address</label><textarea id="property-address" name="full_address" autocomplete="street-address" rows="3" maxlength="2000">{{ values.full_address }}</textarea>
 <label for="location">what3words location (optional)</label><input id="location" name="what3words" value="{{ values.what3words }}" placeholder="///three.words.here" maxlength="200" autocapitalize="none">
 <label for="access-notes">Anything else we should know? (optional)</label><small id="access-help">For example: parking, access, gates, pets or anything that will help on the day.</small><textarea id="access-notes" name="access_info" rows="3" maxlength="5000" aria-describedby="access-help">{{ values.access_info }}</textarea>

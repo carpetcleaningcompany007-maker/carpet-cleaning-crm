@@ -21,7 +21,7 @@ class SimpleCustomerDetailsTests(unittest.TestCase):
         self.assertEqual(response.status_code,200)
         soup=BeautifulSoup(response.data,'html.parser')
         fields=[x.get('name') for x in soup.select('form input:not([type=hidden]):not([type=checkbox]),form textarea')]
-        self.assertEqual(fields,['name','full_address','what3words','access_info'])
+        self.assertEqual(fields,['name','phone','email','full_address','what3words','access_info'])
         self.assertIsNone(soup.select_one('[name=what3words]').get('required'))
         self.assertEqual(len(soup.select('button[type=submit]')),1)
         self.assertIn('width=device-width',soup.select_one('meta[name=viewport]')['content'])
@@ -31,7 +31,7 @@ class SimpleCustomerDetailsTests(unittest.TestCase):
 
     @mock.patch('app.send_contact_form_owner_alerts')
     def test_signed_link_preserves_contacts_job_and_blank_values(self, alert):
-        response=self.client.post(self.url,data={'name':'','full_address':'','what3words':'','access_info':'','privacy_acknowledgement':'1','customer_id':self.second_id,'job_id':'999','email':'evil@example.test'})
+        response=self.client.post(self.url,data={'name':'','full_address':'','what3words':'','access_info':'','privacy_acknowledgement':'1','customer_id':self.second_id,'job_id':'999','email':''})
         self.assertEqual(response.status_code,200)
         self.assertIn(b'Your details have been saved',response.data)
         c=self.mod.q('SELECT * FROM customers WHERE id=?',(self.first_id,),one=True)
@@ -71,7 +71,7 @@ class SimpleCustomerDetailsTests(unittest.TestCase):
         with self.app.test_request_context('/'):
             url=self.mod.booking_form_url(self.mod.q('SELECT * FROM customers WHERE id=?',(self.second_id,),one=True))
         path=urlsplit(url).path+'?'+urlsplit(url).query
-        response=self.client.post(path,data={'name':'Bob Smith','full_address':'','privacy_acknowledgement':'1'})
+        response=self.client.post(path,data={'name':'Bob Smith','phone':'01584876570','full_address':'','privacy_acknowledgement':'1'})
         self.assertEqual(response.status_code,200)
         lead=self.mod.q('SELECT * FROM intake_submissions WHERE customer_id=?',(self.second_id,),one=True)
         self.assertEqual(lead['full_address'],'2 Broad Street')
@@ -80,3 +80,24 @@ class SimpleCustomerDetailsTests(unittest.TestCase):
     def test_expired_signed_customer_link_is_rejected(self):
         with mock.patch.object(self.mod.URLSafeTimedSerializer,'loads',side_effect=self.mod.SignatureExpired('expired')):
             self.assertEqual(self.client.get(self.url).status_code,404)
+
+    @mock.patch('app.send_contact_form_owner_alerts')
+    def test_contacts_prefilled_optional_and_editable(self,alert):
+        soup=BeautifulSoup(self.client.get(self.url).data,'html.parser')
+        self.assertEqual(soup.select_one('[name=phone]')['value'],'07802563213')
+        self.assertFalse(soup.select_one('[name=phone]').has_attr('required'))
+        self.assertFalse(soup.select_one('[name=email]').has_attr('required'))
+        self.client.post(self.url,data={'phone':'01584876570','email':'corrected@example.test','privacy_acknowledgement':'1'})
+        c=self.mod.q('SELECT * FROM customers WHERE id=?',(self.first_id,),one=True)
+        self.assertEqual((c['phone'],c['email']),('01584876570','corrected@example.test'))
+
+    def test_missing_contacts_required_on_server_and_form(self):
+        self.mod.run("UPDATE customers SET phone='',email='' WHERE id=?",(self.first_id,))
+        self.mod.run("UPDATE intake_submissions SET phone='',email='' WHERE id=?",(self.lead,))
+        soup=BeautifulSoup(self.client.get(self.url).data,'html.parser')
+        self.assertTrue(soup.select_one('[name=phone]').has_attr('required'))
+        self.assertTrue(soup.select_one('[name=email]').has_attr('required'))
+        before=self.mod.db().total_changes
+        response=self.client.post(self.url,data={'privacy_acknowledgement':'1'})
+        self.assertIn(b'where missing',response.data)
+        self.assertEqual(before,self.mod.db().total_changes)

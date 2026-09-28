@@ -20017,20 +20017,30 @@ def booking_form():
             return "This customer link is no longer available.", 404
     values = {
         "name": customer_name(customer) if customer else clean_str(row_get(lead, "name")),
+        "phone": clean_str(row_get(customer, "phone")) or clean_str(row_get(lead, "phone")),
+        "email": clean_str(row_get(customer, "email")) or clean_str(row_get(lead, "email")),
         "full_address": clean_str(row_get(customer, "address")) or clean_str(row_get(lead, "full_address")),
         "what3words": clean_str(row_get(lead, "what3words")),
         "access_info": "",
     }
+    required_contacts = {key: not bool(values[key]) for key in ("phone", "email")}
+    saved_contacts = {key: values[key] for key in ("phone", "email")}
     error = ""
     if request.method == "POST":
         if not (customer or lead):
             return "Please use the personal link Paul sent you.", 400
-        # No phone, email, customer_id or job_id supplied by the browser is trusted.
+        # The signed link alone determines customer/job linkage.
         values = {key: clean_str(request.form.get(key)) for key in values}
-        if request.form.get("privacy_acknowledgement") != "1":
+        if any(required_contacts[key] and not values[key] for key in required_contacts):
+            error = "Please add your telephone number and email address where missing."
+        elif values["email"] and not is_valid_email(values["email"]):
+            error = "Please check your email address."
+        elif request.form.get("privacy_acknowledgement") != "1":
             error = "Please tick the privacy box before sending."
         else:
             name = values["name"] or (customer_name(customer) if customer else row_get(lead, "name"))
+            phone = values["phone"] or saved_contacts["phone"]
+            email = values["email"] or saved_contacts["email"]
             address = values["full_address"] or row_get(customer, "address") or row_get(lead, "full_address")
             words = values["what3words"] or row_get(lead, "what3words")
             note = values["access_info"]
@@ -20038,15 +20048,18 @@ def booking_form():
             notes = "\n".join(part for part in [row_get(lead, "additional_notes"), note, privacy] if part)
             if lead:
                 lead_id = lead["id"]
-                run("""UPDATE intake_submissions SET name=?,full_address=?,what3words=?,additional_notes=?,
+                run("""UPDATE intake_submissions SET name=?,phone=?,email=?,full_address=?,what3words=?,additional_notes=?,
                        update_form_status='Customer sent updated details',updated_at=datetime('now') WHERE id=?""",
-                    (name, address, words, notes, lead_id))
+                    (name, phone, email, address, words, notes, lead_id))
             else:
                 lead_id = run("""INSERT INTO intake_submissions(customer_id,name,phone,email,full_address,postcode,what3words,
                               additional_notes,source,status,update_form_status) VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
-                    (customer_id,name,row_get(customer,"phone"),row_get(customer,"email"),address,row_get(customer,"postcode"),
+                    (customer_id,name,phone,email,address,row_get(customer,"postcode"),
                      words,notes,"Customer contact form","Waiting for review","Customer sent updated details"))
             if customer:
+                for field in ("phone", "email"):
+                    if values[field] and values[field] != clean_str(row_get(customer, field)):
+                        run(f"UPDATE customers SET {field}=? WHERE id=?", (values[field], customer_id))
                 if values["name"]:
                     first,last = split_customer_name(values["name"])
                     run("UPDATE customers SET first_name=?,last_name=? WHERE id=?", (first,last,customer_id))
@@ -20060,7 +20073,7 @@ def booking_form():
             send_contact_form_owner_alerts(lead_id, customer_id)
             return render_template("customer_details_simple.html", biz=settings(), public_mode=True, complete=True)
     response = make_response(render_template("customer_details_simple.html", biz=settings(), public_mode=True,
-        values=values, details_token=token, update_token=update_token, can_submit=bool(customer or lead), error=error))
+        values=values, details_token=token, update_token=update_token, can_submit=bool(customer or lead), error=error, required_contacts=required_contacts))
     response.headers["Cache-Control"] = "no-store"
     response.headers["Referrer-Policy"] = "no-referrer"
     return response
