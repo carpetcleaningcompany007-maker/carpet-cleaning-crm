@@ -19927,7 +19927,9 @@ def ensure_xero_contact_for_customer(customer_id, return_outcome=False, allow_in
 def xero_line_items_for_invoice(invoice, calc):
     lines = calc.get("lines") or []
     account_code = xero_sales_account_code()
-    tax_type = xero_tax_type()
+    # A CRM invoice with no VAT must stay VAT-free in Xero.  The account's
+    # default tax code is only appropriate when the invoice includes VAT.
+    tax_type = "NONE" if abs(float(invoice["vat"] or 0)) < 0.005 else xero_tax_type()
     line_items = []
     for line in lines:
         desc = clean_str(line.get("item_name") or line.get("name") or invoice["invoice_number"] or "Carpet cleaning")
