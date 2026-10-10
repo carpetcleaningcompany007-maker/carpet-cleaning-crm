@@ -22188,6 +22188,9 @@ def start_background_automation_runner():
     thread.start()
 
 
+from profit_portal import register_profit_portal
+register_profit_portal(app, DB_PATH, csrf_token)
+
 with app.app_context():
     init_db()
 start_background_automation_runner()
