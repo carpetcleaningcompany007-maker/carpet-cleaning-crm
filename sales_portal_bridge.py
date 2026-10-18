@@ -61,10 +61,12 @@ def register_sales_portal(app, db_path, model_getter, usage_recorder=None):
         # Explicit fields ensure callers cannot enable tools, storage or unbounded output.
         model = model_getter()
         payload = {'model': model, 'store': False, 'instructions': body['instructions'], 'input': body['input'], 'text': body['text'], 'max_output_tokens': 1800}
+        if model.startswith('gpt-5'):
+            payload['reasoning'] = {'effort': 'low'}
         req = urllib.request.Request('https://api.openai.com/v1/responses', data=json.dumps(payload).encode(), headers={'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json'}, method='POST')
         started = time.time()
         try:
-            with urllib.request.urlopen(req, timeout=40) as result:
+            with urllib.request.urlopen(req, timeout=22) as result:
                 data = json.loads(result.read(1000000))
             if data.get('status') != 'completed':
                 return jsonify(error='AI did not finish the draft'), 502
