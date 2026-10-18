@@ -3851,6 +3851,7 @@ def safe_next_url(value):
 
 
 CSRF_EXEMPT_ENDPOINTS = {
+    "sales_portal_draft",  # Independently authenticated signed server requests.
     "assistant_customer_create", "customer_contact_form_submit", "website_form_submit",
     "website_engagement_alert", "website_analytics_event", "booking_form",
     "customer_intake", "quote_portal_submit", "sms_status_twilio", "sms_inbound_twilio",
@@ -22190,6 +22191,14 @@ def start_background_automation_runner():
 
 from profit_portal import register_profit_portal
 register_profit_portal(app, DB_PATH, csrf_token)
+
+from sales_portal_bridge import register_sales_portal
+
+def record_sales_portal_usage(model, usage, latency):
+    run("INSERT INTO ai_usage_log(model,input_tokens,output_tokens,estimated_cost_usd,latency_ms,status,created_at) VALUES (?,?,?,?,?,'Success',datetime('now'))",
+        (model, int(usage.get('input_tokens') or 0), int(usage.get('output_tokens') or 0), ai_estimated_cost_usd(model, usage.get('input_tokens'), usage.get('output_tokens')), latency))
+
+register_sales_portal(app, DB_PATH, lambda: clean_str(os.environ.get('OPENAI_MODEL')) or clean_str(row_get(ai_settings_row(), 'model')) or 'gpt-5.4-mini', record_sales_portal_usage)
 
 with app.app_context():
     init_db()
