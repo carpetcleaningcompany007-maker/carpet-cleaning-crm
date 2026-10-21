@@ -14509,6 +14509,7 @@ def ai_assistant_save_invoice(run_id):
     quantities=request.form.getlist('quantity')
     prices=request.form.getlist('unit_price')
     edited={'customer_name':(result.get('invoice') or {}).get('customer_name',''),
+            'reference':clean_str(request.form.get('reference'))[:255],
             'invoice_date':request.form.get('invoice_date',''),'due_date':request.form.get('due_date',''),
             'vat':request.form.get('vat',''),'notes':request.form.get('invoice_notes','')[:8000],
             'lines':[{'description':d,'quantity':quantities[i] if i<len(quantities) else '',
@@ -14552,7 +14553,7 @@ def ai_assistant_save_invoice(run_id):
         if latest.get('saved_invoice_id'):
             connection.rollback()
             return redirect(url_for('invoice_view',invoice_id=latest['saved_invoice_id']))
-        payload={'lines':lines,'vat':float(vat),'total':float(total),'include_vat':vat>0}
+        payload={'lines':lines,'vat':float(vat),'total':float(total),'include_vat':vat>0,'reference':edited['reference']}
         invoice_id=connection.execute('INSERT INTO invoices(customer_id,invoice_number,invoice_date,due_date,status,subtotal,vat,total,payload_json,notes) VALUES (?,?,?,?,?,?,?,?,?,?)',
             (customer_id,next_invoice_number(),invoice_date.isoformat(),due_date.isoformat(),'Draft',float(subtotal),float(vat),float(total),json.dumps(payload),edited['notes'])).lastrowid
         if row['intake_id']:
@@ -15841,6 +15842,8 @@ def invoice_view(invoice_id):
                    LEFT JOIN customers ON customers.id = invoices.customer_id
                    WHERE invoices.id=?""", (invoice_id,), one=True)
     payload = json.loads(invoice["payload_json"] or "{}") if invoice["payload_json"] else {}
+    invoice = dict(invoice)
+    invoice['reference'] = clean_str(payload.get('reference'))
     calc = calc_from_payload(payload) if payload else {"lines": [], "subtotal": invoice["subtotal"], "vat": invoice["vat"], "total": invoice["total"]}
     due = parse_iso_date(invoice['due_date'])
     today = date.today()
@@ -15861,9 +15864,20 @@ def invoice_edit(invoice_id):
     if status == "Archived":
         flash("Use the Archive button to archive an invoice.")
         return redirect(url_for("invoice_view", invoice_id=invoice_id))
-    run("""UPDATE invoices SET invoice_date=?, due_date=?, status=?, notes=? WHERE id=?""", (
+    existing = q("SELECT payload_json,subtotal,vat,total,notes FROM invoices WHERE id=?", (invoice_id,), one=True)
+    if not existing:
+        abort(404)
+    payload = json.loads(existing['payload_json'] or '{}')
+    if 'reference' in request.form:
+        if not payload:
+            payload = {'lines':[{'item_name':clean_str(existing['notes'])[:240] or 'Carpet cleaning service',
+                                 'quantity':1,'unit_price':float(existing['subtotal'] or 0),
+                                 'line_total':float(existing['subtotal'] or 0)}],
+                       'vat':float(existing['vat'] or 0),'total':float(existing['total'] or 0)}
+        payload['reference'] = clean_str(request.form.get('reference'))[:255]
+    run("""UPDATE invoices SET invoice_date=?, due_date=?, status=?, notes=?, payload_json=? WHERE id=?""", (
         clean_str(request.form.get("invoice_date")), clean_str(request.form.get("due_date")), status,
-        clean_str(request.form.get("notes")), invoice_id
+        clean_str(request.form.get("notes")), json.dumps(payload), invoice_id
     ))
     invoice = q("SELECT customer_id FROM invoices WHERE id=?", (invoice_id,), one=True)
     if invoice and invoice["customer_id"]:
@@ -19972,7 +19986,7 @@ def xero_invoice_payload(invoice, contact_id):
             "Date": invoice["invoice_date"] or date.today().isoformat(),
             "DueDate": invoice["due_date"] or invoice["invoice_date"] or date.today().isoformat(),
             "InvoiceNumber": invoice["invoice_number"] or f"CRM-{invoice['id']}",
-            "Reference": f"CRM invoice {invoice['id']}",
+            "Reference": clean_str(payload.get("reference"))[:255],
             "Status": xero_invoice_status_for_push(),
             "LineAmountTypes": "Exclusive",
             "LineItems": xero_line_items_for_invoice(invoice, calc),

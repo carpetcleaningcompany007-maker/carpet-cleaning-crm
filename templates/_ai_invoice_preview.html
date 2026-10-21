@@ -11,6 +11,7 @@
   <label>Customer<select name="customer_id" required><option value="">Choose the customer</option>{% for customer in customers %}<option value="{{ customer.id }}" {% if (request.form.get('customer_id') or run_row.customer_id)|int==customer.id %}selected{% endif %}>{{ customer.first_name }} {{ customer.last_name }} · {{ customer.postcode or customer.company or '' }}</option>{% endfor %}</select></label>
   <label>Invoice date<input type="date" name="invoice_date" value="{{ inv.invoice_date }}" required></label>
   <label>Payment due<input type="date" name="due_date" value="{{ inv.due_date }}" required></label>
+  <label>Reference<input name="reference" value="{{ inv.reference or '' }}" maxlength="255" placeholder="Job property name or address"></label>
   <div data-invoice-lines>{% for line in inv.lines or [{}] %}<div class="ai-invoice-line">
     <label>Work or item<input name="description" value="{{ line.description or '' }}" maxlength="500" required></label>
     <label>Quantity<input name="quantity" type="number" step="0.01" min="0.01" value="{{ line.quantity or '' }}" required></label>

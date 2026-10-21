@@ -214,6 +214,7 @@ class CustomerXeroExportTests(unittest.TestCase):
         payload = self.mod.xero_invoice_payload(invoice, "xero-existing")["Invoices"][0]
         self.assertEqual(payload["Contact"], {"ContactID": "xero-existing"})
         self.assertNotIn("Name", payload["Contact"])
+        self.assertEqual(payload['Reference'], '')
 
     def test_placeholder_name_is_rejected_before_any_xero_write(self):
         placeholder_id = self.mod.run(

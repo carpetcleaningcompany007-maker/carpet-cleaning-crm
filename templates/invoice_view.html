@@ -31,6 +31,7 @@
     <form method="post" action="{{ url_for('invoice_edit', invoice_id=invoice.id) }}" class="form">
       <div class="cols"><input type="date" name="invoice_date" value="{{ invoice.invoice_date or '' }}"><input type="date" name="due_date" value="{{ invoice.due_date or '' }}"></div>
       <select name="status">{% for s in ['Draft','Sent','Overdue','Paid'] %}<option {% if invoice.status==s %}selected{% endif %}>{{ s }}</option>{% endfor %}</select>
+      <label>Reference<input name="reference" value="{{ invoice.reference or '' }}" maxlength="255" placeholder="Job property name or address"></label>
       <textarea name="notes">{{ invoice.notes or '' }}</textarea>
       <button class="btn primary">Save Invoice</button>
     </form>

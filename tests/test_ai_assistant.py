@@ -82,7 +82,7 @@ class AiAssistantTests(unittest.TestCase):
         self.assertIn(b'Save draft invoice',page.data)
         self.assertEqual(self.mod.q('SELECT count(*) n FROM invoices',one=True)['n'],0)
         rid=self.mod.q('SELECT id FROM ai_assistant_runs',one=True)['id']
-        data={'customer_id':str(self.customer),'invoice_date':'2026-09-08','due_date':'2026-09-15','vat':'0','invoice_notes':'Reviewed','description':'Edited lounge clean','quantity':'2','unit_price':'80'}
+        data={'customer_id':str(self.customer),'invoice_date':'2026-09-08','due_date':'2026-09-15','reference':'25 Claremont Street, Shrewsbury SY1 1QG','vat':'0','invoice_notes':'Reviewed','description':'Edited lounge clean','quantity':'2','unit_price':'80'}
         with patch.object(self.mod,'send_env_email') as email,patch.object(self.mod,'send_clicksend_env_sms') as sms:
             saved=self.client.post(f'/ai-assistant/{rid}/save-invoice',data=data)
             repeated=self.client.post(f'/ai-assistant/{rid}/save-invoice',data=data)
@@ -91,8 +91,30 @@ class AiAssistantTests(unittest.TestCase):
         row=self.mod.q('SELECT * FROM invoices',one=True)
         self.assertEqual(row['status'],'Draft');self.assertEqual(row['total'],160)
         self.assertIn('Edited lounge clean',row['payload_json'])
+        self.assertEqual(json.loads(row['payload_json'])['reference'], data['reference'])
+        exported=self.mod.xero_invoice_payload(row,'audika-contact')['Invoices'][0]
+        self.assertEqual(exported['Reference'],data['reference'])
+        self.assertEqual(exported['Status'],'DRAFT')
+        self.assertEqual(exported['LineItems'][0]['TaxType'],'NONE')
+        self.assertIn(data['reference'].encode(),self.client.get(saved.location).data)
+        changed={**data,'status':'Draft','notes':'Reviewed','reference':'Updated property'}
+        self.client.post(saved.location+'/edit',data=changed)
+        edited=self.mod.q('SELECT * FROM invoices WHERE id=?',(row['id'],),one=True)
+        self.assertEqual(self.mod.xero_invoice_payload(edited,'audika-contact')['Invoices'][0]['Reference'],'Updated property')
+        self.assertEqual(edited['total'],160)
         self.assertEqual(self.mod.q('SELECT count(*) n FROM invoices',one=True)['n'],1)
         self.assertEqual(self.client.get(saved.location).status_code,200)
+
+    def test_property_reference_on_legacy_invoice_preserves_amounts(self):
+        invoice_id=self.mod.run('INSERT INTO invoices(customer_id,invoice_number,invoice_date,due_date,status,subtotal,vat,total,notes) VALUES (?,?,?,?,?,?,?,?,?)',
+                                (self.customer,'INV-legacy','2026-10-21','2026-10-22','Draft',493.28,0,493.28,'Carpet cleaning services'))
+        response=self.client.post(f'/invoices/{invoice_id}/edit',data={'invoice_date':'2026-10-21','due_date':'2026-10-22','status':'Draft','notes':'Carpet cleaning services','reference':'25 Claremont Street'})
+        self.assertEqual(response.status_code,302)
+        row=self.mod.q('SELECT * FROM invoices WHERE id=?',(invoice_id,),one=True)
+        exported=self.mod.xero_invoice_payload(row,'audika-contact')['Invoices'][0]
+        self.assertEqual(exported['Reference'],'25 Claremont Street')
+        self.assertEqual(sum(x['Quantity']*x['UnitAmount'] for x in exported['LineItems']),493.28)
+        self.assertEqual(self.mod.calc_from_payload(json.loads(row['payload_json']))['subtotal'],493.28)
 
     def test_invoice_unknown_vat_and_invalid_amount_do_not_save(self):
         rid=self.mod.run('INSERT INTO ai_assistant_runs(tool_key,result_json) VALUES (?,?)',('invoice',json.dumps({'invoice':{}})))
