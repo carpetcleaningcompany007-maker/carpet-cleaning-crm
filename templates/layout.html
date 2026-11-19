@@ -1,4 +1,4 @@
-{% extends "simple_shell.html" if config.get('SIMPLE_PACKAGE_ENABLED') and session.get('logged_in') and not public_mode else "legacy_layout.html" %}
+{% extends "simple_shell.html" if simple_mode and not public_mode else "legacy_layout.html" %}
 {% block content %}
 <header class="simple-page-heading"><span class="eyebrow">YOUR BUSINESS, SIMPLIFIED</span><h1>{% block page_title %}Your workspace{% endblock %}</h1></header>
 {% block body_content %}{% endblock %}

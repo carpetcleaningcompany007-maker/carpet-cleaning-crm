@@ -43,6 +43,7 @@
 <div class="sidebar-backdrop" data-sidebar-close></div>
 <div class="shell shell-tabler">
   <aside class="sidebar" id="mainSidebar">
+    {% if config.get("SIMPLE_SHARED_ENDPOINTS") %}<a class="nav-item" href="{{ url_for("simple_workspace") }}">Switch to simple mode</a>{% endif %}
     <div class="brand brand-tabler">
       <img class="brand-logo" src="{{ url_for('static', filename='site/carpet-cleaning-manager-logo.png') }}" alt="">
       <div>

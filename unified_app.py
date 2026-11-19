@@ -1,10 +1,15 @@
 """Simplified CRM entrypoint. Original app.py stays unchanged."""
 import os
-from flask import render_template, request
+from flask import render_template, request, session
 from app import app, login_required, q, clean_str, uk_today
 from simple_package import register_simple_package
 app.config['SIMPLE_PACKAGE_ENABLED']=True
 app.config['SIMPLE_CRM_HOME']=os.environ.get('SIMPLE_CRM_HOME','1').lower() in {'1','true','yes'}
+
+@app.context_processor
+def simple_view_context():
+    enabled = app.config.get('SIMPLE_PACKAGE_ENABLED') or session.get('simple_mode') or request.path.startswith('/simple')
+    return {'simple_mode': bool(enabled and session.get('logged_in'))}
 
 @app.route("/simple")
 @login_required

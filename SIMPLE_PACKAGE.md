@@ -26,28 +26,32 @@ marked Paid in this CRM, not confirmed bank receipts or profit. Missing ad spend
 and call recording are explicitly marked unconnected. Website intake and analytics
 endpoints, public forms and reminder sending logic are unchanged.
 
-## Deployment status and staging
+## Existing Render service: two views, one CRM
 
-This source package is ready for staging; it is not deployed to Render. Render
-sign-in is still unavailable in the browser. No live records have been copied.
-A separate Render blueprint is provided in render.simplified.yaml. It uses its own
-disk/database and disables background automation. Review Render's resource price
-before creating the service. Do not point two active background workers at the
-production CRM database. Do not copy live messaging credentials into staging.
+The approved deployment uses `gunicorn shared_app:app --bind 0.0.0.0:$PORT`
+on the existing carpet-cleaning-crm service. It reuses the existing environment,
+login, disk and database. Do not change CRM_DB_PATH, credentials, provider settings,
+background automation configuration, compute plan or disk size. No second service
+or recurring hosting subscription is required for this deployment.
 
-Live CRM settings include credentials stored in the settings database, not only
-environment variables. A production database copy must therefore be sanitised
-before any staging worker starts. Establish the staged administrator login yourself
-and keep customer data and credentials private. Do not publish a default-credential
-CRM or a database backup to a public repository.
+The existing dashboard is the default. `/simple` enables the simple navigation for
+that signed-in browser; `/full` returns to the original interface. The original
+conversation template is retained byte-for-byte as legacy_conversation.html and
+used in full mode. Customers, messages and reminders are shared; edits in either
+view affect the same live records. There is one original automation runner.
 
-When staging is approved, choose a deliberate cutover/data migration. A separate
-staging database is not automatically synchronised with live changes. Keep the old
-CRM running until the replacement's data, email delivery and reminders are verified.
+This is an additional interface, not an isolated test database. The original
+app.py is unchanged and no schema migrations are added. To roll back, restore the
+previous Render branch `main` at 1535da9518700a8767c16edc52462b889ee2f85a and start
+command `gunicorn app:app --bind 0.0.0.0:$PORT`. Keep the same disk/environment.
+
+The optional separate staging blueprint remains available for future use, but
+is not part of the approved shared-hosting deployment. Never start another
+background worker against the live database or commit customer backups/secrets.
 
 ## Verification
 
-- 7 simple-workspace/integration tests passed, including authentication, original
+- 9 simple-workspace/integration/shared-mode tests passed, including authentication, original
   message links/CSRF, report filters and duplicate-job revenue prevention.
 - Original 829 app.py function definitions are unchanged; app.py is byte-for-byte
   the upstream version.
@@ -58,5 +62,5 @@ CRM running until the replacement's data, email delivery and reminders are verif
 - No real emails/texts were sent during verification. Local browser review uses
   synthetic customers with background automation and delivery disabled.
 
-No provider-backed email/SMS delivery, production-data migration or call recording
-has been tested or enabled. Those remain staging/deployment work.
+No real email/SMS delivery was exercised by tests. Existing provider and reminder
+functions are unchanged. Call recording and ad spend integration remain unconnected.
