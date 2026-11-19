@@ -1,0 +1,27 @@
+# Separate staging service for the simplified package. This blueprint does not
+# replace or modify the existing carpet-cleaning-crm service.
+services:
+  - type: web
+    name: carpet-cleaning-simple-staging
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn unified_app:app --bind 0.0.0.0:$PORT
+    disk:
+      name: simple-crm-staging-data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: CRM_DB_PATH
+        value: /data/simple-staging.db
+      - key: CRM_BACKUP_DIR
+        value: /data/backups
+      - key: CRM_UPLOAD_FOLDER
+        value: /data/uploads
+      - key: SIMPLE_CRM_HOME
+        value: '1'
+      - key: DISABLE_CRM_BACKGROUND_AUTOMATION
+        value: '1'
+      - key: CRM_SECRET_KEY
+        generateValue: true
