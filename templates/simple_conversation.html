@@ -1,0 +1,110 @@
+{% extends "layout.html" %}
+{% block page_title %}Conversation{% endblock %}
+{% block body_content %}
+<section class="panel conversation-page">
+  <header class="conversation-heading"><span class="conversation-eyebrow">Customer conversation</span><h2>{{ customer.first_name }} {{ customer.last_name }}</h2><p>Email and text history · UK times</p><a href="{{ url_for('simple_customer_profile' if simple_mode else 'customer_view',customer_id=customer.id) }}">Customer details</a> · <a href="{{ url_for('customer_conversation_download',customer_id=customer.id) }}">Download conversation</a></header>
+
+  <details class="conversation-suggestions"><summary>Optional help with writing a reply</summary>
+    <strong>AI-powered suggested reply</strong><p>Uses this customer’s history and your previous replies. Always review before sending.</p>
+    {% if suggestion %}<p>Your saved suggestion is ready in the editor below.</p>{% if suggestion.needs_manual_response %}<p role="alert">Please check: {{ suggestion.manual_reason }}</p>{% endif %}{% endif %}
+    <form method="post" action="{{ url_for('conversation_draft_action',customer_id=customer.id) }}">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+      <label>Prepare for<select name="channel"><option>Email</option><option>Text</option></select></label>
+      <button type="submit">{{ 'Prepare another reply' if suggestion else 'Prepare suggested reply' }}</button>
+      {% if suggestion %}<button type="submit" name="action" value="dismiss">Dismiss suggestion</button>{% endif %}
+      <a href="{{ url_for('ai_settings_page') }}">AI Settings</a>
+    </form>
+  </details>
+  <nav aria-label="Message type"><a href="{{ url_for('customer_conversation',customer_id=customer.id) }}#message-history">All messages</a><a href="{{ url_for('customer_conversation',customer_id=customer.id,channel='Text') }}#message-history">Texts</a><a href="{{ url_for('customer_conversation',customer_id=customer.id,channel='Email') }}#message-history">Emails</a></nav><form method="get" class="conversation-search"><input type="hidden" name="channel" value="{{ history_channel }}"><input name="search" value="{{ search }}" placeholder="Find something said…" aria-label="Search conversation"><button class="btn secondary">Search</button></form>
+  <details id="write-message" class="conversation-compose" {% if not history_channel or error %}open{% endif %}><summary>Write a message</summary>
+  {% if error %}<p role="alert">{{ error }}</p>{% endif %}
+  <form method="post" class="form">
+    {% if suggestion %}<input type="hidden" name="ai_draft_id" value="{{ suggestion.id }}">{% endif %}
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <label>Send by<select name="channel"><option {% if draft.channel=='Email' %}selected{% endif %}>Email</option><option {% if draft.channel=='Text' %}selected{% endif %}>Text</option></select></label>
+    <p class="muted">Email: {{ customer.email or 'Not saved' }} · Text: {{ customer.phone or 'Not saved' }}{% if customer.sms_opt_out %} (SMS switched off){% endif %}</p>
+    <label data-email-only>Email subject<input name="subject" value="{{ draft.subject }}"></label>
+    <label>Message<textarea name="body" rows="10" required>{{ draft.body }}</textarea></label>
+    <details class="writing-options"><summary>Writing tools</summary><section class="writing-assistance" data-writing-assistance data-endpoint="{{ url_for('customer_writing_assistance',customer_id=customer.id) }}">
+      <div class="writing-tools"><button type="button" class="btn secondary" data-writing-action="rewrite">Rewrite completely</button><button type="button" class="btn secondary" data-writing-action="shorten">Make shorter</button><button type="button" class="btn secondary" data-writing-action="longer">Make longer</button><button type="button" class="btn secondary" data-writing-action="check">Check writing</button></div>
+      <p role="status" aria-live="polite" data-writing-status>Dictate or type, then let AI help with the wording. Review before sending.</p>
+      <div data-writing-preview hidden>
+        <strong>AI has rewritten this one-off draft</strong><p data-writing-feedback></p>
+        <label data-writing-subject-label>Email subject<input data-writing-subject></label>
+        <label>Full AI version<textarea data-writing-body rows="10"></textarea></label>
+        <div class="writing-tools"><button type="button" class="btn secondary" data-use-writing>Use this draft</button><button type="button" class="btn secondary" data-dismiss-writing>Keep original</button></div>
+        <p>This replaces the editor text only. Press Send message when you are ready.</p>
+      </div>
+    </section></details>
+    <div class="sms-length-panel" hidden data-sms-length>
+      <p data-sms-count></p><p data-sms-warning hidden>This text is too long to send safely. Your message will stay intact. Send it by email instead, or shorten it.</p>
+      <button type="button" data-switch-email {% if not customer.email %}disabled{% endif %}>Use email instead</button>
+      {% if not customer.email %}<p>Add the customer’s email address in Customer details to use email.</p>{% endif %}
+    </div>
+    <p class="muted" data-email-only>For email, your saved footer is added once. Check your message before sending.</p>
+    <div><button type="submit" class="btn primary">Send message</button> <a class="btn secondary" href="{{ url_for('dashboard') }}">Cancel</a></div>
+  </form></details>
+  <p class="muted">Newest first. Email replies appear when the connected inbox syncs; text replies require the SMS provider connection. Older entries marked “Recorded” do not confirm delivery.</p>
+  <div id="message-history" class="conversation-history"><h3>{{ history_channel or "Message" }} history</h3><p><a href="#write-message" onclick="document.getElementById('write-message').open=true">Write {{ "a text" if history_channel == "Text" else "an email" if history_channel == "Email" else "a message" }} →</a></p>
+  {% for message in messages %}<article id="{{ message.key }}" class="conversation-message {{ 'received' if message.direction=='Received' else 'outgoing' }}">
+    <header><strong>{{ 'Customer' if message.direction=='Received' else 'You' }} · {{ message.channel }}</strong><span>{{ message.status }} · {{ message.display_time }}</span></header>
+    {% if message.subject %}<h3>{{ message.subject }}</h3>{% endif %}<div class="conversation-body">{{ message.body or '(No message text)' }}</div>
+    {% if message.email_id %}<a href="{{ url_for('inbound_email_view',email_id=message.email_id) }}">Open email and attachments</a>{% endif %}
+  </article>{% else %}<p>No messages found for this customer.</p>{% endfor %}
+  </div>
+  <details class="conversation-sync"><summary>ClickSend history sync</summary>
+  {% if history_connected %}<p>Messages sent directly through ClickSend are checked every five minutes and matched by phone number or email address.</p>
+  <form method="post" action="{{ url_for('customer_conversation_check_clicksend', customer_id=customer.id) }}"><input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="channel" value="{{ history_channel }}"><button type="submit" class="btn secondary">Check ClickSend now</button></form>
+  {% for sync in history_sync %}<p>{{ 'Text' if sync.channel=='sms' else 'Email' }}: {{ sync.status }}{% if sync.last_success %} · Last completed: {{ sync.last_success }} UTC{% endif %}</p>{% else %}<p>Waiting for the first import.</p>{% endfor %}
+  {% if history_unmatched %}<p>{{ history_unmatched }} messages could not be matched uniquely to a customer and have been kept unassigned.</p>{% endif %}
+  {% else %}<p>ClickSend account details are needed in the CRM connection settings before history can be imported.</p>{% endif %}
+  </details>
+  <nav>{% if page>1 %}<a href="{{ url_for('customer_conversation',customer_id=customer.id,page=page-1,search=search,channel=history_channel) }}">Newer messages</a>{% endif %} {% if has_more %}<a href="{{ url_for('customer_conversation',customer_id=customer.id,page=page+1,search=search,channel=history_channel) }}">Older messages</a>{% endif %}</nav>
+</section>
+<style>
+body.app-page .panel.conversation-page{padding:20px!important;border:1px solid #dce5ec!important;border-radius:18px!important;background:#fff!important}
+body.app-page .conversation-page .conversation-heading{display:block!important;padding:0 0 16px!important;border-bottom:1px solid #e1e8ed!important;margin:0!important}
+body.app-page .conversation-page .conversation-heading h2{font:700 24px/1.2 system-ui!important;letter-spacing:-.4px!important;margin:6px 0 8px!important;overflow-wrap:anywhere}
+.conversation-eyebrow{font:700 11px system-ui;color:#52718a;text-transform:uppercase;letter-spacing:1px}
+body.app-page .conversation-page p{margin:8px 0!important;font-size:13px!important;line-height:1.5!important;overflow-wrap:anywhere}
+body.app-page .conversation-page .conversation-search{display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;gap:8px!important;margin:16px 0!important;width:100%!important}
+body.app-page .conversation-page .conversation-search input{width:100%!important;min-width:0!important;margin:0!important}
+body.app-page .conversation-page .conversation-search button{width:auto!important;min-width:0!important;margin:0!important;padding:10px 14px!important}
+body.app-page .conversation-page .conversation-compose{margin:0 0 16px!important;padding:14px!important;border:1px solid #d5e3ed!important;background:#f5f9fc!important;border-radius:12px!important;box-shadow:none!important}
+body.app-page .conversation-page summary{font:650 15px/1.4 system-ui!important;cursor:pointer;padding:0!important}
+body.app-page .conversation-page .conversation-compose .form{gap:12px!important;margin:14px 0 0!important;padding:0!important}
+body.app-page .conversation-page label{font:600 13px/1.4 system-ui!important;gap:5px!important;margin:0!important}
+body.app-page .conversation-page input,body.app-page .conversation-page select,body.app-page .conversation-page textarea{box-sizing:border-box!important;padding:10px 12px!important;font:400 16px/1.4 system-ui!important;border:1px solid #cbd9e3!important;border-radius:8px!important;min-height:44px!important;background:#fff!important}
+body.app-page .conversation-page .conversation-sync{margin:18px 0 0!important;padding:12px 0!important;border-top:1px solid #e1e8ed!important;box-shadow:none!important;background:transparent!important}
+
+body.app-page .panel.conversation-page{width:100%!important;max-width:950px!important;min-width:0!important;box-sizing:border-box;margin-inline:auto!important}.conversation-search{display:flex;gap:8px;margin:16px 0}.conversation-search input{min-width:0;flex:1}.conversation-sync,.conversation-compose{padding:12px;margin-bottom:18px}.conversation-compose summary{cursor:pointer}.conversation-compose .form{display:grid;gap:10px}.conversation-compose [hidden]{display:none!important}.conversation-compose label{display:grid;gap:5px}.conversation-compose textarea{width:100%;min-height:220px}.conversation-history{display:grid;gap:12px}.conversation-message{padding:14px;border:1px solid #dce5ed;border-radius:10px;background:#f4f8fc}.conversation-message.received{background:#fff;border-left:3px solid #207a60}.conversation-message header{display:flex;flex-wrap:wrap;gap:6px 18px;justify-content:space-between;font-size:13px}.conversation-message h3{font-size:16px;margin:9px 0}.conversation-body{white-space:pre-wrap;overflow-wrap:anywhere;margin:8px 0;line-height:1.5}.conversation-page nav{display:flex;justify-content:space-between;margin-top:16px}
+</style>
+<script>
+(function(){
+ const form=document.querySelector('.conversation-compose form'),channel=form?.querySelector('[name=channel]');
+ if(!channel)return;
+ function update(){form.querySelectorAll('[data-email-only]').forEach(el=>{el.hidden=channel.value!=='Email';});}
+ const body=form.querySelector('[name=body]'),subject=form.querySelector('[name=subject]'),panel=form.querySelector('[data-sms-length]');
+ const footer={{ sms_footer_preview|tojson }};
+ // GSM basic characters; extended characters consume two units.
+ const gsm=new Set("@£$¥èéùìòÇ\nØø\rÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ !\"#¤%&'()*+,-./0123456789:;<=>?¡ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÑÜ§¿abcdefghijklmnopqrstuvwxyzäöñüà");
+ const extended=new Set('^{}\\[~]|€\f');
+ function lengthCheck(){
+  const isText=channel.value==='Text';panel.hidden=!isText;
+  let text=body.value+(footer?'\n\n'+footer:'');
+  const chars=Array.from(text),isGsm=chars.every(c=>gsm.has(c)||extended.has(c));
+  const units=isGsm?chars.reduce((n,c)=>n+(extended.has(c)?2:1),0):text.length;
+  const parts=units===0?0:units<=(isGsm?160:70)?1:Math.ceil(units/(isGsm?153:67));
+  const tooLong=parts>8;
+  panel.querySelector('[data-sms-count]').textContent=parts+' text part'+(parts===1?'':'s')+' · Maximum 8 parts';
+  panel.querySelector('[data-sms-warning]').hidden=!tooLong;
+  form.querySelector('button[type=submit]').disabled=isText&&tooLong;
+ }
+ panel.querySelector('[data-switch-email]').addEventListener('click',()=>{channel.value='Email';if(!subject.value.trim())subject.value='Your carpet cleaning enquiry';update();lengthCheck();subject.focus();});
+ body.addEventListener('input',lengthCheck);
+ channel.addEventListener('change',()=>{update();lengthCheck();});update();lengthCheck();
+
+})();
+</script>
+<script src="{{ url_for('static',filename='writing-assistance.js',v='20260910-5') }}" defer></script>
+{% endblock %}
